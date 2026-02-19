@@ -83,19 +83,66 @@ order by created_at desc
 limit 5;
 ```
 
-## Paso 5 (siguiente integración con frontend)
+## Paso 5 (conectar frontend con Supabase)
 
-Cuando quieras, el siguiente paso es conectar el frontend con Supabase:
+Este paso ya está implementado en el código:
 
-- instalar SDK: `@supabase/supabase-js`
-- definir `.env` con URL y anon key
-- crear pantallas mínimas:
-  - login
-  - crear evento
-  - crear invitado
-  - invitar + obtener token de RSVP
+- login con email/password
+- crear cuenta desde la app
+- crear evento (`events`)
+- crear invitado (`guests`)
+- lista de últimos eventos e invitados
 
-Yo te guío paso a paso en ese punto.
+### 5.1 Obtener valores de entorno en Supabase
+
+1. En tu proyecto de Supabase, ve a `Project Settings` -> `API`.
+2. Copia estos dos valores:
+   - `Project URL`
+   - `anon public` key
+
+### 5.2 Crear archivo `.env` del frontend
+
+En terminal:
+
+```bash
+cd "/Users/albertlg/Documents/New project/frontend"
+cp .env.example .env
+```
+
+Abre `/Users/albertlg/Documents/New project/frontend/.env` y rellena:
+
+```env
+VITE_SUPABASE_URL=TU_PROJECT_URL
+VITE_SUPABASE_ANON_KEY=TU_ANON_PUBLIC_KEY
+```
+
+### 5.3 Reiniciar Docker (importante)
+
+Para que el contenedor lea el nuevo `.env` y dependencias:
+
+```bash
+cd "/Users/albertlg/Documents/New project"
+docker compose down -v
+docker compose up --build
+```
+
+### 5.4 Probar la app
+
+1. Abre `http://localhost:5173`.
+2. Si no tienes cuenta:
+   - usa botón `Crear cuenta` en la app, o
+   - créala en Supabase (`Authentication` -> `Users` -> `Add user`).
+3. Inicia sesión.
+4. Crea un evento.
+5. Crea un invitado (recuerda: email o teléfono es obligatorio).
+6. Crea una invitación desde el panel:
+   - selecciona evento + invitado
+   - pulsa `Generar enlace RSVP`
+   - abre el enlace (`/?token=...`) en otra pestaña o en incógnito
+   - responde `Sí/No/Tal vez`
+7. Vuelve al panel y revisa `Últimas invitaciones` para ver estado actualizado.
+
+Si algo falla, copia el error exacto y te lo corrijo.
 
 ## Nota GDPR importante
 
@@ -104,4 +151,3 @@ Los campos de alergias/intolerancias son sensibles. Este esquema ya bloquea guar
 - recoger consentimiento explícito en UI
 - registrar versión de consentimiento (`consent_version`)
 - permitir revocación y borrado
-

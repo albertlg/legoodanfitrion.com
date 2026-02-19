@@ -53,6 +53,20 @@ SQL principal del esquema:
 
 - `/Users/albertlg/Documents/New project/supabase/sql/001_mvp_schema.sql`
 
+Frontend ya conectado a Supabase para:
+
+- Login por email/password
+- Crear cuenta
+- Crear evento
+- Crear invitado
+- Crear invitación por enlace RSVP
+- Página pública de RSVP por token
+- Modo oscuro persistente
+
+Pasos detallados de configuración:
+
+- `/Users/albertlg/Documents/New project/supabase/README.md`
+
 ## 4) Documentación de producto/privacidad
 
 - Estrategia MVP: `/Users/albertlg/Documents/New project/docs/mvp-strategy.md`
