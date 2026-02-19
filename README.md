@@ -80,6 +80,17 @@ I18n:
 - Diccionarios: `/Users/albertlg/Documents/New project/frontend/src/i18n/en.json`
 - Diccionarios: `/Users/albertlg/Documents/New project/frontend/src/i18n/fr.json`
 
+Arquitectura UI actual:
+
+- Pantalla auth: `/Users/albertlg/Documents/New project/frontend/src/screens/auth-screen.jsx`
+- Pantalla dashboard: `/Users/albertlg/Documents/New project/frontend/src/screens/dashboard-screen.jsx`
+- Pantalla RSVP pública: `/Users/albertlg/Documents/New project/frontend/src/screens/public-rsvp-screen.jsx`
+- Menu hamburguesa mobile + vistas: `overview/events/guests/invitations`
+
+SQL adicional recomendado (preferencias de UI por usuario):
+
+- `/Users/albertlg/Documents/New project/supabase/sql/002_profile_ui_preferences.sql`
+
 Pasos detallados de configuración:
 
 - `/Users/albertlg/Documents/New project/supabase/README.md`

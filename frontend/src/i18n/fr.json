@@ -126,5 +126,16 @@
   "hint_contact_required": "Minimum requis : email ou telephone.",
   "hint_invitation_public": "Le lien RSVP peut etre partage par WhatsApp, email ou reseaux sociaux.",
   "hint_accessibility": "Tous les champs ont une etiquette et une aide contextuelle pour une meilleure usabilite.",
+  "nav_sections": "Navigation",
+  "nav_overview": "Resume",
+  "nav_events": "Evenements",
+  "nav_guests": "Invites",
+  "nav_invitations": "Invitations",
+  "close_menu": "Fermer le menu",
+  "kpi_events": "Evenements",
+  "kpi_guests": "Invites",
+  "kpi_pending_rsvp": "RSVP en attente",
+  "kpi_answered_rsvp": "RSVP repondus",
+  "overview_help": "Utilisez le menu pour naviguer entre les ecrans et completer le flux hote de facon ordonnee.",
   "logo_fallback": "LGH"
 }

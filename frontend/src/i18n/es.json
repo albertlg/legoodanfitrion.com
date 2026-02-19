@@ -126,5 +126,16 @@
   "hint_contact_required": "Requisito minimo: email o telefono.",
   "hint_invitation_public": "El enlace RSVP se puede compartir por WhatsApp, email o redes.",
   "hint_accessibility": "Todos los campos tienen etiqueta y ayuda contextual para mejorar usabilidad.",
+  "nav_sections": "Navegacion",
+  "nav_overview": "Resumen",
+  "nav_events": "Eventos",
+  "nav_guests": "Invitados",
+  "nav_invitations": "Invitaciones",
+  "close_menu": "Cerrar menu",
+  "kpi_events": "Eventos",
+  "kpi_guests": "Invitados",
+  "kpi_pending_rsvp": "RSVP pendientes",
+  "kpi_answered_rsvp": "RSVP respondidos",
+  "overview_help": "Usa el menu para navegar por las pantallas y completar el flujo de anfitrion de forma ordenada.",
   "logo_fallback": "LGA"
 }

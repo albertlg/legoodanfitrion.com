@@ -126,5 +126,16 @@
   "hint_contact_required": "Requisit minim: correu o telefon.",
   "hint_invitation_public": "L'enllac RSVP es pot compartir per WhatsApp, correu o xarxes.",
   "hint_accessibility": "Tots els camps tenen etiqueta i ajuda contextual per millorar usabilitat.",
+  "nav_sections": "Navegacio",
+  "nav_overview": "Resum",
+  "nav_events": "Esdeveniments",
+  "nav_guests": "Convidats",
+  "nav_invitations": "Invitacions",
+  "close_menu": "Tancar menu",
+  "kpi_events": "Esdeveniments",
+  "kpi_guests": "Convidats",
+  "kpi_pending_rsvp": "RSVP pendents",
+  "kpi_answered_rsvp": "RSVP resposts",
+  "overview_help": "Fes servir el menu per navegar per pantalles i completar el flux d'amfitrio de manera ordenada.",
   "logo_fallback": "LGA"
 }

@@ -38,6 +38,14 @@ Esta carpeta contiene el backend base del MVP para LeGoodAnfitrion.
 
 Si sale error, copia el mensaje exacto y me lo pegas para corregirlo.
 
+## Paso 1.1 (preferencias de idioma/tema por usuario)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/002_profile_ui_preferences.sql`
+
+Esto anade el campo `preferred_theme` al perfil para guardar la preferencia visual (`light/dark/system`) por usuario.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:
