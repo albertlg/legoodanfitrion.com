@@ -61,7 +61,24 @@ Frontend ya conectado a Supabase para:
 - Crear invitado
 - Crear invitación por enlace RSVP
 - Página pública de RSVP por token
-- Modo oscuro persistente
+- Multi-idioma (`es/ca/en/fr`)
+- Tema (`claro/oscuro/sistema`)
+- Validaciones reforzadas de formularios
+- Iconografía estándar y ayudas contextuales en formularios
+- Mejoras de accesibilidad (mensajes por campo, labels semánticas, estados anunciables)
+- Metadatos SEO base en `frontend/index.html`
+
+Branding:
+
+- Ruta del logo: `/Users/albertlg/Documents/New project/frontend/public/brand/logo-legoodanfitrion.png`
+- Guía de archivo: `/Users/albertlg/Documents/New project/frontend/public/brand/README.md`
+
+I18n:
+
+- Diccionarios: `/Users/albertlg/Documents/New project/frontend/src/i18n/es.json`
+- Diccionarios: `/Users/albertlg/Documents/New project/frontend/src/i18n/ca.json`
+- Diccionarios: `/Users/albertlg/Documents/New project/frontend/src/i18n/en.json`
+- Diccionarios: `/Users/albertlg/Documents/New project/frontend/src/i18n/fr.json`
 
 Pasos detallados de configuración:
 
