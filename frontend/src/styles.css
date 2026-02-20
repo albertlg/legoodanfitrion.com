@@ -727,7 +727,18 @@ h2 {
 
 .overview-grid {
   display: grid;
+  gap: 1rem;
+}
+
+.overview-kpi-grid {
+  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.overview-secondary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -923,6 +934,22 @@ h2 {
 .detail-chip-group {
   display: grid;
   gap: 0.28rem;
+}
+
+.checklist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--text);
 }
 
 .detail-recommendations-grid {
@@ -1727,8 +1754,12 @@ code {
     align-items: stretch;
   }
 
-  .overview-grid {
+  .overview-kpi-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .overview-secondary-grid {
+    grid-template-columns: 1fr;
   }
 
   .growth-funnel-grid {

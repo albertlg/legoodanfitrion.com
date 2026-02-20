@@ -72,6 +72,14 @@ function formatShortDate(dateText, language, fallbackText) {
   }
 }
 
+function interpolateText(template, values = {}) {
+  let output = String(template || "");
+  for (const [key, value] of Object.entries(values)) {
+    output = output.replaceAll(`{${key}}`, String(value ?? ""));
+  }
+  return output;
+}
+
 function statusText(t, status) {
   return t(`status_${String(status || "").toLowerCase()}`);
 }
@@ -509,6 +517,8 @@ function DashboardScreen({
   const [isCreatingInvitation, setIsCreatingInvitation] = useState(false);
   const [invitationMessage, setInvitationMessage] = useState("");
   const [lastInvitationUrl, setLastInvitationUrl] = useState("");
+  const [lastInvitationShareText, setLastInvitationShareText] = useState("");
+  const [lastInvitationShareSubject, setLastInvitationShareSubject] = useState("");
   const [eventSearch, setEventSearch] = useState("");
   const [eventStatusFilter, setEventStatusFilter] = useState("all");
   const [eventSort, setEventSort] = useState("created_desc");
@@ -1284,6 +1294,19 @@ function DashboardScreen({
       suggestions
     };
   }, [selectedGuestId, selectedEventId, guests, events, guestPreferencesById, guestSensitiveById, language, t]);
+  const lastInvitationWhatsappUrl = useMemo(() => {
+    if (!lastInvitationShareText) {
+      return "";
+    }
+    return `https://wa.me/?text=${encodeURIComponent(lastInvitationShareText)}`;
+  }, [lastInvitationShareText]);
+  const lastInvitationEmailUrl = useMemo(() => {
+    if (!lastInvitationShareText) {
+      return "";
+    }
+    const subject = lastInvitationShareSubject || t("invitation_share_subject_fallback");
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lastInvitationShareText)}`;
+  }, [lastInvitationShareSubject, lastInvitationShareText, t]);
   const selectedEventDetail = useMemo(() => {
     if (!selectedEventDetailId) {
       return events[0] || null;
@@ -1352,6 +1375,40 @@ function DashboardScreen({
         .slice(0, 8),
     [selectedEventDetailGuests]
   );
+  const selectedEventHealthAlerts = useMemo(() => {
+    return selectedEventDetailGuests
+      .map((row) => {
+        const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation.guest_id] || {};
+        const allergies = toCatalogLabels("allergy", sensitiveItem.allergies || [], language);
+        const intolerances = toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language);
+        const petAllergies = toPetAllergyLabels(sensitiveItem.pet_allergies || [], language);
+        const avoid = uniqueValues([...allergies, ...intolerances, ...petAllergies]).slice(0, 6);
+        if (avoid.length === 0) {
+          return null;
+        }
+        return {
+          guestName: row.name,
+          avoid
+        };
+      })
+      .filter(Boolean);
+  }, [selectedEventDetailGuests, guestSensitiveById, language]);
+  const selectedEventChecklist = useMemo(() => {
+    const hasDate = Boolean(selectedEventDetail?.start_at);
+    const hasLocation = Boolean(selectedEventDetail?.location_name || selectedEventDetail?.location_address);
+    const hasInvitations = selectedEventDetailInvitations.length > 0;
+    const isPublished = ["published", "completed"].includes(String(selectedEventDetail?.status || ""));
+    const pendingResponses = selectedEventDetailStatusCounts.pending > 0;
+    const hasHealthAlerts = selectedEventHealthAlerts.length > 0;
+    return [
+      { key: "date", done: hasDate, label: t("event_check_date") },
+      { key: "location", done: hasLocation, label: t("event_check_location") },
+      { key: "invitations", done: hasInvitations, label: t("event_check_invitations") },
+      { key: "publish", done: isPublished, label: t("event_check_publish") },
+      { key: "rsvp", done: !pendingResponses, label: t("event_check_rsvp_pending") },
+      { key: "health", done: !hasHealthAlerts, label: t("event_check_health_alerts") }
+    ];
+  }, [selectedEventDetail, selectedEventDetailInvitations.length, selectedEventDetailStatusCounts.pending, selectedEventHealthAlerts.length, t]);
   const selectedGuestDetail = useMemo(() => {
     if (!selectedGuestDetailId) {
       return guests[0] || null;
@@ -2381,6 +2438,9 @@ function DashboardScreen({
     setActiveView("invitations");
     setInvitationsWorkspace("create");
     setInvitationErrors({});
+    setLastInvitationUrl("");
+    setLastInvitationShareText("");
+    setLastInvitationShareSubject("");
     if (messageKey) {
       setInvitationMessage(t(messageKey));
     }
@@ -3304,6 +3364,8 @@ function DashboardScreen({
     }
     setInvitationMessage("");
     setLastInvitationUrl("");
+    setLastInvitationShareText("");
+    setLastInvitationShareSubject("");
 
     const validation = validateInvitationForm({ eventId: selectedEventId, guestId: selectedGuestId });
     if (!validation.success) {
@@ -3345,8 +3407,27 @@ function DashboardScreen({
     }
 
     const url = `${window.location.origin}/?token=${data.public_token}`;
+    const selectedEventItem = eventsById[selectedEventId] || null;
+    const selectedGuestItem = guestsById[selectedGuestId] || null;
+    const eventName = selectedEventItem?.title || t("field_event");
+    const guestName =
+      selectedGuestItem ? `${selectedGuestItem.first_name || ""} ${selectedGuestItem.last_name || ""}`.trim() : t("field_guest");
+    const eventDate = formatDate(selectedEventItem?.start_at, language, t("no_date"));
+    const eventLocation = selectedEventItem?.location_name || selectedEventItem?.location_address || "-";
+    const shareSubject = interpolateText(t("invitation_share_subject"), {
+      event: eventName
+    });
+    const shareText = interpolateText(t("invitation_share_template"), {
+      guest: guestName || t("field_guest"),
+      event: eventName,
+      date: eventDate,
+      location: eventLocation,
+      url
+    });
     setInvitationMessage(t("invitation_created"));
     setLastInvitationUrl(url);
+    setLastInvitationShareSubject(shareSubject);
+    setLastInvitationShareText(shareText);
     await loadDashboardData();
   };
 
@@ -3354,6 +3435,15 @@ function DashboardScreen({
     try {
       await navigator.clipboard.writeText(url);
       setInvitationMessage(t("copy_ok"));
+    } catch {
+      setInvitationMessage(t("copy_fail"));
+    }
+  };
+
+  const handleCopyInvitationMessage = async (message) => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setInvitationMessage(t("invitation_message_copy_ok"));
     } catch {
       setInvitationMessage(t("copy_fail"));
     }
@@ -3500,6 +3590,7 @@ function DashboardScreen({
 
         {activeView === "overview" ? (
           <section className="overview-grid view-transition">
+            <div className="overview-kpi-grid">
             <article
               className="panel kpi-card is-interactive"
               tabIndex={0}
@@ -3655,6 +3746,8 @@ function DashboardScreen({
                 )}
               </div>
             </article>
+            </div>
+            <div className="overview-secondary-grid">
             <article className="panel panel-wide growth-panel">
               <h2 className="section-title">
                 <Icon name="trend" className="icon" />
@@ -3809,6 +3902,7 @@ function DashboardScreen({
               <p className="field-help">{t("overview_help")}</p>
               <p className="field-help">{t("content_translation_note")}</p>
             </article>
+            </div>
           </section>
         ) : null}
 
@@ -4360,6 +4454,33 @@ function DashboardScreen({
                     {selectedEventDetailInvitations.length === 0 ? (
                       <p className="hint">{t("event_detail_no_invites")}</p>
                     ) : null}
+                  </article>
+                  <article className="detail-card">
+                    <p className="item-title">{t("event_detail_checklist_title")}</p>
+                    <ul className="checklist-list">
+                      {selectedEventChecklist.map((item) => (
+                        <li key={item.key} className="checklist-item">
+                          <span className={`status-pill ${item.done ? "status-yes" : "status-pending"}`}>
+                            {item.done ? t("status_yes") : t("status_pending")}
+                          </span>
+                          <span>{item.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {selectedEventHealthAlerts.length > 0 ? (
+                      <div className="recommendation-card warning">
+                        <p className="item-title">{t("event_detail_alerts_title")}</p>
+                        <ul className="list recommendation-list">
+                          {selectedEventHealthAlerts.map((alertItem) => (
+                            <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`}>
+                              <strong>{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="hint">{t("event_detail_alerts_empty")}</p>
+                    )}
                   </article>
                   {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
                     <article className="detail-card detail-card-map">
@@ -5754,6 +5875,31 @@ function DashboardScreen({
                       {t("open_rsvp")}
                     </a>
                   </div>
+                  {lastInvitationShareText ? (
+                    <>
+                      <p className="hint">{t("invitation_share_message_label")}</p>
+                      <textarea value={lastInvitationShareText} readOnly rows={6} />
+                      <div className="button-row">
+                        <button
+                          className="btn btn-ghost"
+                          type="button"
+                          onClick={() => handleCopyInvitationMessage(lastInvitationShareText)}
+                        >
+                          {t("invitation_copy_message")}
+                        </button>
+                        {lastInvitationWhatsappUrl ? (
+                          <a className="btn btn-ghost" href={lastInvitationWhatsappUrl} target="_blank" rel="noreferrer">
+                            {t("invitation_open_whatsapp")}
+                          </a>
+                        ) : null}
+                        {lastInvitationEmailUrl ? (
+                          <a className="btn btn-ghost" href={lastInvitationEmailUrl}>
+                            {t("invitation_open_email")}
+                          </a>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </form>
