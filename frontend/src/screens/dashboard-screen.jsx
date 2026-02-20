@@ -559,6 +559,8 @@ function DashboardScreen({
   const [invitationStatusFilter, setInvitationStatusFilter] = useState("all");
   const [invitationSort, setInvitationSort] = useState("created_desc");
   const [invitationPage, setInvitationPage] = useState(1);
+  const [selectedLatestInvitationIds, setSelectedLatestInvitationIds] = useState([]);
+  const [isDeletingInvitationBulk, setIsDeletingInvitationBulk] = useState(false);
   const [insightsEventId, setInsightsEventId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [prefsReady, setPrefsReady] = useState(false);
@@ -575,6 +577,8 @@ function DashboardScreen({
       ? isDeletingGuestId === deleteTarget.item?.id
       : deleteTarget?.type === "invitation"
       ? isDeletingInvitationId === deleteTarget.item?.id
+      : deleteTarget?.type === "invitation_bulk"
+      ? isDeletingInvitationBulk
       : false;
   const getWorkspaceForView = useCallback(
     (viewKey) =>
@@ -624,6 +628,10 @@ function DashboardScreen({
   );
   const guestsById = useMemo(() => Object.fromEntries(guests.map((guestItem) => [guestItem.id, guestItem])), [guests]);
   const eventsById = useMemo(() => Object.fromEntries(events.map((eventItem) => [eventItem.id, eventItem])), [events]);
+  const invitationsById = useMemo(
+    () => Object.fromEntries(invitations.map((invitationItem) => [invitationItem.id, invitationItem])),
+    [invitations]
+  );
   const existingGuestFingerprints = useMemo(
     () =>
       new Set(
@@ -1753,6 +1761,10 @@ function DashboardScreen({
     const start = (invitationPage - 1) * INVITATIONS_PAGE_SIZE;
     return filteredInvitations.slice(start, start + INVITATIONS_PAGE_SIZE);
   }, [filteredInvitations, invitationPage]);
+  const selectedLatestInvitations = useMemo(
+    () => selectedLatestInvitationIds.map((invitationId) => invitationsById[invitationId]).filter(Boolean),
+    [selectedLatestInvitationIds, invitationsById]
+  );
 
   const loadDashboardData = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -2001,6 +2013,17 @@ function DashboardScreen({
       setBulkInvitationGuestIds(filteredIds);
     }
   }, [bulkInvitationGuestIds, availableGuestsForSelectedEvent]);
+
+  useEffect(() => {
+    if (selectedLatestInvitationIds.length === 0) {
+      return;
+    }
+    const currentIds = new Set(invitations.map((invitationItem) => invitationItem.id));
+    const filteredIds = selectedLatestInvitationIds.filter((invitationId) => currentIds.has(invitationId));
+    if (filteredIds.length !== selectedLatestInvitationIds.length) {
+      setSelectedLatestInvitationIds(filteredIds);
+    }
+  }, [selectedLatestInvitationIds, invitations]);
 
   useEffect(() => {
     if (!selectedGuestDetailId && guests.length > 0) {
@@ -2540,6 +2563,7 @@ function DashboardScreen({
     setLastInvitationUrl("");
     setLastInvitationShareText("");
     setLastInvitationShareSubject("");
+    setSelectedLatestInvitationIds([]);
     setBulkInvitationGuestIds([]);
     setBulkInvitationSearch("");
     if (messageKey) {
@@ -3501,8 +3525,44 @@ function DashboardScreen({
     await loadDashboardData();
   };
 
+  const handleRequestDeleteInvitationBulk = () => {
+    const invitationIds = uniqueValues(selectedLatestInvitationIds);
+    if (invitationIds.length === 0) {
+      setInvitationMessage(t("invitation_list_bulk_empty"));
+      return;
+    }
+    setDeleteTarget({
+      type: "invitation_bulk",
+      ids: invitationIds,
+      itemLabel: interpolateText(t("invitation_list_bulk_delete_target"), { count: invitationIds.length })
+    });
+  };
+
+  const handleDeleteInvitationBulk = async (invitationIds) => {
+    if (!supabase || !session?.user?.id || !Array.isArray(invitationIds) || invitationIds.length === 0) {
+      return;
+    }
+    setIsDeletingInvitationBulk(true);
+    setInvitationMessage("");
+    const { error } = await supabase
+      .from("invitations")
+      .delete()
+      .in("id", invitationIds)
+      .eq("host_user_id", session.user.id);
+    setIsDeletingInvitationBulk(false);
+
+    if (error) {
+      setInvitationMessage(`${t("error_delete_invitation")} ${error.message}`);
+      return;
+    }
+
+    setSelectedLatestInvitationIds((prev) => prev.filter((invitationId) => !invitationIds.includes(invitationId)));
+    setInvitationMessage(interpolateText(t("invitation_list_bulk_delete_ok"), { count: invitationIds.length }));
+    await loadDashboardData();
+  };
+
   const handleConfirmDelete = async () => {
-    if (!deleteTarget?.item) {
+    if (!deleteTarget) {
       return;
     }
     if (deleteTarget.type === "event") {
@@ -3511,6 +3571,8 @@ function DashboardScreen({
       await handleDeleteGuest(deleteTarget.item);
     } else if (deleteTarget.type === "invitation") {
       await handleDeleteInvitation(deleteTarget.item);
+    } else if (deleteTarget.type === "invitation_bulk") {
+      await handleDeleteInvitationBulk(deleteTarget.ids || []);
     }
     setDeleteTarget(null);
   };
@@ -3670,6 +3732,75 @@ function DashboardScreen({
         failed: failedCount
       })
     );
+  };
+
+  const toggleLatestInvitationSelection = (invitationId) => {
+    if (!invitationId) {
+      return;
+    }
+    setSelectedLatestInvitationIds((prev) =>
+      prev.includes(invitationId) ? prev.filter((itemId) => itemId !== invitationId) : [...prev, invitationId]
+    );
+  };
+
+  const handleSelectVisibleLatestInvitations = () => {
+    const visibleIds = pagedInvitations.map((invitationItem) => invitationItem.id);
+    if (visibleIds.length === 0) {
+      return;
+    }
+    setSelectedLatestInvitationIds((prev) => uniqueValues([...prev, ...visibleIds]));
+  };
+
+  const handleClearLatestInvitationSelection = () => {
+    setSelectedLatestInvitationIds([]);
+  };
+
+  const handleCopySelectedInvitationLinks = async () => {
+    if (selectedLatestInvitations.length === 0) {
+      setInvitationMessage(t("invitation_list_bulk_empty"));
+      return;
+    }
+    const links = selectedLatestInvitations
+      .map((invitationItem) => buildInvitationSharePayload(invitationItem)?.url)
+      .filter(Boolean);
+    if (links.length === 0) {
+      setInvitationMessage(t("invitation_share_unavailable"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(links.join("\n"));
+      setInvitationMessage(interpolateText(t("invitation_list_bulk_links_ok"), { count: links.length }));
+    } catch {
+      setInvitationMessage(t("copy_fail"));
+    }
+  };
+
+  const handleCopySelectedInvitationMessages = async () => {
+    if (selectedLatestInvitations.length === 0) {
+      setInvitationMessage(t("invitation_list_bulk_empty"));
+      return;
+    }
+    const messages = selectedLatestInvitations
+      .map((invitationItem) => {
+        const sharePayload = buildInvitationSharePayload(invitationItem);
+        if (!sharePayload?.shareText) {
+          return "";
+        }
+        const eventName = eventNamesById[invitationItem.event_id] || t("field_event");
+        const guestName = guestNamesById[invitationItem.guest_id] || t("field_guest");
+        return `${eventName} - ${guestName}\n${sharePayload.shareText}`;
+      })
+      .filter(Boolean);
+    if (messages.length === 0) {
+      setInvitationMessage(t("invitation_share_unavailable"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(messages.join("\n\n---\n\n"));
+      setInvitationMessage(interpolateText(t("invitation_list_bulk_messages_ok"), { count: messages.length }));
+    } catch {
+      setInvitationMessage(t("copy_fail"));
+    }
   };
 
   const handleCopyInvitationLink = async (url) => {
@@ -6372,6 +6503,60 @@ function DashboardScreen({
               <p className="hint">
                 {t("results_count")}: {filteredInvitations.length}
               </p>
+              <section className="recommendation-card invitation-bulk-card">
+                <p className="label-title">
+                  <Icon name="check" className="icon icon-sm" />
+                  {t("invitation_list_bulk_title")}
+                </p>
+                <p className="field-help">{t("invitation_list_bulk_hint")}</p>
+                <div className="button-row">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleSelectVisibleLatestInvitations}
+                    disabled={pagedInvitations.length === 0}
+                  >
+                    {t("invitation_list_bulk_select_visible")}
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleClearLatestInvitationSelection}
+                    disabled={selectedLatestInvitationIds.length === 0}
+                  >
+                    {t("invitation_list_bulk_clear")}
+                  </button>
+                </div>
+                <p className="hint">
+                  {t("invitation_list_bulk_selected_count")} {selectedLatestInvitationIds.length}
+                </p>
+                <div className="button-row">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleCopySelectedInvitationLinks}
+                    disabled={selectedLatestInvitationIds.length === 0}
+                  >
+                    {t("invitation_list_bulk_copy_links")}
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleCopySelectedInvitationMessages}
+                    disabled={selectedLatestInvitationIds.length === 0}
+                  >
+                    {t("invitation_list_bulk_copy_messages")}
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    type="button"
+                    onClick={handleRequestDeleteInvitationBulk}
+                    disabled={selectedLatestInvitationIds.length === 0}
+                  >
+                    {t("invitation_list_bulk_delete")}
+                  </button>
+                </div>
+              </section>
               <InlineMessage text={invitationMessage} />
               {filteredInvitations.length === 0 ? (
                 <p>{t("no_invitations")}</p>
@@ -6385,6 +6570,17 @@ function DashboardScreen({
                     const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                     return (
                       <li key={invitation.id}>
+                        <label className="bulk-guest-option invitation-select-option">
+                          <input
+                            type="checkbox"
+                            checked={selectedLatestInvitationIds.includes(invitation.id)}
+                            onChange={() => toggleLatestInvitationSelection(invitation.id)}
+                          />
+                          <span>
+                            <strong>{t("invitation_list_bulk_select_item")}</strong>
+                            <span className="item-meta">{itemLabel}</span>
+                          </span>
+                        </label>
                         <p className="item-title">
                           {eventName} - {guestName}
                         </p>
@@ -6493,6 +6689,8 @@ function DashboardScreen({
                   ? t("delete_event_title")
                   : deleteTarget.type === "guest"
                   ? t("delete_guest_title")
+                  : deleteTarget.type === "invitation_bulk"
+                  ? t("delete_invitations_title")
                   : t("delete_invitation_title")}
               </h3>
               <p className="item-meta">
@@ -6500,6 +6698,8 @@ function DashboardScreen({
                   ? t("delete_event_confirm")
                   : deleteTarget.type === "guest"
                   ? t("delete_guest_confirm")
+                  : deleteTarget.type === "invitation_bulk"
+                  ? t("delete_invitations_confirm")
                   : t("delete_invitation_confirm")}
               </p>
               <p className="hint">
@@ -6508,6 +6708,8 @@ function DashboardScreen({
                   ? deleteTarget.item?.title || "-"
                   : deleteTarget.type === "guest"
                   ? `${deleteTarget.item?.first_name || ""} ${deleteTarget.item?.last_name || ""}`.trim() || "-"
+                  : deleteTarget.type === "invitation_bulk"
+                  ? `${deleteTarget.itemLabel || "0"}`
                   : deleteTarget.itemLabel || "-"}
               </p>
               <div className="button-row">

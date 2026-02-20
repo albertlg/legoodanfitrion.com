@@ -1163,6 +1163,10 @@ h2 {
   gap: 0.1rem;
 }
 
+.invitation-select-option {
+  margin-bottom: 0.25rem;
+}
+
 .advanced-form summary {
   cursor: pointer;
   font-weight: 700;
