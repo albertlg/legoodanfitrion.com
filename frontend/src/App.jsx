@@ -5,12 +5,13 @@ import ca from "./i18n/ca.json";
 import en from "./i18n/en.json";
 import es from "./i18n/es.json";
 import fr from "./i18n/fr.json";
+import it from "./i18n/it.json";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { AuthScreen } from "./screens/auth-screen";
 import { DashboardScreen } from "./screens/dashboard-screen";
 import { PublicRsvpScreen } from "./screens/public-rsvp-screen";
 
-const I18N = { es, ca, en, fr };
+const I18N = { es, ca, en, fr, it };
 
 function getTokenFromLocation() {
   const search = new URLSearchParams(window.location.search);
@@ -71,7 +72,13 @@ function App() {
   const [accountMessage, setAccountMessage] = useState("");
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
-  const t = useCallback((key) => I18N[language]?.[key] || I18N.es[key] || key, [language]);
+  const t = useCallback(
+    (key) => {
+      const localized = I18N[language]?.[key];
+      return localized || I18N.es[key] || key;
+    },
+    [language]
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", activeTheme);

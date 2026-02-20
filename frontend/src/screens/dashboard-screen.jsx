@@ -140,13 +140,15 @@ const CITY_OPTIONS_BY_LANGUAGE = {
   es: ["Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao", "Lisboa", "París"],
   ca: ["Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao", "Lisboa", "París"],
   en: ["Barcelona", "Madrid", "Valencia", "Seville", "Bilbao", "Lisbon", "Paris"],
-  fr: ["Barcelone", "Madrid", "Valence", "Seville", "Bilbao", "Lisbonne", "Paris"]
+  fr: ["Barcelone", "Madrid", "Valence", "Seville", "Bilbao", "Lisbonne", "Paris"],
+  it: ["Barcellona", "Madrid", "Valencia", "Siviglia", "Bilbao", "Lisbona", "Parigi"]
 };
 const COUNTRY_OPTIONS_BY_LANGUAGE = {
   es: ["España", "Andorra", "Francia", "Portugal", "Italia", "Reino Unido"],
   ca: ["Espanya", "Andorra", "França", "Portugal", "Itàlia", "Regne Unit"],
   en: ["Spain", "Andorra", "France", "Portugal", "Italy", "United Kingdom"],
-  fr: ["Espagne", "Andorre", "France", "Portugal", "Italie", "Royaume-Uni"]
+  fr: ["Espagne", "Andorre", "France", "Portugal", "Italie", "Royaume-Uni"],
+  it: ["Spagna", "Andorra", "Francia", "Portogallo", "Italia", "Regno Unito"]
 };
 const WORKSPACE_ITEMS = {
   events: [

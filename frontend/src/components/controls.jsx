@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./icons";
 
-const LANGUAGE_OPTIONS = ["es", "ca", "en", "fr"];
+const LANGUAGE_OPTIONS = ["es", "ca", "en", "fr", "it"];
 const LANGUAGE_FLAGS = {
   es: "https://upload.wikimedia.org/wikipedia/en/9/9a/Flag_of_Spain.svg",
   ca: "https://upload.wikimedia.org/wikipedia/commons/c/ce/Flag_of_Catalonia.svg",
   en: "https://upload.wikimedia.org/wikipedia/en/a/ae/Flag_of_the_United_Kingdom.svg",
-  fr: "https://upload.wikimedia.org/wikipedia/en/c/c3/Flag_of_France.svg"
+  fr: "https://upload.wikimedia.org/wikipedia/en/c/c3/Flag_of_France.svg",
+  it: "https://upload.wikimedia.org/wikipedia/commons/0/03/Flag_of_Italy.svg"
 };
 
 function getSystemTheme() {

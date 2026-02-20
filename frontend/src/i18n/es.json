@@ -1,5 +1,5 @@
 {
-  "app_name": "Le Good Anfitrión",
+  "app_name": "LeGoodAnfitrión",
   "panel_title": "Panel del anfitrión",
   "hero_subtitle": "Crea y gestiona experiencias memorables con contexto inteligente de invitados.",
   "hero_accessibility_note": "Flujo optimizado para teclado, lectores de pantalla y mensajes claros por campo.",
@@ -179,6 +179,7 @@
   "lang_ca": "Català",
   "lang_en": "English",
   "lang_fr": "Français",
+  "lang_it": "Italiano",
   "event_title_length": "El título debe tener entre 3 y 120 caracteres.",
   "event_type_length": "El tipo de experiencia no puede superar 80 caracteres.",
   "event_location_name_length": "El lugar no puede superar 120 caracteres.",

@@ -227,7 +227,9 @@ body {
   padding: 0.35rem;
   display: grid;
   gap: 0.25rem;
-  z-index: 30;
+  max-height: min(320px, calc(100vh - 2rem));
+  overflow-y: auto;
+  z-index: 60;
 }
 
 .control-option {
@@ -961,6 +963,8 @@ h2 {
 .dashboard-nav-footer .control-dropdown {
   right: auto;
   left: 0;
+  top: auto;
+  bottom: calc(100% + 0.4rem);
 }
 
 .session-box.session-box-sidebar {
