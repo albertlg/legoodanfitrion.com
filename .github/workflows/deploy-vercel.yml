@@ -36,17 +36,6 @@ jobs:
         if: ${{ steps.check_secrets.outputs.missing == 'false' }}
         run: npm install --global vercel@latest
 
-      - name: Install frontend dependencies
-        if: ${{ steps.check_secrets.outputs.missing == 'false' }}
-        run: npm ci --include=optional
-
-      - name: Ensure Rollup native binary (Linux x64)
-        if: ${{ steps.check_secrets.outputs.missing == 'false' }}
-        run: |
-          if [ ! -f node_modules/@rollup/rollup-linux-x64-gnu/package.json ]; then
-            npm install --no-save --include=optional @rollup/rollup-linux-x64-gnu
-          fi
-
       - name: Pull Vercel Environment Information
         if: ${{ steps.check_secrets.outputs.missing == 'false' }}
         run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
@@ -54,16 +43,10 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Build Project Artifacts
+      - name: Deploy Project to Vercel (remote build)
         if: ${{ steps.check_secrets.outputs.missing == 'false' }}
-        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        run: vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy Project Artifacts to Vercel
-        if: ${{ steps.check_secrets.outputs.missing == 'false' }}
-        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
-        env:
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
