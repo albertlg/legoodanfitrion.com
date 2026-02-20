@@ -523,5 +523,8 @@
   "invitation_recommendation_suggestions": "Ideas to personalize the experience:",
   "invitation_recommendation_experience_mismatch": "This event type does not match their preferred experiences.",
   "invitation_recommendation_empty": "There is not enough advanced profile data for this guest yet.",
-  "logo_fallback": "LGH"
+  "logo_fallback": "LGH",
+  "header_events_subtitle": "Manage and organize all your events.",
+  "header_guests_subtitle": "Manage your guest and contact network.",
+  "header_invitations_subtitle": "Manage invitations and RSVP status across your events."
 }

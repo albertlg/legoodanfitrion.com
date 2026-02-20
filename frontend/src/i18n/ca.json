@@ -1,6 +1,6 @@
 {
   "app_name": "LeGoodAnfitrión",
-  "panel_title": "Panell amfitrió",
+  "panel_title": "Panell de l'amfitrió",
   "hero_subtitle": "Crea i gestiona experiències memorables amb context intel·ligent de convidats.",
   "hero_accessibility_note": "Flux optimitzat per teclat, lectors de pantalla i missatges clars per camp.",
   "auth_hero_title": "Crea experiències memorables per als teus convidats",
@@ -523,5 +523,8 @@
   "invitation_recommendation_suggestions": "Idees per personalitzar l'experiència:",
   "invitation_recommendation_experience_mismatch": "Aquest tipus d'esdeveniment no coincideix amb les seves experiències favorites.",
   "invitation_recommendation_empty": "Encara no hi ha prou dades avançades d'aquest convidat.",
-  "logo_fallback": "LGA"
+  "logo_fallback": "LGA",
+  "header_events_subtitle": "Gestiona i organitza tots els teus esdeveniments.",
+  "header_guests_subtitle": "Gestiona la teva xarxa de contactes i convidats.",
+  "header_invitations_subtitle": "Gestiona les invitacions i l'estat RSVP dels teus esdeveniments."
 }

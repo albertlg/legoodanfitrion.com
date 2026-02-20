@@ -3916,6 +3916,84 @@ function DashboardScreen({
     .replace(/\s+/g, " ") || String(session?.user?.email || "").split("@")[0] || t("host_default_name");
   const hostFirstName = hostDisplayName.split(" ")[0] || t("host_default_name");
   const hostInitials = getInitials(hostDisplayName);
+  const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
+  const sectionHeader = useMemo(() => {
+    if (activeView === "overview") {
+      return {
+        eyebrow: t("nav_overview"),
+        title: interpolateText(t("dashboard_welcome"), { name: hostFirstName }),
+        subtitle: t("dashboard_welcome_subtitle")
+      };
+    }
+    if (activeView === "events") {
+      if (eventsWorkspace === "create") {
+        return {
+          eyebrow: t("nav_events"),
+          title: t("create_event_title"),
+          subtitle: t("help_event_form")
+        };
+      }
+      if (eventsWorkspace === "detail") {
+        return {
+          eyebrow: t("nav_events"),
+          title: t("event_detail_title"),
+          subtitle: t("event_detail_hint")
+        };
+      }
+      if (eventsWorkspace === "insights") {
+        return {
+          eyebrow: t("nav_events"),
+          title: t("smart_hosting_title"),
+          subtitle: t("smart_hosting_hint")
+        };
+      }
+      return {
+        eyebrow: t("nav_events"),
+        title: t("nav_events"),
+        subtitle: t("header_events_subtitle")
+      };
+    }
+    if (activeView === "guests") {
+      if (guestsWorkspace === "create") {
+        return {
+          eyebrow: t("nav_guests"),
+          title: t("create_guest_title"),
+          subtitle: t("help_guest_form")
+        };
+      }
+      if (guestsWorkspace === "detail") {
+        return {
+          eyebrow: t("nav_guests"),
+          title: t("guest_detail_title"),
+          subtitle: t("guest_detail_hint")
+        };
+      }
+      return {
+        eyebrow: t("nav_guests"),
+        title: t("nav_guests"),
+        subtitle: t("header_guests_subtitle")
+      };
+    }
+    if (activeView === "invitations") {
+      if (invitationsWorkspace === "create") {
+        return {
+          eyebrow: t("nav_invitations"),
+          title: t("create_invitation_title"),
+          subtitle: t("help_invitation_form")
+        };
+      }
+      return {
+        eyebrow: t("nav_invitations"),
+        title: t("nav_invitations"),
+        subtitle: t("header_invitations_subtitle")
+      };
+    }
+    return {
+      eyebrow: t(activeViewItem.labelKey),
+      title: t(activeViewItem.labelKey),
+      subtitle: t("dashboard_welcome_subtitle")
+    };
+  }, [activeView, activeViewItem.labelKey, eventsWorkspace, guestsWorkspace, hostFirstName, invitationsWorkspace, t]);
   const contextualCreateAction =
     activeView === "overview" || activeView === "events"
       ? {
@@ -3942,13 +4020,14 @@ function DashboardScreen({
       <section className="card app-card dashboard-shell">
         <header className="app-header dashboard-header">
           <div className="dashboard-header-main">
-            <div className="brand-header brand-header-compact">
+            <div className="brand-header brand-header-compact dashboard-mobile-brand">
               <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
               <p className="eyebrow">{t("app_name")}</p>
             </div>
-            <div>
-              <h1>{interpolateText(t("dashboard_welcome"), { name: hostFirstName })}</h1>
-              <p className="hero-text">{t("dashboard_welcome_subtitle")}</p>
+            <div className="dashboard-context">
+              <p className="eyebrow">{sectionHeader.eyebrow}</p>
+              <h1 className="dashboard-context-title">{sectionHeader.title}</h1>
+              <p className="hero-text dashboard-context-subtitle">{sectionHeader.subtitle}</p>
             </div>
           </div>
           <div className="header-actions dashboard-header-actions">
@@ -3976,7 +4055,16 @@ function DashboardScreen({
         </header>
 
         <nav className="dashboard-nav desktop-only" aria-label={t("nav_sections")}>
-          <p className="dashboard-nav-title">{t("nav_sections")}</p>
+          <div className="dashboard-nav-top">
+            <div className="dashboard-nav-brand" aria-hidden="true">
+              <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
+              <span className="dashboard-nav-brand-copy">
+                <span className="dashboard-nav-brand-name">{t("app_name")}</span>
+                <span className="dashboard-nav-brand-role">{t("panel_title")}</span>
+              </span>
+            </div>
+            <p className="dashboard-nav-title">{t("nav_sections")}</p>
+          </div>
           <div className="dashboard-nav-links">
             {VIEW_CONFIG.map((item) => (
               <button

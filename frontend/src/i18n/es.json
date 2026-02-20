@@ -523,5 +523,8 @@
   "invitation_recommendation_suggestions": "Ideas para personalizar la experiencia:",
   "invitation_recommendation_experience_mismatch": "Este tipo de evento no coincide con sus experiencias favoritas.",
   "invitation_recommendation_empty": "Todavía no hay suficientes datos avanzados de este invitado.",
-  "logo_fallback": "LGA"
+  "logo_fallback": "LGA",
+  "header_events_subtitle": "Gestiona y organiza todos tus eventos.",
+  "header_guests_subtitle": "Gestiona tu red de contactos e invitados.",
+  "header_invitations_subtitle": "Gestiona las invitaciones y el estado RSVP de tus eventos."
 }

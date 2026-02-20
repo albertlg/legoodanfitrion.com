@@ -1,6 +1,6 @@
 {
   "app_name": "LeGoodAnfitrión",
-  "panel_title": "Tableau hote",
+  "panel_title": "Tableau de l'hôte",
   "hero_subtitle": "Creez et gerez des experiences memorables avec un contexte intelligent des invites.",
   "hero_accessibility_note": "Optimise pour le clavier, les lecteurs d'ecran et des messages clairs par champ.",
   "auth_hero_title": "Creez des experiences memorables pour vos invites",
@@ -523,5 +523,8 @@
   "invitation_recommendation_suggestions": "Idees pour personnaliser l'experience :",
   "invitation_recommendation_experience_mismatch": "Ce type d'evenement ne correspond pas a ses experiences preferees.",
   "invitation_recommendation_empty": "Pas encore assez de donnees avancees pour cet invite.",
-  "logo_fallback": "LGH"
+  "logo_fallback": "LGH",
+  "header_events_subtitle": "Gérez et organisez tous vos événements.",
+  "header_guests_subtitle": "Gérez votre réseau de contacts et d'invités.",
+  "header_invitations_subtitle": "Gérez les invitations et le statut RSVP de vos événements."
 }
