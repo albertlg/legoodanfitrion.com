@@ -1129,6 +1129,23 @@ h2 {
   font-weight: 700;
 }
 
+.coming-soon-panel {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border) 65%);
+  background:
+    radial-gradient(140% 120% at 100% 0%, color-mix(in srgb, var(--primary) 17%, transparent 83%), transparent 58%),
+    var(--surface-soft);
+}
+
+.coming-soon-list {
+  margin-top: 0.15rem;
+}
+
+.coming-soon-list li {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+}
+
 .invitation-bulk-card {
   gap: 0.55rem;
 }

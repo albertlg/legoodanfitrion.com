@@ -49,7 +49,29 @@ function AuthScreen({
         <InlineMessage type="error" text={authError} />
         <InlineMessage type="success" text={accountMessage} />
 
-        <form className="panel form-grid" onSubmit={onSignIn} noValidate>
+        <section className="panel coming-soon-panel">
+          <p className="status-pill status-published">{t("public_coming_badge")}</p>
+          <h2 className="section-title">
+            <Icon name="sparkle" className="icon" />
+            {t("public_coming_title")}
+          </h2>
+          <p className="field-help">{t("public_coming_subtitle")}</p>
+          <ul className="list coming-soon-list">
+            <li>{t("public_coming_point_1")}</li>
+            <li>{t("public_coming_point_2")}</li>
+            <li>{t("public_coming_point_3")}</li>
+          </ul>
+          <div className="button-row">
+            <a className="btn btn-ghost btn-sm" href="#auth-access-panel">
+              {t("public_coming_cta_access")}
+            </a>
+            <a className="btn btn-ghost btn-sm" href="https://legoodanfitrion.com" target="_blank" rel="noreferrer">
+              {t("public_coming_cta_site")}
+            </a>
+          </div>
+        </section>
+
+        <form id="auth-access-panel" className="panel form-grid" onSubmit={onSignIn} noValidate>
           <h2 className="section-title">
             <Icon name="shield" className="icon" />
             {t("access_title")}
