@@ -19,8 +19,10 @@ function AuthScreen({
   setLoginPassword,
   isSigningIn,
   isSigningUp,
+  isSigningInWithGoogle,
   onSignIn,
-  onSignUp
+  onSignUp,
+  onGoogleSignIn
 }) {
   return (
     <main className="page">
@@ -87,11 +89,24 @@ function AuthScreen({
           </label>
 
           <div className="button-row">
-            <button className="btn" type="submit" disabled={isSigningIn || isSigningUp}>
+            <button className="btn" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
               {isSigningIn ? t("signing_in") : t("sign_in")}
             </button>
-            <button className="btn btn-ghost" type="button" onClick={onSignUp} disabled={isSigningIn || isSigningUp}>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={onSignUp}
+              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
+            >
               {isSigningUp ? t("signing_up") : t("sign_up")}
+            </button>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={onGoogleSignIn}
+              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
+            >
+              {isSigningInWithGoogle ? t("signing_in_google") : t("sign_in_google")}
             </button>
           </div>
         </form>
@@ -101,4 +116,3 @@ function AuthScreen({
 }
 
 export { AuthScreen };
-

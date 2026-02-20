@@ -25,7 +25,14 @@ const guestSchema = z
       .optional(),
     relationship: z.string().trim().max(60, "guest_relationship_length"),
     city: z.string().trim().max(80, "guest_city_length"),
-    country: z.string().trim().max(80, "guest_country_length")
+    country: z.string().trim().max(80, "guest_country_length"),
+    address: z.string().trim().max(220, "guest_address_length"),
+    postalCode: z.string().trim().max(20, "guest_postal_code_length"),
+    stateRegion: z.string().trim().max(80, "guest_state_region_length"),
+    company: z.string().trim().max(120, "guest_company_length"),
+    twitter: z.string().trim().max(120, "guest_social_length"),
+    instagram: z.string().trim().max(120, "guest_social_length"),
+    linkedIn: z.string().trim().max(180, "guest_social_length")
   })
   .superRefine((value, ctx) => {
     const hasEmail = Boolean(value.email);
@@ -98,4 +105,3 @@ function validateInvitationForm(input) {
 }
 
 export { validateEventForm, validateGuestForm, validateInvitationForm };
-

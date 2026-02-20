@@ -56,6 +56,7 @@ SQL principal del esquema:
 Frontend ya conectado a Supabase para:
 
 - Login por email/password
+- Login/registro con Google (OAuth, si está activado en Supabase)
 - Crear cuenta
 - Crear evento
 - Crear invitado
@@ -64,9 +65,19 @@ Frontend ya conectado a Supabase para:
 - Multi-idioma (`es/ca/en/fr`)
 - Tema (`claro/oscuro/sistema`)
 - Validaciones reforzadas de formularios
+- Perfil enriquecido de invitados (preferencias, alergias, interacciones, redes, contexto)
+- Importación de contactos (CSV/VCF/pegado) con deduplicado para acelerar altas
+- Métricas de conversión invitado -> anfitrión potencial (detección automática por contacto)
+- Analytics de conversión con fecha y fuente (`email`/`phone`/`google`)
+- Funnel y tendencia de growth (7/30/90 días + gráfico últimos 14 días)
+- Fichas de solo lectura para Evento e Invitado (datos completos, mapa, RSVP e historial)
+- Perfil del anfitrión editable y sincronizado con su propia ficha de invitado
+- Sugerencias inteligentes para anfitrión en eventos (comida, bebida, ambiente, timing, icebreakers)
+- Traducción cross-idioma en campos de catálogo de perfil avanzado (se guardan como códigos canónicos)
 - Iconografía estándar y ayudas contextuales en formularios
 - Mejoras de accesibilidad (mensajes por campo, labels semánticas, estados anunciables)
 - Metadatos SEO base en `frontend/index.html`
+- Validador/autocompletado de direcciones con Google Maps (Places) + preview de mapa
 
 Branding:
 
@@ -90,6 +101,18 @@ Arquitectura UI actual:
 SQL adicional recomendado (preferencias de UI por usuario):
 
 - `/Users/albertlg/Documents/New project/supabase/sql/002_profile_ui_preferences.sql`
+- `/Users/albertlg/Documents/New project/supabase/sql/003_event_location_maps_fields.sql`
+- `/Users/albertlg/Documents/New project/supabase/sql/004_content_language_fields.sql`
+- `/Users/albertlg/Documents/New project/supabase/sql/005_guest_enrichment_fields.sql`
+- `/Users/albertlg/Documents/New project/supabase/sql/006_guest_host_conversion.sql`
+- `/Users/albertlg/Documents/New project/supabase/sql/007_guest_host_conversion_analytics.sql`
+
+Variables de entorno frontend:
+
+- `/Users/albertlg/Documents/New project/frontend/.env`
+- `VITE_SUPABASE_URL=...`
+- `VITE_SUPABASE_ANON_KEY=...`
+- `VITE_GOOGLE_MAPS_API_KEY=...` (opcional pero recomendado para validar direcciones)
 
 Pasos detallados de configuración:
 

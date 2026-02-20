@@ -67,6 +67,7 @@ function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isSigningInWithGoogle, setIsSigningInWithGoogle] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
@@ -116,6 +117,7 @@ function App() {
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setProfilePrefsReady(false);
+      setIsSigningInWithGoogle(false);
     });
 
     return () => {
@@ -236,6 +238,25 @@ function App() {
     setAccountMessage(t("account_created"));
   };
 
+  const handleGoogleSignIn = async () => {
+    if (!supabase) {
+      return;
+    }
+    setAuthError("");
+    setAccountMessage("");
+    setIsSigningInWithGoogle(true);
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo }
+    });
+    if (error) {
+      setAuthError(`${t("google_auth_error")} ${error.message}`);
+      setIsSigningInWithGoogle(false);
+      return;
+    }
+  };
+
   const handleSignOut = async () => {
     if (!supabase) {
       return;
@@ -300,8 +321,10 @@ function App() {
         setLoginPassword={setLoginPassword}
         isSigningIn={isSigningIn}
         isSigningUp={isSigningUp}
+        isSigningInWithGoogle={isSigningInWithGoogle}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}
+        onGoogleSignIn={handleGoogleSignIn}
       />
     );
   }

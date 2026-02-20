@@ -46,6 +46,59 @@ Ejecuta tambien este SQL:
 
 Esto anade el campo `preferred_theme` al perfil para guardar la preferencia visual (`light/dark/system`) por usuario.
 
+## Paso 1.2 (campos de localizacion Google Maps para eventos)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/003_event_location_maps_fields.sql`
+
+Esto anade `location_place_id`, `location_lat` y `location_lng` para validar direcciones y mostrar mapas.
+
+## Paso 1.3 (idioma de contenido para traducciones futuras)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/004_content_language_fields.sql`
+
+Esto anade `content_language` en `events` y `guests` para guardar el idioma original de los textos y poder habilitar traducciones automaticas en la siguiente iteracion.
+
+## Paso 1.4 (perfil enriquecido de invitados + sugerencias de anfitrion)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/005_guest_enrichment_fields.sql`
+
+Esto anade campos para enriquecer perfiles de invitados:
+
+- contacto y contexto (`address`, `postal_code`, `state_region`, `company`, `twitter`, `instagram`, `linkedin`, `last_meet_at`)
+- preferencias ampliadas (`experience_types`, `preferred_guest_relationships`, `preferred_day_moments`, `periodicity`, `cuisine_types`, `pets`)
+
+Con estos campos, el frontend puede sugerir:
+
+- que menu y bebidas priorizar
+- que ingredientes/bebidas evitar (alergias, intolerancias, dislikes)
+- como ambientar (colores, musica)
+- ideas de conversacion y temas a evitar
+
+## Paso 1.5 (conversion invitado -> anfitrion)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/006_guest_host_conversion.sql`
+
+Esto crea la funcion `get_host_guest_conversions()` para detectar automaticamente si un invitado ya es un usuario registrado (por email o telefono) y mostrar metricas de conversion en el panel.
+
+## Paso 1.6 (analytics de conversion: fecha + fuente)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/007_guest_host_conversion_analytics.sql`
+
+Esto amplia `get_host_guest_conversions()` para devolver:
+
+- `conversion_source` (`email`, `phone` o `google`)
+- `converted_at` (fecha estimada de conversion para analitica de growth)
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:
@@ -75,6 +128,14 @@ Debes ver al menos:
 3. En `Authentication` -> `URL Configuration`, configura:
    - `Site URL` (tu URL de frontend cuando la tengas en producción)
    - en local: `http://localhost:5173`
+
+### Paso 3.1 (activar SSO con Google)
+
+1. Ve a `Authentication` -> `Providers` -> `Google`.
+2. Activa Google provider.
+3. Configura `Client ID` y `Client Secret` desde Google Cloud Console (OAuth 2.0 Client).
+4. En Google Cloud, añade en `Authorized redirect URIs` la URL que te muestra Supabase para Google OAuth.
+5. Guarda cambios y prueba en login con el botón `Continuar con Google`.
 
 ## Paso 4 (crear primer usuario de prueba)
 
@@ -122,6 +183,18 @@ Abre `/Users/albertlg/Documents/New project/frontend/.env` y rellena:
 ```env
 VITE_SUPABASE_URL=TU_PROJECT_URL
 VITE_SUPABASE_ANON_KEY=TU_ANON_PUBLIC_KEY
+VITE_GOOGLE_MAPS_API_KEY=TU_GOOGLE_MAPS_API_KEY
+
+### 5.2.1 Como obtener `VITE_GOOGLE_MAPS_API_KEY`
+
+1. En Google Cloud Console, crea (o usa) un proyecto.
+2. Activa APIs:
+   - `Maps JavaScript API`
+   - `Places API`
+3. Crea una API key.
+4. Restringe la key por:
+   - `HTTP referrers` (tu dominio y `http://localhost:5173/*`)
+   - APIs permitidas (`Maps JavaScript API`, `Places API`)
 ```
 
 ### 5.3 Reiniciar Docker (importante)
