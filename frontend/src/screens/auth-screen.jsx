@@ -25,113 +25,112 @@ function AuthScreen({
   onGoogleSignIn
 }) {
   return (
-    <main className="page">
-      <section className="card app-card">
-        <header className="app-header">
-          <div className="brand-header">
-            <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
-            <div>
-              <p className="eyebrow">{t("app_name")}</p>
-              <h1>{t("access_title")}</h1>
+    <main className="page page-auth">
+      <section className="card app-card auth-shell">
+        <aside className="auth-brand-pane">
+          <div className="auth-brand-main">
+            <div className="brand-header auth-brand-header">
+              <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
+              <p className="auth-brand-name">{t("app_name")}</p>
+            </div>
+            <div className="auth-brand-copy">
+              <h1 className="auth-hero-title">{t("auth_hero_title")}</h1>
               <p className="hero-text">{t("hero_subtitle")}</p>
             </div>
           </div>
-          <Controls
-            themeMode={themeMode}
-            setThemeMode={setThemeMode}
-            language={language}
-            setLanguage={setLanguage}
-            t={t}
-          />
-        </header>
+          <blockquote className="auth-quote">
+            <p>{t("auth_social_proof_quote")}</p>
+            <footer>{t("auth_social_proof_author")}</footer>
+          </blockquote>
+        </aside>
 
-        {isLoadingAuth ? <p>{t("loading_session")}</p> : null}
-        <InlineMessage type="error" text={authError} />
-        <InlineMessage type="success" text={accountMessage} />
-
-        <section className="panel coming-soon-panel">
-          <p className="status-pill status-published">{t("public_coming_badge")}</p>
-          <h2 className="section-title">
-            <Icon name="sparkle" className="icon" />
-            {t("public_coming_title")}
-          </h2>
-          <p className="field-help">{t("public_coming_subtitle")}</p>
-          <ul className="list coming-soon-list">
-            <li>{t("public_coming_point_1")}</li>
-            <li>{t("public_coming_point_2")}</li>
-            <li>{t("public_coming_point_3")}</li>
-          </ul>
-          <div className="button-row">
-            <a className="btn btn-ghost btn-sm" href="#auth-access-panel">
-              {t("public_coming_cta_access")}
-            </a>
-            <a className="btn btn-ghost btn-sm" href="https://legoodanfitrion.com" target="_blank" rel="noreferrer">
-              {t("public_coming_cta_site")}
-            </a>
-          </div>
-        </section>
-
-        <form id="auth-access-panel" className="panel form-grid" onSubmit={onSignIn} noValidate>
-          <h2 className="section-title">
-            <Icon name="shield" className="icon" />
-            {t("access_title")}
-          </h2>
-          <p className="field-help">{t("hint_accessibility")}</p>
-
-          <label>
-            <span className="label-title">
-              <Icon name="mail" className="icon icon-sm" />
-              {t("email")}
-            </span>
-            <input
-              type="email"
-              required
-              value={loginEmail}
-              onChange={(event) => setLoginEmail(event.target.value)}
-              placeholder={t("placeholder_email")}
-              autoComplete="email"
+        <section className="auth-form-pane">
+          <header className="auth-form-header">
+            <Controls
+              themeMode={themeMode}
+              setThemeMode={setThemeMode}
+              language={language}
+              setLanguage={setLanguage}
+              t={t}
             />
-            <FieldMeta helpText={t("hint_contact_required")} />
-          </label>
+            <div>
+              <h2>{t("auth_welcome_back")}</h2>
+              <p className="field-help">{t("auth_welcome_hint")}</p>
+            </div>
+          </header>
 
-          <label>
-            <span className="label-title">
-              <Icon name="shield" className="icon icon-sm" />
-              {t("password")}
-            </span>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              placeholder="******"
-              autoComplete="current-password"
-            />
-          </label>
+          {isLoadingAuth ? <p>{t("loading_session")}</p> : null}
+          <InlineMessage type="error" text={authError} />
+          <InlineMessage type="success" text={accountMessage} />
 
-          <div className="button-row">
-            <button className="btn" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
-              {isSigningIn ? t("signing_in") : t("sign_in")}
-            </button>
+          <form id="auth-access-panel" className="panel form-grid auth-form" onSubmit={onSignIn} noValidate>
             <button
-              className="btn btn-ghost"
-              type="button"
-              onClick={onSignUp}
-              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
-            >
-              {isSigningUp ? t("signing_up") : t("sign_up")}
-            </button>
-            <button
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-google"
               type="button"
               onClick={onGoogleSignIn}
               disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
             >
+              <span className="google-mark" aria-hidden="true">
+                G
+              </span>
               {isSigningInWithGoogle ? t("signing_in_google") : t("sign_in_google")}
             </button>
-          </div>
-        </form>
+
+            <p className="auth-divider">
+              <span>{t("auth_or_continue_with_email")}</span>
+            </p>
+
+            <label>
+              <span className="label-title">
+                <Icon name="mail" className="icon icon-sm" />
+                {t("email")}
+              </span>
+              <input
+                type="email"
+                required
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+                placeholder={t("placeholder_email")}
+                autoComplete="email"
+              />
+              <FieldMeta helpText={t("hint_contact_required")} />
+            </label>
+
+            <label>
+              <span className="label-title">
+                <Icon name="shield" className="icon icon-sm" />
+                {t("password")}
+              </span>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                placeholder="******"
+                autoComplete="current-password"
+              />
+            </label>
+
+            <p className="auth-forgot">{t("auth_forgot_password")}</p>
+
+            <button className="btn btn-block" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
+              {isSigningIn ? t("signing_in") : t("sign_in")}
+            </button>
+
+            <p className="auth-switch">
+              {t("auth_no_account")}{" "}
+              <button
+                className="text-link-btn"
+                type="button"
+                onClick={onSignUp}
+                disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
+              >
+                {isSigningUp ? t("signing_up") : t("sign_up")}
+              </button>
+            </p>
+          </form>
+        </section>
       </section>
     </main>
   );
