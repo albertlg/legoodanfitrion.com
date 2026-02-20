@@ -284,6 +284,30 @@ function splitFullName(rawName) {
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
+function normalizeDeviceContact(rawContact) {
+  const fullName = Array.isArray(rawContact?.name) ? rawContact.name[0] || "" : rawContact?.name || "";
+  const { firstName, lastName } = splitFullName(fullName);
+  const addressRaw = Array.isArray(rawContact?.address) ? rawContact.address[0] || null : rawContact?.address || null;
+  const addressObject = typeof addressRaw === "object" && addressRaw !== null ? addressRaw : null;
+  const addressFromObject = addressObject
+    ? [addressObject.addressLine, addressObject.streetAddress].flat().filter(Boolean).join(", ")
+    : "";
+  const fallbackAddress = typeof addressRaw === "string" ? addressRaw : "";
+  return {
+    firstName,
+    lastName,
+    email: Array.isArray(rawContact?.email) ? rawContact.email[0] || "" : rawContact?.email || "",
+    phone: Array.isArray(rawContact?.tel) ? rawContact.tel[0] || "" : rawContact?.tel || "",
+    relationship: "",
+    city: String(addressObject?.city || addressObject?.locality || "").trim(),
+    country: String(addressObject?.country || addressObject?.countryName || "").trim(),
+    address: String(addressFromObject || fallbackAddress || "").trim(),
+    company: "",
+    postalCode: String(addressObject?.postalCode || "").trim(),
+    stateRegion: String(addressObject?.region || addressObject?.state || "").trim()
+  };
+}
+
 function uniqueValues(values) {
   return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
 }
@@ -520,6 +544,9 @@ function DashboardScreen({
   const [lastInvitationUrl, setLastInvitationUrl] = useState("");
   const [lastInvitationShareText, setLastInvitationShareText] = useState("");
   const [lastInvitationShareSubject, setLastInvitationShareSubject] = useState("");
+  const [bulkInvitationGuestIds, setBulkInvitationGuestIds] = useState([]);
+  const [bulkInvitationSearch, setBulkInvitationSearch] = useState("");
+  const [isCreatingBulkInvitations, setIsCreatingBulkInvitations] = useState(false);
   const [eventSearch, setEventSearch] = useState("");
   const [eventStatusFilter, setEventStatusFilter] = useState("all");
   const [eventSort, setEventSort] = useState("created_desc");
@@ -823,6 +850,17 @@ function DashboardScreen({
     () => guests.filter((guestItem) => !invitedGuestIdsForSelectedEvent.has(guestItem.id)),
     [guests, invitedGuestIdsForSelectedEvent]
   );
+  const bulkFilteredGuests = useMemo(() => {
+    const term = bulkInvitationSearch.trim().toLowerCase();
+    if (!term) {
+      return availableGuestsForSelectedEvent;
+    }
+    return availableGuestsForSelectedEvent.filter((guestItem) => {
+      const fullName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim();
+      const haystack = `${fullName} ${guestItem.email || ""} ${guestItem.phone || ""} ${guestItem.city || ""}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [availableGuestsForSelectedEvent, bulkInvitationSearch]);
   const allGuestsAlreadyInvitedForSelectedEvent =
     guests.length > 0 && availableGuestsForSelectedEvent.length === 0;
   const latestEventPreview = useMemo(
@@ -1954,6 +1992,17 @@ function DashboardScreen({
   }, [guests, selectedGuestId, invitedGuestIdsForSelectedEvent, availableGuestsForSelectedEvent]);
 
   useEffect(() => {
+    if (bulkInvitationGuestIds.length === 0) {
+      return;
+    }
+    const availableIds = new Set(availableGuestsForSelectedEvent.map((guestItem) => guestItem.id));
+    const filteredIds = bulkInvitationGuestIds.filter((guestId) => availableIds.has(guestId));
+    if (filteredIds.length !== bulkInvitationGuestIds.length) {
+      setBulkInvitationGuestIds(filteredIds);
+    }
+  }, [bulkInvitationGuestIds, availableGuestsForSelectedEvent]);
+
+  useEffect(() => {
     if (!selectedGuestDetailId && guests.length > 0) {
       setSelectedGuestDetailId(guests[0].id);
       return;
@@ -2491,6 +2540,8 @@ function DashboardScreen({
     setLastInvitationUrl("");
     setLastInvitationShareText("");
     setLastInvitationShareSubject("");
+    setBulkInvitationGuestIds([]);
+    setBulkInvitationSearch("");
     if (messageKey) {
       setInvitationMessage(t(messageKey));
     }
@@ -2784,32 +2835,54 @@ function DashboardScreen({
     try {
       const selectedContacts = await navigator.contacts.select(["name", "email", "tel", "address"], { multiple: true });
       const parsedContacts = (selectedContacts || [])
-        .map((item) => {
-          const fullName = Array.isArray(item?.name) ? item.name[0] || "" : item?.name || "";
-          const nameParts = String(fullName || "")
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean);
-          const firstName = nameParts[0] || "";
-          const lastName = nameParts.slice(1).join(" ");
-          const addressRaw = Array.isArray(item?.address) ? item.address[0] || "" : item?.address || "";
-          return {
-            firstName,
-            lastName,
-            email: Array.isArray(item?.email) ? item.email[0] || "" : item?.email || "",
-            phone: Array.isArray(item?.tel) ? item.tel[0] || "" : item?.tel || "",
-            relationship: "",
-            city: "",
-            country: "",
-            address: String(addressRaw || ""),
-            company: ""
-          };
-        })
+        .map((item) => normalizeDeviceContact(item))
         .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);
       setImportContactsPreview(parsedContacts);
       setImportContactsMessage(`${t("contact_import_device_loaded")} ${parsedContacts.length}.`);
     } catch (error) {
       setImportContactsMessage(`${t("contact_import_device_error")} ${String(error?.message || "")}`);
+    }
+  };
+
+  const handleFillGuestFromDeviceContact = async () => {
+    if (!canUseDeviceContacts) {
+      setGuestMessage(t("contact_import_device_not_supported"));
+      return;
+    }
+    try {
+      const selectedContacts = await navigator.contacts.select(["name", "email", "tel", "address"], { multiple: false });
+      const selectedContact = Array.isArray(selectedContacts) ? selectedContacts[0] : null;
+      if (!selectedContact) {
+        setGuestMessage(t("contact_import_device_empty"));
+        return;
+      }
+      const contact = normalizeDeviceContact(selectedContact);
+      setGuestFirstName(contact.firstName || guestFirstName);
+      setGuestLastName(contact.lastName || guestLastName);
+      setGuestEmail(contact.email || guestEmail);
+      setGuestPhone(contact.phone || guestPhone);
+      setGuestCity(contact.city || guestCity);
+      setGuestCountry(contact.country || guestCountry);
+      setGuestAdvanced((prev) => ({
+        ...prev,
+        address: contact.address || prev.address,
+        postalCode: contact.postalCode || prev.postalCode,
+        stateRegion: contact.stateRegion || prev.stateRegion
+      }));
+      setSelectedGuestAddressPlace(null);
+      setGuestErrors((prev) => ({
+        ...prev,
+        firstName: undefined,
+        email: undefined,
+        phone: undefined,
+        contact: undefined,
+        city: undefined,
+        country: undefined,
+        address: undefined
+      }));
+      setGuestMessage(t("contact_import_single_loaded"));
+    } catch (error) {
+      setGuestMessage(`${t("contact_import_device_error")} ${String(error?.message || "")}`);
     }
   };
 
@@ -3497,6 +3570,106 @@ function DashboardScreen({
     setLastInvitationShareSubject(sharePayload?.shareSubject || "");
     setLastInvitationShareText(sharePayload?.shareText || "");
     await loadDashboardData();
+  };
+
+  const toggleBulkInvitationGuest = (guestId) => {
+    if (!guestId) {
+      return;
+    }
+    setBulkInvitationGuestIds((prev) =>
+      prev.includes(guestId) ? prev.filter((id) => id !== guestId) : [...prev, guestId]
+    );
+  };
+
+  const handleSelectVisibleBulkGuests = () => {
+    const visibleIds = bulkFilteredGuests.map((guestItem) => guestItem.id);
+    if (visibleIds.length === 0) {
+      return;
+    }
+    setBulkInvitationGuestIds((prev) => uniqueValues([...prev, ...visibleIds]));
+  };
+
+  const handleClearBulkGuests = () => {
+    setBulkInvitationGuestIds([]);
+  };
+
+  const handleCreateBulkInvitations = async () => {
+    if (!supabase || !session?.user?.id) {
+      return;
+    }
+    if (!selectedEventId) {
+      setInvitationErrors((prev) => ({ ...prev, eventId: "invitation_select_required" }));
+      setInvitationMessage(t("invitation_select_required"));
+      return;
+    }
+    const guestIds = uniqueValues(bulkInvitationGuestIds);
+    if (guestIds.length === 0) {
+      setInvitationMessage(t("invitation_bulk_require_selection"));
+      return;
+    }
+
+    setInvitationMessage("");
+    setLastInvitationUrl("");
+    setLastInvitationShareText("");
+    setLastInvitationShareSubject("");
+    setIsCreatingBulkInvitations(true);
+
+    let createdCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    let firstCreatedInvitation = null;
+    const alreadyInvitedForEvent = invitedGuestIdsByEvent.get(selectedEventId) || new Set();
+
+    for (const guestId of guestIds) {
+      if (alreadyInvitedForEvent.has(guestId)) {
+        skippedCount += 1;
+        continue;
+      }
+      const selectedGuestName = guestNamesById[guestId] || null;
+      const { data, error } = await supabase
+        .from("invitations")
+        .insert({
+          host_user_id: session.user.id,
+          event_id: selectedEventId,
+          guest_id: guestId,
+          invite_channel: "link",
+          guest_display_name: selectedGuestName
+        })
+        .select("id, event_id, guest_id, status, public_token, created_at")
+        .single();
+      if (error) {
+        if (error.code === "23505" || error.message?.includes("invitations_unique_event_guest")) {
+          skippedCount += 1;
+        } else {
+          failedCount += 1;
+        }
+        continue;
+      }
+      createdCount += 1;
+      if (!firstCreatedInvitation) {
+        firstCreatedInvitation = data;
+      }
+    }
+
+    setIsCreatingBulkInvitations(false);
+    setBulkInvitationGuestIds([]);
+    setBulkInvitationSearch("");
+    await loadDashboardData();
+
+    if (firstCreatedInvitation) {
+      const sharePayload = buildInvitationSharePayload(firstCreatedInvitation);
+      setLastInvitationUrl(sharePayload?.url || "");
+      setLastInvitationShareSubject(sharePayload?.shareSubject || "");
+      setLastInvitationShareText(sharePayload?.shareText || "");
+    }
+
+    setInvitationMessage(
+      interpolateText(t("invitation_bulk_result"), {
+        created: createdCount,
+        skipped: skippedCount,
+        failed: failedCount
+      })
+    );
   };
 
   const handleCopyInvitationLink = async (url) => {
@@ -4875,6 +5048,26 @@ function DashboardScreen({
               <p className="field-help">{t("help_guest_form")}</p>
               <p className="hint">{t("guest_host_potential_hint")}</p>
 
+              <section className="recommendation-card">
+                <p className="label-title">
+                  <Icon name="phone" className="icon icon-sm" />
+                  {t("contact_import_mobile_quick_title")}
+                </p>
+                <p className="field-help">
+                  {canUseDeviceContacts ? t("contact_import_mobile_quick_hint") : t("contact_import_mobile_quick_fallback")}
+                </p>
+                <div className="button-row">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleFillGuestFromDeviceContact}
+                    disabled={!canUseDeviceContacts}
+                  >
+                    {t("contact_import_mobile_quick_button")}
+                  </button>
+                </div>
+              </section>
+
               <details className="advanced-form contact-import-box">
                 <summary>{t("contact_import_title")}</summary>
                 <p className="field-help">{t("contact_import_hint")}</p>
@@ -5959,6 +6152,72 @@ function DashboardScreen({
                 </select>
               </label>
 
+              <section className="recommendation-card invitation-bulk-card">
+                <p className="label-title">
+                  <Icon name="check" className="icon icon-sm" />
+                  {t("invitation_bulk_title")}
+                </p>
+                <p className="field-help">{t("invitation_bulk_hint")}</p>
+                <label>
+                  <span className="label-title">{t("search")}</span>
+                  <input
+                    type="search"
+                    value={bulkInvitationSearch}
+                    onChange={(event) => setBulkInvitationSearch(event.target.value)}
+                    placeholder={t("invitation_bulk_search_placeholder")}
+                    disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent}
+                  />
+                </label>
+                <div className="button-row">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleSelectVisibleBulkGuests}
+                    disabled={bulkFilteredGuests.length === 0 || allGuestsAlreadyInvitedForSelectedEvent}
+                  >
+                    {t("invitation_bulk_select_visible")}
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleClearBulkGuests}
+                    disabled={bulkInvitationGuestIds.length === 0}
+                  >
+                    {t("invitation_bulk_clear_selection")}
+                  </button>
+                </div>
+                <p className="hint">
+                  {t("invitation_bulk_selected_count")} {bulkInvitationGuestIds.length} - {t("results_count")} {bulkFilteredGuests.length}
+                </p>
+                {!events.length || allGuestsAlreadyInvitedForSelectedEvent ? (
+                  <p className="hint">{t("invitation_all_guests_already_invited")}</p>
+                ) : (
+                  <div className="bulk-guest-grid" role="group" aria-label={t("invitation_bulk_title")}>
+                    {bulkFilteredGuests.slice(0, 20).map((guestItem) => {
+                      const guestLabel = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
+                      return (
+                        <label key={guestItem.id} className="bulk-guest-option">
+                          <input
+                            type="checkbox"
+                            checked={bulkInvitationGuestIds.includes(guestItem.id)}
+                            onChange={() => toggleBulkInvitationGuest(guestItem.id)}
+                          />
+                          <span>
+                            <strong>{guestLabel}</strong>
+                            <span className="item-meta">{guestItem.email || guestItem.phone || "-"}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                    {bulkFilteredGuests.length > 20 ? (
+                      <p className="hint">
+                        {t("contact_import_preview_more")} {bulkFilteredGuests.length - 20}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </section>
+
               <FieldMeta
                 helpText={
                   allGuestsAlreadyInvitedForSelectedEvent
@@ -6012,13 +6271,23 @@ function DashboardScreen({
                 </section>
               ) : null}
 
-              <button
-                className="btn"
-                type="submit"
-                disabled={isCreatingInvitation || !events.length || !guests.length || allGuestsAlreadyInvitedForSelectedEvent}
-              >
-                {isCreatingInvitation ? t("generating_invitation") : t("generate_rsvp")}
-              </button>
+              <div className="button-row">
+                <button
+                  className="btn"
+                  type="submit"
+                  disabled={isCreatingInvitation || !events.length || !guests.length || allGuestsAlreadyInvitedForSelectedEvent}
+                >
+                  {isCreatingInvitation ? t("generating_invitation") : t("generate_rsvp")}
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={handleCreateBulkInvitations}
+                  disabled={isCreatingBulkInvitations || !events.length || bulkInvitationGuestIds.length === 0}
+                >
+                  {isCreatingBulkInvitations ? t("invitation_bulk_creating") : t("invitation_bulk_create_button")}
+                </button>
+              </div>
               <InlineMessage text={invitationMessage} />
 
               {lastInvitationUrl ? (

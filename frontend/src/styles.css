@@ -1129,6 +1129,40 @@ h2 {
   font-weight: 700;
 }
 
+.invitation-bulk-card {
+  gap: 0.55rem;
+}
+
+.bulk-guest-grid {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.bulk-guest-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  padding: 0.45rem 0.5rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.bulk-guest-option input[type="checkbox"] {
+  margin-top: 0.2rem;
+}
+
+.bulk-guest-option span {
+  display: grid;
+  gap: 0.1rem;
+}
+
 .advanced-form summary {
   cursor: pointer;
   font-weight: 700;
