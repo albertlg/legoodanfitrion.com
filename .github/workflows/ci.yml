@@ -27,7 +27,13 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci --include=optional
+
+      - name: Ensure Rollup native binary (Linux x64)
+        run: |
+          if [ ! -f node_modules/@rollup/rollup-linux-x64-gnu/package.json ]; then
+            npm install --no-save --include=optional @rollup/rollup-linux-x64-gnu
+          fi
 
       - name: Lint
         run: npm run lint

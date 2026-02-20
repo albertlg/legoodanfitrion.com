@@ -36,6 +36,17 @@ jobs:
         if: ${{ steps.check_secrets.outputs.missing == 'false' }}
         run: npm install --global vercel@latest
 
+      - name: Install frontend dependencies
+        if: ${{ steps.check_secrets.outputs.missing == 'false' }}
+        run: npm ci --include=optional
+
+      - name: Ensure Rollup native binary (Linux x64)
+        if: ${{ steps.check_secrets.outputs.missing == 'false' }}
+        run: |
+          if [ ! -f node_modules/@rollup/rollup-linux-x64-gnu/package.json ]; then
+            npm install --no-save --include=optional @rollup/rollup-linux-x64-gnu
+          fi
+
       - name: Pull Vercel Environment Information
         if: ${{ steps.check_secrets.outputs.missing == 'false' }}
         run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
