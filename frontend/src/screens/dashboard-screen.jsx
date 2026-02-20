@@ -510,6 +510,7 @@ function DashboardScreen({
   const [invitations, setInvitations] = useState([]);
   const [isDeletingEventId, setIsDeletingEventId] = useState("");
   const [isDeletingGuestId, setIsDeletingGuestId] = useState("");
+  const [isDeletingInvitationId, setIsDeletingInvitationId] = useState("");
 
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedGuestId, setSelectedGuestId] = useState("");
@@ -537,6 +538,7 @@ function DashboardScreen({
 
   const pendingInvites = invitations.filter((item) => item.status === "pending").length;
   const respondedInvites = invitations.filter((item) => item.status !== "pending").length;
+  const respondedInvitesRate = invitations.length > 0 ? Math.round((respondedInvites / invitations.length) * 100) : 0;
   const isEditingEvent = Boolean(editingEventId);
   const isEditingGuest = Boolean(editingGuestId);
   const isDeleteConfirmLoading =
@@ -544,6 +546,8 @@ function DashboardScreen({
       ? isDeletingEventId === deleteTarget.item?.id
       : deleteTarget?.type === "guest"
       ? isDeletingGuestId === deleteTarget.item?.id
+      : deleteTarget?.type === "invitation"
+      ? isDeletingInvitationId === deleteTarget.item?.id
       : false;
   const getWorkspaceForView = useCallback(
     (viewKey) =>
@@ -873,6 +877,18 @@ function DashboardScreen({
         })),
     [invitations, guestNamesById, eventNamesById, language, t]
   );
+  const nextScheduledEvent = useMemo(() => {
+    const nowMs = Date.now();
+    return events
+      .filter((eventItem) => {
+        if (!eventItem?.start_at) {
+          return false;
+        }
+        const eventMs = new Date(eventItem.start_at).getTime();
+        return Number.isFinite(eventMs) && eventMs >= nowMs;
+      })
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0] || null;
+  }, [events]);
   const eventTypeBaseOptions = useMemo(() => getCatalogLabels("experience_type", language), [language]);
   const relationshipBaseOptions = useMemo(() => getCatalogLabels("relationship", language), [language]);
   const cityBaseOptions = useMemo(
@@ -1294,6 +1310,40 @@ function DashboardScreen({
       suggestions
     };
   }, [selectedGuestId, selectedEventId, guests, events, guestPreferencesById, guestSensitiveById, language, t]);
+  const buildInvitationSharePayload = useCallback(
+    (invitationItem) => {
+      if (!invitationItem?.public_token) {
+        return null;
+      }
+      const eventItem = eventsById[invitationItem.event_id] || null;
+      const guestItem = guestsById[invitationItem.guest_id] || null;
+      const eventName = eventItem?.title || t("field_event");
+      const guestName = guestItem
+        ? `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")
+        : guestNamesById[invitationItem.guest_id] || t("field_guest");
+      const eventDate = formatDate(eventItem?.start_at, language, t("no_date"));
+      const eventLocation = eventItem?.location_name || eventItem?.location_address || "-";
+      const url = `${window.location.origin}/?token=${invitationItem.public_token}`;
+      const shareSubject = interpolateText(t("invitation_share_subject"), {
+        event: eventName
+      });
+      const shareText = interpolateText(t("invitation_share_template"), {
+        guest: guestName,
+        event: eventName,
+        date: eventDate,
+        location: eventLocation,
+        url
+      });
+      return {
+        url,
+        shareSubject,
+        shareText,
+        whatsappUrl: `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+        emailUrl: `mailto:?subject=${encodeURIComponent(shareSubject)}&body=${encodeURIComponent(shareText)}`
+      };
+    },
+    [eventsById, guestsById, guestNamesById, language, t]
+  );
   const lastInvitationWhatsappUrl = useMemo(() => {
     if (!lastInvitationShareText) {
       return "";
@@ -3345,6 +3395,39 @@ function DashboardScreen({
     await loadDashboardData();
   };
 
+  const handleRequestDeleteInvitation = (invitationItem, itemLabel = "") => {
+    if (!invitationItem?.id) {
+      return;
+    }
+    setDeleteTarget({
+      type: "invitation",
+      item: invitationItem,
+      itemLabel
+    });
+  };
+
+  const handleDeleteInvitation = async (invitationItem) => {
+    if (!supabase || !session?.user?.id || !invitationItem?.id) {
+      return;
+    }
+    setIsDeletingInvitationId(invitationItem.id);
+    setInvitationMessage("");
+    const { error } = await supabase
+      .from("invitations")
+      .delete()
+      .eq("id", invitationItem.id)
+      .eq("host_user_id", session.user.id);
+    setIsDeletingInvitationId("");
+
+    if (error) {
+      setInvitationMessage(`${t("error_delete_invitation")} ${error.message}`);
+      return;
+    }
+
+    setInvitationMessage(t("invitation_deleted"));
+    await loadDashboardData();
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget?.item) {
       return;
@@ -3353,6 +3436,8 @@ function DashboardScreen({
       await handleDeleteEvent(deleteTarget.item);
     } else if (deleteTarget.type === "guest") {
       await handleDeleteGuest(deleteTarget.item);
+    } else if (deleteTarget.type === "invitation") {
+      await handleDeleteInvitation(deleteTarget.item);
     }
     setDeleteTarget(null);
   };
@@ -3406,28 +3491,11 @@ function DashboardScreen({
       return;
     }
 
-    const url = `${window.location.origin}/?token=${data.public_token}`;
-    const selectedEventItem = eventsById[selectedEventId] || null;
-    const selectedGuestItem = guestsById[selectedGuestId] || null;
-    const eventName = selectedEventItem?.title || t("field_event");
-    const guestName =
-      selectedGuestItem ? `${selectedGuestItem.first_name || ""} ${selectedGuestItem.last_name || ""}`.trim() : t("field_guest");
-    const eventDate = formatDate(selectedEventItem?.start_at, language, t("no_date"));
-    const eventLocation = selectedEventItem?.location_name || selectedEventItem?.location_address || "-";
-    const shareSubject = interpolateText(t("invitation_share_subject"), {
-      event: eventName
-    });
-    const shareText = interpolateText(t("invitation_share_template"), {
-      guest: guestName || t("field_guest"),
-      event: eventName,
-      date: eventDate,
-      location: eventLocation,
-      url
-    });
+    const sharePayload = buildInvitationSharePayload(data);
     setInvitationMessage(t("invitation_created"));
-    setLastInvitationUrl(url);
-    setLastInvitationShareSubject(shareSubject);
-    setLastInvitationShareText(shareText);
+    setLastInvitationUrl(sharePayload?.url || "");
+    setLastInvitationShareSubject(sharePayload?.shareSubject || "");
+    setLastInvitationShareText(sharePayload?.shareText || "");
     await loadDashboardData();
   };
 
@@ -3447,6 +3515,19 @@ function DashboardScreen({
     } catch {
       setInvitationMessage(t("copy_fail"));
     }
+  };
+
+  const handlePrepareInvitationShare = (invitationItem) => {
+    const sharePayload = buildInvitationSharePayload(invitationItem);
+    if (!sharePayload) {
+      setInvitationMessage(t("invitation_share_unavailable"));
+      return null;
+    }
+    setLastInvitationUrl(sharePayload.url);
+    setLastInvitationShareSubject(sharePayload.shareSubject);
+    setLastInvitationShareText(sharePayload.shareText);
+    setInvitationMessage(t("invitation_share_ready"));
+    return sharePayload;
   };
 
   return (
@@ -3590,6 +3671,45 @@ function DashboardScreen({
 
         {activeView === "overview" ? (
           <section className="overview-grid view-transition">
+            <article className="panel overview-hero-card">
+              <div className="overview-hero-head">
+                <div>
+                  <p className="hint">{t("overview_hero_title")}</p>
+                  <p className="kpi-value">{events.length + guests.length + invitations.length}</p>
+                  <p className="field-help">{t("overview_hero_subtitle")}</p>
+                </div>
+                <div className="overview-hero-pills">
+                  <span className="status-pill status-pending">
+                    {t("kpi_pending_rsvp")}: {pendingInvites}
+                  </span>
+                  <span className="status-pill status-yes">
+                    {t("kpi_answered_rsvp")}: {respondedInvitesRate}%
+                  </span>
+                  <span className="status-pill status-host-converted">
+                    {t("kpi_converted_hosts")}: {convertedHostGuestsCount}
+                  </span>
+                </div>
+              </div>
+              <div className="overview-hero-footer">
+                <p className="item-meta">
+                  {nextScheduledEvent
+                    ? `${t("overview_next_event_label")} ${nextScheduledEvent.title || "-"} - ${formatDate(
+                        nextScheduledEvent.start_at,
+                        language,
+                        t("no_date")
+                      )}`
+                    : t("overview_next_event_empty")}
+                </p>
+                <div className="button-row">
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "create")}>
+                    {t("create_event_title")}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
+                    {t("create_invitation_title")}
+                  </button>
+                </div>
+              </div>
+            </article>
             <div className="overview-kpi-grid">
             <article
               className="panel kpi-card is-interactive"
@@ -3748,7 +3868,7 @@ function DashboardScreen({
             </article>
             </div>
             <div className="overview-secondary-grid">
-            <article className="panel panel-wide growth-panel">
+            <article className="panel growth-panel">
               <h2 className="section-title">
                 <Icon name="trend" className="icon" />
                 {t("growth_analytics_title")}
@@ -3807,7 +3927,8 @@ function DashboardScreen({
                 })}
               </div>
             </article>
-            <form className="panel panel-wide form-grid" onSubmit={handleSaveHostProfile} noValidate>
+            <div className="overview-side-stack">
+            <form className="panel form-grid" onSubmit={handleSaveHostProfile} noValidate>
               <h2 className="section-title">
                 <Icon name="user" className="icon" />
                 {t("host_profile_title")}
@@ -3894,7 +4015,7 @@ function DashboardScreen({
               <FieldMeta helpText={t("host_profile_sync_hint")} />
               <InlineMessage text={hostProfileMessage} />
             </form>
-            <article className="panel panel-wide">
+            <article className="panel">
               <h2 className="section-title">
                 <Icon name="sparkle" className="icon" />
                 {t("hint_accessibility")}
@@ -3902,6 +4023,7 @@ function DashboardScreen({
               <p className="field-help">{t("overview_help")}</p>
               <p className="field-help">{t("content_translation_note")}</p>
             </article>
+            </div>
             </div>
           </section>
         ) : null}
@@ -4373,6 +4495,7 @@ function DashboardScreen({
                   </button>
                 </div>
               ) : null}
+              <InlineMessage text={invitationMessage} />
               {!selectedEventDetail ? (
                 <p className="hint">{t("event_detail_empty")}</p>
               ) : (
@@ -4501,28 +4624,63 @@ function DashboardScreen({
                       <p className="hint">{t("event_detail_no_invites")}</p>
                     ) : (
                       <ul className="list detail-list">
-                        {selectedEventDetailGuests.map((row) => (
-                          <li key={row.invitation.id}>
-                            <p className="item-title">{row.name}</p>
-                            <p className="item-meta">{row.contact}</p>
-                            <p className="item-meta">
-                              {t("status")}:{" "}
-                              <span className={`status-pill ${statusClass(row.invitation.status)}`}>
-                                {statusText(t, row.invitation.status)}
-                              </span>{" "}
-                              - {t("responded")}: {formatDate(row.invitation.responded_at, language, t("no_response"))}
-                            </p>
-                            <div className="item-actions">
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                type="button"
-                                onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
-                              >
-                                {t("view_guest_detail_action")}
-                              </button>
-                            </div>
-                          </li>
-                        ))}
+                        {selectedEventDetailGuests.map((row) => {
+                          const sharePayload = buildInvitationSharePayload(row.invitation);
+                          const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
+                          return (
+                            <li key={row.invitation.id}>
+                              <p className="item-title">{row.name}</p>
+                              <p className="item-meta">{row.contact}</p>
+                              <p className="item-meta">
+                                {t("status")}:{" "}
+                                <span className={`status-pill ${statusClass(row.invitation.status)}`}>
+                                  {statusText(t, row.invitation.status)}
+                                </span>{" "}
+                                - {t("responded")}: {formatDate(row.invitation.responded_at, language, t("no_response"))}
+                              </p>
+                              <div className="item-actions">
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  type="button"
+                                  onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
+                                >
+                                  {t("view_guest_detail_action")}
+                                </button>
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  type="button"
+                                  onClick={() => {
+                                    const prepared = handlePrepareInvitationShare(row.invitation);
+                                    if (prepared?.whatsappUrl) {
+                                      window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                                    }
+                                  }}
+                                >
+                                  {t("invitation_send_message_action")}
+                                </button>
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  type="button"
+                                  onClick={() => {
+                                    const prepared = handlePrepareInvitationShare(row.invitation) || sharePayload;
+                                    if (prepared?.shareText) {
+                                      handleCopyInvitationMessage(prepared.shareText);
+                                    }
+                                  }}
+                                >
+                                  {t("invitation_copy_message")}
+                                </button>
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  type="button"
+                                  onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
+                                >
+                                  {t("delete_invitation")}
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </article>
@@ -5945,6 +6103,7 @@ function DashboardScreen({
               <p className="hint">
                 {t("results_count")}: {filteredInvitations.length}
               </p>
+              <InlineMessage text={invitationMessage} />
               {filteredInvitations.length === 0 ? (
                 <p>{t("no_invitations")}</p>
               ) : (
@@ -5952,7 +6111,9 @@ function DashboardScreen({
                   {pagedInvitations.map((invitation) => {
                     const eventName = eventNamesById[invitation.event_id] || invitation.event_id;
                     const guestName = guestNamesById[invitation.guest_id] || invitation.guest_id;
-                    const url = `${window.location.origin}/?token=${invitation.public_token}`;
+                    const sharePayload = buildInvitationSharePayload(invitation);
+                    const url = sharePayload?.url || `${window.location.origin}/?token=${invitation.public_token}`;
+                    const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                     return (
                       <li key={invitation.id}>
                         <p className="item-title">
@@ -5980,6 +6141,37 @@ function DashboardScreen({
                           <a className="btn btn-ghost" href={url} target="_blank" rel="noreferrer">
                             {t("open_rsvp")}
                           </a>
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            onClick={() => {
+                              const prepared = handlePrepareInvitationShare(invitation) || sharePayload;
+                              if (prepared?.shareText) {
+                                handleCopyInvitationMessage(prepared.shareText);
+                              }
+                            }}
+                          >
+                            {t("invitation_copy_message")}
+                          </button>
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            onClick={() => {
+                              const prepared = handlePrepareInvitationShare(invitation);
+                              if (prepared?.whatsappUrl) {
+                                window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                              }
+                            }}
+                          >
+                            {t("invitation_send_message_action")}
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            type="button"
+                            onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
+                          >
+                            {t("delete_invitation")}
+                          </button>
                         </div>
                       </li>
                     );
@@ -6028,16 +6220,26 @@ function DashboardScreen({
               onClick={(event) => event.stopPropagation()}
             >
               <h3 id="confirm-delete-title" className="item-title">
-                {deleteTarget.type === "event" ? t("delete_event_title") : t("delete_guest_title")}
+                {deleteTarget.type === "event"
+                  ? t("delete_event_title")
+                  : deleteTarget.type === "guest"
+                  ? t("delete_guest_title")
+                  : t("delete_invitation_title")}
               </h3>
               <p className="item-meta">
-                {deleteTarget.type === "event" ? t("delete_event_confirm") : t("delete_guest_confirm")}
+                {deleteTarget.type === "event"
+                  ? t("delete_event_confirm")
+                  : deleteTarget.type === "guest"
+                  ? t("delete_guest_confirm")
+                  : t("delete_invitation_confirm")}
               </p>
               <p className="hint">
                 {t("selected_item")}:{" "}
                 {deleteTarget.type === "event"
                   ? deleteTarget.item?.title || "-"
-                  : `${deleteTarget.item?.first_name || ""} ${deleteTarget.item?.last_name || ""}`.trim() || "-"}
+                  : deleteTarget.type === "guest"
+                  ? `${deleteTarget.item?.first_name || ""} ${deleteTarget.item?.last_name || ""}`.trim() || "-"
+                  : deleteTarget.itemLabel || "-"}
               </p>
               <div className="button-row">
                 <button className="btn btn-ghost" type="button" onClick={() => setDeleteTarget(null)} disabled={isDeleteConfirmLoading}>

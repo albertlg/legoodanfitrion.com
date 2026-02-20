@@ -730,15 +730,53 @@ h2 {
   gap: 1rem;
 }
 
+.overview-hero-card {
+  display: grid;
+  gap: 0.75rem;
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  background:
+    radial-gradient(120% 160% at 100% 0%, color-mix(in srgb, var(--primary) 20%, transparent 80%), transparent 58%),
+    var(--panel-bg);
+}
+
+.overview-hero-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.overview-hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.overview-hero-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 75%, transparent 25%);
+}
+
 .overview-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
 }
 
 .overview-secondary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.overview-side-stack {
+  display: grid;
   gap: 1rem;
 }
 
@@ -1760,6 +1798,12 @@ code {
 
   .overview-secondary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .overview-hero-head,
+  .overview-hero-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .growth-funnel-grid {
