@@ -171,11 +171,13 @@ body {
 }
 
 .control-icon-btn {
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--panel-bg);
+  width: auto;
+  min-width: 36px;
+  height: 34px;
+  padding: 0 0.2rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
   color: var(--title);
   display: inline-flex;
   align-items: center;
@@ -187,8 +189,7 @@ body {
 }
 
 .control-icon-btn:hover {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--panel-bg) 86%, var(--primary) 14%);
+  background: color-mix(in srgb, var(--panel-bg) 84%, var(--primary) 16%);
   transform: translateY(-1px);
 }
 
@@ -218,8 +219,8 @@ body {
   height: 0.85rem;
   border-radius: 3px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent 24%);
-  background: color-mix(in srgb, var(--panel-bg) 75%, #ffffff 25%);
+  border: none;
+  background: transparent;
   font-size: 0.72rem;
   line-height: 1;
 }
@@ -262,6 +263,11 @@ body {
   padding: 0.42rem 0.5rem;
   cursor: pointer;
   text-align: left;
+}
+
+.control-option .control-flag {
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent 24%);
+  background: color-mix(in srgb, var(--panel-bg) 75%, #ffffff 25%);
 }
 
 .control-option:hover {
