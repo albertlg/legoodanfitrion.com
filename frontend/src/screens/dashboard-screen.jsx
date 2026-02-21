@@ -8817,21 +8817,13 @@ function DashboardScreen({
               <p className="hint">
                 {t("results_count")}: {filteredInvitations.length}
               </p>
-              <div className="button-row invitation-list-head-actions">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  type="button"
-                  onClick={() => setShowInvitationBulkActions((prev) => !prev)}
-                >
-                  <Icon name="check" className="icon icon-sm" />
-                  {showInvitationBulkActions ? t("invitation_list_bulk_hide") : t("invitation_list_bulk_show")}
-                </button>
-                {selectedLatestInvitationIds.length > 0 ? (
+              {showInvitationBulkActions && selectedLatestInvitationIds.length > 0 ? (
+                <p className="hint">
                   <span className="status-pill status-pending">
                     {t("invitation_list_bulk_selected_count")} {selectedLatestInvitationIds.length}
                   </span>
-                ) : null}
-              </div>
+                </p>
+              ) : null}
               {showInvitationBulkActions ? (
                 <section className="recommendation-card invitation-bulk-card">
                   <p className="label-title">

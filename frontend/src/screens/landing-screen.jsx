@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -6,16 +6,10 @@ import { InlineMessage } from "../components/inline-message";
 import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
 
 const NAV_ITEMS = [
-  { key: "features", path: "/features", labelKey: "landing_nav_features", targetId: "landing-features" },
-  { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing", targetId: "landing-cta" },
-  { key: "contact", path: "/contact", labelKey: "landing_nav_contact", targetId: "landing-footer" }
+  { key: "features", path: "/features", labelKey: "landing_nav_features" },
+  { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
+  { key: "contact", path: "/contact", labelKey: "landing_nav_contact" }
 ];
-
-const PATH_TO_TARGET = {
-  "/features": "landing-features",
-  "/pricing": "landing-cta",
-  "/contact": "landing-footer"
-};
 
 function LandingScreen({
   t,
@@ -34,17 +28,14 @@ function LandingScreen({
   const [waitlistMessage, setWaitlistMessage] = useState("");
   const [waitlistMessageType, setWaitlistMessageType] = useState("info");
 
-  useEffect(() => {
-    const targetId = PATH_TO_TARGET[currentPath];
-    if (!targetId) {
-      return;
-    }
-    const target = document.getElementById(targetId);
-    if (!target) {
-      return;
-    }
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [currentPath]);
+  const pageMode =
+    currentPath === "/features"
+      ? "features"
+      : currentPath === "/pricing"
+      ? "pricing"
+      : currentPath === "/contact"
+      ? "contact"
+      : "home";
 
   const primaryCta = session?.user?.id
     ? { label: t("landing_cta_open_app"), onClick: onGoApp }
@@ -118,6 +109,29 @@ function LandingScreen({
     setWaitlistEmail("");
   };
 
+  const renderWaitlistSection = (sectionId, compact = false) => (
+    <section id={sectionId} className={`landing-waitlist ${compact ? "landing-waitlist-compact" : ""}`}>
+      <h2 className="landing-waitlist-title">{t("landing_contact_title")}</h2>
+      <p className="landing-waitlist-subtitle">{t("landing_contact_subtitle")}</p>
+      <form className="landing-waitlist-form" onSubmit={handleJoinWaitlist} noValidate>
+        <input
+          type="email"
+          value={waitlistEmail}
+          onChange={(event) => setWaitlistEmail(event.target.value)}
+          placeholder={t("placeholder_email")}
+          aria-label={t("email")}
+          autoComplete="email"
+          disabled={isJoiningWaitlist}
+        />
+        <button className="btn btn-sm" type="submit" disabled={isJoiningWaitlist}>
+          {isJoiningWaitlist ? t("waitlist_join_loading") : t("landing_contact_cta")}
+        </button>
+      </form>
+      <p className="landing-waitlist-legal">{t("waitlist_privacy_hint")}</p>
+      <InlineMessage type={waitlistMessageType} text={waitlistMessage} />
+    </section>
+  );
+
   return (
     <main className="page page-landing">
       <section className="card landing-shell">
@@ -152,77 +166,168 @@ function LandingScreen({
           </div>
         </header>
 
-        <section className="landing-hero">
-          <article className="landing-hero-copy">
-            <p className="landing-badge">{t("landing_badge")}</p>
-            <h1 className="landing-title">{t("landing_title")}</h1>
-            <p className="landing-subtitle">{t("landing_subtitle")}</p>
-            <div className="button-row">
-              <button className="btn" type="button" onClick={primaryCta.onClick}>
-                {primaryCta.label}
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => onNavigate("/features")}>
-                {t("landing_cta_demo")}
-              </button>
-            </div>
-          </article>
-          <aside className="landing-hero-media" aria-hidden="true">
-            <div className="landing-hero-media-overlay">
-              <Icon name="sparkle" className="icon" />
-              <p>{t("landing_feature_rsvp_title")}</p>
-            </div>
-          </aside>
-        </section>
+        {pageMode === "home" ? (
+          <>
+            <section className="landing-hero">
+              <article className="landing-hero-copy">
+                <p className="landing-badge">{t("landing_badge")}</p>
+                <h1 className="landing-title">{t("landing_title")}</h1>
+                <p className="landing-subtitle">{t("landing_subtitle")}</p>
+                <div className="button-row">
+                  <button className="btn" type="button" onClick={primaryCta.onClick}>
+                    {primaryCta.label}
+                  </button>
+                  <button className="btn btn-ghost" type="button" onClick={() => onNavigate("/features")}>
+                    {t("landing_cta_demo")}
+                  </button>
+                </div>
+              </article>
+              <aside className="landing-hero-media" aria-hidden="true">
+                <div className="landing-hero-media-overlay">
+                  <Icon name="sparkle" className="icon" />
+                  <p>{t("landing_feature_rsvp_title")}</p>
+                </div>
+              </aside>
+            </section>
 
-        <section id="landing-features" className="landing-section">
-          <p className="landing-eyebrow">{t("landing_features_eyebrow")}</p>
-          <h2 className="landing-section-title">{t("landing_features_title")}</h2>
-          <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
-          <div className="landing-feature-grid">
-            <article className="panel landing-feature-card">
-              <span className="landing-feature-icon">
-                <Icon name="calendar" className="icon icon-sm" />
-              </span>
-              <h3>{t("landing_feature_events_title")}</h3>
-              <p>{t("landing_feature_events_desc")}</p>
-            </article>
-            <article className="panel landing-feature-card">
-              <span className="landing-feature-icon">
-                <Icon name="user" className="icon icon-sm" />
-              </span>
-              <h3>{t("landing_feature_guests_title")}</h3>
-              <p>{t("landing_feature_guests_desc")}</p>
-            </article>
-            <article className="panel landing-feature-card">
-              <span className="landing-feature-icon">
-                <Icon name="mail" className="icon icon-sm" />
-              </span>
-              <h3>{t("landing_feature_rsvp_title")}</h3>
-              <p>{t("landing_feature_rsvp_desc")}</p>
-            </article>
-          </div>
-        </section>
+            <section id="landing-features" className="landing-section">
+              <p className="landing-eyebrow">{t("landing_features_eyebrow")}</p>
+              <h2 className="landing-section-title">{t("landing_features_title")}</h2>
+              <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
+              <div className="landing-feature-grid">
+                <article className="panel landing-feature-card">
+                  <span className="landing-feature-icon">
+                    <Icon name="calendar" className="icon icon-sm" />
+                  </span>
+                  <h3>{t("landing_feature_events_title")}</h3>
+                  <p>{t("landing_feature_events_desc")}</p>
+                </article>
+                <article className="panel landing-feature-card">
+                  <span className="landing-feature-icon">
+                    <Icon name="user" className="icon icon-sm" />
+                  </span>
+                  <h3>{t("landing_feature_guests_title")}</h3>
+                  <p>{t("landing_feature_guests_desc")}</p>
+                </article>
+                <article className="panel landing-feature-card">
+                  <span className="landing-feature-icon">
+                    <Icon name="mail" className="icon icon-sm" />
+                  </span>
+                  <h3>{t("landing_feature_rsvp_title")}</h3>
+                  <p>{t("landing_feature_rsvp_desc")}</p>
+                </article>
+              </div>
+            </section>
 
-        <section id="landing-cta" className="landing-waitlist">
-          <h2 className="landing-waitlist-title">{t("landing_contact_title")}</h2>
-          <p className="landing-waitlist-subtitle">{t("landing_contact_subtitle")}</p>
-          <form className="landing-waitlist-form" onSubmit={handleJoinWaitlist} noValidate>
-            <input
-              type="email"
-              value={waitlistEmail}
-              onChange={(event) => setWaitlistEmail(event.target.value)}
-              placeholder={t("placeholder_email")}
-              aria-label={t("email")}
-              autoComplete="email"
-              disabled={isJoiningWaitlist}
-            />
-            <button className="btn btn-sm" type="submit" disabled={isJoiningWaitlist}>
-              {isJoiningWaitlist ? t("waitlist_join_loading") : t("landing_contact_cta")}
-            </button>
-          </form>
-          <p className="landing-waitlist-legal">{t("waitlist_privacy_hint")}</p>
-          <InlineMessage type={waitlistMessageType} text={waitlistMessage} />
-        </section>
+            {renderWaitlistSection("landing-cta")}
+          </>
+        ) : null}
+
+        {pageMode === "features" ? (
+          <>
+            <section className="landing-page-head">
+              <p className="landing-eyebrow">{t("landing_nav_features")}</p>
+              <h1 className="landing-section-title">{t("landing_features_title")}</h1>
+              <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
+              <div className="button-row landing-page-head-actions">
+                <button className="btn" type="button" onClick={primaryCta.onClick}>
+                  {primaryCta.label}
+                </button>
+                <button className="btn btn-ghost" type="button" onClick={() => onNavigate("/pricing")}>
+                  {t("landing_nav_pricing")}
+                </button>
+              </div>
+            </section>
+            <section className="landing-section landing-section-page">
+              <div className="landing-feature-grid">
+                <article className="panel landing-feature-card">
+                  <span className="landing-feature-icon">
+                    <Icon name="calendar" className="icon icon-sm" />
+                  </span>
+                  <h3>{t("landing_feature_events_title")}</h3>
+                  <p>{t("landing_feature_events_desc")}</p>
+                </article>
+                <article className="panel landing-feature-card">
+                  <span className="landing-feature-icon">
+                    <Icon name="user" className="icon icon-sm" />
+                  </span>
+                  <h3>{t("landing_feature_guests_title")}</h3>
+                  <p>{t("landing_feature_guests_desc")}</p>
+                </article>
+                <article className="panel landing-feature-card">
+                  <span className="landing-feature-icon">
+                    <Icon name="mail" className="icon icon-sm" />
+                  </span>
+                  <h3>{t("landing_feature_rsvp_title")}</h3>
+                  <p>{t("landing_feature_rsvp_desc")}</p>
+                </article>
+              </div>
+            </section>
+            {renderWaitlistSection("landing-cta", true)}
+          </>
+        ) : null}
+
+        {pageMode === "pricing" ? (
+          <>
+            <section className="landing-page-head">
+              <p className="landing-eyebrow">{t("landing_nav_pricing")}</p>
+              <h1 className="landing-section-title">{t("landing_pricing_title")}</h1>
+              <p className="landing-section-subtitle">{t("landing_pricing_subtitle")}</p>
+            </section>
+            <section className="landing-section landing-section-page">
+              <div className="landing-pricing-grid">
+                <article className="panel landing-pricing-card">
+                  <p className="landing-pricing-plan">{t("landing_pricing_card_title")}</p>
+                  <p className="landing-pricing-price">{t("landing_pricing_card_price")}</p>
+                  <p className="landing-pricing-desc">{t("landing_pricing_card_desc")}</p>
+                  <ul className="landing-pricing-list">
+                    <li>{t("landing_feature_events_title")}</li>
+                    <li>{t("landing_feature_guests_title")}</li>
+                    <li>{t("landing_feature_rsvp_title")}</li>
+                  </ul>
+                  <button className="btn btn-sm" type="button" onClick={primaryCta.onClick}>
+                    {primaryCta.label}
+                  </button>
+                </article>
+                <article className="panel landing-pricing-card landing-pricing-card-secondary">
+                  <p className="landing-pricing-plan">{t("public_coming_badge")}</p>
+                  <h3>{t("public_coming_title")}</h3>
+                  <p className="landing-pricing-desc">{t("public_coming_subtitle")}</p>
+                  <ul className="landing-pricing-list">
+                    <li>{t("public_coming_point_1")}</li>
+                    <li>{t("public_coming_point_2")}</li>
+                    <li>{t("public_coming_point_3")}</li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+            {renderWaitlistSection("landing-cta", true)}
+          </>
+        ) : null}
+
+        {pageMode === "contact" ? (
+          <>
+            <section className="landing-page-head">
+              <p className="landing-eyebrow">{t("landing_nav_contact")}</p>
+              <h1 className="landing-section-title">{t("landing_contact_title")}</h1>
+              <p className="landing-section-subtitle">{t("landing_contact_subtitle")}</p>
+            </section>
+            <section className="landing-section landing-section-page">
+              <div className="landing-contact-grid">
+                <article className="panel landing-contact-card">
+                  <h3>{t("landing_nav_contact")}</h3>
+                  <p>hello@legoodanfitrion.com</p>
+                  <p>https://legoodanfitrion.com</p>
+                </article>
+                <article className="panel landing-contact-card">
+                  <h3>{t("landing_footer_privacy")} & {t("landing_footer_terms")}</h3>
+                  <p>{t("waitlist_privacy_hint")}</p>
+                </article>
+              </div>
+            </section>
+            {renderWaitlistSection("landing-cta", true)}
+          </>
+        ) : null}
 
         <footer id="landing-footer" className="landing-footer">
           <p>© 2026 {t("app_name")}</p>

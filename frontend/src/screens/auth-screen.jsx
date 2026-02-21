@@ -21,6 +21,14 @@ function AuthScreen({
   isSigningUp,
   isSigningInWithGoogle,
   isSendingPasswordReset,
+  isRecoveryMode,
+  resetPassword,
+  setResetPassword,
+  resetPasswordConfirm,
+  setResetPasswordConfirm,
+  isUpdatingPassword,
+  onUpdatePassword,
+  onExitRecovery,
   onSignIn,
   onSignUp,
   onForgotPassword,
@@ -65,8 +73,8 @@ function AuthScreen({
               />
             </div>
             <div>
-              <h2>{t("auth_welcome_back")}</h2>
-              <p className="field-help">{t("auth_welcome_hint")}</p>
+              <h2>{isRecoveryMode ? t("auth_recovery_title") : t("auth_welcome_back")}</h2>
+              <p className="field-help">{isRecoveryMode ? t("auth_recovery_hint") : t("auth_welcome_hint")}</p>
             </div>
           </header>
 
@@ -74,82 +82,123 @@ function AuthScreen({
           <InlineMessage type="error" text={authError} />
           <InlineMessage type="success" text={accountMessage} />
 
-          <form id="auth-access-panel" className="panel form-grid auth-form" onSubmit={onSignIn} noValidate>
-            <button
-              className="btn btn-ghost btn-google"
-              type="button"
-              onClick={onGoogleSignIn}
-              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
-            >
-              <span className="google-mark" aria-hidden="true">
-                G
-              </span>
-              {isSigningInWithGoogle ? t("signing_in_google") : t("sign_in_google")}
-            </button>
-
-            <p className="auth-divider">
-              <span>{t("auth_or_continue_with_email")}</span>
-            </p>
-
-            <label>
-              <span className="label-title">
-                <Icon name="mail" className="icon icon-sm" />
-                {t("email")}
-              </span>
-              <input
-                type="email"
-                required
-                value={loginEmail}
-                onChange={(event) => setLoginEmail(event.target.value)}
-                placeholder={t("placeholder_email")}
-                autoComplete="email"
-              />
-              <FieldMeta helpText={t("hint_contact_required")} />
-            </label>
-
-            <label>
-              <span className="label-title">
-                <Icon name="shield" className="icon icon-sm" />
-                {t("password")}
-              </span>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
-                placeholder="******"
-                autoComplete="current-password"
-              />
-            </label>
-
-            <p className="auth-forgot">
-              <button
-                className="text-link-btn auth-forgot-btn"
-                type="button"
-                onClick={onForgotPassword}
-                disabled={isSigningIn || isSigningUp || isSigningInWithGoogle || isSendingPasswordReset}
-              >
-                {isSendingPasswordReset ? t("auth_sending_reset_password") : t("auth_forgot_password")}
+          {isRecoveryMode ? (
+            <form id="auth-recovery-panel" className="panel form-grid auth-form" onSubmit={onUpdatePassword} noValidate>
+              <label>
+                <span className="label-title">
+                  <Icon name="shield" className="icon icon-sm" />
+                  {t("auth_recovery_new_password")}
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={resetPassword}
+                  onChange={(event) => setResetPassword(event.target.value)}
+                  placeholder="******"
+                  autoComplete="new-password"
+                />
+              </label>
+              <label>
+                <span className="label-title">
+                  <Icon name="check" className="icon icon-sm" />
+                  {t("auth_recovery_confirm_password")}
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={resetPasswordConfirm}
+                  onChange={(event) => setResetPasswordConfirm(event.target.value)}
+                  placeholder="******"
+                  autoComplete="new-password"
+                />
+              </label>
+              <button className="btn btn-block" type="submit" disabled={isUpdatingPassword}>
+                {isUpdatingPassword ? t("auth_recovery_updating") : t("auth_recovery_update_action")}
               </button>
-            </p>
-
-            <button className="btn btn-block" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
-              {isSigningIn ? t("signing_in") : t("sign_in")}
-            </button>
-
-            <p className="auth-switch">
-              {t("auth_no_account")}{" "}
+              <button className="btn btn-ghost btn-block" type="button" onClick={onExitRecovery} disabled={isUpdatingPassword}>
+                {t("auth_recovery_cancel")}
+              </button>
+            </form>
+          ) : (
+            <form id="auth-access-panel" className="panel form-grid auth-form" onSubmit={onSignIn} noValidate>
               <button
-                className="text-link-btn"
+                className="btn btn-ghost btn-google"
                 type="button"
-                onClick={onSignUp}
+                onClick={onGoogleSignIn}
                 disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
               >
-                {isSigningUp ? t("signing_up") : t("sign_up")}
+                <span className="google-mark" aria-hidden="true">
+                  G
+                </span>
+                {isSigningInWithGoogle ? t("signing_in_google") : t("sign_in_google")}
               </button>
-            </p>
-          </form>
+
+              <p className="auth-divider">
+                <span>{t("auth_or_continue_with_email")}</span>
+              </p>
+
+              <label>
+                <span className="label-title">
+                  <Icon name="mail" className="icon icon-sm" />
+                  {t("email")}
+                </span>
+                <input
+                  type="email"
+                  required
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                  placeholder={t("placeholder_email")}
+                  autoComplete="email"
+                />
+                <FieldMeta helpText={t("hint_contact_required")} />
+              </label>
+
+              <label>
+                <span className="label-title">
+                  <Icon name="shield" className="icon icon-sm" />
+                  {t("password")}
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  placeholder="******"
+                  autoComplete="current-password"
+                />
+              </label>
+
+              <p className="auth-forgot">
+                <button
+                  className="text-link-btn auth-forgot-btn"
+                  type="button"
+                  onClick={onForgotPassword}
+                  disabled={isSigningIn || isSigningUp || isSigningInWithGoogle || isSendingPasswordReset}
+                >
+                  {isSendingPasswordReset ? t("auth_sending_reset_password") : t("auth_forgot_password")}
+                </button>
+              </p>
+
+              <button className="btn btn-block" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
+                {isSigningIn ? t("signing_in") : t("sign_in")}
+              </button>
+
+              <p className="auth-switch">
+                {t("auth_no_account")}{" "}
+                <button
+                  className="text-link-btn"
+                  type="button"
+                  onClick={onSignUp}
+                  disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
+                >
+                  {isSigningUp ? t("signing_up") : t("sign_up")}
+                </button>
+              </p>
+            </form>
+          )}
         </section>
       </section>
     </main>

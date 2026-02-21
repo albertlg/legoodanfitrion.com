@@ -49,6 +49,22 @@ function getRouteFromLocation() {
   return { kind: "landing", path: "/" };
 }
 
+function getHashSearchParams() {
+  if (typeof window === "undefined") {
+    return new URLSearchParams();
+  }
+  const hash = String(window.location.hash || "").replace(/^#/, "").trim();
+  if (!hash) {
+    return new URLSearchParams();
+  }
+  return new URLSearchParams(hash);
+}
+
+function isRecoveryRouteFromLocation() {
+  const hashParams = getHashSearchParams();
+  return String(hashParams.get("type") || "").toLowerCase() === "recovery";
+}
+
 function detectLanguage() {
   const stored = window.localStorage.getItem("legood-language");
   if (stored && I18N[stored]) {
@@ -122,6 +138,10 @@ function App() {
   const [isSigningInWithGoogle, setIsSigningInWithGoogle] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
+  const [isRecoveryMode, setIsRecoveryMode] = useState(isRecoveryRouteFromLocation);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
   const t = useCallback(
@@ -147,7 +167,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const onPopState = () => setRoute(getRouteFromLocation());
+    const onPopState = () => {
+      setRoute(getRouteFromLocation());
+      setIsRecoveryMode(isRecoveryRouteFromLocation());
+    };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -186,17 +209,34 @@ function App() {
     };
     loadSession();
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setProfilePrefsReady(false);
       setIsSigningInWithGoogle(false);
+      if (event === "PASSWORD_RECOVERY") {
+        setIsRecoveryMode(true);
+        navigate("/login", { replace: true });
+      }
+      if (event === "SIGNED_OUT") {
+        setIsRecoveryMode(false);
+      }
     });
 
     return () => {
       isMounted = false;
       data.subscription.unsubscribe();
     };
-  }, [t]);
+  }, [navigate, t]);
+
+  useEffect(() => {
+    if (!isRecoveryRouteFromLocation()) {
+      return;
+    }
+    setIsRecoveryMode(true);
+    if (route.kind !== "login") {
+      navigate("/login", { replace: true });
+    }
+  }, [navigate, route.kind]);
 
   useEffect(() => {
     if (!supabase || !session?.user?.id) {
@@ -355,6 +395,41 @@ function App() {
     setAccountMessage(t("auth_reset_password_sent"));
   };
 
+  const handleUpdatePassword = async (event) => {
+    event.preventDefault();
+    if (!supabase) {
+      return;
+    }
+    setAuthError("");
+    setAccountMessage("");
+    const password = resetPassword.trim();
+    const confirmPassword = resetPasswordConfirm.trim();
+    if (!password) {
+      setAuthError(t("auth_error_password_required"));
+      return;
+    }
+    if (password.length < 6) {
+      setAuthError(t("auth_error_password_short"));
+      return;
+    }
+    if (password !== confirmPassword) {
+      setAuthError(t("auth_error_password_mismatch"));
+      return;
+    }
+    setIsUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setIsUpdatingPassword(false);
+    if (error) {
+      setAuthError(normalizeAuthErrorMessage(error, t));
+      return;
+    }
+    setResetPassword("");
+    setResetPasswordConfirm("");
+    setIsRecoveryMode(false);
+    setAccountMessage(t("auth_password_updated"));
+    navigate("/app", { replace: true });
+  };
+
   const handleGoogleSignIn = async () => {
     if (!supabase) {
       return;
@@ -391,11 +466,11 @@ function App() {
   }, [navigate, route.kind, session?.user?.id]);
 
   useEffect(() => {
-    if (!session?.user?.id || route.kind !== "login") {
+    if (!session?.user?.id || route.kind !== "login" || isRecoveryMode) {
       return;
     }
     navigate("/app", { replace: true });
-  }, [navigate, route.kind, session?.user?.id]);
+  }, [isRecoveryMode, navigate, route.kind, session?.user?.id]);
 
   if (!hasSupabaseEnv && route.kind !== "landing") {
     return (
@@ -453,6 +528,45 @@ function App() {
     );
   }
 
+  if (route.kind === "login" && isRecoveryMode) {
+    return (
+      <AuthScreen
+        t={t}
+        language={language}
+        setLanguage={setLanguage}
+        themeMode={themeMode}
+        setThemeMode={setThemeMode}
+        isLoadingAuth={isLoadingAuth}
+        authError={authError}
+        accountMessage={accountMessage}
+        loginEmail={loginEmail}
+        setLoginEmail={setLoginEmail}
+        loginPassword={loginPassword}
+        setLoginPassword={setLoginPassword}
+        isSigningIn={isSigningIn}
+        isSigningUp={isSigningUp}
+        isSigningInWithGoogle={isSigningInWithGoogle}
+        isSendingPasswordReset={isSendingPasswordReset}
+        isRecoveryMode={isRecoveryMode}
+        resetPassword={resetPassword}
+        setResetPassword={setResetPassword}
+        resetPasswordConfirm={resetPasswordConfirm}
+        setResetPasswordConfirm={setResetPasswordConfirm}
+        isUpdatingPassword={isUpdatingPassword}
+        onUpdatePassword={handleUpdatePassword}
+        onExitRecovery={() => {
+          setIsRecoveryMode(false);
+          navigate("/login", { replace: true });
+        }}
+        onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
+        onForgotPassword={handleForgotPassword}
+        onGoogleSignIn={handleGoogleSignIn}
+        onBackToLanding={() => navigate("/")}
+      />
+    );
+  }
+
   if (!session?.user?.id) {
     return (
       <AuthScreen
@@ -472,6 +586,17 @@ function App() {
         isSigningUp={isSigningUp}
         isSigningInWithGoogle={isSigningInWithGoogle}
         isSendingPasswordReset={isSendingPasswordReset}
+        isRecoveryMode={isRecoveryMode}
+        resetPassword={resetPassword}
+        setResetPassword={setResetPassword}
+        resetPasswordConfirm={resetPasswordConfirm}
+        setResetPasswordConfirm={setResetPasswordConfirm}
+        isUpdatingPassword={isUpdatingPassword}
+        onUpdatePassword={handleUpdatePassword}
+        onExitRecovery={() => {
+          setIsRecoveryMode(false);
+          navigate("/login", { replace: true });
+        }}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}
         onForgotPassword={handleForgotPassword}

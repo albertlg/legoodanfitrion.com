@@ -633,6 +633,21 @@ h2 {
   padding-top: clamp(3.8rem, 7.4vw, 7.2rem);
 }
 
+.landing-page-head {
+  display: grid;
+  gap: 0.92rem;
+  padding-top: clamp(2.1rem, 5vw, 4rem);
+  justify-items: center;
+}
+
+.landing-page-head-actions {
+  margin-top: 0.5rem;
+}
+
+.landing-section-page {
+  padding-top: 1.8rem;
+}
+
 .landing-eyebrow {
   margin: 0;
   text-align: center;
@@ -664,6 +679,65 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.05rem;
   margin-top: 1.35rem;
+}
+
+.landing-pricing-grid,
+.landing-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.landing-pricing-card,
+.landing-contact-card {
+  display: grid;
+  gap: 0.72rem;
+  align-content: start;
+  border-radius: 14px;
+  padding: 1.18rem;
+}
+
+.landing-pricing-plan {
+  margin: 0;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--eyebrow);
+  font-weight: 800;
+}
+
+.landing-pricing-price {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--title);
+}
+
+.landing-pricing-desc {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.landing-pricing-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text-muted);
+}
+
+.landing-pricing-card-secondary h3,
+.landing-contact-card h3 {
+  margin: 0;
+  color: var(--title);
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+}
+
+.landing-contact-card p {
+  margin: 0;
+  color: var(--text-muted);
+  word-break: break-word;
 }
 
 .landing-feature-card {
@@ -710,6 +784,10 @@ h2 {
     linear-gradient(165deg, #1b2b43 0%, #1a2332 62%, #111a28 100%);
   padding: clamp(1.4rem, 5vw, 3.45rem);
   justify-items: center;
+}
+
+.landing-waitlist-compact {
+  margin-top: 2.4rem;
 }
 
 .landing-waitlist-title {
@@ -3881,9 +3959,18 @@ code {
     padding-top: 2.5rem;
   }
 
+  .landing-page-head {
+    padding-top: 1.4rem;
+  }
+
   .landing-feature-grid {
     grid-template-columns: 1fr;
     margin-top: 0.86rem;
+  }
+
+  .landing-pricing-grid,
+  .landing-contact-grid {
+    grid-template-columns: 1fr;
   }
 
   .landing-feature-card {
