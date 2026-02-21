@@ -61,7 +61,9 @@ const CSV_HEADER_ALIASES = {
   city: ["city", "ciudad", "ciutat", "ville"],
   country: ["country", "pais", "país", "pays"],
   address: ["address", "direccion", "dirección", "adreca", "adreça", "adresse"],
-  company: ["company", "empresa", "societe", "société"]
+  company: ["company", "empresa", "societe", "société"],
+  birthday: ["birthday", "birthdate", "birth_date", "cumpleanos", "cumpleaños", "aniversari", "anniversaire"],
+  groups: ["groups", "labels", "tags", "etiquetas", "grups", "groupes"]
 };
 
 const HEADER_ALIAS_INDEX = Object.fromEntries(
@@ -83,7 +85,7 @@ function splitName(fullName) {
 }
 
 function parseContactTokens(tokens) {
-  const [nameToken = "", emailToken = "", phoneToken = "", cityToken = "", countryToken = ""] = tokens;
+  const [nameToken = "", emailToken = "", phoneToken = "", cityToken = "", countryToken = "", birthdayToken = "", groupsToken = ""] = tokens;
   const nameParts = splitName(nameToken);
   const emailLooksValid = /@/.test(emailToken);
   const phoneLooksValid = /\d/.test(phoneToken);
@@ -96,7 +98,9 @@ function parseContactTokens(tokens) {
     country: normalizeText(countryToken),
     relationship: "",
     address: "",
-    company: ""
+    company: "",
+    birthday: normalizeText(birthdayToken),
+    groups: normalizeText(groupsToken)
   };
 }
 
@@ -135,7 +139,9 @@ function parseContactsFromCsv(text) {
         city: "",
         country: "",
         address: "",
-        company: ""
+        company: "",
+        birthday: "",
+        groups: ""
       };
 
       let fullName = "";
@@ -199,6 +205,7 @@ function parseContactsFromVcf(text) {
       let city = "";
       let country = "";
       let company = "";
+      let birthday = "";
 
       for (const line of lines) {
         if (line.startsWith("FN:")) {
@@ -228,6 +235,13 @@ function parseContactsFromVcf(text) {
           country = country || adrParts[6] || "";
         } else if (line.startsWith("ORG:")) {
           company = company || normalizeText(line.slice(4));
+        } else if (line.startsWith("BDAY")) {
+          const rawBirthday = normalizeText(line.split(":").slice(1).join(":"));
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawBirthday)) {
+            birthday = rawBirthday;
+          } else if (/^\d{8}$/.test(rawBirthday)) {
+            birthday = `${rawBirthday.slice(0, 4)}-${rawBirthday.slice(4, 6)}-${rawBirthday.slice(6, 8)}`;
+          }
         }
       }
 
@@ -240,7 +254,9 @@ function parseContactsFromVcf(text) {
         city: normalizeText(city),
         country: normalizeText(country),
         address: normalizeText(address),
-        company: normalizeText(company)
+        company: normalizeText(company),
+        birthday: normalizeText(birthday),
+        groups: ""
       };
     })
     .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);

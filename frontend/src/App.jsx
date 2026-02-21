@@ -6,6 +6,7 @@ import en from "./i18n/en.json";
 import es from "./i18n/es.json";
 import fr from "./i18n/fr.json";
 import it from "./i18n/it.json";
+import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { AuthScreen } from "./screens/auth-screen";
 import { DashboardScreen } from "./screens/dashboard-screen";
@@ -306,7 +307,7 @@ function App() {
       return;
     }
     setIsSendingPasswordReset(true);
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const redirectTo = getAuthRedirectUrl();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo
     });
@@ -325,7 +326,7 @@ function App() {
     setAuthError("");
     setAccountMessage("");
     setIsSigningInWithGoogle(true);
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const redirectTo = getAuthRedirectUrl();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo }

@@ -11,8 +11,10 @@ import {
   toCatalogLabel,
   toCatalogLabels
 } from "../lib/guest-catalogs";
+import { buildAppUrl, getAppOrigin } from "../lib/app-url";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
+import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
 import { isGoogleMapsConfigured, loadGoogleMapsPlaces } from "../lib/google-maps";
 import { supabase } from "../lib/supabaseClient";
 import { validateEventForm, validateGuestForm, validateInvitationForm } from "../lib/validation";
@@ -95,6 +97,61 @@ function formatRelativeDate(dateText, language, fallbackText) {
   }
   const diffDays = Math.round(diffHours / 24);
   return rtf.format(diffDays, "day");
+}
+
+function normalizeIsoDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const parsed = new Date(`${raw}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? "" : raw;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function getNextBirthdaySummary(dateText, language) {
+  const normalized = normalizeIsoDate(dateText);
+  if (!normalized) {
+    return null;
+  }
+  const [year, month, day] = normalized.split("-").map((item) => Number(item));
+  if (!year || !month || !day) {
+    return null;
+  }
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let nextBirthday = new Date(today.getFullYear(), month - 1, day);
+  if (nextBirthday < today) {
+    nextBirthday = new Date(today.getFullYear() + 1, month - 1, day);
+  }
+  const diffDays = Math.max(0, Math.round((nextBirthday.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)));
+  return {
+    dateLabel: nextBirthday.toLocaleDateString(language, { day: "2-digit", month: "long", year: "numeric" }),
+    diffDays
+  };
+}
+
+function getBirthdayEventDateTime(dateText, defaultHour = 20) {
+  const normalized = normalizeIsoDate(dateText);
+  if (!normalized) {
+    return "";
+  }
+  const [year, month, day] = normalized.split("-").map((item) => Number(item));
+  if (!year || !month || !day) {
+    return "";
+  }
+  const now = new Date();
+  let nextBirthday = new Date(now.getFullYear(), month - 1, day, defaultHour, 0, 0, 0);
+  if (nextBirthday.getTime() < now.getTime()) {
+    nextBirthday = new Date(now.getFullYear() + 1, month - 1, day, defaultHour, 0, 0, 0);
+  }
+  return toLocalDateTimeInput(nextBirthday.toISOString());
 }
 
 function interpolateText(template, values = {}) {
@@ -363,6 +420,23 @@ function normalizePhoneKey(value) {
   return normalized.length >= 7 ? normalized : "";
 }
 
+function isBlankValue(value) {
+  if (value == null) {
+    return true;
+  }
+  if (typeof value === "string") {
+    return value.trim() === "";
+  }
+  return false;
+}
+
+function getMergedFieldValue(existingValue, incomingValue) {
+  if (!isBlankValue(existingValue) || isBlankValue(incomingValue)) {
+    return undefined;
+  }
+  return String(incomingValue).trim();
+}
+
 function buildGuestFingerprint({ firstName, lastName, email, phone }) {
   const emailKey = normalizeEmailKey(email);
   const phoneKey = normalizePhoneKey(phone);
@@ -389,6 +463,37 @@ function deriveGuestNameFromContact(contact) {
   const phoneKey = normalizePhoneKey(contact?.phone || "");
   if (phoneKey) {
     return phoneKey.slice(-6);
+  }
+  return "";
+}
+
+function toContactGroupsList(contact) {
+  if (Array.isArray(contact?.groups)) {
+    return uniqueValues(contact.groups);
+  }
+  const raw = String(contact?.groups || "").trim();
+  if (!raw) {
+    return [];
+  }
+  return uniqueValues(
+    raw
+      .split(/[|,]/g)
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  );
+}
+
+function deriveRelationshipCodeFromContact(contact) {
+  const direct = toCatalogCode("relationship", contact?.relationship || "");
+  if (direct) {
+    return direct;
+  }
+  const groups = toContactGroupsList(contact);
+  for (const groupItem of groups) {
+    const groupCode = toCatalogCode("relationship", groupItem);
+    if (groupCode) {
+      return groupCode;
+    }
   }
   return "";
 }
@@ -427,7 +532,8 @@ function normalizeDeviceContact(rawContact) {
     address: String(addressFromObject || fallbackAddress || "").trim(),
     company: "",
     postalCode: String(addressObject?.postalCode || "").trim(),
-    stateRegion: String(addressObject?.region || addressObject?.state || "").trim()
+    stateRegion: String(addressObject?.region || addressObject?.state || "").trim(),
+    groups: []
   };
 }
 
@@ -758,8 +864,13 @@ function DashboardScreen({
   const [isSavingGuest, setIsSavingGuest] = useState(false);
   const [importContactsDraft, setImportContactsDraft] = useState("");
   const [importContactsPreview, setImportContactsPreview] = useState([]);
+  const [importContactsSearch, setImportContactsSearch] = useState("");
+  const [importContactsGroupFilter, setImportContactsGroupFilter] = useState("all");
+  const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
+  const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
   const [importContactsMessage, setImportContactsMessage] = useState("");
   const [isImportingContacts, setIsImportingContacts] = useState(false);
+  const [isImportingGoogleContacts, setIsImportingGoogleContacts] = useState(false);
   const [hostProfileName, setHostProfileName] = useState("");
   const [hostProfilePhone, setHostProfilePhone] = useState("");
   const [hostProfileCity, setHostProfileCity] = useState("");
@@ -927,56 +1038,105 @@ function DashboardScreen({
     }
     return counts;
   }, [invitations]);
+  const existingGuestByFingerprint = useMemo(() => {
+    const map = {};
+    for (const guestItem of guests) {
+      const fingerprint = buildGuestFingerprint({
+        firstName: guestItem.first_name,
+        lastName: guestItem.last_name,
+        email: guestItem.email,
+        phone: guestItem.phone
+      });
+      if (!fingerprint || map[fingerprint]) {
+        continue;
+      }
+      map[fingerprint] = guestItem;
+    }
+    return map;
+  }, [guests]);
   const existingGuestFingerprints = useMemo(
-    () =>
-      new Set(
-        guests
-          .map((guestItem) =>
-            buildGuestFingerprint({
-              firstName: guestItem.first_name,
-              lastName: guestItem.last_name,
-              email: guestItem.email,
-              phone: guestItem.phone
-            })
-          )
-          .filter(Boolean)
-      ),
-    [guests]
+    () => new Set(Object.keys(existingGuestByFingerprint)),
+    [existingGuestByFingerprint]
   );
   const importContactsAnalysis = useMemo(() => {
     const seenInPreview = new Set();
-    return importContactsPreview.map((contactItem) => {
+    return importContactsPreview.map((contactItem, index) => {
       const firstName = String(contactItem?.firstName || "").trim();
       const lastName = String(contactItem?.lastName || "").trim();
       const email = String(contactItem?.email || "").trim();
       const phone = String(contactItem?.phone || "").trim();
+      const birthday = normalizeIsoDate(contactItem?.birthday);
+      const groups = toContactGroupsList(contactItem);
       const fingerprint = buildGuestFingerprint({ firstName, lastName, email, phone });
       const duplicateInPreview = Boolean(fingerprint && seenInPreview.has(fingerprint));
       if (fingerprint) {
         seenInPreview.add(fingerprint);
       }
-      const duplicateExisting = Boolean(fingerprint && existingGuestFingerprints.has(fingerprint));
-      const canImport = Boolean((firstName || email || phone) && !duplicateInPreview && !duplicateExisting);
+      const existingGuest = fingerprint ? existingGuestByFingerprint[fingerprint] || null : null;
+      const duplicateExisting = Boolean(existingGuest);
+      const willMerge = duplicateExisting && importDuplicateMode === "merge";
+      const canImport = Boolean((firstName || email || phone) && !duplicateInPreview && (!duplicateExisting || willMerge));
+      const previewId = fingerprint ? `fp:${fingerprint}` : `idx:${index}`;
       return {
+        previewId,
+        fingerprint,
+        existingGuestId: existingGuest?.id || "",
         firstName,
         lastName,
         email,
         phone,
+        birthday,
+        groups,
         relationship: String(contactItem?.relationship || "").trim(),
         city: String(contactItem?.city || "").trim(),
         country: String(contactItem?.country || "").trim(),
         address: String(contactItem?.address || "").trim(),
+        postalCode: String(contactItem?.postalCode || "").trim(),
+        stateRegion: String(contactItem?.stateRegion || "").trim(),
         company: String(contactItem?.company || "").trim(),
         duplicateInPreview,
         duplicateExisting,
+        willMerge,
         canImport
       };
     });
-  }, [importContactsPreview, existingGuestFingerprints]);
-  const importContactsReady = useMemo(
-    () => importContactsAnalysis.filter((item) => item.canImport),
+  }, [existingGuestByFingerprint, importContactsPreview, importDuplicateMode]);
+  const importContactsGroupOptions = useMemo(
+    () =>
+      uniqueValues(
+        importContactsAnalysis.flatMap((item) => (Array.isArray(item.groups) ? item.groups : []))
+      ),
     [importContactsAnalysis]
   );
+  const importContactsFiltered = useMemo(() => {
+    const term = String(importContactsSearch || "").trim().toLowerCase();
+    const groupFilter = String(importContactsGroupFilter || "all");
+    return importContactsAnalysis.filter((item) => {
+      const matchesGroup = groupFilter === "all" || (Array.isArray(item.groups) && item.groups.includes(groupFilter));
+      if (!matchesGroup) {
+        return false;
+      }
+      if (!term) {
+        return true;
+      }
+      const groupsText = Array.isArray(item.groups) ? item.groups.join(" ") : "";
+      const haystack = `${item.firstName} ${item.lastName} ${item.email} ${item.phone} ${item.city} ${item.country} ${groupsText}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [importContactsAnalysis, importContactsGroupFilter, importContactsSearch]);
+  const importContactsFilteredReady = useMemo(
+    () => importContactsFiltered.filter((item) => item.canImport),
+    [importContactsFiltered]
+  );
+  const importContactsReady = useMemo(() => importContactsAnalysis.filter((item) => item.canImport), [importContactsAnalysis]);
+  const importContactsSelectedReady = useMemo(
+    () => importContactsReady.filter((item) => selectedImportContactIds.includes(item.previewId)),
+    [importContactsReady, selectedImportContactIds]
+  );
+  useEffect(() => {
+    const defaultIds = importContactsReady.map((item) => item.previewId);
+    setSelectedImportContactIds(defaultIds);
+  }, [importContactsReady]);
   const hostPotentialGuestsCount = useMemo(
     () => guests.filter((guestItem) => guestItem.email || guestItem.phone).length,
     [guests]
@@ -1162,6 +1322,7 @@ function DashboardScreen({
   );
   const pendingHostGuestsCount = Math.max(0, hostPotentialGuestsCount - convertedHostGuestsCount);
   const supportsContactPickerApi = typeof navigator !== "undefined" && Boolean(navigator.contacts?.select);
+  const canUseGoogleContacts = typeof window !== "undefined" && isGoogleContactsConfigured();
   const canUseDeviceContacts =
     typeof window !== "undefined" &&
     typeof navigator !== "undefined" &&
@@ -1560,6 +1721,54 @@ function DashboardScreen({
       ]),
     [cuisineTypeBaseOptions, guestPreferencesById, language]
   );
+  const guestAdvancedProfileSignals = useMemo(() => {
+    const signals = [
+      {
+        key: "identity",
+        label: t("guest_advanced_section_identity"),
+        done: Boolean(guestFirstName.trim() && (guestEmail.trim() || guestPhone.trim()))
+      },
+      {
+        key: "food",
+        label: t("guest_advanced_section_food"),
+        done: Boolean(
+          guestAdvanced.dietType ||
+            splitListInput(guestAdvanced.foodLikes).length ||
+            splitListInput(guestAdvanced.drinkLikes).length
+        )
+      },
+      {
+        key: "health",
+        label: t("guest_advanced_section_health"),
+        done: Boolean(
+          splitListInput(guestAdvanced.allergies).length ||
+            splitListInput(guestAdvanced.intolerances).length ||
+            splitListInput(guestAdvanced.petAllergies).length
+        )
+      },
+      {
+        key: "lifestyle",
+        label: t("guest_advanced_section_lifestyle"),
+        done: Boolean(
+          splitListInput(guestAdvanced.musicGenres).length ||
+            splitListInput(guestAdvanced.sports).length ||
+            splitListInput(guestAdvanced.preferredDayMoments).length
+        )
+      },
+      {
+        key: "conversation",
+        label: t("guest_advanced_section_conversation"),
+        done: Boolean(guestAdvanced.lastTalkTopic.trim() || splitListInput(guestAdvanced.tabooTopics).length)
+      }
+    ];
+    return signals;
+  }, [guestAdvanced, guestEmail, guestFirstName, guestPhone, t]);
+  const guestAdvancedProfileCompleted = guestAdvancedProfileSignals.filter((item) => item.done).length;
+  const guestAdvancedProfilePercent = Math.round((guestAdvancedProfileCompleted / Math.max(1, guestAdvancedProfileSignals.length)) * 100);
+  const guestNextBirthday = useMemo(
+    () => getNextBirthdaySummary(guestAdvanced.birthday, language),
+    [guestAdvanced.birthday, language]
+  );
   const knownLocationPairs = useMemo(() => {
     const uniqueByKey = new Set();
     const list = [];
@@ -1899,7 +2108,7 @@ function DashboardScreen({
         : guestNamesById[invitationItem.guest_id] || t("field_guest");
       const eventDate = formatDate(eventItem?.start_at, language, t("no_date"));
       const eventLocation = eventItem?.location_name || eventItem?.location_address || "-";
-      const url = `${window.location.origin}/?token=${invitationItem.public_token}`;
+      const url = buildAppUrl(`/?token=${invitationItem.public_token}`);
       const shareSubject = interpolateText(t("invitation_share_subject"), {
         event: eventName
       });
@@ -3646,11 +3855,14 @@ function DashboardScreen({
       }
     }
     setImportContactsPreview(parsedContacts);
+    setImportDuplicateMode("skip");
     if (parsedContacts.length === 0) {
       setImportContactsMessage(t("contact_import_no_matches"));
       return;
     }
     setImportContactsMessage(`${t("contact_import_preview_ready")} ${parsedContacts.length}.`);
+    setImportContactsSearch("");
+    setImportContactsGroupFilter("all");
   };
 
   const handlePreviewContactsFromDraft = () => {
@@ -3667,6 +3879,35 @@ function DashboardScreen({
     const sourceType = lowerName.endsWith(".vcf") || lowerName.endsWith(".vcard") ? "vcf" : "text";
     previewImportedContacts(fileText, sourceType);
     event.target.value = "";
+  };
+
+  const handleImportGoogleContacts = async () => {
+    if (!canUseGoogleContacts) {
+      setImportContactsMessage(t("contact_import_google_unconfigured"));
+      return;
+    }
+    setIsImportingGoogleContacts(true);
+    setImportContactsMessage("");
+    try {
+      const googleContacts = await importContactsFromGoogle();
+      setImportContactsPreview(googleContacts);
+      setImportDuplicateMode("skip");
+      setImportContactsDraft("");
+      setImportContactsSearch("");
+      setImportContactsGroupFilter("all");
+      if (googleContacts.length > 0) {
+        setImportContactsMessage(`${t("contact_import_google_loaded")} ${googleContacts.length}.`);
+      } else {
+        setImportContactsMessage(t("contact_import_google_empty"));
+      }
+      if (contactImportDetailsRef.current) {
+        contactImportDetailsRef.current.open = true;
+      }
+    } catch (error) {
+      setImportContactsMessage(`${t("contact_import_google_error")} ${String(error?.message || "")}`);
+    } finally {
+      setIsImportingGoogleContacts(false);
+    }
   };
 
   const openFileImportFallback = () => {
@@ -3688,6 +3929,9 @@ function DashboardScreen({
         .map((item) => normalizeDeviceContact(item))
         .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);
       setImportContactsPreview(parsedContacts);
+      setImportDuplicateMode("skip");
+      setImportContactsSearch("");
+      setImportContactsGroupFilter("all");
       setImportContactsMessage(`${t("contact_import_device_loaded")} ${parsedContacts.length}.`);
     } catch (error) {
       if (error?.name === "AbortError") {
@@ -3726,7 +3970,8 @@ function DashboardScreen({
         ...prev,
         address: contact.address || prev.address,
         postalCode: contact.postalCode || prev.postalCode,
-        stateRegion: contact.stateRegion || prev.stateRegion
+        stateRegion: contact.stateRegion || prev.stateRegion,
+        birthday: contact.birthday || prev.birthday
       }));
       setSelectedGuestAddressPlace(null);
       setGuestErrors((prev) => ({
@@ -3753,30 +3998,158 @@ function DashboardScreen({
     }
   };
 
+  const handleCreateBirthdayEventFromGuest = () => {
+    const nextDateTime = getBirthdayEventDateTime(guestAdvanced.birthday, 20);
+    if (!nextDateTime) {
+      setGuestMessage(t("birthday_event_missing"));
+      return;
+    }
+    const guestLabel = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest");
+    setActiveView("events");
+    setEventsWorkspace("create");
+    setEditingEventId("");
+    setEventTitle(interpolateText(t("birthday_event_title"), { guest: guestLabel }));
+    setEventType(toCatalogLabel("experience_type", "celebration", language));
+    setEventStatus("draft");
+    setEventDescription(interpolateText(t("birthday_event_description"), { guest: guestLabel }));
+    setEventStartAt(nextDateTime);
+    setEventLocationName("");
+    setEventLocationAddress(guestAdvanced.address || "");
+    setAddressPredictions([]);
+    setSelectedPlace(null);
+    setEventMessage(t("birthday_event_prefilled"));
+  };
+
   const handleClearImportContacts = () => {
     setImportContactsDraft("");
     setImportContactsPreview([]);
+    setImportContactsSearch("");
+    setImportContactsGroupFilter("all");
+    setImportDuplicateMode("skip");
+    setSelectedImportContactIds([]);
     setImportContactsMessage("");
+  };
+
+  const handleSelectAllReadyImportContacts = () => {
+    setSelectedImportContactIds(importContactsReady.map((item) => item.previewId));
+  };
+
+  const handleClearReadyImportContactsSelection = () => {
+    setSelectedImportContactIds([]);
+  };
+
+  const handleSelectFilteredReadyImportContacts = () => {
+    setSelectedImportContactIds(importContactsFilteredReady.map((item) => item.previewId));
+  };
+
+  const toggleImportContactSelection = (previewId) => {
+    setSelectedImportContactIds((prev) =>
+      prev.includes(previewId) ? prev.filter((item) => item !== previewId) : [...prev, previewId]
+    );
   };
 
   const handleImportContacts = async () => {
     if (!supabase || !session?.user?.id) {
       return;
     }
-    if (importContactsReady.length === 0) {
-      setImportContactsMessage(t("contact_import_no_ready"));
+    if (importContactsSelectedReady.length === 0) {
+      setImportContactsMessage(
+        importContactsReady.length === 0 ? t("contact_import_no_ready") : t("contact_import_no_selected")
+      );
       return;
     }
     setIsImportingContacts(true);
     setImportContactsMessage("");
 
+    const duplicateMode = importDuplicateMode === "merge" ? "merge" : "skip";
     const insertedFingerprints = new Set();
     let importedCount = 0;
+    let mergedCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
 
-    for (const contactItem of importContactsReady) {
+    for (const contactItem of importContactsSelectedReady) {
       const fallbackFirstName = deriveGuestNameFromContact(contactItem) || t("field_guest");
+      const relationshipCode = deriveRelationshipCodeFromContact(contactItem);
+      const fingerprint = buildGuestFingerprint({
+        firstName: fallbackFirstName,
+        lastName: contactItem.lastName,
+        email: contactItem.email,
+        phone: contactItem.phone
+      });
+      const existingGuest = fingerprint ? existingGuestByFingerprint[fingerprint] || null : null;
+      const hasExisting = Boolean(existingGuest || (fingerprint && existingGuestFingerprints.has(fingerprint)));
+
+      if (hasExisting && duplicateMode !== "merge") {
+        skippedCount += 1;
+        continue;
+      }
+
+      if (hasExisting && duplicateMode === "merge") {
+        if (!existingGuest?.id) {
+          skippedCount += 1;
+          continue;
+        }
+
+        const mergePayload = {};
+        const assignMergeField = (field, existingValue, incomingValue) => {
+          const mergedValue = getMergedFieldValue(existingValue, incomingValue);
+          if (typeof mergedValue === "undefined") {
+            return;
+          }
+          mergePayload[field] = toNullable(mergedValue);
+        };
+
+        assignMergeField("first_name", existingGuest.first_name, fallbackFirstName);
+        assignMergeField("last_name", existingGuest.last_name, contactItem.lastName);
+        assignMergeField("email", existingGuest.email, contactItem.email);
+        assignMergeField("phone", existingGuest.phone, contactItem.phone);
+        assignMergeField("relationship", existingGuest.relationship, relationshipCode);
+        assignMergeField("city", existingGuest.city, contactItem.city);
+        assignMergeField("country", existingGuest.country, contactItem.country);
+        assignMergeField("address", existingGuest.address, contactItem.address);
+        assignMergeField("company", existingGuest.company, contactItem.company);
+        assignMergeField("postal_code", existingGuest.postal_code, contactItem.postalCode);
+        assignMergeField("state_region", existingGuest.state_region, contactItem.stateRegion);
+        assignMergeField("birthday", existingGuest.birthday, contactItem.birthday);
+
+        if (Object.keys(mergePayload).length === 0) {
+          skippedCount += 1;
+          continue;
+        }
+
+        let { error } = await supabase
+          .from("guests")
+          .update(mergePayload)
+          .eq("id", existingGuest.id)
+          .eq("host_user_id", session.user.id);
+
+        if (error && isCompatibilityError(error, ["postal_code", "state_region", "birthday"])) {
+          const fallbackMergePayload = { ...mergePayload };
+          delete fallbackMergePayload.postal_code;
+          delete fallbackMergePayload.state_region;
+          delete fallbackMergePayload.birthday;
+
+          if (Object.keys(fallbackMergePayload).length === 0) {
+            mergedCount += 1;
+            continue;
+          }
+
+          ({ error } = await supabase
+            .from("guests")
+            .update(fallbackMergePayload)
+            .eq("id", existingGuest.id)
+            .eq("host_user_id", session.user.id));
+        }
+
+        if (error) {
+          failedCount += 1;
+        } else {
+          mergedCount += 1;
+        }
+        continue;
+      }
+
       const payloadBase = {
         host_user_id: session.user.id,
         content_language: language,
@@ -3784,11 +4157,14 @@ function DashboardScreen({
         last_name: toNullable(contactItem.lastName),
         email: toNullable(contactItem.email),
         phone: toNullable(contactItem.phone),
-        relationship: toNullable(toCatalogCode("relationship", contactItem.relationship)),
+        relationship: toNullable(relationshipCode),
         city: toNullable(contactItem.city),
         country: toNullable(contactItem.country),
         address: toNullable(contactItem.address),
-        company: toNullable(contactItem.company)
+        company: toNullable(contactItem.company),
+        postal_code: toNullable(contactItem.postalCode),
+        state_region: toNullable(contactItem.stateRegion),
+        birthday: toNullable(contactItem.birthday)
       };
       const payloadFallback = {
         host_user_id: session.user.id,
@@ -3796,26 +4172,20 @@ function DashboardScreen({
         last_name: toNullable(contactItem.lastName),
         email: toNullable(contactItem.email),
         phone: toNullable(contactItem.phone),
-        relationship: toNullable(toCatalogCode("relationship", contactItem.relationship)),
+        relationship: toNullable(relationshipCode),
         city: toNullable(contactItem.city),
         country: toNullable(contactItem.country),
         address: toNullable(contactItem.address),
         company: toNullable(contactItem.company)
       };
 
-      const fingerprint = buildGuestFingerprint({
-        firstName: fallbackFirstName,
-        lastName: contactItem.lastName,
-        email: contactItem.email,
-        phone: contactItem.phone
-      });
-      if (fingerprint && (existingGuestFingerprints.has(fingerprint) || insertedFingerprints.has(fingerprint))) {
+      if (fingerprint && insertedFingerprints.has(fingerprint)) {
         skippedCount += 1;
         continue;
       }
 
       let { error } = await supabase.from("guests").insert(payloadBase);
-      if (error && isCompatibilityError(error, ["content_language"])) {
+      if (error && isCompatibilityError(error, ["content_language", "postal_code", "state_region", "birthday"])) {
         ({ error } = await supabase.from("guests").insert(payloadFallback));
       }
 
@@ -3830,19 +4200,20 @@ function DashboardScreen({
     }
 
     setIsImportingContacts(false);
+    setSelectedImportContactIds([]);
     setImportContactsMessage(
-      `${t("contact_import_done")} ${importedCount}. ${t("contact_import_skipped")} ${skippedCount}. ${
+      `${t("contact_import_done")} ${importedCount}. ${t("contact_import_merged")} ${mergedCount}. ${t("contact_import_skipped")} ${skippedCount}. ${
         failedCount > 0 ? `${t("contact_import_failed")} ${failedCount}.` : ""
       }`.trim()
     );
-    if (importedCount > 0) {
+    if (importedCount > 0 || mergedCount > 0) {
       await loadDashboardData();
     }
   };
 
   const handleCopyHostSignupLink = async (guestItem) => {
     const guestLabel = `${guestItem?.first_name || ""} ${guestItem?.last_name || ""}`.trim() || t("field_guest");
-    const signupUrl = window.location.origin;
+    const signupUrl = getAppOrigin();
     try {
       await navigator.clipboard.writeText(signupUrl);
       setGuestMessage(`${t("host_invite_link_copied")} ${guestLabel}`);
@@ -6889,6 +7260,7 @@ function DashboardScreen({
               <details ref={contactImportDetailsRef} className="advanced-form contact-import-box">
                 <summary>{t("contact_import_title")}</summary>
                 <p className="field-help">{t("contact_import_hint")}</p>
+                <p className="field-help">{t("contact_import_google_hint")}</p>
                 <div className="button-row">
                   <button
                     className="btn btn-ghost btn-sm"
@@ -6897,11 +7269,20 @@ function DashboardScreen({
                   >
                     {t("contact_import_device_button")}
                   </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={handleImportGoogleContacts}
+                    disabled={isImportingGoogleContacts || !canUseGoogleContacts}
+                  >
+                    {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
+                  </button>
                 </div>
                 <p className="hint">
                   {canUseDeviceContacts ? t("contact_import_device_supported") : t("contact_import_device_not_supported")}
                 </p>
                 {!canUseDeviceContacts ? <p className="hint">{contactPickerUnsupportedReason}</p> : null}
+                {!canUseGoogleContacts ? <p className="hint">{t("contact_import_google_unconfigured")}</p> : null}
                 <label>
                   <span className="label-title">{t("contact_import_file_label")}</span>
                   <input
@@ -6932,32 +7313,99 @@ function DashboardScreen({
                 {importContactsAnalysis.length > 0 ? (
                   <p className="hint">
                     {t("contact_import_preview_total")} {importContactsAnalysis.length}. {t("contact_import_preview_ready")}{" "}
-                    {importContactsReady.length}.
+                    {importContactsReady.length}. {t("contact_import_selected_ready")} {importContactsSelectedReady.length}.
                   </p>
                 ) : null}
                 {importContactsAnalysis.length > 0 ? (
+                  <div className="list-tools">
+                    <label>
+                      <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
+                      <select
+                        value={importDuplicateMode}
+                        onChange={(event) => setImportDuplicateMode(event.target.value === "merge" ? "merge" : "skip")}
+                      >
+                        <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
+                        <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
+                      </select>
+                      <FieldMeta helpText={t("contact_import_duplicate_mode_hint")} />
+                    </label>
+                    <label>
+                      <span className="label-title">{t("search")}</span>
+                      <input
+                        type="search"
+                        value={importContactsSearch}
+                        onChange={(event) => setImportContactsSearch(event.target.value)}
+                        placeholder={t("contact_import_filter_placeholder")}
+                      />
+                    </label>
+                    <label>
+                      <span className="label-title">{t("contact_import_group_filter")}</span>
+                      <select
+                        value={importContactsGroupFilter}
+                        onChange={(event) => setImportContactsGroupFilter(event.target.value)}
+                      >
+                        <option value="all">{t("all_contacts")}</option>
+                        {importContactsGroupOptions.map((groupLabel) => (
+                          <option key={groupLabel} value={groupLabel}>
+                            {groupLabel}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+                {importContactsAnalysis.length > 0 ? (
+                  <div className="button-row">
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
+                      {t("contact_import_select_all_ready")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
+                      {t("contact_import_select_filtered_ready")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearReadyImportContactsSelection}>
+                      {t("contact_import_clear_selection")}
+                    </button>
+                  </div>
+                ) : null}
+                {importContactsAnalysis.length > 0 ? (
                   <ul className="list import-preview-list">
-                    {importContactsAnalysis.slice(0, 8).map((contactItem, index) => (
-                      <li key={`${contactItem.email}-${contactItem.phone}-${index}`}>
-                        <p className="item-title">
-                          {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
-                        </p>
-                        <p className="item-meta">{contactItem.email || contactItem.phone || "-"}</p>
-                        <p className="item-meta">{[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}</p>
-                        <p className="item-meta">
-                          {contactItem.duplicateExisting
-                            ? t("contact_import_status_duplicate_existing")
-                            : contactItem.duplicateInPreview
-                            ? t("contact_import_status_duplicate_file")
-                            : t("contact_import_status_ready")}
-                        </p>
+                    {importContactsFiltered.slice(0, 20).map((contactItem) => (
+                      <li key={contactItem.previewId}>
+                        <label className="bulk-guest-option import-contact-option">
+                          <input
+                            type="checkbox"
+                            checked={selectedImportContactIds.includes(contactItem.previewId)}
+                            disabled={!contactItem.canImport}
+                            onChange={() => toggleImportContactSelection(contactItem.previewId)}
+                          />
+                          <span>
+                            <strong>
+                              {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
+                            </strong>
+                            <small>{contactItem.email || contactItem.phone || "-"}</small>
+                            <small>{[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}</small>
+                            {contactItem.birthday ? <small>{`${t("field_birthday")}: ${contactItem.birthday}`}</small> : null}
+                            {contactItem.groups?.length ? (
+                              <small>{`${t("contact_import_group_filter")}: ${contactItem.groups.join(", ")}`}</small>
+                            ) : null}
+                            <small>
+                              {contactItem.duplicateExisting
+                                ? contactItem.willMerge
+                                  ? t("contact_import_status_duplicate_merge")
+                                  : t("contact_import_status_duplicate_existing")
+                                : contactItem.duplicateInPreview
+                                ? t("contact_import_status_duplicate_file")
+                                : t("contact_import_status_ready")}
+                            </small>
+                          </span>
+                        </label>
                       </li>
                     ))}
                   </ul>
                 ) : null}
-                {importContactsAnalysis.length > 8 ? (
+                {importContactsFiltered.length > 20 ? (
                   <p className="hint">
-                    {t("contact_import_preview_more")} {importContactsAnalysis.length - 8}
+                    {t("contact_import_preview_more")} {importContactsFiltered.length - 20}
                   </p>
                 ) : null}
                 <div className="button-row">
@@ -6965,7 +7413,7 @@ function DashboardScreen({
                     className="btn"
                     type="button"
                     onClick={handleImportContacts}
-                    disabled={isImportingContacts || importContactsReady.length === 0}
+                    disabled={isImportingContacts || importContactsSelectedReady.length === 0}
                   >
                     {isImportingContacts ? t("contact_import_importing") : t("contact_import_import_button")}
                   </button>
@@ -7073,10 +7521,58 @@ function DashboardScreen({
                 <FieldMeta errorText={guestErrors.country ? t(guestErrors.country) : ""} />
               </label>
 
+              <section className="profile-capture-card">
+                <p className="item-title">
+                  <Icon name="sparkle" className="icon icon-sm" />
+                  {t("guest_profile_capture_title")}
+                </p>
+                <p className="field-help">{t("guest_profile_capture_hint")}</p>
+                <p className="item-meta">
+                  {interpolateText(t("guest_profile_capture_progress"), {
+                    done: guestAdvancedProfileCompleted,
+                    total: guestAdvancedProfileSignals.length,
+                    percent: guestAdvancedProfilePercent
+                  })}
+                </p>
+                <div className="progress-bar" aria-hidden="true">
+                  <span style={{ width: `${guestAdvancedProfilePercent}%` }} />
+                </div>
+                {guestNextBirthday ? (
+                  <p className="item-meta">
+                    {t("birthday_next_label")}: {guestNextBirthday.dateLabel} ({interpolateText(t("birthday_next_days"), { days: guestNextBirthday.diffDays })})
+                  </p>
+                ) : (
+                  <p className="item-meta">{t("birthday_unknown")}</p>
+                )}
+                <div className="button-row">
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={handleCreateBirthdayEventFromGuest}>
+                    <Icon name="calendar" className="icon icon-sm" />
+                    {t("birthday_event_create")}
+                  </button>
+                </div>
+                {guestAdvancedProfileSignals.some((item) => !item.done) ? (
+                  <div className="multi-chip-group">
+                    {guestAdvancedProfileSignals
+                      .filter((item) => !item.done)
+                      .map((item) => (
+                        <span key={item.key} className="multi-chip readonly">
+                          {item.label}
+                        </span>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="field-success">{t("guest_profile_capture_all_set")}</p>
+                )}
+              </section>
+
               <details className="advanced-form">
                 <summary>{t("guest_advanced_title")}</summary>
                 <p className="field-help">{t("guest_advanced_hint")}</p>
                 <div className="advanced-grid">
+                  <p className="advanced-grid-heading">
+                    <Icon name="user" className="icon icon-sm" />
+                    {t("guest_advanced_section_identity")}
+                  </p>
                   <label>
                     <span className="label-title">{t("field_company")}</span>
                     <input
@@ -7216,6 +7712,10 @@ function DashboardScreen({
                     />
                     <FieldMeta errorText={guestErrors.linkedIn ? t(guestErrors.linkedIn) : ""} />
                   </label>
+                  <p className="advanced-grid-heading">
+                    <Icon name="sparkle" className="icon icon-sm" />
+                    {t("guest_advanced_section_food")}
+                  </p>
                   <MultiSelectField
                     id="guest-experience-types"
                     label={t("field_experience_type")}
@@ -7293,6 +7793,10 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
+                  <p className="advanced-grid-heading">
+                    <Icon name="star" className="icon icon-sm" />
+                    {t("guest_advanced_section_lifestyle")}
+                  </p>
                   <MultiSelectField
                     id="guest-music-genres"
                     label={t("field_music_genres")}
@@ -7416,6 +7920,10 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
+                  <p className="advanced-grid-heading">
+                    <Icon name="message" className="icon icon-sm" />
+                    {t("guest_advanced_section_conversation")}
+                  </p>
                   <label>
                     <span className="label-title">{t("field_last_talk_topic")}</span>
                     <input
@@ -7434,6 +7942,10 @@ function DashboardScreen({
                       placeholder={t("placeholder_list_comma")}
                     />
                   </label>
+                  <p className="advanced-grid-heading">
+                    <Icon name="shield" className="icon icon-sm" />
+                    {t("guest_advanced_section_health")}
+                  </p>
                   <MultiSelectField
                     id="guest-allergies"
                     label={t("field_allergies")}
@@ -8387,7 +8899,7 @@ function DashboardScreen({
                     const guestItem = guestsById[invitation.guest_id] || null;
                     const eventItem = eventsById[invitation.event_id] || null;
                     const sharePayload = buildInvitationSharePayload(invitation);
-                    const url = sharePayload?.url || `${window.location.origin}/?token=${invitation.public_token}`;
+                    const url = sharePayload?.url || buildAppUrl(`/?token=${invitation.public_token}`);
                     const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                     return (
                       <li key={invitation.id} className="list-table-row list-row-invitation">

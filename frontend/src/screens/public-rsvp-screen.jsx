@@ -29,6 +29,25 @@ function statusClass(status) {
   return `status-${String(status || "").toLowerCase()}`;
 }
 
+function parseDietaryNeeds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+}
+
+function isLegacyRsvpFunctionError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("p_rsvp_plus_one") ||
+    message.includes("p_rsvp_dietary_needs") ||
+    message.includes("submit_rsvp_by_token") ||
+    String(error?.code || "").toLowerCase() === "pgrst202"
+  );
+}
+
 function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMode, t }) {
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -90,6 +109,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       if (first.rsvp_status && first.rsvp_status !== "pending") {
         setStatus(first.rsvp_status);
       }
+      setNote(typeof first.response_note === "string" ? first.response_note : "");
+      setPlusOne(Boolean(first.rsvp_plus_one));
+      setDietaryNeeds(parseDietaryNeeds(first.rsvp_dietary_needs));
       setIsLoading(false);
     };
     load();
@@ -104,21 +126,33 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     setPageError("");
     setIsSubmitting(true);
 
-    const selectedDietaryLabels = dietaryOptions
-      .filter((optionItem) => dietaryNeeds.includes(optionItem.value))
-      .map((optionItem) => optionItem.label);
-    const rsvpMetaLines = [
-      plusOne ? t("rsvp_plus_one_selected") : "",
-      selectedDietaryLabels.length > 0 ? `${t("rsvp_dietary_label")}: ${selectedDietaryLabels.join(", ")}` : ""
-    ].filter(Boolean);
-    const composedNote = toNullable([note.trim(), ...rsvpMetaLines].filter(Boolean).join("\n"));
-
-    const { data, error } = await supabase.rpc("submit_rsvp_by_token", {
+    const payload = {
       p_token: token,
       p_status: status,
-      p_response_note: composedNote,
-      p_guest_display_name: toNullable(guestName)
-    });
+      p_response_note: toNullable(note),
+      p_guest_display_name: toNullable(guestName),
+      p_rsvp_plus_one: plusOne,
+      p_rsvp_dietary_needs: dietaryNeeds
+    };
+
+    let { data, error } = await supabase.rpc("submit_rsvp_by_token", payload);
+
+    if (error && isLegacyRsvpFunctionError(error)) {
+      const selectedDietaryLabels = dietaryOptions
+        .filter((optionItem) => dietaryNeeds.includes(optionItem.value))
+        .map((optionItem) => optionItem.label);
+      const rsvpMetaLines = [
+        plusOne ? t("rsvp_plus_one_selected") : "",
+        selectedDietaryLabels.length > 0 ? `${t("rsvp_dietary_label")}: ${selectedDietaryLabels.join(", ")}` : ""
+      ].filter(Boolean);
+      const fallbackNote = toNullable([note.trim(), ...rsvpMetaLines].filter(Boolean).join("\n"));
+      ({ data, error } = await supabase.rpc("submit_rsvp_by_token", {
+        p_token: token,
+        p_status: status,
+        p_response_note: fallbackNote,
+        p_guest_display_name: toNullable(guestName)
+      }));
+    }
 
     setIsSubmitting(false);
     if (error) {
@@ -128,7 +162,25 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
     setSubmitMessage(t("rsvp_saved"));
     if (data?.[0]) {
-      setInvitation((prev) => ({ ...prev, rsvp_status: data[0].status }));
+      setInvitation((prev) => ({
+        ...prev,
+        rsvp_status: data[0].status,
+        response_note: note.trim() || null,
+        rsvp_plus_one: plusOne,
+        rsvp_dietary_needs: [...dietaryNeeds]
+      }));
+    } else {
+      setInvitation((prev) =>
+        prev
+          ? {
+              ...prev,
+              rsvp_status: status,
+              response_note: note.trim() || null,
+              rsvp_plus_one: plusOne,
+              rsvp_dietary_needs: [...dietaryNeeds]
+            }
+          : prev
+      );
     }
   };
 
