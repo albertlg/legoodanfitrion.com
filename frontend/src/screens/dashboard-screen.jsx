@@ -4990,7 +4990,7 @@ function DashboardScreen({
   };
 
   const handleSelectVisibleLatestInvitations = () => {
-    const visibleIds = pagedInvitations.map((invitationItem) => invitationItem.id);
+    const visibleIds = filteredInvitations.map((invitationItem) => invitationItem.id);
     if (visibleIds.length === 0) {
       return;
     }
