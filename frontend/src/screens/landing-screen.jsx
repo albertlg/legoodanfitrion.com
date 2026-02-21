@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
+import { InlineMessage } from "../components/inline-message";
+import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
 
 const NAV_ITEMS = [
   { key: "features", path: "/features", labelKey: "landing_nav_features", targetId: "landing-features" },
@@ -27,6 +29,11 @@ function LandingScreen({
   onGoLogin,
   onGoApp
 }) {
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
+  const [waitlistMessage, setWaitlistMessage] = useState("");
+  const [waitlistMessageType, setWaitlistMessageType] = useState("info");
+
   useEffect(() => {
     const targetId = PATH_TO_TARGET[currentPath];
     if (!targetId) {
@@ -42,6 +49,74 @@ function LandingScreen({
   const primaryCta = session?.user?.id
     ? { label: t("landing_cta_open_app"), onClick: onGoApp }
     : { label: t("landing_cta_start"), onClick: onGoLogin };
+
+  const handleJoinWaitlist = async (event) => {
+    event.preventDefault();
+    const email = String(waitlistEmail || "").trim();
+    if (!email) {
+      setWaitlistMessageType("error");
+      setWaitlistMessage(t("waitlist_email_required"));
+      return;
+    }
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!isValidEmail) {
+      setWaitlistMessageType("error");
+      setWaitlistMessage(t("waitlist_email_invalid"));
+      return;
+    }
+    if (!hasSupabaseEnv || !supabase) {
+      setWaitlistMessageType("error");
+      setWaitlistMessage(t("waitlist_join_error_config"));
+      return;
+    }
+
+    setIsJoiningWaitlist(true);
+    setWaitlistMessage("");
+
+    const payload = {
+      p_email: email,
+      p_locale: language,
+      p_source: "landing_home",
+      p_source_path: currentPath || "/",
+      p_referrer: typeof document !== "undefined" ? document.referrer || null : null,
+      p_user_agent: typeof navigator !== "undefined" ? navigator.userAgent || null : null,
+      p_signup_host: typeof window !== "undefined" ? window.location.host || null : null
+    };
+
+    let { data, error } = await supabase.rpc("join_waitlist", payload);
+    if (error) {
+      const fallbackPayload = {
+        email,
+        locale: language,
+        source: "landing_home",
+        source_path: currentPath || "/",
+        referrer: typeof document !== "undefined" ? document.referrer || null : null,
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent || null : null,
+        signup_host: typeof window !== "undefined" ? window.location.host || null : null
+      };
+      ({ data, error } = await supabase.from("waitlist_leads").insert(fallbackPayload));
+    }
+
+    setIsJoiningWaitlist(false);
+
+    if (error) {
+      const isDuplicate = String(error?.code || "") === "23505";
+      if (isDuplicate) {
+        setWaitlistMessageType("success");
+        setWaitlistMessage(t("waitlist_join_exists"));
+        return;
+      }
+      console.error("[waitlist] join failed", error);
+      setWaitlistMessageType("error");
+      setWaitlistMessage(t("waitlist_join_error"));
+      return;
+    }
+
+    const status = Array.isArray(data) ? data[0]?.status : data?.status;
+    setWaitlistMessageType("success");
+    setWaitlistMessage(status === "already_joined" ? t("waitlist_join_exists") : t("waitlist_join_success"));
+    setWaitlistEmail("");
+  };
 
   return (
     <main className="page page-landing">
@@ -131,22 +206,22 @@ function LandingScreen({
         <section id="landing-cta" className="landing-waitlist">
           <h2 className="landing-waitlist-title">{t("landing_contact_title")}</h2>
           <p className="landing-waitlist-subtitle">{t("landing_contact_subtitle")}</p>
-          <form
-            className="landing-waitlist-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onGoLogin();
-            }}
-          >
+          <form className="landing-waitlist-form" onSubmit={handleJoinWaitlist} noValidate>
             <input
               type="email"
+              value={waitlistEmail}
+              onChange={(event) => setWaitlistEmail(event.target.value)}
               placeholder={t("placeholder_email")}
               aria-label={t("email")}
+              autoComplete="email"
+              disabled={isJoiningWaitlist}
             />
-            <button className="btn btn-sm" type="submit">
-              {t("landing_contact_cta")}
+            <button className="btn btn-sm" type="submit" disabled={isJoiningWaitlist}>
+              {isJoiningWaitlist ? t("waitlist_join_loading") : t("landing_contact_cta")}
             </button>
           </form>
+          <p className="landing-waitlist-legal">{t("waitlist_privacy_hint")}</p>
+          <InlineMessage type={waitlistMessageType} text={waitlistMessage} />
         </section>
 
         <footer id="landing-footer" className="landing-footer">
