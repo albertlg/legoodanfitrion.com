@@ -158,10 +158,12 @@ const VIEW_CONFIG = [
   { key: "invitations", icon: "mail", labelKey: "nav_invitations" }
 ];
 const EVENTS_PAGE_SIZE = 5;
-const GUESTS_PAGE_SIZE = 5;
+const GUESTS_PAGE_SIZE_DEFAULT = 10;
+const PAGE_SIZE_OPTIONS = [5, 10, 20];
 const INVITATIONS_PAGE_SIZE = 8;
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
 const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
+const GUEST_GEO_CACHE_KEY_PREFIX = "legood-guest-geocode";
 const EVENT_DRESS_CODE_OPTIONS = ["none", "casual", "elegant", "formal", "themed"];
 const EVENT_PLAYLIST_OPTIONS = ["host_only", "collaborative", "spotify_collaborative"];
 const CITY_OPTIONS_BY_LANGUAGE = {
@@ -307,6 +309,35 @@ function writeEventSettingsCache(userId, nextCache) {
     window.localStorage.setItem(key, JSON.stringify(nextCache || {}));
   } catch {
     // Ignore localStorage write errors (private mode/quota).
+  }
+}
+
+function readGuestGeoCache(userId) {
+  if (typeof window === "undefined" || !userId) {
+    return {};
+  }
+  const key = `${GUEST_GEO_CACHE_KEY_PREFIX}:${userId}`;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeGuestGeoCache(userId, nextCache) {
+  if (typeof window === "undefined" || !userId) {
+    return;
+  }
+  const key = `${GUEST_GEO_CACHE_KEY_PREFIX}:${userId}`;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(nextCache || {}));
+  } catch {
+    // Ignore localStorage write errors.
   }
 }
 
@@ -564,6 +595,103 @@ function MultiSelectField({ id, label, value, options, onChange, helpText, t }) 
   );
 }
 
+function GeoPointsMapPanel({ mapsStatus, mapsError, points, title, hint, emptyText, t, onOpenDetail, openActionText }) {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
+  const infoWindowRef = useRef(null);
+
+  useEffect(() => {
+    if (mapsStatus !== "ready" || !mapContainerRef.current || !Array.isArray(points) || points.length === 0) {
+      return;
+    }
+    if (!window.google?.maps) {
+      return;
+    }
+
+    if (!mapInstanceRef.current) {
+      mapInstanceRef.current = new window.google.maps.Map(mapContainerRef.current, {
+        center: { lat: points[0].lat, lng: points[0].lng },
+        zoom: 11,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+      infoWindowRef.current = new window.google.maps.InfoWindow();
+    }
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = [];
+
+    const bounds = new window.google.maps.LatLngBounds();
+    points.forEach((pointItem) => {
+      const marker = new window.google.maps.Marker({
+        map: mapInstanceRef.current,
+        position: { lat: pointItem.lat, lng: pointItem.lng },
+        title: pointItem.label
+      });
+      marker.addListener("click", () => {
+        if (infoWindowRef.current) {
+          const contentNode = document.createElement("div");
+          const titleNode = document.createElement("strong");
+          titleNode.textContent = pointItem.label;
+          contentNode.appendChild(titleNode);
+          if (pointItem.meta) {
+            const metaNode = document.createElement("p");
+            metaNode.textContent = pointItem.meta;
+            metaNode.style.margin = "0.2rem 0 0";
+            contentNode.appendChild(metaNode);
+          }
+          infoWindowRef.current.setContent(contentNode);
+          infoWindowRef.current.open({
+            anchor: marker,
+            map: mapInstanceRef.current
+          });
+        }
+        onOpenDetail?.(pointItem.id);
+      });
+      markersRef.current.push(marker);
+      bounds.extend(marker.getPosition());
+    });
+
+    if (points.length === 1) {
+      mapInstanceRef.current.setCenter({ lat: points[0].lat, lng: points[0].lng });
+      mapInstanceRef.current.setZoom(14);
+    } else {
+      mapInstanceRef.current.fitBounds(bounds, 58);
+    }
+  }, [mapsStatus, points, onOpenDetail]);
+
+  return (
+    <article className="panel geo-map-panel">
+      <h3 className="section-title">
+        <Icon name="location" className="icon" />
+        {title}
+      </h3>
+      <p className="field-help">{hint}</p>
+      {mapsStatus === "loading" ? <p className="hint">{t("address_google_loading")}</p> : null}
+      {mapsStatus === "unconfigured" ? <p className="hint">{t("address_google_unconfigured")}</p> : null}
+      {mapsStatus === "error" ? <p className="hint">{`${t("address_google_error")} ${mapsError || ""}`}</p> : null}
+      {mapsStatus === "ready" && points.length === 0 ? <p className="hint">{emptyText}</p> : null}
+      {mapsStatus === "ready" && points.length > 0 ? (
+        <>
+          <div ref={mapContainerRef} className="geo-map-canvas" role="img" aria-label={title} />
+          <ul className="geo-map-list">
+            {points.slice(0, 8).map((pointItem) => (
+              <li key={pointItem.id}>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => onOpenDetail?.(pointItem.id)}>
+                  <Icon name="eye" className="icon icon-sm" />
+                  {openActionText} · {pointItem.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </article>
+  );
+}
+
 function DashboardScreen({
   t,
   language,
@@ -611,6 +739,7 @@ function DashboardScreen({
 
   const autocompleteServiceRef = useRef(null);
   const geocoderRef = useRef(null);
+  const guestGeocodePendingRef = useRef(new Set());
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
@@ -676,6 +805,11 @@ function DashboardScreen({
   const [invitationStatusFilter, setInvitationStatusFilter] = useState("all");
   const [invitationSort, setInvitationSort] = useState("created_desc");
   const [invitationPage, setInvitationPage] = useState(1);
+  const [showInvitationBulkActions, setShowInvitationBulkActions] = useState(false);
+  const [guestPageSize, setGuestPageSize] = useState(GUESTS_PAGE_SIZE_DEFAULT);
+  const [eventsMapFocusId, setEventsMapFocusId] = useState("");
+  const [guestsMapFocusId, setGuestsMapFocusId] = useState("");
+  const [guestGeocodeById, setGuestGeocodeById] = useState({});
   const [selectedLatestInvitationIds, setSelectedLatestInvitationIds] = useState([]);
   const [isDeletingInvitationBulk, setIsDeletingInvitationBulk] = useState(false);
   const [insightsEventId, setInsightsEventId] = useState("");
@@ -858,6 +992,61 @@ function DashboardScreen({
       }) || null
     );
   }, [guests, session?.user?.email, hostProfilePhone]);
+  const selfGuestPreference = useMemo(
+    () => (selfGuestCandidate ? guestPreferencesById[selfGuestCandidate.id] || {} : {}),
+    [selfGuestCandidate, guestPreferencesById]
+  );
+  const selfGuestSensitive = useMemo(
+    () => (selfGuestCandidate ? guestSensitiveById[selfGuestCandidate.id] || {} : {}),
+    [selfGuestCandidate, guestSensitiveById]
+  );
+  const hostGuestProfileSignals = useMemo(() => {
+    if (!selfGuestCandidate) {
+      return [];
+    }
+    const preferenceItem = selfGuestPreference || {};
+    const sensitiveItem = selfGuestSensitive || {};
+    return [
+      { key: "contact", label: t("hint_contact_required"), done: Boolean(selfGuestCandidate.email || selfGuestCandidate.phone) },
+      { key: "location", label: t("field_address"), done: Boolean(selfGuestCandidate.address || selfGuestCandidate.city || selfGuestCandidate.country) },
+      { key: "diet", label: t("field_diet_type"), done: Boolean(preferenceItem.diet_type) },
+      {
+        key: "health",
+        label: t("field_allergies"),
+        done: Boolean(
+          toList(sensitiveItem.allergies).length ||
+            toList(sensitiveItem.intolerances).length ||
+            toList(sensitiveItem.pet_allergies).length
+        )
+      },
+      {
+        key: "food",
+        label: t("field_food"),
+        done: Boolean(
+          toList(preferenceItem.food_likes).length ||
+            toList(preferenceItem.food_dislikes).length ||
+            toList(preferenceItem.drink_likes).length ||
+            toList(preferenceItem.drink_dislikes).length
+        )
+      },
+      {
+        key: "ambience",
+        label: t("field_music_genre"),
+        done: Boolean(toList(preferenceItem.music_genres).length || preferenceItem.favorite_color)
+      },
+      {
+        key: "hobbies",
+        label: t("field_sport"),
+        done: Boolean(toList(preferenceItem.sports).length || toList(preferenceItem.books).length)
+      },
+      { key: "conversation", label: t("field_last_talk_topic"), done: Boolean(preferenceItem.last_talk_topic) }
+    ];
+  }, [selfGuestCandidate, selfGuestPreference, selfGuestSensitive, t]);
+  const hostGuestProfileCompletedCount = hostGuestProfileSignals.filter((item) => item.done).length;
+  const hostGuestProfileTotalCount = Math.max(1, hostGuestProfileSignals.length);
+  const hostGuestProfilePercent = selfGuestCandidate
+    ? Math.round((hostGuestProfileCompletedCount / hostGuestProfileTotalCount) * 100)
+    : 0;
   const convertedHostGuestsCount = useMemo(
     () =>
       guests.filter((guestItem) => (guestItem.email || guestItem.phone) && Boolean(guestHostConversionById[guestItem.id])).length,
@@ -1490,6 +1679,63 @@ function DashboardScreen({
     }
     return invitations.filter((invitationItem) => invitationItem.event_id === editingEventId).length;
   }, [editingEventId, invitations]);
+  const guestGeocodeStorageKey = useMemo(
+    () => (session?.user?.id ? `${GUEST_GEO_CACHE_KEY_PREFIX}:${session.user.id}` : ""),
+    [session?.user?.id]
+  );
+  const eventMapPoints = useMemo(
+    () =>
+      events
+        .filter((eventItem) => typeof eventItem.location_lat === "number" && typeof eventItem.location_lng === "number")
+        .map((eventItem) => ({
+          id: eventItem.id,
+          lat: eventItem.location_lat,
+          lng: eventItem.location_lng,
+          label: eventItem.title || t("field_event"),
+          meta: eventItem.location_name || eventItem.location_address || ""
+        })),
+    [events, t]
+  );
+  const guestMapPoints = useMemo(
+    () =>
+      guests
+        .map((guestItem) => {
+          const geocode = guestGeocodeById[guestItem.id];
+          if (!geocode || typeof geocode.lat !== "number" || typeof geocode.lng !== "number") {
+            return null;
+          }
+          const guestName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
+          return {
+            id: guestItem.id,
+            lat: geocode.lat,
+            lng: geocode.lng,
+            label: guestName,
+            meta: geocode.address || guestItem.address || [guestItem.city, guestItem.country].filter(Boolean).join(", ")
+          };
+        })
+        .filter(Boolean),
+    [guests, guestGeocodeById, t]
+  );
+  const orderedEventMapPoints = useMemo(() => {
+    if (!eventsMapFocusId) {
+      return eventMapPoints;
+    }
+    const focusIndex = eventMapPoints.findIndex((item) => item.id === eventsMapFocusId);
+    if (focusIndex <= 0) {
+      return eventMapPoints;
+    }
+    return [eventMapPoints[focusIndex], ...eventMapPoints.slice(0, focusIndex), ...eventMapPoints.slice(focusIndex + 1)];
+  }, [eventMapPoints, eventsMapFocusId]);
+  const orderedGuestMapPoints = useMemo(() => {
+    if (!guestsMapFocusId) {
+      return guestMapPoints;
+    }
+    const focusIndex = guestMapPoints.findIndex((item) => item.id === guestsMapFocusId);
+    if (focusIndex <= 0) {
+      return guestMapPoints;
+    }
+    return [guestMapPoints[focusIndex], ...guestMapPoints.slice(0, focusIndex), ...guestMapPoints.slice(focusIndex + 1)];
+  }, [guestMapPoints, guestsMapFocusId]);
 
   const upsertEventSettingsCache = useCallback(
     (eventId, settingsInput) => {
@@ -2049,7 +2295,7 @@ function DashboardScreen({
   }, [invitations, invitationSearch, invitationStatusFilter, invitationSort, eventNamesById, guestNamesById]);
 
   const eventTotalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PAGE_SIZE));
-  const guestTotalPages = Math.max(1, Math.ceil(filteredGuests.length / GUESTS_PAGE_SIZE));
+  const guestTotalPages = Math.max(1, Math.ceil(filteredGuests.length / guestPageSize));
   const invitationTotalPages = Math.max(1, Math.ceil(filteredInvitations.length / INVITATIONS_PAGE_SIZE));
 
   const pagedEvents = useMemo(() => {
@@ -2058,9 +2304,9 @@ function DashboardScreen({
   }, [filteredEvents, eventPage]);
 
   const pagedGuests = useMemo(() => {
-    const start = (guestPage - 1) * GUESTS_PAGE_SIZE;
-    return filteredGuests.slice(start, start + GUESTS_PAGE_SIZE);
-  }, [filteredGuests, guestPage]);
+    const start = (guestPage - 1) * guestPageSize;
+    return filteredGuests.slice(start, start + guestPageSize);
+  }, [filteredGuests, guestPage, guestPageSize]);
 
   const pagedInvitations = useMemo(() => {
     const start = (invitationPage - 1) * INVITATIONS_PAGE_SIZE;
@@ -2434,7 +2680,7 @@ function DashboardScreen({
 
   useEffect(() => {
     setGuestPage(1);
-  }, [guestSearch, guestContactFilter, guestSort]);
+  }, [guestSearch, guestContactFilter, guestSort, guestPageSize]);
 
   useEffect(() => {
     setInvitationPage(1);
@@ -2447,6 +2693,52 @@ function DashboardScreen({
     }
     setEventSettingsCacheById(readEventSettingsCache(session.user.id));
   }, [eventSettingsStorageKey, session?.user?.id]);
+
+  useEffect(() => {
+    if (!guestGeocodeStorageKey || !session?.user?.id) {
+      setGuestGeocodeById({});
+      return;
+    }
+    setGuestGeocodeById(readGuestGeoCache(session.user.id));
+  }, [guestGeocodeStorageKey, session?.user?.id]);
+
+  useEffect(() => {
+    if (mapsStatus !== "ready" || !session?.user?.id || !geocoderRef.current || guests.length === 0) {
+      return;
+    }
+    const missingGuests = guests
+      .filter((guestItem) => {
+        const normalizedAddress = String(guestItem.address || "").trim();
+        return normalizedAddress && !guestGeocodeById[guestItem.id] && !guestGeocodePendingRef.current.has(guestItem.id);
+      })
+      .slice(0, 3);
+    if (missingGuests.length === 0) {
+      return;
+    }
+    missingGuests.forEach((guestItem) => {
+      const normalizedAddress = String(guestItem.address || "").trim();
+      guestGeocodePendingRef.current.add(guestItem.id);
+      geocoderRef.current.geocode({ address: normalizedAddress }, (results, status) => {
+        guestGeocodePendingRef.current.delete(guestItem.id);
+        const resolved = status === "OK" && results?.[0] ? results[0] : null;
+        const lat = resolved?.geometry?.location?.lat?.() ?? null;
+        const lng = resolved?.geometry?.location?.lng?.() ?? null;
+        const formattedAddress = resolved?.formatted_address || normalizedAddress;
+        setGuestGeocodeById((prev) => {
+          const next = {
+            ...(prev || {}),
+            [guestItem.id]: {
+              lat: typeof lat === "number" ? lat : null,
+              lng: typeof lng === "number" ? lng : null,
+              address: formattedAddress
+            }
+          };
+          writeGuestGeoCache(session.user.id, next);
+          return next;
+        });
+      });
+    });
+  }, [mapsStatus, session?.user?.id, guests, guestGeocodeById]);
 
   useEffect(() => {
     if (eventPage > eventTotalPages) {
@@ -2496,6 +2788,9 @@ function DashboardScreen({
       if (typeof parsed?.guestSort === "string") {
         setGuestSort(parsed.guestSort);
       }
+      if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.guestPageSize))) {
+        setGuestPageSize(Number(parsed.guestPageSize));
+      }
       if (typeof parsed?.invitationSearch === "string") {
         setInvitationSearch(parsed.invitationSearch);
       }
@@ -2527,6 +2822,9 @@ function DashboardScreen({
       if (typeof parsed?.mobileExpandedView === "string" && validViews.includes(parsed.mobileExpandedView)) {
         setMobileExpandedView(parsed.mobileExpandedView);
       }
+      if (typeof parsed?.showInvitationBulkActions === "boolean") {
+        setShowInvitationBulkActions(parsed.showInvitationBulkActions);
+      }
     } catch {
       // Ignore malformed local settings and continue with defaults.
     }
@@ -2544,6 +2842,7 @@ function DashboardScreen({
       guestSearch,
       guestContactFilter,
       guestSort,
+      guestPageSize,
       invitationSearch,
       invitationStatusFilter,
       invitationSort,
@@ -2551,7 +2850,8 @@ function DashboardScreen({
       eventsWorkspace,
       guestsWorkspace,
       invitationsWorkspace,
-      mobileExpandedView
+      mobileExpandedView,
+      showInvitationBulkActions
     };
     window.localStorage.setItem(prefsStorageKey, JSON.stringify(payload));
   }, [
@@ -2561,6 +2861,7 @@ function DashboardScreen({
     guestSearch,
     guestContactFilter,
     guestSort,
+    guestPageSize,
     invitationSearch,
     invitationStatusFilter,
     invitationSort,
@@ -2569,6 +2870,7 @@ function DashboardScreen({
     guestsWorkspace,
     invitationsWorkspace,
     mobileExpandedView,
+    showInvitationBulkActions,
     prefsReady,
     prefsStorageKey
   ]);
@@ -2928,6 +3230,7 @@ function DashboardScreen({
     if (!fallbackEventId) {
       return;
     }
+    setEventsMapFocusId(fallbackEventId);
     setSelectedEventDetailId(fallbackEventId);
     setActiveView("events");
     setEventsWorkspace("detail");
@@ -2941,6 +3244,7 @@ function DashboardScreen({
     if (!fallbackGuestId) {
       return;
     }
+    setGuestsMapFocusId(fallbackGuestId);
     setSelectedGuestDetailId(fallbackGuestId);
     setActiveView("guests");
     setGuestsWorkspace("detail");
@@ -3936,6 +4240,37 @@ function DashboardScreen({
       return;
     }
 
+    const resolvedGuestAddress = String(selectedGuestAddressPlace?.formattedAddress || guestAdvanced.address || "").trim();
+    if (savedGuestId) {
+      const hasResolvedCoordinates =
+        typeof selectedGuestAddressPlace?.lat === "number" && typeof selectedGuestAddressPlace?.lng === "number";
+      if (resolvedGuestAddress && hasResolvedCoordinates) {
+        const nextGeocodeValue = {
+          lat: selectedGuestAddressPlace.lat,
+          lng: selectedGuestAddressPlace.lng,
+          address: resolvedGuestAddress
+        };
+        setGuestGeocodeById((prev) => {
+          const next = {
+            ...(prev || {}),
+            [savedGuestId]: nextGeocodeValue
+          };
+          writeGuestGeoCache(session.user.id, next);
+          return next;
+        });
+      } else {
+        setGuestGeocodeById((prev) => {
+          const next = { ...(prev || {}) };
+          delete next[savedGuestId];
+          writeGuestGeoCache(session.user.id, next);
+          return next;
+        });
+      }
+    }
+    if (savedGuestId) {
+      setGuestsMapFocusId(savedGuestId);
+    }
+
     if (isEditingGuest) {
       setGuestMessage(t("guest_updated"));
       await loadDashboardData();
@@ -4486,6 +4821,14 @@ function DashboardScreen({
           onClick: () => openWorkspace("invitations", "create")
         }
       : null;
+  const contextualSecondaryAction =
+    activeView === "invitations" && invitationsWorkspace === "latest"
+      ? {
+          icon: "check",
+          label: showInvitationBulkActions ? t("invitation_list_bulk_hide") : t("invitation_list_bulk_show"),
+          onClick: () => setShowInvitationBulkActions((prev) => !prev)
+        }
+      : null;
 
   return (
     <main className="page dashboard-page">
@@ -4517,6 +4860,12 @@ function DashboardScreen({
             </button>
             {contextualCreateAction ? (
               <div className="dashboard-quick-actions">
+                {contextualSecondaryAction ? (
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={contextualSecondaryAction.onClick}>
+                    <Icon name={contextualSecondaryAction.icon} className="icon icon-sm" />
+                    {contextualSecondaryAction.label}
+                  </button>
+                ) : null}
                 <button className="btn btn-sm" type="button" onClick={contextualCreateAction.onClick}>
                   <Icon name={contextualCreateAction.icon} className="icon icon-sm" />
                   {contextualCreateAction.label}
@@ -4840,7 +5189,7 @@ function DashboardScreen({
                 <div className="kpi-card-head">
                   <p className="hint">{t("kpi_events")}</p>
                   <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="calendar" className="icon icon-sm" />
+                    <Icon name="calendar" className="icon" />
                   </span>
                 </div>
                 <p className="kpi-value">{events.length}</p>
@@ -4875,7 +5224,7 @@ function DashboardScreen({
                 <div className="kpi-card-head">
                   <p className="hint">{t("kpi_guests")}</p>
                   <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="user" className="icon icon-sm" />
+                    <Icon name="user" className="icon" />
                   </span>
                 </div>
                 <p className="kpi-value">{guests.length}</p>
@@ -4910,7 +5259,7 @@ function DashboardScreen({
                 <div className="kpi-card-head">
                   <p className="hint">{t("latest_invitations_title")}</p>
                   <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="link" className="icon icon-sm" />
+                    <Icon name="mail" className="icon" />
                   </span>
                 </div>
                 <p className="kpi-value">{invitations.length}</p>
@@ -4945,7 +5294,7 @@ function DashboardScreen({
                 <div className="kpi-card-head">
                   <p className="hint">{t("kpi_answered_rsvp")}</p>
                   <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="check" className="icon icon-sm" />
+                    <Icon name="check" className="icon" />
                   </span>
                 </div>
                 <p className="kpi-value">{respondedInvitesRate}%</p>
@@ -5113,6 +5462,66 @@ function DashboardScreen({
                 </p>
               </div>
             </header>
+
+            <article className="panel profile-summary-card">
+              <div className="profile-summary-header">
+                <div>
+                  <h3 className="section-title">
+                    <Icon name="sparkle" className="icon" />
+                    {t("host_profile_completeness_title")}
+                  </h3>
+                  <p className="field-help">{t("host_profile_completeness_hint")}</p>
+                </div>
+                <span className={`status-pill ${isProfileGuestLinked ? "status-yes" : "status-pending"}`}>
+                  {isProfileGuestLinked ? t("host_profile_completeness_linked") : t("host_profile_completeness_unlinked")}
+                </span>
+              </div>
+              {isProfileGuestLinked ? (
+                <>
+                  <div
+                    className={`list-progress-track ${
+                      hostGuestProfilePercent >= 70
+                        ? "progress-high"
+                        : hostGuestProfilePercent >= 35
+                        ? "progress-medium"
+                        : "progress-low"
+                    }`}
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={hostGuestProfilePercent}
+                  >
+                    <span style={{ width: `${hostGuestProfilePercent}%` }} />
+                  </div>
+                  <p className="item-meta">
+                    {interpolateText(t("host_profile_completeness_progress"), {
+                      done: hostGuestProfileCompletedCount,
+                      total: hostGuestProfileTotalCount,
+                      percent: hostGuestProfilePercent
+                    })}
+                  </p>
+                  <div className="profile-summary-signals">
+                    {hostGuestProfileSignals.map((signalItem) => (
+                      <span key={signalItem.key} className={`status-pill ${signalItem.done ? "status-yes" : "status-draft"}`}>
+                        {signalItem.label}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="hint">{t("host_profile_completeness_unlinked_hint")}</p>
+              )}
+              <div className="button-row">
+                {isProfileGuestLinked ? (
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openGuestDetail(profileLinkedGuestId)}>
+                    {t("host_profile_open_advanced_action")}
+                  </button>
+                ) : null}
+                <button className="btn btn-ghost btn-sm" type="button" onClick={syncHostGuestProfileForm}>
+                  {t("host_profile_guest_sync")}
+                </button>
+              </div>
+            </article>
 
             <div className="profile-grid">
               <form className="panel form-grid host-profile-panel" onSubmit={handleSaveHostProfile} noValidate>
@@ -5991,16 +6400,37 @@ function DashboardScreen({
                   </div>
                 </div>
               ) : null}
+              <GeoPointsMapPanel
+                mapsStatus={mapsStatus}
+                mapsError={mapsError}
+                points={orderedEventMapPoints}
+                title={t("events_map_title")}
+                hint={t("events_map_hint")}
+                emptyText={t("events_map_empty")}
+                openActionText={t("events_map_open_detail")}
+                onOpenDetail={(eventId) => openEventDetail(eventId)}
+                t={t}
+              />
             </section>
             ) : null}
 
             {eventsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
-              <h2 className="section-title">
-                <Icon name="eye" className="icon" />
-                {t("event_detail_title")}
-              </h2>
-              <p className="field-help">{t("event_detail_hint")}</p>
+              <div className="detail-head">
+                <div>
+                  <h2 className="section-title">
+                    <Icon name="eye" className="icon" />
+                    {t("event_detail_title")}
+                  </h2>
+                  <p className="field-help">{t("event_detail_hint")}</p>
+                </div>
+                {selectedEventDetail ? (
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
+                    <Icon name="edit" className="icon icon-sm" />
+                    {t("event_detail_edit_action")}
+                  </button>
+                ) : null}
+              </div>
               {events.length > 0 ? (
                 <label>
                   <span className="label-title">{t("event_detail_select_label")}</span>
@@ -6085,9 +6515,6 @@ function DashboardScreen({
                       </span>
                     </div>
                     <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
-                        {t("event_detail_edit_action")}
-                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"
@@ -7099,6 +7526,16 @@ function DashboardScreen({
                     <option value="name_desc">{t("sort_name_desc")}</option>
                   </select>
                 </label>
+                <label>
+                  <span className="label-title">{t("pagination_items_per_page")}</span>
+                  <select value={guestPageSize} onChange={(event) => setGuestPageSize(Number(event.target.value) || GUESTS_PAGE_SIZE_DEFAULT)}>
+                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                      <option key={optionValue} value={optionValue}>
+                        {optionValue}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
               <div className="list-filter-tabs" role="group" aria-label={t("filter_contact")}>
                 {[
@@ -7282,16 +7719,37 @@ function DashboardScreen({
                   </div>
                 </div>
               ) : null}
+              <GeoPointsMapPanel
+                mapsStatus={mapsStatus}
+                mapsError={mapsError}
+                points={orderedGuestMapPoints}
+                title={t("guests_map_title")}
+                hint={t("guests_map_hint")}
+                emptyText={t("guests_map_empty")}
+                openActionText={t("guests_map_open_detail")}
+                onOpenDetail={(guestId) => openGuestDetail(guestId)}
+                t={t}
+              />
             </section>
             ) : null}
 
             {guestsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
-              <h2 className="section-title">
-                <Icon name="eye" className="icon" />
-                {t("guest_detail_title")}
-              </h2>
-              <p className="field-help">{t("guest_detail_hint")}</p>
+              <div className="detail-head">
+                <div>
+                  <h2 className="section-title">
+                    <Icon name="eye" className="icon" />
+                    {t("guest_detail_title")}
+                  </h2>
+                  <p className="field-help">{t("guest_detail_hint")}</p>
+                </div>
+                {selectedGuestDetail ? (
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(selectedGuestDetail)}>
+                    <Icon name="edit" className="icon icon-sm" />
+                    {t("guest_detail_edit_action")}
+                  </button>
+                ) : null}
+              </div>
               {guests.length > 0 ? (
                 <label>
                   <span className="label-title">{t("guest_detail_select_label")}</span>
@@ -7361,9 +7819,6 @@ function DashboardScreen({
                       </p>
                     ) : null}
                     <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(selectedGuestDetail)}>
-                        {t("guest_detail_edit_action")}
-                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"
@@ -7831,75 +8286,101 @@ function DashboardScreen({
               <p className="hint">
                 {t("results_count")}: {filteredInvitations.length}
               </p>
-              <section className="recommendation-card invitation-bulk-card">
-                <p className="label-title">
+              <div className="button-row invitation-list-head-actions">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  type="button"
+                  onClick={() => setShowInvitationBulkActions((prev) => !prev)}
+                >
                   <Icon name="check" className="icon icon-sm" />
-                  {t("invitation_list_bulk_title")}
-                </p>
-                <p className="field-help">{t("invitation_list_bulk_hint")}</p>
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleSelectVisibleLatestInvitations}
-                    disabled={pagedInvitations.length === 0}
-                  >
-                    {t("invitation_list_bulk_select_visible")}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleClearLatestInvitationSelection}
-                    disabled={selectedLatestInvitationIds.length === 0}
-                  >
-                    {t("invitation_list_bulk_clear")}
-                  </button>
-                </div>
-                <p className="hint">
-                  {t("invitation_list_bulk_selected_count")} {selectedLatestInvitationIds.length}
-                </p>
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleCopySelectedInvitationLinks}
-                    disabled={selectedLatestInvitationIds.length === 0}
-                  >
-                    {t("invitation_list_bulk_copy_links")}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleCopySelectedInvitationMessages}
-                    disabled={selectedLatestInvitationIds.length === 0}
-                  >
-                    {t("invitation_list_bulk_copy_messages")}
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    type="button"
-                    onClick={handleRequestDeleteInvitationBulk}
-                    disabled={selectedLatestInvitationIds.length === 0}
-                  >
-                    {t("invitation_list_bulk_delete")}
-                  </button>
-                </div>
-              </section>
+                  {showInvitationBulkActions ? t("invitation_list_bulk_hide") : t("invitation_list_bulk_show")}
+                </button>
+                {selectedLatestInvitationIds.length > 0 ? (
+                  <span className="status-pill status-pending">
+                    {t("invitation_list_bulk_selected_count")} {selectedLatestInvitationIds.length}
+                  </span>
+                ) : null}
+              </div>
+              {showInvitationBulkActions ? (
+                <section className="recommendation-card invitation-bulk-card">
+                  <p className="label-title">
+                    <Icon name="check" className="icon icon-sm" />
+                    {t("invitation_list_bulk_title")}
+                  </p>
+                  <p className="field-help">{t("invitation_list_bulk_hint")}</p>
+                  <div className="button-row">
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={handleSelectVisibleLatestInvitations}
+                      disabled={pagedInvitations.length === 0}
+                    >
+                      {t("invitation_list_bulk_select_visible")}
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={handleClearLatestInvitationSelection}
+                      disabled={selectedLatestInvitationIds.length === 0}
+                    >
+                      {t("invitation_list_bulk_clear")}
+                    </button>
+                  </div>
+                  <p className="hint">
+                    {t("invitation_list_bulk_selected_count")} {selectedLatestInvitationIds.length}
+                  </p>
+                  <div className="button-row">
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={handleCopySelectedInvitationLinks}
+                      disabled={selectedLatestInvitationIds.length === 0}
+                    >
+                      {t("invitation_list_bulk_copy_links")}
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={handleCopySelectedInvitationMessages}
+                      disabled={selectedLatestInvitationIds.length === 0}
+                    >
+                      {t("invitation_list_bulk_copy_messages")}
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      type="button"
+                      onClick={handleRequestDeleteInvitationBulk}
+                      disabled={selectedLatestInvitationIds.length === 0}
+                    >
+                      {t("invitation_list_bulk_delete")}
+                    </button>
+                  </div>
+                </section>
+              ) : null}
               <InlineMessage text={invitationMessage} />
               {filteredInvitations.length === 0 ? (
                 <p>{t("no_invitations")}</p>
               ) : (
                 <>
                 <div className="list-table-shell">
-                  <div className="list-table-head list-table-head-invitations" aria-hidden="true">
-                    <span>{t("invitation_list_bulk_select_item")}</span>
+                  <div
+                    className={`list-table-head ${
+                      showInvitationBulkActions ? "list-table-head-invitations" : "list-table-head-invitations-compact"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {showInvitationBulkActions ? <span>{t("invitation_list_bulk_select_item")}</span> : null}
                     <span>{t("field_guest")}</span>
                     <span>{t("field_event")}</span>
                     <span>RSVP</span>
                     <span>{t("created")}</span>
                     <span>{t("actions_label")}</span>
                   </div>
-                  <ul className="list list-table list-table-invitations">
+                  <ul
+                    className={`list list-table ${
+                      showInvitationBulkActions ? "list-table-invitations" : "list-table-invitations list-table-invitations-compact"
+                    }`}
+                  >
                   {pagedInvitations.map((invitation) => {
                     const eventName = eventNamesById[invitation.event_id] || invitation.event_id;
                     const guestName = guestNamesById[invitation.guest_id] || invitation.guest_id;
@@ -7910,17 +8391,19 @@ function DashboardScreen({
                     const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                     return (
                       <li key={invitation.id} className="list-table-row list-row-invitation">
-                        <label className="bulk-guest-option invitation-select-option cell-select">
-                          <input
-                            type="checkbox"
-                            checked={selectedLatestInvitationIds.includes(invitation.id)}
-                            onChange={() => toggleLatestInvitationSelection(invitation.id)}
-                          />
-                          <span>
-                            <strong>{t("invitation_list_bulk_select_item")}</strong>
-                            <span className="item-meta">{itemLabel}</span>
-                          </span>
-                        </label>
+                        {showInvitationBulkActions ? (
+                          <label className="bulk-guest-option invitation-select-option cell-select">
+                            <input
+                              type="checkbox"
+                              checked={selectedLatestInvitationIds.includes(invitation.id)}
+                              onChange={() => toggleLatestInvitationSelection(invitation.id)}
+                            />
+                            <span>
+                              <strong>{t("invitation_list_bulk_select_item")}</strong>
+                              <span className="item-meta">{itemLabel}</span>
+                            </span>
+                          </label>
+                        ) : null}
                         <div className="cell-main list-title-with-avatar">
                           <span className="list-avatar list-avatar-sm">{getInitials(guestName, "IN")}</span>
                           <div>

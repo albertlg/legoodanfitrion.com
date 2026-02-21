@@ -53,6 +53,33 @@ function resolveTheme(themeMode, systemPrefersDark) {
   return themeMode;
 }
 
+function normalizeAuthErrorMessage(error, t) {
+  const rawMessage = String(error?.message || "").trim();
+  const normalized = rawMessage.toLowerCase();
+  if (!normalized) {
+    return t("auth_error_generic");
+  }
+  if (normalized.includes("anonymous sign-ins are disabled")) {
+    return t("auth_error_anonymous_disabled");
+  }
+  if (normalized.includes("invalid login credentials")) {
+    return t("auth_error_invalid_credentials");
+  }
+  if (normalized.includes("user already registered")) {
+    return t("auth_error_user_exists");
+  }
+  if (normalized.includes("email not confirmed")) {
+    return t("auth_error_email_not_confirmed");
+  }
+  if (normalized.includes("password should be at least")) {
+    return t("auth_error_password_short");
+  }
+  if (normalized.includes("unable to validate email address")) {
+    return t("auth_error_email_invalid");
+  }
+  return rawMessage;
+}
+
 function App() {
   const [token, setToken] = useState(getTokenFromLocation);
   const [language, setLanguage] = useState(detectLanguage);
@@ -69,6 +96,7 @@ function App() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isSigningInWithGoogle, setIsSigningInWithGoogle] = useState(false);
+  const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
@@ -113,7 +141,7 @@ function App() {
         return;
       }
       if (error) {
-        setAuthError(error.message);
+        setAuthError(normalizeAuthErrorMessage(error, t));
       } else {
         setSession(data.session);
       }
@@ -131,7 +159,7 @@ function App() {
       isMounted = false;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!supabase || !session?.user?.id) {
@@ -211,14 +239,23 @@ function App() {
     }
     setAuthError("");
     setAccountMessage("");
+    const email = loginEmail.trim();
+    if (!email) {
+      setAuthError(t("auth_error_email_required"));
+      return;
+    }
+    if (!loginPassword) {
+      setAuthError(t("auth_error_password_required"));
+      return;
+    }
     setIsSigningIn(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail.trim(),
+      email,
       password: loginPassword
     });
     setIsSigningIn(false);
     if (error) {
-      setAuthError(error.message);
+      setAuthError(normalizeAuthErrorMessage(error, t));
       return;
     }
     setLoginPassword("");
@@ -230,8 +267,20 @@ function App() {
     }
     setAuthError("");
     setAccountMessage("");
-    setIsSigningUp(true);
     const email = loginEmail.trim();
+    if (!email) {
+      setAuthError(t("auth_error_email_required"));
+      return;
+    }
+    if (!loginPassword) {
+      setAuthError(t("auth_error_password_required"));
+      return;
+    }
+    if (loginPassword.length < 6) {
+      setAuthError(t("auth_error_password_short"));
+      return;
+    }
+    setIsSigningUp(true);
     const { error } = await supabase.auth.signUp({
       email,
       password: loginPassword,
@@ -239,10 +288,34 @@ function App() {
     });
     setIsSigningUp(false);
     if (error) {
-      setAuthError(error.message);
+      setAuthError(normalizeAuthErrorMessage(error, t));
       return;
     }
     setAccountMessage(t("account_created"));
+  };
+
+  const handleForgotPassword = async () => {
+    if (!supabase) {
+      return;
+    }
+    setAuthError("");
+    setAccountMessage("");
+    const email = loginEmail.trim();
+    if (!email) {
+      setAuthError(t("auth_error_email_required"));
+      return;
+    }
+    setIsSendingPasswordReset(true);
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo
+    });
+    setIsSendingPasswordReset(false);
+    if (error) {
+      setAuthError(normalizeAuthErrorMessage(error, t));
+      return;
+    }
+    setAccountMessage(t("auth_reset_password_sent"));
   };
 
   const handleGoogleSignIn = async () => {
@@ -258,7 +331,7 @@ function App() {
       options: { redirectTo }
     });
     if (error) {
-      setAuthError(`${t("google_auth_error")} ${error.message}`);
+      setAuthError(`${t("google_auth_error")} ${normalizeAuthErrorMessage(error, t)}`);
       setIsSigningInWithGoogle(false);
       return;
     }
@@ -329,8 +402,10 @@ function App() {
         isSigningIn={isSigningIn}
         isSigningUp={isSigningUp}
         isSigningInWithGoogle={isSigningInWithGoogle}
+        isSendingPasswordReset={isSendingPasswordReset}
         onSignIn={handleSignIn}
         onSignUp={handleSignUp}
+        onForgotPassword={handleForgotPassword}
         onGoogleSignIn={handleGoogleSignIn}
       />
     );

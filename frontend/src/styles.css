@@ -588,8 +588,11 @@ h2 {
 .auth-forgot {
   margin: -0.05rem 0 0.1rem;
   font-size: 0.9rem;
-  color: var(--primary);
   text-align: right;
+}
+
+.auth-forgot-btn {
+  font-size: 0.88rem;
 }
 
 .btn-block {
@@ -978,12 +981,12 @@ h2 {
   border: 2px solid var(--panel-bg);
   background: #ef4444;
   color: #fff;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
   display: grid;
   place-items: center;
-  padding: 0 0.22rem;
+  padding: 0 0.26rem;
 }
 
 .dashboard-notification-dropdown {
@@ -1736,7 +1739,7 @@ h2 {
   padding: 0.62rem;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.55rem;
   background: var(--surface-soft);
@@ -1752,6 +1755,7 @@ h2 {
   align-items: center;
   gap: 0.42rem;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .overview-secondary-grid {
@@ -1817,6 +1821,25 @@ h2 {
   gap: 1rem;
 }
 
+.profile-summary-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.profile-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.profile-summary-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1850,14 +1873,19 @@ h2 {
 }
 
 .kpi-card-icon {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 9px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent 30%);
   background: color-mix(in srgb, var(--surface-soft) 78%, var(--primary) 22%);
   color: var(--primary-strong);
   display: grid;
   place-items: center;
+}
+
+.kpi-card-icon .icon {
+  width: 1.18rem;
+  height: 1.18rem;
 }
 
 .kpi-card.is-interactive {
@@ -2005,6 +2033,14 @@ h2 {
   gap: 0.72rem;
 }
 
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
 .detail-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2046,6 +2082,33 @@ h2 {
 .detail-chip-group {
   display: grid;
   gap: 0.28rem;
+}
+
+.geo-map-panel {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.geo-map-canvas {
+  width: 100%;
+  min-height: 250px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-soft) 70%, var(--panel-bg) 30%);
+}
+
+.geo-map-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.invitation-list-head-actions {
+  margin-top: 0.35rem;
 }
 
 .checklist-list {
@@ -2833,6 +2896,11 @@ textarea {
   grid-template-columns: minmax(124px, 0.65fr) minmax(180px, 1fr) minmax(200px, 1fr) minmax(110px, 0.75fr) minmax(145px, 0.85fr) auto;
 }
 
+.list-table-head-invitations-compact,
+.list-table-invitations-compact .list-table-row {
+  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1fr) minmax(110px, 0.75fr) minmax(145px, 0.85fr) auto;
+}
+
 .list-table {
   gap: 0;
 }
@@ -3048,6 +3116,26 @@ textarea {
 .list-table-invitations .list-table-row > .cell-invitation-created {
   grid-column: 5;
   align-self: center;
+}
+
+.list-table-invitations-compact .list-table-row > .cell-main {
+  grid-column: 1;
+}
+
+.list-table-invitations-compact .list-table-row > .cell-invitation-event {
+  grid-column: 2;
+}
+
+.list-table-invitations-compact .list-table-row > .cell-invitation-status {
+  grid-column: 3;
+}
+
+.list-table-invitations-compact .list-table-row > .cell-invitation-created {
+  grid-column: 4;
+}
+
+.list-table-invitations-compact .list-table-row > .cell-actions {
+  grid-column: 5;
 }
 
 .list-table-invitations .list-table-row > .invitation-row-links {
@@ -3608,6 +3696,10 @@ code {
     align-items: flex-start;
   }
 
+  .overview-upcoming-meta {
+    margin-left: 0;
+  }
+
   .growth-funnel-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3618,6 +3710,10 @@ code {
 
   .detail-layout {
     grid-template-columns: 1fr;
+  }
+
+  .detail-head {
+    align-items: stretch;
   }
 
   .detail-card-wide {

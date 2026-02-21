@@ -20,8 +20,10 @@ function AuthScreen({
   isSigningIn,
   isSigningUp,
   isSigningInWithGoogle,
+  isSendingPasswordReset,
   onSignIn,
   onSignUp,
+  onForgotPassword,
   onGoogleSignIn
 }) {
   return (
@@ -112,7 +114,16 @@ function AuthScreen({
               />
             </label>
 
-            <p className="auth-forgot">{t("auth_forgot_password")}</p>
+            <p className="auth-forgot">
+              <button
+                className="text-link-btn auth-forgot-btn"
+                type="button"
+                onClick={onForgotPassword}
+                disabled={isSigningIn || isSigningUp || isSigningInWithGoogle || isSendingPasswordReset}
+              >
+                {isSendingPasswordReset ? t("auth_sending_reset_password") : t("auth_forgot_password")}
+              </button>
+            </p>
 
             <button className="btn btn-block" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
               {isSigningIn ? t("signing_in") : t("sign_in")}
