@@ -10,20 +10,43 @@ import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { AuthScreen } from "./screens/auth-screen";
 import { DashboardScreen } from "./screens/dashboard-screen";
+import { LandingScreen } from "./screens/landing-screen";
 import { PublicRsvpScreen } from "./screens/public-rsvp-screen";
 
 const I18N = { es, ca, en, fr, it };
 
-function getTokenFromLocation() {
+const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact"]);
+
+function normalizePathname(pathname) {
+  const normalized = String(pathname || "/").trim() || "/";
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    return normalized.replace(/\/+$/, "");
+  }
+  return normalized;
+}
+
+function getRouteFromLocation() {
   const search = new URLSearchParams(window.location.search);
-  const queryToken = search.get("token");
-  if (queryToken?.trim()) {
-    return queryToken.trim();
+  const queryToken = String(search.get("token") || "").trim();
+  if (queryToken) {
+    return { kind: "rsvp", path: `/rsvp/${queryToken}`, token: queryToken };
   }
-  if (window.location.pathname.startsWith("/rsvp/")) {
-    return window.location.pathname.replace("/rsvp/", "").trim();
+
+  const pathname = normalizePathname(window.location.pathname);
+  if (pathname.startsWith("/rsvp/")) {
+    const token = pathname.replace("/rsvp/", "").trim();
+    return token ? { kind: "rsvp", path: pathname, token } : { kind: "landing", path: "/" };
   }
-  return "";
+  if (pathname === "/login") {
+    return { kind: "login", path: "/login" };
+  }
+  if (pathname === "/app") {
+    return { kind: "app", path: "/app" };
+  }
+  if (LANDING_PATHS.has(pathname)) {
+    return { kind: "landing", path: pathname };
+  }
+  return { kind: "landing", path: "/" };
 }
 
 function detectLanguage() {
@@ -82,7 +105,7 @@ function normalizeAuthErrorMessage(error, t) {
 }
 
 function App() {
-  const [token, setToken] = useState(getTokenFromLocation);
+  const [route, setRoute] = useState(getRouteFromLocation);
   const [language, setLanguage] = useState(detectLanguage);
   const [themeMode, setThemeMode] = useState(getThemeModeInitial);
   const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
@@ -124,9 +147,22 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const onPopState = () => setToken(getTokenFromLocation());
+    const onPopState = () => setRoute(getRouteFromLocation());
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const navigate = useCallback((nextPath, { replace = false } = {}) => {
+    const normalizedPath = normalizePathname(nextPath || "/");
+    const current = normalizePathname(window.location.pathname || "/");
+    if (normalizedPath !== current) {
+      if (replace) {
+        window.history.replaceState({}, "", normalizedPath);
+      } else {
+        window.history.pushState({}, "", normalizedPath);
+      }
+    }
+    setRoute(getRouteFromLocation());
   }, []);
 
   useEffect(() => {
@@ -344,9 +380,24 @@ function App() {
     }
     setAuthError("");
     await supabase.auth.signOut();
+    navigate("/login", { replace: true });
   };
 
-  if (!hasSupabaseEnv) {
+  useEffect(() => {
+    if (route.kind !== "app" || session?.user?.id) {
+      return;
+    }
+    navigate("/login", { replace: true });
+  }, [navigate, route.kind, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || route.kind !== "login") {
+      return;
+    }
+    navigate("/app", { replace: true });
+  }, [navigate, route.kind, session?.user?.id]);
+
+  if (!hasSupabaseEnv && route.kind !== "landing") {
     return (
       <main className="page">
         <section className="card app-card">
@@ -372,15 +423,32 @@ function App() {
     );
   }
 
-  if (token) {
+  if (route.kind === "rsvp" && route.token) {
     return (
       <PublicRsvpScreen
-        token={token}
+        token={route.token}
         language={language}
         setLanguage={setLanguage}
         themeMode={themeMode}
         setThemeMode={setThemeMode}
         t={t}
+      />
+    );
+  }
+
+  if (route.kind === "landing") {
+    return (
+      <LandingScreen
+        t={t}
+        language={language}
+        setLanguage={setLanguage}
+        themeMode={themeMode}
+        setThemeMode={setThemeMode}
+        currentPath={route.path}
+        session={session}
+        onNavigate={navigate}
+        onGoLogin={() => navigate("/login")}
+        onGoApp={() => navigate("/app")}
       />
     );
   }
@@ -408,6 +476,7 @@ function App() {
         onSignUp={handleSignUp}
         onForgotPassword={handleForgotPassword}
         onGoogleSignIn={handleGoogleSignIn}
+        onBackToLanding={() => navigate("/")}
       />
     );
   }

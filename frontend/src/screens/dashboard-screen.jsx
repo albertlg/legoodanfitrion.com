@@ -11,7 +11,7 @@ import {
   toCatalogLabel,
   toCatalogLabels
 } from "../lib/guest-catalogs";
-import { buildAppUrl, getAppOrigin } from "../lib/app-url";
+import { buildAppUrl } from "../lib/app-url";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
@@ -4213,7 +4213,7 @@ function DashboardScreen({
 
   const handleCopyHostSignupLink = async (guestItem) => {
     const guestLabel = `${guestItem?.first_name || ""} ${guestItem?.last_name || ""}`.trim() || t("field_guest");
-    const signupUrl = getAppOrigin();
+    const signupUrl = buildAppUrl("/login");
     try {
       await navigator.clipboard.writeText(signupUrl);
       setGuestMessage(`${t("host_invite_link_copied")} ${guestLabel}`);
@@ -8186,7 +8186,7 @@ function DashboardScreen({
                             aria-label={conversion ? t("host_already_registered_action") : t("host_invite_action")}
                             title={conversion ? t("host_already_registered_action") : t("host_invite_action")}
                           >
-                            <Icon name="mail" className="icon icon-sm" />
+                            <Icon name="link" className="icon icon-sm" />
                           </button>
                           <button
                             className="btn btn-danger btn-sm btn-icon-only"
@@ -8288,6 +8288,15 @@ function DashboardScreen({
                   >
                     {t("guest_detail_create_invitation_action")}
                   </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={() => handleCopyHostSignupLink(selectedGuestDetail)}
+                    disabled={Boolean(selectedGuestDetailConversion)}
+                  >
+                    <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="icon icon-sm" />
+                    {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
+                  </button>
                 </div>
               ) : null}
               {!selectedGuestDetail ? (
@@ -8342,6 +8351,15 @@ function DashboardScreen({
                         }
                       >
                         {t("guest_detail_create_invitation_action")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => handleCopyHostSignupLink(selectedGuestDetail)}
+                        disabled={Boolean(selectedGuestDetailConversion)}
+                      >
+                        <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="icon icon-sm" />
+                        {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
                       </button>
                     </div>
                   </article>

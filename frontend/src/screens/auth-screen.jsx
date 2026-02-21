@@ -24,7 +24,8 @@ function AuthScreen({
   onSignIn,
   onSignUp,
   onForgotPassword,
-  onGoogleSignIn
+  onGoogleSignIn,
+  onBackToLanding
 }) {
   return (
     <main className="page page-auth">
@@ -48,13 +49,21 @@ function AuthScreen({
 
         <section className="auth-form-pane">
           <header className="auth-form-header">
-            <Controls
-              themeMode={themeMode}
-              setThemeMode={setThemeMode}
-              language={language}
-              setLanguage={setLanguage}
-              t={t}
-            />
+            <div className="auth-form-top-actions">
+              {onBackToLanding ? (
+                <button className="btn btn-ghost btn-sm" type="button" onClick={onBackToLanding}>
+                  <Icon name="arrow_left" className="icon icon-sm" />
+                  {t("landing_back_home")}
+                </button>
+              ) : null}
+              <Controls
+                themeMode={themeMode}
+                setThemeMode={setThemeMode}
+                language={language}
+                setLanguage={setLanguage}
+                t={t}
+              />
+            </div>
             <div>
               <h2>{t("auth_welcome_back")}</h2>
               <p className="field-help">{t("auth_welcome_hint")}</p>
