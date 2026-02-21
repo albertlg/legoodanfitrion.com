@@ -3406,6 +3406,20 @@ textarea {
   align-items: center;
 }
 
+.guest-host-convert-btn {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.guest-host-convert-btn .icon {
+  width: 0.88rem;
+  height: 0.88rem;
+}
+
 .list-actions-compact {
   gap: 0.4rem;
 }

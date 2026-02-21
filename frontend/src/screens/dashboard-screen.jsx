@@ -8155,6 +8155,17 @@ function DashboardScreen({
                           ) : (
                             <p className="item-meta">{t("host_pending_conversion_label")}</p>
                           )}
+                          {guestItem.email || guestItem.phone ? (
+                            <button
+                              className="text-link-btn guest-host-convert-btn"
+                              type="button"
+                              onClick={() => handleCopyHostSignupLink(guestItem)}
+                              disabled={Boolean(conversion)}
+                            >
+                              <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
+                              {conversion ? t("host_already_registered_action") : t("host_invite_action")}
+                            </button>
+                          ) : null}
                         </div>
                         <div className="cell-guest-events cell-extra">
                           <p className="item-title">{guestEventsCount}</p>
@@ -8177,16 +8188,6 @@ function DashboardScreen({
                             title={t("edit_guest")}
                           >
                             <Icon name="edit" className="icon icon-sm" />
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => handleCopyHostSignupLink(guestItem)}
-                            disabled={Boolean(conversion)}
-                            aria-label={conversion ? t("host_already_registered_action") : t("host_invite_action")}
-                            title={conversion ? t("host_already_registered_action") : t("host_invite_action")}
-                          >
-                            <Icon name="link" className="icon icon-sm" />
                           </button>
                           <button
                             className="btn btn-danger btn-sm btn-icon-only"
