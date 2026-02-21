@@ -5,6 +5,9 @@ const phoneRegex = /^[+]?[\d\s().-]{7,25}$/;
 const eventSchema = z.object({
   title: z.string().trim().min(3, "event_title_length").max(120, "event_title_length"),
   eventType: z.string().trim().max(80, "event_type_length"),
+  description: z.string().trim().max(900, "event_description_length"),
+  dressCode: z.string().trim().max(30, "event_dress_code_length"),
+  playlistMode: z.string().trim().max(40, "event_playlist_mode_length"),
   locationName: z.string().trim().max(120, "event_location_name_length"),
   locationAddress: z.string().trim().max(220, "event_location_address_length")
 });

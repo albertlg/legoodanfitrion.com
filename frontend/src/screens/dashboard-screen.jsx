@@ -72,6 +72,31 @@ function formatShortDate(dateText, language, fallbackText) {
   }
 }
 
+function formatRelativeDate(dateText, language, fallbackText) {
+  if (!dateText) {
+    return fallbackText;
+  }
+  const date = new Date(dateText);
+  if (Number.isNaN(date.getTime())) {
+    return fallbackText;
+  }
+  const diffMs = date.getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+  if (Math.abs(diffMinutes) < 1) {
+    return fallbackText;
+  }
+  const rtf = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
+  if (Math.abs(diffMinutes) < 60) {
+    return rtf.format(diffMinutes, "minute");
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return rtf.format(diffHours, "hour");
+  }
+  const diffDays = Math.round(diffHours / 24);
+  return rtf.format(diffDays, "day");
+}
+
 function interpolateText(template, values = {}) {
   let output = String(template || "");
   for (const [key, value] of Object.entries(values)) {
@@ -136,6 +161,9 @@ const EVENTS_PAGE_SIZE = 5;
 const GUESTS_PAGE_SIZE = 5;
 const INVITATIONS_PAGE_SIZE = 8;
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
+const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
+const EVENT_DRESS_CODE_OPTIONS = ["none", "casual", "elegant", "formal", "themed"];
+const EVENT_PLAYLIST_OPTIONS = ["host_only", "collaborative", "spotify_collaborative"];
 const CITY_OPTIONS_BY_LANGUAGE = {
   es: ["Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao", "Lisboa", "París"],
   ca: ["Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao", "Lisboa", "París"],
@@ -219,6 +247,68 @@ const GUEST_ADVANCED_INITIAL_STATE = {
   tabooTopics: "",
   sensitiveConsent: false
 };
+
+function normalizeEventDressCode(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return EVENT_DRESS_CODE_OPTIONS.includes(normalized) ? normalized : "none";
+}
+
+function normalizeEventPlaylistMode(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return EVENT_PLAYLIST_OPTIONS.includes(normalized) ? normalized : "host_only";
+}
+
+function normalizeEventSettings(input = {}) {
+  return {
+    description: String(input?.description || "").trim(),
+    allow_plus_one: Boolean(input?.allow_plus_one ?? input?.allowPlusOne),
+    auto_reminders: Boolean(input?.auto_reminders ?? input?.autoReminders),
+    dress_code: normalizeEventDressCode(input?.dress_code ?? input?.dressCode),
+    playlist_mode: normalizeEventPlaylistMode(input?.playlist_mode ?? input?.playlistMode)
+  };
+}
+
+function hasEventSettingsColumns(row) {
+  if (!row || typeof row !== "object") {
+    return false;
+  }
+  return ["description", "allow_plus_one", "auto_reminders", "dress_code", "playlist_mode"].some((key) =>
+    Object.prototype.hasOwnProperty.call(row, key)
+  );
+}
+
+function readEventSettingsCache(userId) {
+  if (typeof window === "undefined" || !userId) {
+    return {};
+  }
+  const key = `${EVENT_SETTINGS_STORAGE_KEY_PREFIX}:${userId}`;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeEventSettingsCache(userId, nextCache) {
+  if (typeof window === "undefined" || !userId) {
+    return;
+  }
+  const key = `${EVENT_SETTINGS_STORAGE_KEY_PREFIX}:${userId}`;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(nextCache || {}));
+  } catch {
+    // Ignore localStorage write errors (private mode/quota).
+  }
+}
 
 function normalizeLookupValue(value) {
   return String(value || "")
@@ -498,9 +588,14 @@ function DashboardScreen({
   const [eventTitle, setEventTitle] = useState("");
   const [eventType, setEventType] = useState("");
   const [eventStatus, setEventStatus] = useState("draft");
+  const [eventDescription, setEventDescription] = useState("");
   const [eventStartAt, setEventStartAt] = useState("");
   const [eventLocationName, setEventLocationName] = useState("");
   const [eventLocationAddress, setEventLocationAddress] = useState("");
+  const [eventAllowPlusOne, setEventAllowPlusOne] = useState(false);
+  const [eventAutoReminders, setEventAutoReminders] = useState(false);
+  const [eventDressCode, setEventDressCode] = useState("none");
+  const [eventPlaylistMode, setEventPlaylistMode] = useState("host_only");
   const [mapsStatus, setMapsStatus] = useState(isGoogleMapsConfigured() ? "loading" : "unconfigured");
   const [mapsError, setMapsError] = useState("");
   const [addressPredictions, setAddressPredictions] = useState([]);
@@ -518,6 +613,7 @@ function DashboardScreen({
   const geocoderRef = useRef(null);
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
+  const notificationMenuRef = useRef(null);
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
@@ -542,6 +638,9 @@ function DashboardScreen({
   const [hostProfileRelationship, setHostProfileRelationship] = useState("");
   const [hostProfileMessage, setHostProfileMessage] = useState("");
   const [isSavingHostProfile, setIsSavingHostProfile] = useState(false);
+  const [hostProfileCreatedAt, setHostProfileCreatedAt] = useState("");
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [, setEventSettingsCacheById] = useState({});
 
   const [dashboardError, setDashboardError] = useState("");
   const [events, setEvents] = useState([]);
@@ -982,6 +1081,102 @@ function DashboardScreen({
       })
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0] || null;
   }, [events]);
+  const upcomingEventsPreview = useMemo(() => {
+    const nowMs = Date.now();
+    return events
+      .filter((eventItem) => {
+        const startMs = new Date(eventItem?.start_at || 0).getTime();
+        return Number.isFinite(startMs) && startMs >= nowMs;
+      })
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+      .slice(0, 4)
+      .map((eventItem) => {
+        const invitationSummary = eventInvitationSummaryByEventId[eventItem.id] || null;
+        return {
+          id: eventItem.id,
+          title: eventItem.title || t("field_event"),
+          date: formatDate(eventItem.start_at, language, t("no_date")),
+          status: eventItem.status || "draft",
+          guests: invitationSummary?.total || 0
+        };
+      });
+  }, [events, eventInvitationSummaryByEventId, language, t]);
+  const hostRatingScore = useMemo(() => {
+    const responseWeight = respondedInvitesRate / 100;
+    const completionWeight = Math.min(1, events.filter((eventItem) => eventItem.status === "completed").length / 8);
+    const consistencyWeight = Math.min(1, Math.max(0, convertedHostRate) / 100);
+    const score = 3.6 + responseWeight * 0.8 + completionWeight * 0.4 + consistencyWeight * 0.2;
+    return Math.max(3.6, Math.min(5, Number(score.toFixed(1))));
+  }, [convertedHostRate, events, respondedInvitesRate]);
+  const hostMemberSinceLabel = useMemo(() => {
+    if (!hostProfileCreatedAt) {
+      return t("host_rating_since_unknown");
+    }
+    const date = new Date(hostProfileCreatedAt);
+    if (Number.isNaN(date.getTime())) {
+      return t("host_rating_since_unknown");
+    }
+    return date.toLocaleDateString(language, { month: "short", year: "numeric" });
+  }, [hostProfileCreatedAt, language, t]);
+  const recentActivityItems = useMemo(() => {
+    const eventActivities = events.map((eventItem) => {
+      const updatedAt = eventItem.updated_at || eventItem.created_at || null;
+      const createdAt = eventItem.created_at || null;
+      const updatedMs = new Date(updatedAt || 0).getTime();
+      const createdMs = new Date(createdAt || 0).getTime();
+      const isUpdate = updatedMs > createdMs + 60_000;
+      return {
+        id: `event-${eventItem.id}`,
+        at: updatedAt,
+        icon: "calendar",
+        status: eventItem.status || "pending",
+        title: isUpdate ? t("activity_event_updated") : t("activity_event_created"),
+        meta: eventItem.title || t("field_event")
+      };
+    });
+    const invitationActivities = invitations.map((invitationItem) => {
+      const eventName = eventNamesById[invitationItem.event_id] || t("field_event");
+      const guestName = guestNamesById[invitationItem.guest_id] || t("field_guest");
+      if (invitationItem.responded_at) {
+        const responseKey =
+          invitationItem.status === "yes"
+            ? "activity_rsvp_yes"
+            : invitationItem.status === "no"
+            ? "activity_rsvp_no"
+            : invitationItem.status === "maybe"
+            ? "activity_rsvp_maybe"
+            : "activity_rsvp_pending";
+        return {
+          id: `inv-response-${invitationItem.id}`,
+          at: invitationItem.responded_at,
+          icon: "check",
+          status: invitationItem.status || "pending",
+          title: t(responseKey),
+          meta: `${guestName} · ${eventName}`
+        };
+      }
+      return {
+        id: `inv-sent-${invitationItem.id}`,
+        at: invitationItem.created_at,
+        icon: "mail",
+        status: "pending",
+        title: t("activity_invitation_sent"),
+        meta: `${guestName} · ${eventName}`
+      };
+    });
+    return [...invitationActivities, ...eventActivities]
+      .filter((item) => item.at)
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 8)
+      .map((item) => ({
+        ...item,
+        timeLabel: formatRelativeDate(item.at, language, t("activity_now"))
+      }));
+  }, [eventNamesById, events, guestNamesById, invitations, language, t]);
+  const unreadNotificationCount = useMemo(() => {
+    const last24h = Date.now() - 24 * 60 * 60 * 1000;
+    return recentActivityItems.filter((item) => new Date(item.at).getTime() >= last24h).length;
+  }, [recentActivityItems]);
   const eventTypeBaseOptions = useMemo(() => getCatalogLabels("experience_type", language), [language]);
   const relationshipBaseOptions = useMemo(() => getCatalogLabels("relationship", language), [language]);
   const cityBaseOptions = useMemo(
@@ -1272,6 +1467,10 @@ function DashboardScreen({
     () => (session?.user?.id ? `${DASHBOARD_PREFS_KEY_PREFIX}:${session.user.id}` : ""),
     [session?.user?.id]
   );
+  const eventSettingsStorageKey = useMemo(
+    () => (session?.user?.id ? `${EVENT_SETTINGS_STORAGE_KEY_PREFIX}:${session.user.id}` : ""),
+    [session?.user?.id]
+  );
   const eventInsights = useMemo(
     () =>
       buildHostingSuggestions({
@@ -1291,6 +1490,39 @@ function DashboardScreen({
     }
     return invitations.filter((invitationItem) => invitationItem.event_id === editingEventId).length;
   }, [editingEventId, invitations]);
+
+  const upsertEventSettingsCache = useCallback(
+    (eventId, settingsInput) => {
+      if (!eventId || !session?.user?.id) {
+        return;
+      }
+      const normalizedSettings = normalizeEventSettings(settingsInput);
+      setEventSettingsCacheById((prev) => {
+        const next = {
+          ...(prev || {}),
+          [eventId]: normalizedSettings
+        };
+        writeEventSettingsCache(session.user.id, next);
+        return next;
+      });
+    },
+    [session?.user?.id]
+  );
+
+  const removeEventSettingsCache = useCallback(
+    (eventId) => {
+      if (!eventId || !session?.user?.id) {
+        return;
+      }
+      setEventSettingsCacheById((prev) => {
+        const next = { ...(prev || {}) };
+        delete next[eventId];
+        writeEventSettingsCache(session.user.id, next);
+        return next;
+      });
+    },
+    [session?.user?.id]
+  );
   const eventPhaseProgress = useMemo(() => {
     const normalizedTitle = String(eventTitle || "").trim();
     const normalizedType = String(eventType || "").trim();
@@ -1541,6 +1773,10 @@ function DashboardScreen({
       })
       .filter(Boolean);
   }, [selectedEventDetailGuests, guestSensitiveById, language]);
+  const selectedEventSettings = useMemo(
+    () => normalizeEventSettings(selectedEventDetail || {}),
+    [selectedEventDetail]
+  );
   const selectedEventChecklist = useMemo(() => {
     const hasDate = Boolean(selectedEventDetail?.start_at);
     const hasLocation = Boolean(selectedEventDetail?.location_name || selectedEventDetail?.location_address);
@@ -1548,15 +1784,32 @@ function DashboardScreen({
     const isPublished = ["published", "completed"].includes(String(selectedEventDetail?.status || ""));
     const pendingResponses = selectedEventDetailStatusCounts.pending > 0;
     const hasHealthAlerts = selectedEventHealthAlerts.length > 0;
+    const hasAdvancedConfig = Boolean(
+      selectedEventSettings.allow_plus_one ||
+        selectedEventSettings.auto_reminders ||
+        selectedEventSettings.dress_code !== "none" ||
+        selectedEventSettings.playlist_mode !== "host_only"
+    );
     return [
       { key: "date", done: hasDate, label: t("event_check_date") },
       { key: "location", done: hasLocation, label: t("event_check_location") },
       { key: "invitations", done: hasInvitations, label: t("event_check_invitations") },
       { key: "publish", done: isPublished, label: t("event_check_publish") },
       { key: "rsvp", done: !pendingResponses, label: t("event_check_rsvp_pending") },
-      { key: "health", done: !hasHealthAlerts, label: t("event_check_health_alerts") }
+      { key: "health", done: !hasHealthAlerts, label: t("event_check_health_alerts") },
+      { key: "settings", done: hasAdvancedConfig, label: t("event_check_advanced_settings") }
     ];
-  }, [selectedEventDetail, selectedEventDetailInvitations.length, selectedEventDetailStatusCounts.pending, selectedEventHealthAlerts.length, t]);
+  }, [
+    selectedEventDetail,
+    selectedEventDetailInvitations.length,
+    selectedEventDetailStatusCounts.pending,
+    selectedEventHealthAlerts.length,
+    selectedEventSettings.allow_plus_one,
+    selectedEventSettings.auto_reminders,
+    selectedEventSettings.dress_code,
+    selectedEventSettings.playlist_mode,
+    t
+  ]);
   const selectedGuestDetail = useMemo(() => {
     if (!selectedGuestDetailId) {
       return guests[0] || null;
@@ -1834,13 +2087,13 @@ function DashboardScreen({
       .limit(100);
     const hostProfilePromise = supabase
       .from("profiles")
-      .select("full_name, phone")
+      .select("full_name, phone, created_at")
       .eq("id", session.user.id)
       .maybeSingle();
 
     const invitationsPromise = supabase
       .from("invitations")
-      .select("id, event_id, guest_id, status, public_token, created_at, responded_at")
+      .select("id, event_id, guest_id, status, public_token, created_at, responded_at, updated_at")
       .eq("host_user_id", session.user.id)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -1848,21 +2101,27 @@ function DashboardScreen({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, title, status, event_type, start_at, created_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .order("created_at", { ascending: false })
       .limit(50);
 
     if (
       eventsError &&
-      (eventsError.code === "42703" ||
-        eventsError.message?.toLowerCase().includes("location_place_id") ||
-        eventsError.message?.toLowerCase().includes("location_lat") ||
-        eventsError.message?.toLowerCase().includes("location_lng"))
+      isCompatibilityError(eventsError, [
+        "location_place_id",
+        "location_lat",
+        "location_lng",
+        "description",
+        "allow_plus_one",
+        "auto_reminders",
+        "dress_code",
+        "playlist_mode"
+      ])
     ) {
       const fallback = await supabase
         .from("events")
-        .select("id, title, status, event_type, start_at, created_at, location_name, location_address")
+        .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
         .order("created_at", { ascending: false })
         .limit(50);
       eventsData = fallback.data || [];
@@ -1967,7 +2226,38 @@ function DashboardScreen({
       guestSensitiveRows = sensitiveResult.data || [];
     }
 
-    setEvents(eventsData || []);
+    const cachedEventSettingsById = readEventSettingsCache(session.user.id);
+    const normalizedEventsData = (eventsData || []).map((eventItem) => {
+      const settingsFromRow = normalizeEventSettings(eventItem);
+      const settingsFromCache = normalizeEventSettings(cachedEventSettingsById[eventItem.id] || {});
+      const rowHasAnyValue = Boolean(
+        settingsFromRow.description ||
+          settingsFromRow.allow_plus_one ||
+          settingsFromRow.auto_reminders ||
+          settingsFromRow.dress_code !== "none" ||
+          settingsFromRow.playlist_mode !== "host_only"
+      );
+      const cacheHasAnyValue = Boolean(
+        settingsFromCache.description ||
+          settingsFromCache.allow_plus_one ||
+          settingsFromCache.auto_reminders ||
+          settingsFromCache.dress_code !== "none" ||
+          settingsFromCache.playlist_mode !== "host_only"
+      );
+      const shouldUseCache = !hasEventSettingsColumns(eventItem) || (!rowHasAnyValue && cacheHasAnyValue);
+      const effectiveSettings = shouldUseCache ? settingsFromCache : settingsFromRow;
+      return {
+        ...eventItem,
+        description: effectiveSettings.description,
+        allow_plus_one: effectiveSettings.allow_plus_one,
+        auto_reminders: effectiveSettings.auto_reminders,
+        dress_code: effectiveSettings.dress_code,
+        playlist_mode: effectiveSettings.playlist_mode
+      };
+    });
+
+    setEvents(normalizedEventsData);
+    setEventSettingsCacheById(cachedEventSettingsById);
     setGuests(guestsData || []);
     setInvitations(invitationsData || []);
     setGuestPreferencesById(
@@ -1996,6 +2286,7 @@ function DashboardScreen({
     setHostProfileCity(String(selfGuest?.city || "").trim());
     setHostProfileCountry(String(selfGuest?.country || "").trim());
     setHostProfileRelationship(toCatalogLabel("relationship", selfGuest?.relationship, language));
+    setHostProfileCreatedAt(String(hostProfileData?.created_at || "").trim());
   }, [session?.user?.id, session?.user?.email, language, t, onPreferencesSynced]);
 
   useEffect(() => {
@@ -2088,6 +2379,17 @@ function DashboardScreen({
   }, [guests, selectedGuestDetailId]);
 
   useEffect(() => {
+    if (activeView !== "profile") {
+      return;
+    }
+    if (guestFirstName || guestLastName || guestEmail || guestPhone || guestCity || guestCountry || guestRelationship) {
+      return;
+    }
+    syncHostGuestProfileForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
+  useEffect(() => {
     if (!editingEventId) {
       return;
     }
@@ -2137,6 +2439,14 @@ function DashboardScreen({
   useEffect(() => {
     setInvitationPage(1);
   }, [invitationSearch, invitationStatusFilter, invitationSort]);
+
+  useEffect(() => {
+    if (!eventSettingsStorageKey || !session?.user?.id) {
+      setEventSettingsCacheById({});
+      return;
+    }
+    setEventSettingsCacheById(readEventSettingsCache(session.user.id));
+  }, [eventSettingsStorageKey, session?.user?.id]);
 
   useEffect(() => {
     if (eventPage > eventTotalPages) {
@@ -2195,7 +2505,7 @@ function DashboardScreen({
       if (typeof parsed?.invitationSort === "string") {
         setInvitationSort(parsed.invitationSort);
       }
-      const validViews = VIEW_CONFIG.map((item) => item.key);
+      const validViews = [...VIEW_CONFIG.map((item) => item.key), "profile"];
       if (typeof parsed?.activeView === "string" && validViews.includes(parsed.activeView)) {
         setActiveView(parsed.activeView);
       }
@@ -2546,9 +2856,70 @@ function DashboardScreen({
   };
 
   const openWorkspace = (viewKey, workspaceKey) => {
+    if (viewKey === "events" && workspaceKey === "create") {
+      handleCancelEditEvent();
+    }
+    if (viewKey === "guests" && workspaceKey === "create") {
+      handleCancelEditGuest();
+    }
     setActiveView(viewKey);
     setWorkspaceByView(viewKey, workspaceKey);
     setMobileExpandedView(viewKey);
+    setIsNotificationMenuOpen(false);
+    closeMobileMenu();
+  };
+
+  const syncHostGuestProfileForm = () => {
+    const fallbackName = (session?.user?.email || "").split("@")[0] || t("field_guest");
+    const normalizedFullName =
+      String(hostProfileName || "")
+        .trim()
+        .replace(/\s+/g, " ") || fallbackName;
+    const { firstName, lastName } = splitFullName(normalizedFullName);
+    const linkedGuest = selfGuestCandidate;
+
+    if (linkedGuest) {
+      setEditingGuestId(linkedGuest.id);
+      setGuestFirstName(linkedGuest.first_name || firstName || fallbackName);
+      setGuestLastName(linkedGuest.last_name || lastName || "");
+      setGuestEmail(linkedGuest.email || session?.user?.email || "");
+      setGuestPhone(linkedGuest.phone || hostProfilePhone || "");
+      setGuestRelationship(toCatalogLabel("relationship", linkedGuest.relationship, language));
+      setGuestCity(linkedGuest.city || hostProfileCity || "");
+      setGuestCountry(linkedGuest.country || hostProfileCountry || "");
+      setGuestAdvanced(getGuestAdvancedState(linkedGuest));
+      setSelectedGuestAddressPlace(
+        linkedGuest.address
+          ? {
+              placeId: null,
+              formattedAddress: linkedGuest.address,
+              lat: null,
+              lng: null
+            }
+          : null
+      );
+    } else {
+      setEditingGuestId("");
+      setGuestFirstName(firstName || fallbackName);
+      setGuestLastName(lastName || "");
+      setGuestEmail(session?.user?.email || "");
+      setGuestPhone(hostProfilePhone || "");
+      setGuestRelationship(hostProfileRelationship || "");
+      setGuestCity(hostProfileCity || "");
+      setGuestCountry(hostProfileCountry || "");
+      setGuestAdvanced(GUEST_ADVANCED_INITIAL_STATE);
+      setSelectedGuestAddressPlace(null);
+    }
+    setGuestAddressPredictions([]);
+    setGuestErrors({});
+    setGuestMessage("");
+  };
+
+  const openHostProfile = () => {
+    syncHostGuestProfileForm();
+    setActiveView("profile");
+    setMobileExpandedView("overview");
+    setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
 
@@ -2561,6 +2932,7 @@ function DashboardScreen({
     setActiveView("events");
     setEventsWorkspace("detail");
     setMobileExpandedView("events");
+    setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
 
@@ -2573,6 +2945,7 @@ function DashboardScreen({
     setActiveView("guests");
     setGuestsWorkspace("detail");
     setMobileExpandedView("guests");
+    setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
 
@@ -2622,6 +2995,7 @@ function DashboardScreen({
       setInvitationMessage(t(messageKey));
     }
     setMobileExpandedView("invitations");
+    setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
 
@@ -2631,6 +3005,7 @@ function DashboardScreen({
     if (nextView === "events" || nextView === "guests" || nextView === "invitations") {
       setWorkspaceByView(nextView, "latest");
     }
+    setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
 
@@ -2651,6 +3026,30 @@ function DashboardScreen({
     }
   }, [isMenuOpen, activeView]);
 
+  useEffect(() => {
+    if (!isNotificationMenuOpen) {
+      return undefined;
+    }
+    const handlePointerDown = (event) => {
+      if (!notificationMenuRef.current?.contains(event.target)) {
+        setIsNotificationMenuOpen(false);
+      }
+    };
+    const handleEsc = (event) => {
+      if (event.key === "Escape") {
+        setIsNotificationMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("touchstart", handlePointerDown);
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("touchstart", handlePointerDown);
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [isNotificationMenuOpen]);
+
   const handleApplyEventTemplate = (templateKey) => {
     const templateItem = eventTemplates.find((item) => item.key === templateKey);
     if (!templateItem) {
@@ -2666,6 +3065,16 @@ function DashboardScreen({
     if (!eventStartAt) {
       setEventStartAt(getSuggestedEventDateTime(templateItem.defaultHour));
     }
+    setEventAutoReminders(true);
+    setEventAllowPlusOne(templateItem.key !== "date_night");
+    if (templateItem.key === "anniversary" || templateItem.key === "date_night") {
+      setEventDressCode("elegant");
+    } else if (templateItem.key === "bbq") {
+      setEventDressCode("casual");
+    } else {
+      setEventDressCode("none");
+    }
+    setEventPlaylistMode(templateItem.key === "book_club" ? "collaborative" : "host_only");
   };
 
   const resolveCreatedGuestId = useCallback(
@@ -2713,6 +3122,7 @@ function DashboardScreen({
     if (!eventItem) {
       return;
     }
+    const eventSettings = normalizeEventSettings(eventItem);
     setActiveView("events");
     setSelectedEventDetailId(eventItem.id);
     setEventsWorkspace("create");
@@ -2720,9 +3130,14 @@ function DashboardScreen({
     setEventTitle(eventItem.title || "");
     setEventType(toCatalogLabel("experience_type", eventItem.event_type, language));
     setEventStatus(String(eventItem.status || "draft"));
+    setEventDescription(eventSettings.description);
     setEventStartAt(toLocalDateTimeInput(eventItem.start_at));
     setEventLocationName(eventItem.location_name || "");
     setEventLocationAddress(eventItem.location_address || "");
+    setEventAllowPlusOne(eventSettings.allow_plus_one);
+    setEventAutoReminders(eventSettings.auto_reminders);
+    setEventDressCode(eventSettings.dress_code);
+    setEventPlaylistMode(eventSettings.playlist_mode);
     setSelectedPlace(
       eventItem.location_address || eventItem.location_place_id || eventItem.location_lat != null || eventItem.location_lng != null
         ? {
@@ -2743,9 +3158,14 @@ function DashboardScreen({
     setEventTitle("");
     setEventType("");
     setEventStatus("draft");
+    setEventDescription("");
     setEventStartAt("");
     setEventLocationName("");
     setEventLocationAddress("");
+    setEventAllowPlusOne(false);
+    setEventAutoReminders(false);
+    setEventDressCode("none");
+    setEventPlaylistMode("host_only");
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventErrors({});
@@ -2762,6 +3182,9 @@ function DashboardScreen({
     const validation = validateEventForm({
       title: eventTitle,
       eventType,
+      description: eventDescription,
+      dressCode: eventDressCode,
+      playlistMode: eventPlaylistMode,
       locationName: eventLocationName,
       locationAddress: eventLocationAddress
     });
@@ -2786,11 +3209,23 @@ function DashboardScreen({
 
     setEventErrors({});
     setIsSavingEvent(true);
+    const normalizedSettings = normalizeEventSettings({
+      description: eventDescription,
+      allow_plus_one: eventAllowPlusOne,
+      auto_reminders: eventAutoReminders,
+      dress_code: eventDressCode,
+      playlist_mode: eventPlaylistMode
+    });
     const normalizedAddress = selectedPlace?.formattedAddress || eventLocationAddress;
     const basePayload = {
       title: eventTitle.trim(),
       event_type: toNullable(toCatalogCode("experience_type", eventType)),
       status: String(eventStatus || "draft"),
+      description: toNullable(normalizedSettings.description),
+      allow_plus_one: normalizedSettings.allow_plus_one,
+      auto_reminders: normalizedSettings.auto_reminders,
+      dress_code: normalizedSettings.dress_code,
+      playlist_mode: normalizedSettings.playlist_mode,
       content_language: language,
       start_at: toIsoDateTime(eventStartAt),
       timezone,
@@ -2811,6 +3246,7 @@ function DashboardScreen({
     };
 
     let error = null;
+    let savedEventId = isEditingEvent ? editingEventId : "";
     if (isEditingEvent) {
       const updateResult = await supabase
         .from("events")
@@ -2819,16 +3255,26 @@ function DashboardScreen({
         .eq("host_user_id", session.user.id);
       error = updateResult.error;
     } else {
-      const insertResult = await supabase.from("events").insert({
-        ...basePayload,
-        host_user_id: session.user.id
-      });
+      const insertResult = await supabase
+        .from("events")
+        .insert({
+          ...basePayload,
+          host_user_id: session.user.id
+        })
+        .select("id")
+        .single();
       error = insertResult.error;
+      savedEventId = insertResult.data?.id || "";
     }
 
     if (
       error &&
       (error.code === "42703" ||
+        error.message?.toLowerCase().includes("description") ||
+        error.message?.toLowerCase().includes("allow_plus_one") ||
+        error.message?.toLowerCase().includes("auto_reminders") ||
+        error.message?.toLowerCase().includes("dress_code") ||
+        error.message?.toLowerCase().includes("playlist_mode") ||
         error.message?.toLowerCase().includes("content_language") ||
         error.message?.toLowerCase().includes("location_place_id") ||
         error.message?.toLowerCase().includes("location_lat") ||
@@ -2836,17 +3282,28 @@ function DashboardScreen({
     ) {
       const fallbackResult = isEditingEvent
         ? await supabase.from("events").update(fallbackPayload).eq("id", editingEventId).eq("host_user_id", session.user.id)
-        : await supabase.from("events").insert({
-            ...fallbackPayload,
-            host_user_id: session.user.id
-          });
+        : await supabase
+            .from("events")
+            .insert({
+              ...fallbackPayload,
+              host_user_id: session.user.id
+            })
+            .select("id")
+            .single();
       error = fallbackResult.error;
+      if (!isEditingEvent) {
+        savedEventId = fallbackResult.data?.id || savedEventId;
+      }
     }
     setIsSavingEvent(false);
 
     if (error) {
       setEventMessage(`${isEditingEvent ? t("error_update_event") : t("error_create_event")} ${error.message}`);
       return;
+    }
+
+    if (savedEventId) {
+      upsertEventSettingsCache(savedEventId, normalizedSettings);
     }
 
     if (isEditingEvent) {
@@ -2859,9 +3316,14 @@ function DashboardScreen({
     setEventTitle("");
     setEventType("");
     setEventStatus("draft");
+    setEventDescription("");
     setEventStartAt("");
     setEventLocationName("");
     setEventLocationAddress("");
+    setEventAllowPlusOne(false);
+    setEventAutoReminders(false);
+    setEventDressCode("none");
+    setEventPlaylistMode("host_only");
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventMessage(t("event_created"));
@@ -3540,6 +4002,7 @@ function DashboardScreen({
     if (editingEventId === eventItem.id) {
       handleCancelEditEvent();
     }
+    removeEventSettingsCache(eventItem.id);
     setEventMessage(t("event_deleted"));
     await loadDashboardData();
   };
@@ -3916,6 +4379,8 @@ function DashboardScreen({
     .replace(/\s+/g, " ") || String(session?.user?.email || "").split("@")[0] || t("host_default_name");
   const hostFirstName = hostDisplayName.split(" ")[0] || t("host_default_name");
   const hostInitials = getInitials(hostDisplayName);
+  const profileLinkedGuestId = selfGuestCandidate?.id || editingGuestId || "";
+  const isProfileGuestLinked = Boolean(profileLinkedGuestId);
   const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
   const sectionHeader = useMemo(() => {
     if (activeView === "overview") {
@@ -3923,6 +4388,13 @@ function DashboardScreen({
         eyebrow: t("nav_overview"),
         title: interpolateText(t("dashboard_welcome"), { name: hostFirstName }),
         subtitle: t("dashboard_welcome_subtitle")
+      };
+    }
+    if (activeView === "profile") {
+      return {
+        eyebrow: t("active_session"),
+        title: t("host_profile_title"),
+        subtitle: t("host_profile_hint")
       };
     }
     if (activeView === "events") {
@@ -4051,6 +4523,60 @@ function DashboardScreen({
                 </button>
               </div>
             ) : null}
+            <div className="dashboard-notification-menu" ref={notificationMenuRef}>
+              <button
+                className={`icon-notification-btn ${isNotificationMenuOpen ? "active" : ""}`}
+                type="button"
+                aria-label={interpolateText(t("notifications_button_label"), { count: unreadNotificationCount })}
+                aria-haspopup="menu"
+                aria-expanded={isNotificationMenuOpen}
+                onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
+              >
+                <Icon name="bell" className="icon icon-sm" />
+                {unreadNotificationCount > 0 ? (
+                  <span className="notification-count-badge" aria-hidden="true">
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                  </span>
+                ) : null}
+              </button>
+              {isNotificationMenuOpen ? (
+                <div className="dashboard-notification-dropdown" role="menu" aria-label={t("notifications_title")}>
+                  <div className="dashboard-notification-head">
+                    <p className="item-title">{t("notifications_title")}</p>
+                    <span className="status-pill status-pending">
+                      {interpolateText(t("notifications_unread"), { count: unreadNotificationCount })}
+                    </span>
+                  </div>
+                  {recentActivityItems.length === 0 ? (
+                    <p className="hint">{t("notifications_empty")}</p>
+                  ) : (
+                    <ul className="dashboard-notification-list">
+                      {recentActivityItems.slice(0, 6).map((activityItem) => (
+                        <li key={`head-${activityItem.id}`} className="dashboard-notification-item">
+                          <span className={`status-pill ${statusClass(activityItem.status)}`}>
+                            <Icon name={activityItem.icon} className="icon icon-xs" />
+                          </span>
+                          <div>
+                            <p className="item-title">{activityItem.title}</p>
+                            <p className="item-meta">
+                              {activityItem.meta} · {activityItem.timeLabel}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="button-row">
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "latest")}>
+                      {t("notifications_open_invitations")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "latest")}>
+                      {t("notifications_open_events")}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
 
@@ -4092,7 +4618,14 @@ function DashboardScreen({
               </span>
               <div className="session-meta">
                 <p className="session-label">{t("active_session")}</p>
-                <p className="session-value">{hostDisplayName}</p>
+                <button
+                  type="button"
+                  className="session-value session-link"
+                  onClick={openHostProfile}
+                  title={t("session_open_profile")}
+                >
+                  {hostDisplayName}
+                </button>
                 <p className="session-email">{session?.user?.email || "-"}</p>
               </div>
               <button className="btn btn-ghost btn-sm" type="button" onClick={onSignOut}>
@@ -4203,7 +4736,14 @@ function DashboardScreen({
               </span>
               <div className="session-meta">
                 <p className="session-label">{t("active_session")}</p>
-                <p className="session-value">{hostDisplayName}</p>
+                <button
+                  type="button"
+                  className="session-value session-link"
+                  onClick={openHostProfile}
+                  title={t("session_open_profile")}
+                >
+                  {hostDisplayName}
+                </button>
                 <p className="session-email">{session?.user?.email || "-"}</p>
               </div>
               <button className="btn btn-ghost btn-sm" type="button" onClick={onSignOut}>
@@ -4217,188 +4757,278 @@ function DashboardScreen({
 
         {activeView === "overview" ? (
           <section className="overview-grid view-transition">
-            <article className="panel overview-hero-card">
-              <div className="overview-hero-head">
-                <div>
-                  <p className="hint">{t("overview_hero_title")}</p>
-                  <p className="kpi-value">{events.length + guests.length + invitations.length}</p>
-                  <p className="field-help">{t("overview_hero_subtitle")}</p>
+            <div className="overview-top-grid">
+              <article className="panel overview-hero-card">
+                <div className="overview-hero-head">
+                  <div>
+                    <p className="hint">{t("overview_hero_title")}</p>
+                    <p className="kpi-value">{events.length + guests.length + invitations.length}</p>
+                    <p className="field-help">{t("overview_hero_subtitle")}</p>
+                  </div>
+                  <div className="overview-hero-pills">
+                    <span className="status-pill status-pending">
+                      {t("kpi_pending_rsvp")}: {pendingInvites}
+                    </span>
+                    <span className="status-pill status-yes">
+                      {t("kpi_answered_rsvp")}: {respondedInvitesRate}%
+                    </span>
+                    <span className="status-pill status-host-converted">
+                      {t("kpi_converted_hosts")}: {convertedHostGuestsCount}
+                    </span>
+                  </div>
                 </div>
-                <div className="overview-hero-pills">
-                  <span className="status-pill status-pending">
-                    {t("kpi_pending_rsvp")}: {pendingInvites}
+                <div className="overview-hero-footer">
+                  <p className="item-meta">
+                    {nextScheduledEvent
+                      ? `${t("overview_next_event_label")} ${nextScheduledEvent.title || "-"} - ${formatDate(
+                          nextScheduledEvent.start_at,
+                          language,
+                          t("no_date")
+                        )}`
+                      : t("overview_next_event_empty")}
+                  </p>
+                  <div className="button-row">
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "create")}>
+                      {t("create_event_title")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
+                      {t("create_invitation_title")}
+                    </button>
+                  </div>
+                </div>
+              </article>
+              <article className="panel host-rating-panel">
+                <h2 className="section-title">
+                  <Icon name="star" className="icon" />
+                  {t("host_rating_title")}
+                </h2>
+                <p className="field-help">{t("host_rating_hint")}</p>
+                <p className="host-rating-score">
+                  {hostRatingScore}
+                  <span>/5</span>
+                </p>
+                <p className="item-meta">{t("host_rating_score_label")}</p>
+                <div className="detail-badge-row">
+                  <span className="status-pill status-completed">
+                    {t("host_rating_metric_completed")}: {events.filter((eventItem) => eventItem.status === "completed").length}
                   </span>
                   <span className="status-pill status-yes">
-                    {t("kpi_answered_rsvp")}: {respondedInvitesRate}%
+                    {t("host_rating_metric_response")}: {respondedInvitesRate}%
                   </span>
                   <span className="status-pill status-host-converted">
-                    {t("kpi_converted_hosts")}: {convertedHostGuestsCount}
+                    {t("host_rating_metric_growth")}: {convertedHostRate}%
                   </span>
                 </div>
-              </div>
-              <div className="overview-hero-footer">
-                <p className="item-meta">
-                  {nextScheduledEvent
-                    ? `${t("overview_next_event_label")} ${nextScheduledEvent.title || "-"} - ${formatDate(
-                        nextScheduledEvent.start_at,
-                        language,
-                        t("no_date")
-                      )}`
-                    : t("overview_next_event_empty")}
+                <p className="hint">
+                  {t("host_rating_since_label")} {hostMemberSinceLabel}
                 </p>
-                <div className="button-row">
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "create")}>
-                    {t("create_event_title")}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
-                    {t("create_invitation_title")}
+              </article>
+            </div>
+            <div className="overview-kpi-grid">
+              <article
+                className="panel kpi-card is-interactive"
+                tabIndex={0}
+                role="button"
+                onClick={() => openWorkspace("events", "latest")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openWorkspace("events", "latest");
+                  }
+                }}
+              >
+                <div className="kpi-card-head">
+                  <p className="hint">{t("kpi_events")}</p>
+                  <span className="kpi-card-icon" aria-hidden="true">
+                    <Icon name="calendar" className="icon icon-sm" />
+                  </span>
+                </div>
+                <p className="kpi-value">{events.length}</p>
+                <div className="kpi-preview">
+                  <p className="hint">{t("kpi_latest_events")}</p>
+                  {latestEventPreview.length > 0 ? (
+                    <ul className="kpi-preview-list">
+                      {latestEventPreview.map((item) => (
+                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
+                          <p className="kpi-preview-main">{item.main}</p>
+                          <p className="kpi-preview-meta">{item.meta}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
+                  )}
+                </div>
+              </article>
+              <article
+                className="panel kpi-card is-interactive"
+                tabIndex={0}
+                role="button"
+                onClick={() => openWorkspace("guests", "latest")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openWorkspace("guests", "latest");
+                  }
+                }}
+              >
+                <div className="kpi-card-head">
+                  <p className="hint">{t("kpi_guests")}</p>
+                  <span className="kpi-card-icon" aria-hidden="true">
+                    <Icon name="user" className="icon icon-sm" />
+                  </span>
+                </div>
+                <p className="kpi-value">{guests.length}</p>
+                <div className="kpi-preview">
+                  <p className="hint">{t("kpi_latest_guests")}</p>
+                  {latestGuestPreview.length > 0 ? (
+                    <ul className="kpi-preview-list">
+                      {latestGuestPreview.map((item) => (
+                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
+                          <p className="kpi-preview-main">{item.main}</p>
+                          <p className="kpi-preview-meta">{item.meta}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
+                  )}
+                </div>
+              </article>
+              <article
+                className="panel kpi-card is-interactive"
+                tabIndex={0}
+                role="button"
+                onClick={() => openWorkspace("invitations", "latest")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openWorkspace("invitations", "latest");
+                  }
+                }}
+              >
+                <div className="kpi-card-head">
+                  <p className="hint">{t("latest_invitations_title")}</p>
+                  <span className="kpi-card-icon" aria-hidden="true">
+                    <Icon name="link" className="icon icon-sm" />
+                  </span>
+                </div>
+                <p className="kpi-value">{invitations.length}</p>
+                <div className="kpi-preview">
+                  <p className="hint">{t("kpi_latest_pending")}</p>
+                  {pendingInvitationPreview.length > 0 ? (
+                    <ul className="kpi-preview-list">
+                      {pendingInvitationPreview.map((item) => (
+                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
+                          <p className="kpi-preview-main">{item.main}</p>
+                          <p className="kpi-preview-meta">{item.meta}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
+                  )}
+                </div>
+              </article>
+              <article
+                className="panel kpi-card is-interactive"
+                tabIndex={0}
+                role="button"
+                onClick={() => openWorkspace("invitations", "latest")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openWorkspace("invitations", "latest");
+                  }
+                }}
+              >
+                <div className="kpi-card-head">
+                  <p className="hint">{t("kpi_answered_rsvp")}</p>
+                  <span className="kpi-card-icon" aria-hidden="true">
+                    <Icon name="check" className="icon icon-sm" />
+                  </span>
+                </div>
+                <p className="kpi-value">{respondedInvitesRate}%</p>
+                <div className="kpi-preview">
+                  <p className="hint">{t("kpi_latest_answered")}</p>
+                  {answeredInvitationPreview.length > 0 ? (
+                    <ul className="kpi-preview-list">
+                      {answeredInvitationPreview.map((item) => (
+                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
+                          <p className="kpi-preview-main">{item.main}</p>
+                          <p className="kpi-preview-meta">{item.meta}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
+                  )}
+                </div>
+              </article>
+            </div>
+            <div className="overview-pair-grid">
+              <article className="panel overview-upcoming-panel">
+                <div className="overview-upcoming-head">
+                  <div>
+                    <h2 className="section-title">
+                      <Icon name="calendar" className="icon" />
+                      {t("overview_upcoming_title")}
+                    </h2>
+                    <p className="field-help">{t("overview_upcoming_hint")}</p>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "latest")}>
+                    {t("overview_upcoming_open")}
                   </button>
                 </div>
-              </div>
-            </article>
-            <div className="overview-kpi-grid">
-            <article
-              className="panel kpi-card is-interactive"
-              tabIndex={0}
-              role="button"
-              onClick={() => openWorkspace("events", "latest")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openWorkspace("events", "latest");
-                }
-              }}
-            >
-              <div className="kpi-card-head">
-                <p className="hint">{t("kpi_events")}</p>
-                <span className="kpi-card-icon" aria-hidden="true">
-                  <Icon name="calendar" className="icon icon-sm" />
-                </span>
-              </div>
-              <p className="kpi-value">{events.length}</p>
-              <div className="kpi-preview">
-                <p className="hint">{t("kpi_latest_events")}</p>
-                {latestEventPreview.length > 0 ? (
-                  <ul className="kpi-preview-list">
-                    {latestEventPreview.map((item) => (
-                      <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                        <p className="kpi-preview-main">{item.main}</p>
-                        <p className="kpi-preview-meta">{item.meta}</p>
+                {upcomingEventsPreview.length === 0 ? (
+                  <p className="hint">{t("overview_upcoming_empty")}</p>
+                ) : (
+                  <ul className="overview-upcoming-list">
+                    {upcomingEventsPreview.map((eventItem) => (
+                      <li key={`upcoming-${eventItem.id}`} className="overview-upcoming-item">
+                        <div className="overview-upcoming-main">
+                          <p className="item-title">{eventItem.title}</p>
+                          <p className="item-meta">
+                            {eventItem.date} · {interpolateText(t("overview_upcoming_guests"), { count: eventItem.guests })}
+                          </p>
+                        </div>
+                        <div className="overview-upcoming-meta">
+                          <span className={`status-pill ${statusClass(eventItem.status)}`}>{statusText(t, eventItem.status)}</span>
+                          <button className="btn btn-ghost btn-sm" type="button" onClick={() => openEventDetail(eventItem.id)}>
+                            {t("view_detail")}
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
                 )}
-              </div>
-            </article>
-            <article
-              className="panel kpi-card is-interactive"
-              tabIndex={0}
-              role="button"
-              onClick={() => openWorkspace("guests", "latest")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openWorkspace("guests", "latest");
-                }
-              }}
-            >
-              <div className="kpi-card-head">
-                <p className="hint">{t("kpi_guests")}</p>
-                <span className="kpi-card-icon" aria-hidden="true">
-                  <Icon name="user" className="icon icon-sm" />
-                </span>
-              </div>
-              <p className="kpi-value">{guests.length}</p>
-              <div className="kpi-preview">
-                <p className="hint">{t("kpi_latest_guests")}</p>
-                {latestGuestPreview.length > 0 ? (
-                  <ul className="kpi-preview-list">
-                    {latestGuestPreview.map((item) => (
-                      <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                        <p className="kpi-preview-main">{item.main}</p>
-                        <p className="kpi-preview-meta">{item.meta}</p>
+              </article>
+              <article className="panel recent-activity-panel">
+                <h2 className="section-title">
+                  <Icon name="bell" className="icon" />
+                  {t("recent_activity_title")}
+                </h2>
+                <p className="field-help">{t("recent_activity_hint")}</p>
+                {recentActivityItems.length === 0 ? (
+                  <p className="hint">{t("recent_activity_empty")}</p>
+                ) : (
+                  <ul className="recent-activity-list">
+                    {recentActivityItems.slice(0, 6).map((activityItem) => (
+                      <li key={activityItem.id} className="recent-activity-item">
+                        <span className={`status-pill ${statusClass(activityItem.status)}`}>
+                          <Icon name={activityItem.icon} className="icon icon-xs" />
+                        </span>
+                        <div>
+                          <p className="item-title">{activityItem.title}</p>
+                          <p className="item-meta">{activityItem.meta}</p>
+                          <p className="hint">{activityItem.timeLabel}</p>
+                        </div>
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
                 )}
-              </div>
-            </article>
-            <article
-              className="panel kpi-card is-interactive"
-              tabIndex={0}
-              role="button"
-              onClick={() => openWorkspace("guests", "latest")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openWorkspace("guests", "latest");
-                }
-              }}
-            >
-              <div className="kpi-card-head">
-                <p className="hint">{t("latest_invitations_title")}</p>
-                <span className="kpi-card-icon" aria-hidden="true">
-                  <Icon name="link" className="icon icon-sm" />
-                </span>
-              </div>
-              <p className="kpi-value">{invitations.length}</p>
-              <div className="kpi-preview">
-                <p className="hint">{t("kpi_latest_pending")}</p>
-                {pendingInvitationPreview.length > 0 ? (
-                  <ul className="kpi-preview-list">
-                    {pendingInvitationPreview.map((item) => (
-                      <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                        <p className="kpi-preview-main">{item.main}</p>
-                        <p className="kpi-preview-meta">{item.meta}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
-                )}
-              </div>
-            </article>
-            <article
-              className="panel kpi-card is-interactive"
-              tabIndex={0}
-              role="button"
-              onClick={() => openWorkspace("invitations", "latest")}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openWorkspace("invitations", "latest");
-                }
-              }}
-            >
-              <div className="kpi-card-head">
-                <p className="hint">{t("kpi_answered_rsvp")}</p>
-                <span className="kpi-card-icon" aria-hidden="true">
-                  <Icon name="check" className="icon icon-sm" />
-                </span>
-              </div>
-              <p className="kpi-value">{respondedInvitesRate}%</p>
-              <div className="kpi-preview">
-                <p className="hint">{t("kpi_latest_answered")}</p>
-                {answeredInvitationPreview.length > 0 ? (
-                  <ul className="kpi-preview-list">
-                    {answeredInvitationPreview.map((item) => (
-                      <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                        <p className="kpi-preview-main">{item.main}</p>
-                        <p className="kpi-preview-meta">{item.meta}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
-                )}
-              </div>
-            </article>
+              </article>
             </div>
-            <div className="overview-secondary-grid">
             <article className="panel growth-panel">
               <h2 className="section-title">
                 <Icon name="trend" className="icon" />
@@ -4458,95 +5088,7 @@ function DashboardScreen({
                 })}
               </div>
             </article>
-            <div className="overview-side-stack">
-            <form className="panel form-grid" onSubmit={handleSaveHostProfile} noValidate>
-              <h2 className="section-title">
-                <Icon name="user" className="icon" />
-                {t("host_profile_title")}
-              </h2>
-              <p className="field-help">{t("host_profile_hint")}</p>
-
-              <label>
-                <span className="label-title">{t("field_full_name")}</span>
-                <input
-                  type="text"
-                  value={hostProfileName}
-                  onChange={(event) => setHostProfileName(event.target.value)}
-                  placeholder={t("placeholder_full_name")}
-                />
-              </label>
-              <label>
-                <span className="label-title">
-                  <Icon name="mail" className="icon icon-sm" />
-                  {t("email")}
-                </span>
-                <input type="email" value={session?.user?.email || ""} readOnly />
-                <FieldMeta helpText={t("host_profile_email_readonly")} />
-              </label>
-              <label>
-                <span className="label-title">
-                  <Icon name="phone" className="icon icon-sm" />
-                  {t("field_phone")}
-                </span>
-                <input
-                  type="tel"
-                  value={hostProfilePhone}
-                  onChange={(event) => setHostProfilePhone(event.target.value)}
-                  placeholder={t("placeholder_phone")}
-                />
-              </label>
-              <label>
-                <span className="label-title">{t("field_city")}</span>
-                <input
-                  type="text"
-                  value={hostProfileCity}
-                  onChange={(event) => setHostProfileCity(event.target.value)}
-                  placeholder={t("placeholder_city")}
-                  list="host-city-options"
-                />
-              </label>
-              <label>
-                <span className="label-title">{t("field_country")}</span>
-                <input
-                  type="text"
-                  value={hostProfileCountry}
-                  onChange={(event) => setHostProfileCountry(event.target.value)}
-                  placeholder={t("placeholder_country")}
-                  list="host-country-options"
-                />
-              </label>
-              <label>
-                <span className="label-title">{t("field_relationship")}</span>
-                <select value={hostProfileRelationship} onChange={(event) => setHostProfileRelationship(event.target.value)}>
-                  <option value="">{t("select_option_prompt")}</option>
-                  {relationshipOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue}>
-                      {optionValue}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <datalist id="host-city-options">
-                {cityOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-              <datalist id="host-country-options">
-                {countryOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-
-              <div className="button-row">
-                <button className="btn" type="submit" disabled={isSavingHostProfile}>
-                  {isSavingHostProfile ? t("host_profile_saving") : t("host_profile_save")}
-                </button>
-              </div>
-              <FieldMeta helpText={t("host_profile_sync_hint")} />
-              <InlineMessage text={hostProfileMessage} />
-            </form>
-            <article className="panel">
+            <article className="panel overview-footnote-panel">
               <h2 className="section-title">
                 <Icon name="sparkle" className="icon" />
                 {t("hint_accessibility")}
@@ -4554,7 +5096,300 @@ function DashboardScreen({
               <p className="field-help">{t("overview_help")}</p>
               <p className="field-help">{t("content_translation_note")}</p>
             </article>
-            </div>
+          </section>
+        ) : null}
+
+        {activeView === "profile" ? (
+          <section className="workspace-shell profile-shell view-transition">
+            <header className="workspace-header">
+              <h2 className="section-title">
+                <Icon name="user" className="icon" />
+                {t("host_profile_title")}
+              </h2>
+              <div className="workspace-meta">
+                <p className="workspace-breadcrumb">
+                  <Icon name="folder" className="icon icon-sm" />
+                  {t("workspace_path_prefix")}: {t("active_session")} / {t("host_profile_title")}
+                </p>
+              </div>
+            </header>
+
+            <div className="profile-grid">
+              <form className="panel form-grid host-profile-panel" onSubmit={handleSaveHostProfile} noValidate>
+                <h3 className="section-title">
+                  <Icon name="user" className="icon" />
+                  {t("host_profile_title")}
+                </h3>
+                <p className="field-help">{t("host_profile_hint")}</p>
+
+                <label>
+                  <span className="label-title">{t("field_full_name")}</span>
+                  <input
+                    type="text"
+                    value={hostProfileName}
+                    onChange={(event) => setHostProfileName(event.target.value)}
+                    placeholder={t("placeholder_full_name")}
+                  />
+                </label>
+                <label>
+                  <span className="label-title">
+                    <Icon name="mail" className="icon icon-sm" />
+                    {t("email")}
+                  </span>
+                  <input type="email" value={session?.user?.email || ""} readOnly />
+                  <FieldMeta helpText={t("host_profile_email_readonly")} />
+                </label>
+                <label>
+                  <span className="label-title">
+                    <Icon name="phone" className="icon icon-sm" />
+                    {t("field_phone")}
+                  </span>
+                  <input
+                    type="tel"
+                    value={hostProfilePhone}
+                    onChange={(event) => setHostProfilePhone(event.target.value)}
+                    placeholder={t("placeholder_phone")}
+                  />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_city")}</span>
+                  <input
+                    type="text"
+                    value={hostProfileCity}
+                    onChange={(event) => setHostProfileCity(event.target.value)}
+                    placeholder={t("placeholder_city")}
+                    list="host-city-options"
+                  />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_country")}</span>
+                  <input
+                    type="text"
+                    value={hostProfileCountry}
+                    onChange={(event) => setHostProfileCountry(event.target.value)}
+                    placeholder={t("placeholder_country")}
+                    list="host-country-options"
+                  />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_relationship")}</span>
+                  <select value={hostProfileRelationship} onChange={(event) => setHostProfileRelationship(event.target.value)}>
+                    <option value="">{t("select_option_prompt")}</option>
+                    {relationshipOptions.map((optionValue) => (
+                      <option key={optionValue} value={optionValue}>
+                        {optionValue}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <datalist id="host-city-options">
+                  {cityOptions.map((optionValue) => (
+                    <option key={optionValue} value={optionValue} />
+                  ))}
+                </datalist>
+                <datalist id="host-country-options">
+                  {countryOptions.map((optionValue) => (
+                    <option key={optionValue} value={optionValue} />
+                  ))}
+                </datalist>
+
+                <div className="button-row">
+                  <button className="btn" type="submit" disabled={isSavingHostProfile}>
+                    {isSavingHostProfile ? t("host_profile_saving") : t("host_profile_save")}
+                  </button>
+                </div>
+                <FieldMeta helpText={t("host_profile_sync_hint")} />
+                <InlineMessage text={hostProfileMessage} />
+              </form>
+
+              <form className="panel form-grid host-profile-panel" onSubmit={handleSaveGuest} noValidate>
+                <div className="profile-linkage-row">
+                  <h3 className="section-title">
+                    <Icon name="user" className="icon" />
+                    {t("host_profile_guest_title")}
+                  </h3>
+                  <span className={`status-pill ${isProfileGuestLinked ? "status-yes" : "status-pending"}`}>
+                    {isProfileGuestLinked ? t("host_profile_guest_linked") : t("host_profile_guest_unlinked")}
+                  </span>
+                </div>
+                <p className="field-help">{t("host_profile_guest_hint")}</p>
+
+                <label>
+                  <span className="label-title">{t("field_first_name")} *</span>
+                  <input
+                    type="text"
+                    value={guestFirstName}
+                    onChange={(event) => setGuestFirstName(event.target.value)}
+                    placeholder={t("placeholder_first_name")}
+                    aria-invalid={Boolean(guestErrors.firstName)}
+                  />
+                  <FieldMeta errorText={guestErrors.firstName ? t(guestErrors.firstName) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_last_name")}</span>
+                  <input
+                    type="text"
+                    value={guestLastName}
+                    onChange={(event) => setGuestLastName(event.target.value)}
+                    placeholder={t("placeholder_last_name")}
+                    aria-invalid={Boolean(guestErrors.lastName)}
+                  />
+                  <FieldMeta errorText={guestErrors.lastName ? t(guestErrors.lastName) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">
+                    <Icon name="mail" className="icon icon-sm" />
+                    {t("email")}
+                  </span>
+                  <input type="email" value={guestEmail || session?.user?.email || ""} readOnly />
+                  <FieldMeta helpText={t("host_profile_guest_email_hint")} />
+                </label>
+                <label>
+                  <span className="label-title">
+                    <Icon name="phone" className="icon icon-sm" />
+                    {t("field_phone")}
+                  </span>
+                  <input
+                    type="tel"
+                    value={guestPhone}
+                    onChange={(event) => setGuestPhone(event.target.value)}
+                    placeholder={t("placeholder_phone")}
+                    aria-invalid={Boolean(guestErrors.phone)}
+                  />
+                  <FieldMeta errorText={guestErrors.phone ? t(guestErrors.phone) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_relationship")}</span>
+                  <input
+                    type="text"
+                    value={guestRelationship}
+                    onChange={(event) => setGuestRelationship(event.target.value)}
+                    placeholder={t("placeholder_relationship")}
+                    list="profile-guest-relationship-options"
+                    aria-invalid={Boolean(guestErrors.relationship)}
+                  />
+                  <FieldMeta errorText={guestErrors.relationship ? t(guestErrors.relationship) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_city")}</span>
+                  <input
+                    type="text"
+                    value={guestCity}
+                    onChange={(event) => setGuestCity(event.target.value)}
+                    placeholder={t("placeholder_city")}
+                    list="profile-guest-city-options"
+                    aria-invalid={Boolean(guestErrors.city)}
+                  />
+                  <FieldMeta errorText={guestErrors.city ? t(guestErrors.city) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_country")}</span>
+                  <input
+                    type="text"
+                    value={guestCountry}
+                    onChange={(event) => setGuestCountry(event.target.value)}
+                    placeholder={t("placeholder_country")}
+                    list="profile-guest-country-options"
+                    aria-invalid={Boolean(guestErrors.country)}
+                  />
+                  <FieldMeta errorText={guestErrors.country ? t(guestErrors.country) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">
+                    <Icon name="location" className="icon icon-sm" />
+                    {t("field_address")}
+                  </span>
+                  <input
+                    type="text"
+                    value={guestAdvanced.address}
+                    onChange={(event) => {
+                      setGuestAdvancedField("address", event.target.value);
+                      if (
+                        selectedGuestAddressPlace &&
+                        normalizeLookupValue(event.target.value) !==
+                          normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)
+                      ) {
+                        setSelectedGuestAddressPlace(null);
+                      }
+                    }}
+                    placeholder={t("placeholder_address")}
+                    aria-invalid={Boolean(guestErrors.address)}
+                    autoComplete="off"
+                  />
+                  <FieldMeta
+                    helpText={
+                      mapsStatus === "ready"
+                        ? t("address_google_hint")
+                        : mapsStatus === "loading"
+                        ? t("address_google_loading")
+                        : mapsStatus === "error"
+                        ? `${t("address_google_error")} ${mapsError}`
+                        : t("address_google_unconfigured")
+                    }
+                    errorText={guestErrors.address ? t(guestErrors.address) : ""}
+                  />
+                  {mapsStatus === "ready" && guestAdvanced.address.trim().length >= 4 ? (
+                    <ul className="prediction-list" role="listbox" aria-label={t("address_suggestions")}>
+                      {isGuestAddressLoading ? <li className="prediction-item hint">{t("address_searching")}</li> : null}
+                      {!isGuestAddressLoading && guestAddressPredictions.length === 0 ? (
+                        <li className="prediction-item hint">{t("address_no_matches")}</li>
+                      ) : null}
+                      {guestAddressPredictions.map((prediction) => (
+                        <li key={prediction.place_id}>
+                          <button
+                            type="button"
+                            className="prediction-item"
+                            onClick={() => handleSelectGuestAddressPrediction(prediction)}
+                          >
+                            <Icon name="location" className="icon icon-sm" />
+                            {prediction.description}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {selectedGuestAddressPlace?.placeId ? <p className="field-success">{t("address_validated")}</p> : null}
+                </label>
+
+                <datalist id="profile-guest-relationship-options">
+                  {relationshipOptions.map((optionValue) => (
+                    <option key={optionValue} value={optionValue} />
+                  ))}
+                </datalist>
+                <datalist id="profile-guest-city-options">
+                  {cityOptions.map((optionValue) => (
+                    <option key={optionValue} value={optionValue} />
+                  ))}
+                </datalist>
+                <datalist id="profile-guest-country-options">
+                  {countryOptions.map((optionValue) => (
+                    <option key={optionValue} value={optionValue} />
+                  ))}
+                </datalist>
+
+                <div className="button-row">
+                  <button className="btn" type="submit" disabled={isSavingGuest}>
+                    {isSavingGuest
+                      ? isEditingGuest
+                        ? t("updating_guest")
+                        : t("saving_guest")
+                      : isEditingGuest
+                      ? t("update_guest")
+                      : t("save_guest")}
+                  </button>
+                  <button className="btn btn-ghost" type="button" onClick={syncHostGuestProfileForm}>
+                    {t("host_profile_guest_sync")}
+                  </button>
+                  {isProfileGuestLinked ? (
+                    <button className="btn btn-ghost" type="button" onClick={() => openGuestDetail(profileLinkedGuestId)}>
+                      {t("view_guest_detail_action")}
+                    </button>
+                  ) : null}
+                </div>
+                <FieldMeta helpText={t("host_profile_guest_save_hint")} />
+                <InlineMessage text={guestMessage} />
+              </form>
             </div>
           </section>
         ) : null}
@@ -4660,6 +5495,21 @@ function DashboardScreen({
                         aria-invalid={Boolean(eventErrors.title)}
                       />
                       <FieldMeta errorText={eventErrors.title ? t(eventErrors.title) : ""} />
+                    </label>
+
+                    <label>
+                      <span className="label-title">{t("field_event_description")}</span>
+                      <textarea
+                        rows={4}
+                        value={eventDescription}
+                        onChange={(event) => setEventDescription(event.target.value)}
+                        placeholder={t("placeholder_event_description")}
+                        aria-invalid={Boolean(eventErrors.description)}
+                      />
+                      <FieldMeta
+                        helpText={t("event_description_help")}
+                        errorText={eventErrors.description ? t(eventErrors.description) : ""}
+                      />
                     </label>
 
                     <label>
@@ -4873,6 +5723,47 @@ function DashboardScreen({
                     ) : (
                       <p className="hint">{t("event_phase_publish_after_save")}</p>
                     )}
+                  </section>
+
+                  <section className="event-phase-section">
+                    <h3>{t("event_settings_title")}</h3>
+                    <p className="field-help">{t("event_settings_hint")}</p>
+                    <label className="event-setting-toggle">
+                      <input
+                        type="checkbox"
+                        checked={eventAllowPlusOne}
+                        onChange={(event) => setEventAllowPlusOne(event.target.checked)}
+                      />
+                      <span>{t("event_setting_allow_plus_one")}</span>
+                    </label>
+                    <label className="event-setting-toggle">
+                      <input
+                        type="checkbox"
+                        checked={eventAutoReminders}
+                        onChange={(event) => setEventAutoReminders(event.target.checked)}
+                      />
+                      <span>{t("event_setting_auto_reminders")}</span>
+                    </label>
+                    <label>
+                      <span className="label-title">{t("event_setting_dress_code")}</span>
+                      <select value={eventDressCode} onChange={(event) => setEventDressCode(event.target.value)}>
+                        <option value="none">{t("event_dress_code_none")}</option>
+                        <option value="casual">{t("event_dress_code_casual")}</option>
+                        <option value="elegant">{t("event_dress_code_elegant")}</option>
+                        <option value="formal">{t("event_dress_code_formal")}</option>
+                        <option value="themed">{t("event_dress_code_themed")}</option>
+                      </select>
+                      <FieldMeta errorText={eventErrors.dressCode ? t(eventErrors.dressCode) : ""} />
+                    </label>
+                    <label>
+                      <span className="label-title">{t("event_setting_playlist_mode")}</span>
+                      <select value={eventPlaylistMode} onChange={(event) => setEventPlaylistMode(event.target.value)}>
+                        <option value="host_only">{t("event_playlist_mode_host_only")}</option>
+                        <option value="collaborative">{t("event_playlist_mode_collaborative")}</option>
+                        <option value="spotify_collaborative">{t("event_playlist_mode_spotify_collaborative")}</option>
+                      </select>
+                      <FieldMeta errorText={eventErrors.playlistMode ? t(eventErrors.playlistMode) : ""} />
+                    </label>
                   </section>
 
                   <section className="event-phase-summary">
@@ -5170,6 +6061,29 @@ function DashboardScreen({
                         {t("field_address")}: {selectedEventDetail.location_address}
                       </p>
                     ) : null}
+                    {selectedEventDetail.description ? (
+                      <p className="item-meta">
+                        {t("field_event_description")}: {selectedEventDetail.description}
+                      </p>
+                    ) : null}
+                    <div className="detail-badge-row">
+                      <span className={`status-pill ${selectedEventDetail.allow_plus_one ? "status-yes" : "status-draft"}`}>
+                        {t("event_setting_allow_plus_one")}:{" "}
+                        {selectedEventDetail.allow_plus_one ? t("status_yes") : t("status_no")}
+                      </span>
+                      <span className={`status-pill ${selectedEventDetail.auto_reminders ? "status-yes" : "status-draft"}`}>
+                        {t("event_setting_auto_reminders")}:{" "}
+                        {selectedEventDetail.auto_reminders ? t("status_yes") : t("status_no")}
+                      </span>
+                      <span className="status-pill status-maybe">
+                        {t("event_setting_dress_code")}:{" "}
+                        {t(`event_dress_code_${normalizeEventDressCode(selectedEventDetail.dress_code)}`)}
+                      </span>
+                      <span className="status-pill status-host-conversion-source-default">
+                        {t("event_setting_playlist_mode")}:{" "}
+                        {t(`event_playlist_mode_${normalizeEventPlaylistMode(selectedEventDetail.playlist_mode)}`)}
+                      </span>
+                    </div>
                     <div className="button-row">
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
                         {t("event_detail_edit_action")}
