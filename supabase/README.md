@@ -140,6 +140,31 @@ select public.get_or_create_my_global_guest_profile();
 
 Si devuelve un UUID, el perfil global base esta operativo.
 
+## Paso 1.9 (auto-vinculado y permisos compartidos)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/013_shared_guest_profile_linking_and_shares.sql`
+
+Anade RPCs para que frontend pueda operar el modelo compartido:
+
+- `link_my_guest_to_matched_global_profile(guest_id)`:
+  enlaza un invitado local con perfil global si detecta usuario registrado por email/telefono.
+- `link_all_my_guests_to_global_profiles()`:
+  intenta enlazar en lote todos los invitados del anfitrion.
+- `get_my_global_profile_share_targets()`:
+  devuelve anfitriones detectados para configurar permisos.
+- `set_my_global_profile_share(...)`:
+  guarda permisos por anfitrion y categoria (identidad, comida, estilo, conversacion, salud).
+
+Validacion minima:
+
+```sql
+select * from public.link_all_my_guests_to_global_profiles();
+```
+
+Si no hay invitados vinculables devolvera `linked_count = 0`, que tambien es correcto.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

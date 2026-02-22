@@ -2545,6 +2545,23 @@ h2 {
   min-height: 100%;
 }
 
+.global-share-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.global-share-card {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.global-share-permissions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem 0.6rem;
+}
+
 .kpi-card {
   display: grid;
   gap: 0.2rem;
@@ -4482,6 +4499,11 @@ code {
   }
 
   .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .global-share-grid,
+  .global-share-permissions {
     grid-template-columns: 1fr;
   }
 
