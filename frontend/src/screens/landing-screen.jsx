@@ -80,6 +80,7 @@ function LandingScreen({
   const primaryCta = session?.user?.id
     ? { label: t("landing_cta_open_app"), onClick: onGoApp }
     : { label: t("landing_cta_start"), onClick: onGoLogin };
+  const revealStyle = (index = 0) => ({ "--landing-delay": `${index * 80}ms` });
 
   const handleJoinWaitlist = async (event) => {
     event.preventDefault();
@@ -310,7 +311,7 @@ function LandingScreen({
         {pageMode === "home" ? (
           <>
             <section className="landing-hero">
-              <article className="landing-hero-copy">
+              <article className="landing-hero-copy landing-reveal" style={revealStyle(0)}>
                 <p className="landing-badge">{t("landing_badge")}</p>
                 <h1 className="landing-title">{t("landing_title")}</h1>
                 <p className="landing-subtitle">{t("landing_subtitle")}</p>
@@ -323,7 +324,7 @@ function LandingScreen({
                   </button>
                 </div>
               </article>
-              <aside className="landing-hero-media" aria-hidden="true">
+              <aside className="landing-hero-media landing-reveal" style={revealStyle(1)} aria-hidden="true">
                 <div className="landing-hero-media-overlay">
                   <Icon name="sparkle" className="icon" />
                   <p>{t("landing_feature_rsvp_title")}</p>
@@ -331,26 +332,26 @@ function LandingScreen({
               </aside>
             </section>
 
-            <section id="landing-features" className="landing-section">
+            <section id="landing-features" className="landing-section landing-reveal" style={revealStyle(2)}>
               <p className="landing-eyebrow">{t("landing_features_eyebrow")}</p>
               <h2 className="landing-section-title">{t("landing_features_title")}</h2>
               <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
               <div className="landing-feature-grid">
-                <article className="panel landing-feature-card">
+                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(3)}>
                   <span className="landing-feature-icon">
                     <Icon name="calendar" className="icon icon-sm" />
                   </span>
                   <h3>{t("landing_feature_events_title")}</h3>
                   <p>{t("landing_feature_events_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card">
+                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(4)}>
                   <span className="landing-feature-icon">
                     <Icon name="user" className="icon icon-sm" />
                   </span>
                   <h3>{t("landing_feature_guests_title")}</h3>
                   <p>{t("landing_feature_guests_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card">
+                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(5)}>
                   <span className="landing-feature-icon">
                     <Icon name="mail" className="icon icon-sm" />
                   </span>
@@ -366,7 +367,7 @@ function LandingScreen({
 
         {pageMode === "features" ? (
           <>
-            <section className="landing-page-head">
+            <section className="landing-page-head landing-reveal" style={revealStyle(0)}>
               <p className="landing-eyebrow">{t("landing_nav_features")}</p>
               <h1 className="landing-section-title">{t("landing_features_title")}</h1>
               <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
@@ -379,23 +380,23 @@ function LandingScreen({
                 </button>
               </div>
             </section>
-            <section className="landing-section landing-section-page">
+            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(1)}>
               <div className="landing-feature-grid">
-                <article className="panel landing-feature-card">
+                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(2)}>
                   <span className="landing-feature-icon">
                     <Icon name="calendar" className="icon icon-sm" />
                   </span>
                   <h3>{t("landing_feature_events_title")}</h3>
                   <p>{t("landing_feature_events_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card">
+                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(3)}>
                   <span className="landing-feature-icon">
                     <Icon name="user" className="icon icon-sm" />
                   </span>
                   <h3>{t("landing_feature_guests_title")}</h3>
                   <p>{t("landing_feature_guests_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card">
+                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(4)}>
                   <span className="landing-feature-icon">
                     <Icon name="mail" className="icon icon-sm" />
                   </span>
@@ -404,17 +405,17 @@ function LandingScreen({
                 </article>
               </div>
               <div className="landing-feature-summary-grid">
-                <article className="panel landing-feature-summary-card">
+                <article className="panel landing-feature-summary-card landing-interactive-card" style={revealStyle(5)}>
                   <p className="item-title">{t("landing_feature_events_title")}</p>
                   <p className="kpi-value">24</p>
                   <p className="item-meta">{t("latest_events_title")}</p>
                 </article>
-                <article className="panel landing-feature-summary-card">
+                <article className="panel landing-feature-summary-card landing-interactive-card" style={revealStyle(6)}>
                   <p className="item-title">{t("landing_feature_guests_title")}</p>
                   <p className="kpi-value">142</p>
                   <p className="item-meta">{t("latest_guests_title")}</p>
                 </article>
-                <article className="panel landing-feature-summary-card">
+                <article className="panel landing-feature-summary-card landing-interactive-card" style={revealStyle(7)}>
                   <p className="item-title">{t("landing_feature_rsvp_title")}</p>
                   <p className="kpi-value">67%</p>
                   <p className="item-meta">RSVP</p>
@@ -427,14 +428,14 @@ function LandingScreen({
 
         {pageMode === "pricing" ? (
           <>
-            <section className="landing-page-head">
+            <section className="landing-page-head landing-reveal" style={revealStyle(0)}>
               <p className="landing-eyebrow">{t("landing_nav_pricing")}</p>
               <h1 className="landing-section-title">{t("landing_pricing_title")}</h1>
               <p className="landing-section-subtitle">{t("landing_pricing_subtitle")}</p>
             </section>
-            <section className="landing-section landing-section-page">
+            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(1)}>
               <div className="landing-pricing-grid">
-                <article className="panel landing-pricing-card">
+                <article className="panel landing-pricing-card landing-interactive-card" style={revealStyle(2)}>
                   <p className="landing-pricing-plan">{t("landing_pricing_card_title")}</p>
                   <p className="landing-pricing-price">{t("landing_pricing_card_price")}</p>
                   <p className="landing-pricing-desc">{t("landing_pricing_card_desc")}</p>
@@ -448,7 +449,10 @@ function LandingScreen({
                     {primaryCta.label}
                   </button>
                 </article>
-                <article className="panel landing-pricing-card landing-pricing-card-secondary">
+                <article
+                  className="panel landing-pricing-card landing-pricing-card-secondary landing-interactive-card"
+                  style={revealStyle(3)}
+                >
                   <p className="landing-pricing-plan">{t("public_coming_badge")}</p>
                   <h3>{t("public_coming_title")}</h3>
                   <p className="landing-pricing-desc">{t("public_coming_subtitle")}</p>
@@ -466,14 +470,14 @@ function LandingScreen({
 
         {pageMode === "contact" ? (
           <>
-            <section className="landing-page-head">
+            <section className="landing-page-head landing-reveal" style={revealStyle(0)}>
               <p className="landing-eyebrow">{t("landing_nav_contact")}</p>
               <h1 className="landing-section-title">{t("landing_contact_title")}</h1>
               <p className="landing-section-subtitle">{t("landing_contact_subtitle")}</p>
             </section>
-            <section className="landing-section landing-section-page">
+            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(1)}>
               <div className="landing-contact-layout">
-                <article className="panel landing-contact-card">
+                <article className="panel landing-contact-card landing-interactive-card" style={revealStyle(2)}>
                   <h3>{t("landing_contact_channels_title")}</h3>
                   <p>{t("landing_contact_channels_hint")}</p>
                   <div className="landing-contact-channel-list">
@@ -488,7 +492,12 @@ function LandingScreen({
                     </p>
                   </div>
                 </article>
-                <form className="panel form-grid landing-contact-form" onSubmit={handleSendContact} noValidate>
+                <form
+                  className="panel form-grid landing-contact-form landing-interactive-card"
+                  style={revealStyle(3)}
+                  onSubmit={handleSendContact}
+                  noValidate
+                >
                   <h3>{t("landing_contact_form_title")}</h3>
                   <p className="field-help">{t("landing_contact_form_hint")}</p>
                   <label>
@@ -529,7 +538,7 @@ function LandingScreen({
               </div>
             </section>
 
-            <section className="landing-section landing-section-page">
+            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(2)}>
               <div className="landing-faq-head">
                 <h2 className="landing-section-title">{t("landing_faq_title")}</h2>
                 <p className="landing-section-subtitle">{t("landing_faq_hint")}</p>
@@ -538,7 +547,11 @@ function LandingScreen({
                 {FAQ_ITEMS.map((item) => {
                   const isOpen = openFaqKey === item.key;
                   return (
-                    <article key={item.key} className={`panel landing-faq-item ${isOpen ? "open" : ""}`}>
+                    <article
+                      key={item.key}
+                      className={`panel landing-faq-item landing-interactive-card ${isOpen ? "open" : ""}`}
+                      style={revealStyle(3)}
+                    >
                       <button
                         type="button"
                         className="landing-faq-question"
@@ -548,7 +561,9 @@ function LandingScreen({
                         <span>{t(item.questionKey)}</span>
                         <Icon name="chevron_down" className="icon icon-sm" />
                       </button>
-                      {isOpen ? <p className="landing-faq-answer">{t(item.answerKey)}</p> : null}
+                      <div className={`landing-faq-answer-wrap ${isOpen ? "open" : ""}`} aria-hidden={!isOpen}>
+                        <p className="landing-faq-answer">{t(item.answerKey)}</p>
+                      </div>
                     </article>
                   );
                 })}
