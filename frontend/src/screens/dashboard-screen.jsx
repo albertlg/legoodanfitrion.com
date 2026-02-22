@@ -5382,6 +5382,9 @@ function DashboardScreen({
   const profileLinkedGuestId = selfGuestCandidate?.id || editingGuestId || "";
   const isProfileGuestLinked = Boolean(profileLinkedGuestId);
   const isGlobalProfileClaimed = Boolean(globalProfileId);
+  const globalShareSelfTargetCount = globalShareTargets.filter(
+    (item) => item?.host_user_id && item.host_user_id === session?.user?.id
+  ).length;
   const globalShareTargetsVisible = globalShareTargets.filter((item) => item?.host_user_id && item.host_user_id !== session?.user?.id);
   const globalShareActiveCount = globalShareTargetsVisible.filter(
     (item) => String(item.share_status || "").toLowerCase() === "active"
@@ -6244,6 +6247,9 @@ function DashboardScreen({
                       {t("global_profile_share_active_count")} {globalShareActiveCount}
                     </span>
                   </div>
+                  {globalShareSelfTargetCount > 0 ? (
+                    <p className="hint">{t("global_profile_share_self_hidden_hint")}</p>
+                  ) : null}
                   {globalShareTargetsVisible.length > 0 ? (
                     <div className="global-share-grid">
                       {globalShareTargetsVisible.map((targetItem) => {

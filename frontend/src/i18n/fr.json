@@ -451,6 +451,7 @@
   "global_profile_share_saved": "Permissions de partage enregistrees.",
   "global_profile_share_save_error": "Impossible d'enregistrer les permissions :",
   "global_profile_share_self_error": "Vous ne pouvez pas partager votre profil avec vous-meme.",
+  "global_profile_share_self_hidden_hint": "Votre propre compte est automatiquement exclu de cette liste.",
   "global_profile_health_consent_required": "Le partage des donnees sante exige un consentement explicite dans votre profil global.",
   "global_profile_load_error": "Impossible de charger le profil partage :",
   "hint_contact_required": "Minimum requis : email ou telephone.",

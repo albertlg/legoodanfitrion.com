@@ -451,6 +451,7 @@
   "global_profile_share_saved": "Permessi di condivisione salvati.",
   "global_profile_share_save_error": "Impossibile salvare i permessi:",
   "global_profile_share_self_error": "Non puoi condividere il tuo profilo con te stesso.",
+  "global_profile_share_self_hidden_hint": "Il tuo account viene escluso automaticamente da questo elenco.",
   "global_profile_health_consent_required": "Per condividere dati salute/restrizioni serve consenso esplicito nel profilo globale.",
   "global_profile_load_error": "Impossibile caricare il profilo condiviso:",
   "hint_contact_required": "Requisito minimo: email o telefono.",

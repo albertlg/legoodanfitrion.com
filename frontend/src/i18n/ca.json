@@ -451,6 +451,7 @@
   "global_profile_share_saved": "Permisos de compartició desats.",
   "global_profile_share_save_error": "No s'han pogut desar els permisos:",
   "global_profile_share_self_error": "No pots compartir el teu perfil amb tu mateix.",
+  "global_profile_share_self_hidden_hint": "El teu propi compte s'exclou automaticament d'aquesta llista.",
   "global_profile_health_consent_required": "Per compartir salut/restriccions necessites consentiment explícit al teu perfil global.",
   "global_profile_load_error": "No s'ha pogut carregar el perfil compartit:",
   "hint_contact_required": "Requisit mínim: correu o telèfon.",
