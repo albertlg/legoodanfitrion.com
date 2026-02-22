@@ -216,6 +216,10 @@ Validacion:
 select * from public.get_shared_profile_feature_status();
 ```
 
+Nota UX:
+- La caja tecnica de diagnostico solo aparece en frontend si la URL incluye `?debug=1`
+  (tambien soporta `?diagnostics=1`).
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

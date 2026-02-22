@@ -2676,6 +2676,13 @@ function DashboardScreen({
       allow_health: Boolean(targetItem?.allow_health)
     };
   }, []);
+  const isIntegrationDebugEnabled = useMemo(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    const params = new URLSearchParams(window.location.search || "");
+    return params.get("debug") === "1" || params.get("diagnostics") === "1";
+  }, []);
 
   const loadGlobalProfileData = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -2795,8 +2802,16 @@ function DashboardScreen({
   const refreshSharedProfileData = useCallback(async () => {
     const sharedData = await loadGlobalProfileData();
     const nextProfileId = String(sharedData?.profileId || "").trim();
-    await Promise.all([loadIntegrationStatusData(), loadGlobalShareHistoryData(nextProfileId)]);
-  }, [loadGlobalProfileData, loadIntegrationStatusData, loadGlobalShareHistoryData]);
+    const tasks = [loadGlobalShareHistoryData(nextProfileId)];
+    if (isIntegrationDebugEnabled) {
+      tasks.push(loadIntegrationStatusData());
+    } else {
+      setIntegrationStatus(null);
+      setIntegrationStatusMessage("");
+      setIsIntegrationPanelOpen(false);
+    }
+    await Promise.all(tasks);
+  }, [isIntegrationDebugEnabled, loadGlobalProfileData, loadIntegrationStatusData, loadGlobalShareHistoryData]);
 
   const loadDashboardData = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -6794,6 +6809,7 @@ function DashboardScreen({
               <InlineMessage text={globalProfileMessage} />
             </article>
 
+            {isIntegrationDebugEnabled ? (
             <article className="panel profile-summary-card">
               <div className="profile-summary-header">
                 <div>
@@ -6883,6 +6899,7 @@ function DashboardScreen({
               )}
               <InlineMessage text={integrationStatusMessage} />
             </article>
+            ) : null}
 
             <div className="profile-grid">
               <form className="panel form-grid host-profile-panel" onSubmit={handleSaveHostProfile} noValidate>
