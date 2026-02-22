@@ -106,7 +106,7 @@ begin
   from public.profiles p
   left join auth.users u on u.id = p.id
   where p.id = v_owner_user_id
-  on conflict (owner_user_id) do update
+  on conflict on constraint global_guest_profiles_owner_unique do update
   set updated_at = now()
   returning id into v_global_profile_id;
 

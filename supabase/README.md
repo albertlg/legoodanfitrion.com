@@ -165,6 +165,18 @@ select * from public.link_all_my_guests_to_global_profiles();
 
 Si no hay invitados vinculables devolvera `linked_count = 0`, que tambien es correcto.
 
+## Paso 1.10 (hotfix ambiguedad owner_user_id)
+
+Si al vincular invitados aparece:
+`column reference "owner_user_id" is ambiguous`
+
+ejecuta este SQL correctivo:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/014_fix_link_guest_owner_user_id_ambiguity.sql`
+
+Este parche reemplaza la funcion `link_my_guest_to_matched_global_profile` usando
+`on conflict on constraint global_guest_profiles_owner_unique`.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:
