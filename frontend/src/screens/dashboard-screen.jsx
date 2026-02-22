@@ -981,6 +981,7 @@ function DashboardScreen({
   const [integrationStatus, setIntegrationStatus] = useState(null);
   const [integrationStatusMessage, setIntegrationStatusMessage] = useState("");
   const [isLoadingIntegrationStatus, setIsLoadingIntegrationStatus] = useState(false);
+  const [isIntegrationPanelOpen, setIsIntegrationPanelOpen] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [, setEventSettingsCacheById] = useState({});
 
@@ -6814,46 +6815,71 @@ function DashboardScreen({
                 <button
                   className="btn btn-ghost btn-sm"
                   type="button"
-                  onClick={loadIntegrationStatusData}
-                  disabled={isLoadingIntegrationStatus}
+                  onClick={() => setIsIntegrationPanelOpen((prev) => !prev)}
                 >
-                  {isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_refresh")}
+                  {isIntegrationPanelOpen ? t("integration_status_hide") : t("integration_status_show")}
                 </button>
+                {isIntegrationPanelOpen ? (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={loadIntegrationStatusData}
+                    disabled={isLoadingIntegrationStatus}
+                  >
+                    {isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_refresh")}
+                  </button>
+                ) : null}
               </div>
-              {integrationStatus ? (
+              {isIntegrationPanelOpen ? (
+                integrationStatus ? (
+                  <>
+                    <p className="hint">
+                      {interpolateText(t("integration_status_checks_label"), {
+                        ok: integrationChecksOkCount,
+                        total: integrationChecksTotal
+                      })}
+                    </p>
+                    <div className="profile-summary-signals">
+                      <span className="status-pill status-host-conversion-source-default">
+                        {interpolateText(t("integration_status_profile_id"), {
+                          id: String(integrationStatus.global_profile_id || "—")
+                        })}
+                      </span>
+                      <span className="status-pill status-host-conversion-source-default">
+                        {interpolateText(t("integration_status_share_targets"), { count: integrationShareTargetCount })}
+                      </span>
+                      <span className={`status-pill ${integrationSelfTargetCount > 0 ? "status-no" : "status-yes"}`}>
+                        {interpolateText(t("integration_status_self_targets"), { count: integrationSelfTargetCount })}
+                      </span>
+                    </div>
+                    <ul className="integration-check-list">
+                      {integrationChecks.map((checkItem) => (
+                        <li key={checkItem.key} className="integration-check-item">
+                          <span className="item-meta">{checkItem.label}</span>
+                          <span className={`status-pill ${checkItem.ok ? "status-yes" : "status-no"}`}>
+                            {checkItem.ok ? t("integration_status_check_ok") : t("integration_status_check_missing")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="hint">{isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_empty")}</p>
+                )
+              ) : (
                 <>
                   <p className="hint">
-                    {interpolateText(t("integration_status_checks_label"), {
+                    {interpolateText(t("integration_status_collapsed_hint"), {
                       ok: integrationChecksOkCount,
                       total: integrationChecksTotal
                     })}
                   </p>
                   <div className="profile-summary-signals">
-                    <span className="status-pill status-host-conversion-source-default">
-                      {interpolateText(t("integration_status_profile_id"), {
-                        id: String(integrationStatus.global_profile_id || "—")
-                      })}
-                    </span>
-                    <span className="status-pill status-host-conversion-source-default">
-                      {interpolateText(t("integration_status_share_targets"), { count: integrationShareTargetCount })}
-                    </span>
                     <span className={`status-pill ${integrationSelfTargetCount > 0 ? "status-no" : "status-yes"}`}>
                       {interpolateText(t("integration_status_self_targets"), { count: integrationSelfTargetCount })}
                     </span>
                   </div>
-                  <ul className="integration-check-list">
-                    {integrationChecks.map((checkItem) => (
-                      <li key={checkItem.key} className="integration-check-item">
-                        <span className="item-meta">{checkItem.label}</span>
-                        <span className={`status-pill ${checkItem.ok ? "status-yes" : "status-no"}`}>
-                          {checkItem.ok ? t("integration_status_check_ok") : t("integration_status_check_missing")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
                 </>
-              ) : (
-                <p className="hint">{isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_empty")}</p>
               )}
               <InlineMessage text={integrationStatusMessage} />
             </article>
