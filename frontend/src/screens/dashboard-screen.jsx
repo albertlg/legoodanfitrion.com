@@ -208,6 +208,94 @@ function getMapEmbedUrl(lat, lng) {
   return `https://www.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
 }
 
+function getSuggestedEventSettingsFromInsights(eventInsights) {
+  const relationshipCodes = Array.isArray(eventInsights?.relationshipCodes) ? eventInsights.relationshipCodes : [];
+  const experienceTypeCodes = Array.isArray(eventInsights?.experienceTypeCodes) ? eventInsights.experienceTypeCodes : [];
+  const consideredGuestsCount = Number(eventInsights?.consideredGuestsCount || 0);
+  const musicCount = Array.isArray(eventInsights?.musicGenres) ? eventInsights.musicGenres.length : 0;
+
+  const dressCode = experienceTypeCodes.some((code) => ["celebration", "party", "romantic_date"].includes(code))
+    ? "elegant"
+    : experienceTypeCodes.some((code) => ["bbq", "movie_night", "book_club"].includes(code))
+    ? "casual"
+    : "none";
+
+  const allowPlusOne =
+    consideredGuestsCount >= 8 ||
+    relationshipCodes.some((code) => ["friends", "family", "romantic"].includes(String(code || "").toLowerCase()));
+  const autoReminders = consideredGuestsCount >= 6 || eventInsights?.timingRecommendation === "start_with_buffer";
+  const playlistMode = musicCount >= 3 ? "spotify_collaborative" : musicCount >= 1 ? "collaborative" : "host_only";
+
+  return {
+    allowPlusOne,
+    autoReminders,
+    dressCode,
+    playlistMode
+  };
+}
+
+function buildHostingPlaybookActions(eventInsights, t) {
+  if (!eventInsights?.hasData) {
+    return [];
+  }
+  const actions = [];
+  if (Array.isArray(eventInsights.avoidItems) && eventInsights.avoidItems.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_health"), {
+        items: eventInsights.avoidItems.slice(0, 5).join(", ")
+      })
+    );
+  }
+  if (Array.isArray(eventInsights.foodSuggestions) && eventInsights.foodSuggestions.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_menu"), {
+        items: eventInsights.foodSuggestions.slice(0, 4).join(", ")
+      })
+    );
+  }
+  if (Array.isArray(eventInsights.drinkSuggestions) && eventInsights.drinkSuggestions.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_drinks"), {
+        items: eventInsights.drinkSuggestions.slice(0, 4).join(", ")
+      })
+    );
+  }
+  if (Array.isArray(eventInsights.musicGenres) && eventInsights.musicGenres.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_music"), {
+        items: eventInsights.musicGenres.slice(0, 3).join(", ")
+      })
+    );
+  }
+  if (Array.isArray(eventInsights.decorColors) && eventInsights.decorColors.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_decor"), {
+        items: eventInsights.decorColors.slice(0, 3).join(", ")
+      })
+    );
+  }
+  if (Array.isArray(eventInsights.icebreakers) && eventInsights.icebreakers.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_icebreaker"), {
+        items: eventInsights.icebreakers.slice(0, 3).join(", ")
+      })
+    );
+  }
+  if (Array.isArray(eventInsights.tabooTopics) && eventInsights.tabooTopics.length > 0) {
+    actions.push(
+      interpolateText(t("smart_hosting_action_taboo"), {
+        items: eventInsights.tabooTopics.slice(0, 3).join(", ")
+      })
+    );
+  }
+  actions.push(
+    eventInsights.timingRecommendation === "start_with_buffer"
+      ? t("smart_hosting_action_timing_buffer")
+      : t("smart_hosting_action_timing_on_time")
+  );
+  return actions.slice(0, 6);
+}
+
 const VIEW_CONFIG = [
   { key: "overview", icon: "sparkle", labelKey: "nav_overview" },
   { key: "events", icon: "calendar", labelKey: "nav_events" },
@@ -453,6 +541,24 @@ function buildGuestFingerprint({ firstName, lastName, email, phone }) {
   return "";
 }
 
+function normalizeImportSource(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "google" || normalized === "device" || normalized === "paste") {
+    return normalized;
+  }
+  return "file";
+}
+
+function tagImportedContacts(items, source) {
+  const normalizedSource = normalizeImportSource(source);
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    ...(item || {}),
+    importSource: normalizedSource
+  }));
+}
+
 function deriveGuestNameFromContact(contact) {
   const normalizedFirstName = String(contact?.firstName || "").trim();
   if (normalizedFirstName) {
@@ -483,6 +589,49 @@ function toContactGroupsList(contact) {
       .map((item) => String(item || "").trim())
       .filter(Boolean)
   );
+}
+
+function calculateImportContactCaptureScore(contact) {
+  let score = 0;
+  if (String(contact?.firstName || "").trim() || String(contact?.lastName || "").trim()) {
+    score += 15;
+  }
+  if (normalizeEmailKey(contact?.email || "")) {
+    score += 24;
+  }
+  if (normalizePhoneKey(contact?.phone || "")) {
+    score += 24;
+  }
+  if (String(contact?.city || "").trim()) {
+    score += 7;
+  }
+  if (String(contact?.country || "").trim()) {
+    score += 6;
+  }
+  if (String(contact?.address || "").trim()) {
+    score += 8;
+  }
+  if (normalizeIsoDate(contact?.birthday)) {
+    score += 6;
+  }
+  if (String(contact?.company || "").trim()) {
+    score += 4;
+  }
+  if (toContactGroupsList(contact).length > 0) {
+    score += 6;
+  }
+  return Math.max(0, Math.min(100, score));
+}
+
+function getImportPotentialLevel(score) {
+  const safeScore = Number(score) || 0;
+  if (safeScore >= 70) {
+    return "high";
+  }
+  if (safeScore >= 45) {
+    return "medium";
+  }
+  return "low";
 }
 
 function deriveRelationshipCodeFromContact(contact) {
@@ -952,6 +1101,7 @@ function DashboardScreen({
   const autocompleteServiceRef = useRef(null);
   const geocoderRef = useRef(null);
   const guestGeocodePendingRef = useRef(new Set());
+  const guestAdvancedDetailsRef = useRef(null);
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
@@ -972,6 +1122,7 @@ function DashboardScreen({
   const [importContactsPreview, setImportContactsPreview] = useState([]);
   const [importContactsSearch, setImportContactsSearch] = useState("");
   const [importContactsGroupFilter, setImportContactsGroupFilter] = useState("all");
+  const [importContactsPotentialFilter, setImportContactsPotentialFilter] = useState("all");
   const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
   const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
   const [importContactsPage, setImportContactsPage] = useState(1);
@@ -1194,6 +1345,7 @@ function DashboardScreen({
       const phone = String(contactItem?.phone || "").trim();
       const birthday = normalizeIsoDate(contactItem?.birthday);
       const groups = toContactGroupsList(contactItem);
+      const importSource = normalizeImportSource(contactItem?.importSource);
       const fingerprint = buildGuestFingerprint({ firstName, lastName, email, phone });
       const duplicateInPreview = Boolean(fingerprint && seenInPreview.has(fingerprint));
       if (fingerprint) {
@@ -1203,6 +1355,20 @@ function DashboardScreen({
       const duplicateExisting = Boolean(existingGuest);
       const willMerge = duplicateExisting && importDuplicateMode === "merge";
       const canImport = Boolean((firstName || email || phone) && !duplicateInPreview && (!duplicateExisting || willMerge));
+      const hasDualChannel = Boolean(normalizeEmailKey(email) && normalizePhoneKey(phone));
+      const captureScore = calculateImportContactCaptureScore({
+        firstName,
+        lastName,
+        email,
+        phone,
+        city: String(contactItem?.city || "").trim(),
+        country: String(contactItem?.country || "").trim(),
+        address: String(contactItem?.address || "").trim(),
+        company: String(contactItem?.company || "").trim(),
+        birthday,
+        groups
+      });
+      const potentialLevel = getImportPotentialLevel(captureScore);
       const previewId = fingerprint ? `fp:${fingerprint}` : `idx:${index}`;
       return {
         previewId,
@@ -1214,6 +1380,7 @@ function DashboardScreen({
         phone,
         birthday,
         groups,
+        importSource,
         relationship: String(contactItem?.relationship || "").trim(),
         city: String(contactItem?.city || "").trim(),
         country: String(contactItem?.country || "").trim(),
@@ -1221,6 +1388,9 @@ function DashboardScreen({
         postalCode: String(contactItem?.postalCode || "").trim(),
         stateRegion: String(contactItem?.stateRegion || "").trim(),
         company: String(contactItem?.company || "").trim(),
+        captureScore,
+        potentialLevel,
+        hasDualChannel,
         duplicateInPreview,
         duplicateExisting,
         willMerge,
@@ -1238,19 +1408,40 @@ function DashboardScreen({
   const importContactsFiltered = useMemo(() => {
     const term = String(importContactsSearch || "").trim().toLowerCase();
     const groupFilter = String(importContactsGroupFilter || "all");
-    return importContactsAnalysis.filter((item) => {
-      const matchesGroup = groupFilter === "all" || (Array.isArray(item.groups) && item.groups.includes(groupFilter));
-      if (!matchesGroup) {
-        return false;
-      }
-      if (!term) {
-        return true;
-      }
-      const groupsText = Array.isArray(item.groups) ? item.groups.join(" ") : "";
-      const haystack = `${item.firstName} ${item.lastName} ${item.email} ${item.phone} ${item.city} ${item.country} ${groupsText}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [importContactsAnalysis, importContactsGroupFilter, importContactsSearch]);
+    const potentialFilter = String(importContactsPotentialFilter || "all");
+    const potentialWeight = { high: 3, medium: 2, low: 1 };
+    return importContactsAnalysis
+      .filter((item) => {
+        const matchesGroup = groupFilter === "all" || (Array.isArray(item.groups) && item.groups.includes(groupFilter));
+        const matchesPotential = potentialFilter === "all" || item.potentialLevel === potentialFilter;
+        if (!matchesGroup || !matchesPotential) {
+          return false;
+        }
+        if (!term) {
+          return true;
+        }
+        const groupsText = Array.isArray(item.groups) ? item.groups.join(" ") : "";
+        const haystack = `${item.firstName} ${item.lastName} ${item.email} ${item.phone} ${item.city} ${item.country} ${groupsText}`.toLowerCase();
+        return haystack.includes(term);
+      })
+      .sort((a, b) => {
+        if (a.canImport !== b.canImport) {
+          return a.canImport ? -1 : 1;
+        }
+        if ((potentialWeight[b.potentialLevel] || 0) !== (potentialWeight[a.potentialLevel] || 0)) {
+          return (potentialWeight[b.potentialLevel] || 0) - (potentialWeight[a.potentialLevel] || 0);
+        }
+        if (b.captureScore !== a.captureScore) {
+          return b.captureScore - a.captureScore;
+        }
+        if (a.duplicateExisting !== b.duplicateExisting) {
+          return a.duplicateExisting ? 1 : -1;
+        }
+        const nameA = `${a.firstName} ${a.lastName}`.trim();
+        const nameB = `${b.firstName} ${b.lastName}`.trim();
+        return nameA.localeCompare(nameB, language);
+      });
+  }, [importContactsAnalysis, importContactsGroupFilter, importContactsPotentialFilter, importContactsSearch, language]);
   const importContactsFilteredReady = useMemo(
     () => importContactsFiltered.filter((item) => item.canImport),
     [importContactsFiltered]
@@ -1266,6 +1457,13 @@ function DashboardScreen({
         (acc, item) => {
           if (item.canImport) {
             acc.ready += 1;
+            if (item.potentialLevel === "high") {
+              acc.highPotential += 1;
+            } else if (item.potentialLevel === "medium") {
+              acc.mediumPotential += 1;
+            } else {
+              acc.lowPotential += 1;
+            }
           }
           if (item.duplicateExisting) {
             acc.duplicateExisting += 1;
@@ -1275,7 +1473,7 @@ function DashboardScreen({
           }
           return acc;
         },
-        { ready: 0, duplicateExisting: 0, duplicateInPreview: 0 }
+        { ready: 0, highPotential: 0, mediumPotential: 0, lowPotential: 0, duplicateExisting: 0, duplicateInPreview: 0 }
       ),
     [importContactsAnalysis]
   );
@@ -1294,7 +1492,7 @@ function DashboardScreen({
   }, [importContactsReady]);
   useEffect(() => {
     setImportContactsPage(1);
-  }, [importContactsSearch, importContactsGroupFilter, importDuplicateMode, importContactsPageSize, importContactsPreview.length]);
+  }, [importContactsSearch, importContactsGroupFilter, importContactsPotentialFilter, importDuplicateMode, importContactsPageSize, importContactsPreview.length]);
   useEffect(() => {
     if (importContactsPage > importContactsTotalPages) {
       setImportContactsPage(importContactsTotalPages);
@@ -1928,6 +2126,35 @@ function DashboardScreen({
   }, [guestAdvanced, guestEmail, guestFirstName, guestPhone, t]);
   const guestAdvancedProfileCompleted = guestAdvancedProfileSignals.filter((item) => item.done).length;
   const guestAdvancedProfilePercent = Math.round((guestAdvancedProfileCompleted / Math.max(1, guestAdvancedProfileSignals.length)) * 100);
+  const guestPrioritySignals = useMemo(
+    () => [
+      { key: "diet", label: t("field_diet_type"), done: Boolean(guestAdvanced.dietType) },
+      {
+        key: "health",
+        label: t("field_allergies"),
+        done: Boolean(
+          splitListInput(guestAdvanced.allergies).length ||
+            splitListInput(guestAdvanced.intolerances).length ||
+            splitListInput(guestAdvanced.petAllergies).length
+        )
+      },
+      { key: "menu", label: t("field_food_likes"), done: Boolean(splitListInput(guestAdvanced.foodLikes).length) },
+      { key: "drink", label: t("field_drink_likes"), done: Boolean(splitListInput(guestAdvanced.drinkLikes).length) },
+      { key: "music", label: t("field_music_genres"), done: Boolean(splitListInput(guestAdvanced.musicGenres).length) },
+      { key: "talk", label: t("field_last_talk_topic"), done: Boolean(guestAdvanced.lastTalkTopic.trim()) },
+      { key: "birthday", label: t("field_birthday"), done: Boolean(guestAdvanced.birthday.trim()) },
+      {
+        key: "moment",
+        label: t("field_day_moment"),
+        done: Boolean(splitListInput(guestAdvanced.preferredDayMoments).length)
+      }
+    ],
+    [guestAdvanced, t]
+  );
+  const guestPriorityCompleted = guestPrioritySignals.filter((item) => item.done).length;
+  const guestPriorityTotal = Math.max(1, guestPrioritySignals.length);
+  const guestPriorityPercent = Math.round((guestPriorityCompleted / guestPriorityTotal) * 100);
+  const guestPriorityMissing = guestPrioritySignals.filter((item) => !item.done);
   const guestNextBirthday = useMemo(
     () => getNextBirthdaySummary(guestAdvanced.birthday, language),
     [guestAdvanced.birthday, language]
@@ -2044,6 +2271,28 @@ function DashboardScreen({
         language
       }),
     [insightsEventId, events, guests, invitations, guestPreferencesById, guestSensitiveById, language]
+  );
+  const eventBuilderInsights = useMemo(
+    () =>
+      buildHostingSuggestions({
+        eventId: editingEventId || "",
+        events,
+        guests,
+        invitations,
+        guestPreferencesById,
+        guestSensitiveById,
+        language
+      }),
+    [editingEventId, events, guests, invitations, guestPreferencesById, guestSensitiveById, language]
+  );
+  const insightsPlaybookActions = useMemo(() => buildHostingPlaybookActions(eventInsights, t), [eventInsights, t]);
+  const eventBuilderPlaybookActions = useMemo(
+    () => buildHostingPlaybookActions(eventBuilderInsights, t),
+    [eventBuilderInsights, t]
+  );
+  const eventBuilderSuggestedSettings = useMemo(
+    () => getSuggestedEventSettingsFromInsights(eventBuilderInsights),
+    [eventBuilderInsights]
   );
   const invitationCountForEditingEvent = useMemo(() => {
     if (!editingEventId) {
@@ -3902,6 +4151,31 @@ function DashboardScreen({
     setEventPlaylistMode(templateItem.key === "book_club" ? "collaborative" : "host_only");
   };
 
+  const handleApplySuggestedEventSettings = () => {
+    let changedCount = 0;
+    if (eventBuilderSuggestedSettings.allowPlusOne && !eventAllowPlusOne) {
+      setEventAllowPlusOne(true);
+      changedCount += 1;
+    }
+    if (eventBuilderSuggestedSettings.autoReminders && !eventAutoReminders) {
+      setEventAutoReminders(true);
+      changedCount += 1;
+    }
+    if (eventDressCode === "none" && eventBuilderSuggestedSettings.dressCode !== "none") {
+      setEventDressCode(eventBuilderSuggestedSettings.dressCode);
+      changedCount += 1;
+    }
+    if (eventPlaylistMode === "host_only" && eventBuilderSuggestedSettings.playlistMode !== "host_only") {
+      setEventPlaylistMode(eventBuilderSuggestedSettings.playlistMode);
+      changedCount += 1;
+    }
+    if (changedCount === 0) {
+      setEventMessage(t("smart_hosting_settings_no_change"));
+      return;
+    }
+    setEventMessage(interpolateText(t("smart_hosting_settings_applied"), { count: changedCount }));
+  };
+
   const resolveCreatedGuestId = useCallback(
     async ({ firstName, lastName, email, phone, address }) => {
       if (!supabase || !session?.user?.id) {
@@ -4155,7 +4429,7 @@ function DashboardScreen({
     await loadDashboardData();
   };
 
-  const previewImportedContacts = (sourceText, sourceType = "text") => {
+  const previewImportedContacts = (sourceText, sourceType = "paste") => {
     const rawText = String(sourceText || "");
     let parsedContacts = [];
     if (sourceType === "vcf") {
@@ -4166,7 +4440,8 @@ function DashboardScreen({
         parsedContacts = parseContactsFromText(rawText);
       }
     }
-    setImportContactsPreview(parsedContacts);
+    const taggedContacts = tagImportedContacts(parsedContacts, sourceType === "paste" ? "paste" : "file");
+    setImportContactsPreview(taggedContacts);
     setImportDuplicateMode("skip");
     if (parsedContacts.length === 0) {
       setImportContactsMessage(t("contact_import_no_matches"));
@@ -4175,11 +4450,12 @@ function DashboardScreen({
     setImportContactsMessage(`${t("contact_import_preview_ready")} ${parsedContacts.length}.`);
     setImportContactsSearch("");
     setImportContactsGroupFilter("all");
+    setImportContactsPotentialFilter("all");
     setImportContactsPage(1);
   };
 
   const handlePreviewContactsFromDraft = () => {
-    previewImportedContacts(importContactsDraft, "text");
+    previewImportedContacts(importContactsDraft, "paste");
   };
 
   const handleImportContactsFile = async (event) => {
@@ -4203,11 +4479,12 @@ function DashboardScreen({
     setImportContactsMessage("");
     try {
       const googleContacts = await importContactsFromGoogle();
-      setImportContactsPreview(googleContacts);
+      setImportContactsPreview(tagImportedContacts(googleContacts, "google"));
       setImportDuplicateMode("skip");
       setImportContactsDraft("");
       setImportContactsSearch("");
       setImportContactsGroupFilter("all");
+      setImportContactsPotentialFilter("all");
       setImportContactsPage(1);
       if (googleContacts.length > 0) {
         setImportContactsMessage(`${t("contact_import_google_loaded")} ${googleContacts.length}.`);
@@ -4242,10 +4519,11 @@ function DashboardScreen({
       const parsedContacts = (selectedContacts || [])
         .map((item) => normalizeDeviceContact(item))
         .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);
-      setImportContactsPreview(parsedContacts);
+      setImportContactsPreview(tagImportedContacts(parsedContacts, "device"));
       setImportDuplicateMode("skip");
       setImportContactsSearch("");
       setImportContactsGroupFilter("all");
+      setImportContactsPotentialFilter("all");
       setImportContactsPage(1);
       setImportContactsMessage(`${t("contact_import_device_loaded")} ${parsedContacts.length}.`);
     } catch (error) {
@@ -4335,11 +4613,19 @@ function DashboardScreen({
     setEventMessage(t("birthday_event_prefilled"));
   };
 
+  const handleOpenGuestAdvancedPriority = () => {
+    if (guestAdvancedDetailsRef.current) {
+      guestAdvancedDetailsRef.current.open = true;
+      guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   const handleClearImportContacts = () => {
     setImportContactsDraft("");
     setImportContactsPreview([]);
     setImportContactsSearch("");
     setImportContactsGroupFilter("all");
+    setImportContactsPotentialFilter("all");
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
     setImportContactsPage(1);
@@ -4367,6 +4653,22 @@ function DashboardScreen({
     setSelectedImportContactIds(
       importContactsFiltered
         .filter((item) => item.canImport && !item.duplicateExisting && !item.duplicateInPreview)
+        .map((item) => item.previewId)
+    );
+  };
+
+  const handleSelectHighPotentialImportContacts = () => {
+    setSelectedImportContactIds(
+      importContactsFiltered
+        .filter((item) => item.canImport && item.potentialLevel === "high")
+        .map((item) => item.previewId)
+    );
+  };
+
+  const handleSelectDualChannelImportContacts = () => {
+    setSelectedImportContactIds(
+      importContactsFiltered
+        .filter((item) => item.canImport && item.hasDualChannel)
         .map((item) => item.previewId)
     );
   };
@@ -7635,6 +7937,25 @@ function DashboardScreen({
                     </label>
                   </section>
 
+                  <section className="event-phase-section">
+                    <h3>{t("smart_hosting_playbook_title")}</h3>
+                    <p className="field-help">{t("smart_hosting_playbook_hint")}</p>
+                    {eventBuilderPlaybookActions.length > 0 ? (
+                      <ul className="list recommendation-list">
+                        {eventBuilderPlaybookActions.map((item, index) => (
+                          <li key={`${index}-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="hint">{t("smart_hosting_empty")}</p>
+                    )}
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleApplySuggestedEventSettings}>
+                        {t("smart_hosting_apply_settings")}
+                      </button>
+                    </div>
+                  </section>
+
                   <section className="event-phase-summary">
                     <p className="label-title">{t("event_progress_title")}</p>
                     <ul className="event-phase-summary-list">
@@ -8181,68 +8502,83 @@ function DashboardScreen({
                 {t("smart_hosting_considered_guests")}: {eventInsights.consideredGuestsCount}
               </p>
               {eventInsights.hasData ? (
-                <div className="insights-grid">
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_food")}</p>
-                    <p className="item-meta">
-                      {eventInsights.foodSuggestions.length > 0
-                        ? eventInsights.foodSuggestions.join(", ")
-                        : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_drink")}</p>
-                    <p className="item-meta">
-                      {eventInsights.drinkSuggestions.length > 0
-                        ? eventInsights.drinkSuggestions.join(", ")
-                        : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_avoid")}</p>
-                    <p className="item-meta">
-                      {eventInsights.avoidItems.length > 0 ? eventInsights.avoidItems.join(", ") : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_decor")}</p>
-                    <p className="item-meta">
-                      {eventInsights.decorColors.length > 0
-                        ? eventInsights.decorColors.join(", ")
-                        : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_music")}</p>
-                    <p className="item-meta">
-                      {eventInsights.musicGenres.length > 0
-                        ? eventInsights.musicGenres.join(", ")
-                        : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_icebreakers")}</p>
-                    <p className="item-meta">
-                      {eventInsights.icebreakers.length > 0
-                        ? eventInsights.icebreakers.join(", ")
-                        : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_taboo")}</p>
-                    <p className="item-meta">
-                      {eventInsights.tabooTopics.length > 0
-                        ? eventInsights.tabooTopics.join(", ")
-                        : t("smart_hosting_no_data")}
-                    </p>
-                  </article>
-                  <article className="insight-card">
-                    <p className="item-title">{t("smart_hosting_timing")}</p>
-                    <p className="item-meta">
-                      {eventInsights.timingRecommendation === "start_with_buffer"
-                        ? t("smart_hosting_timing_buffer")
-                        : t("smart_hosting_timing_on_time")}
-                    </p>
+                <div className="stack-md">
+                  <div className="insights-grid">
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_food")}</p>
+                      <p className="item-meta">
+                        {eventInsights.foodSuggestions.length > 0
+                          ? eventInsights.foodSuggestions.join(", ")
+                          : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_drink")}</p>
+                      <p className="item-meta">
+                        {eventInsights.drinkSuggestions.length > 0
+                          ? eventInsights.drinkSuggestions.join(", ")
+                          : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_avoid")}</p>
+                      <p className="item-meta">
+                        {eventInsights.avoidItems.length > 0 ? eventInsights.avoidItems.join(", ") : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_decor")}</p>
+                      <p className="item-meta">
+                        {eventInsights.decorColors.length > 0
+                          ? eventInsights.decorColors.join(", ")
+                          : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_music")}</p>
+                      <p className="item-meta">
+                        {eventInsights.musicGenres.length > 0
+                          ? eventInsights.musicGenres.join(", ")
+                          : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_icebreakers")}</p>
+                      <p className="item-meta">
+                        {eventInsights.icebreakers.length > 0
+                          ? eventInsights.icebreakers.join(", ")
+                          : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_taboo")}</p>
+                      <p className="item-meta">
+                        {eventInsights.tabooTopics.length > 0
+                          ? eventInsights.tabooTopics.join(", ")
+                          : t("smart_hosting_no_data")}
+                      </p>
+                    </article>
+                    <article className="insight-card">
+                      <p className="item-title">{t("smart_hosting_timing")}</p>
+                      <p className="item-meta">
+                        {eventInsights.timingRecommendation === "start_with_buffer"
+                          ? t("smart_hosting_timing_buffer")
+                          : t("smart_hosting_timing_on_time")}
+                      </p>
+                    </article>
+                  </div>
+                  <article className="recommendation-card">
+                    <p className="item-title">{t("smart_hosting_playbook_title")}</p>
+                    <p className="field-help">{t("smart_hosting_playbook_hint")}</p>
+                    {insightsPlaybookActions.length > 0 ? (
+                      <ul className="list recommendation-list">
+                        {insightsPlaybookActions.map((item, index) => (
+                          <li key={`${index}-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="hint">{t("smart_hosting_empty")}</p>
+                    )}
                   </article>
                 </div>
               ) : (
@@ -8409,6 +8745,15 @@ function DashboardScreen({
                       <span className="status-pill status-event-published">
                         {t("contact_import_status_ready")} {importContactsStatusSummary.ready}
                       </span>
+                      <span className="status-pill status-yes">
+                        {t("contact_import_status_high_potential")} {importContactsStatusSummary.highPotential}
+                      </span>
+                      <span className="status-pill status-maybe">
+                        {t("contact_import_status_medium_potential")} {importContactsStatusSummary.mediumPotential}
+                      </span>
+                      <span className="status-pill status-draft">
+                        {t("contact_import_status_low_potential")} {importContactsStatusSummary.lowPotential}
+                      </span>
                       <span className="status-pill status-invitation-pending">
                         {t("contact_import_status_duplicate_existing")} {importContactsStatusSummary.duplicateExisting}
                       </span>
@@ -8455,6 +8800,18 @@ function DashboardScreen({
                       </select>
                     </label>
                     <label>
+                      <span className="label-title">{t("contact_import_potential_filter_label")}</span>
+                      <select
+                        value={importContactsPotentialFilter}
+                        onChange={(event) => setImportContactsPotentialFilter(event.target.value)}
+                      >
+                        <option value="all">{t("contact_import_potential_all")}</option>
+                        <option value="high">{t("contact_import_potential_high")}</option>
+                        <option value="medium">{t("contact_import_potential_medium")}</option>
+                        <option value="low">{t("contact_import_potential_low")}</option>
+                      </select>
+                    </label>
+                    <label>
                       <span className="label-title">{t("pagination_items_per_page")}</span>
                       <select
                         value={importContactsPageSize}
@@ -8473,6 +8830,12 @@ function DashboardScreen({
                   <div className="button-row">
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
                       {t("contact_import_select_all_ready")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectHighPotentialImportContacts}>
+                      {t("contact_import_select_high_potential")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDualChannelImportContacts}>
+                      {t("contact_import_select_dual_channel")}
                     </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
                       {t("contact_import_select_filtered_ready")}
@@ -8506,6 +8869,13 @@ function DashboardScreen({
                             <small>{contactItem.email || contactItem.phone || "-"}</small>
                             <small>{[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}</small>
                             {contactItem.birthday ? <small>{`${t("field_birthday")}: ${contactItem.birthday}`}</small> : null}
+                            <small>
+                              {t("contact_import_source_label")}: {t(`contact_import_source_${contactItem.importSource}`)}
+                            </small>
+                            <small>
+                              {t("contact_import_capture_score")}: {contactItem.captureScore}/100 ·{" "}
+                              {t(`contact_import_potential_${contactItem.potentialLevel}`)}
+                            </small>
                             {contactItem.groups?.length ? (
                               <small>{`${t("contact_import_group_filter")}: ${contactItem.groups.join(", ")}`}</small>
                             ) : null}
@@ -8706,7 +9076,44 @@ function DashboardScreen({
                 )}
               </section>
 
-              <details className="advanced-form">
+              <section className="recommendation-card profile-priority-card">
+                <p className="item-title">
+                  <Icon name="sparkle" className="icon icon-sm" />
+                  {t("guest_profile_priority_title")}
+                </p>
+                <p className="field-help">{t("guest_profile_priority_hint")}</p>
+                <p className="item-meta">
+                  {interpolateText(t("guest_profile_priority_progress"), {
+                    done: guestPriorityCompleted,
+                    total: guestPriorityTotal,
+                    percent: guestPriorityPercent
+                  })}
+                </p>
+                <div className="progress-bar" aria-hidden="true">
+                  <span style={{ width: `${guestPriorityPercent}%` }} />
+                </div>
+                {guestPriorityMissing.length > 0 ? (
+                  <>
+                    <p className="hint">{t("guest_profile_priority_next_label")}</p>
+                    <div className="multi-chip-group">
+                      {guestPriorityMissing.slice(0, 5).map((item) => (
+                        <span key={item.key} className="multi-chip readonly">
+                          {item.label}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleOpenGuestAdvancedPriority}>
+                        {t("guest_profile_priority_open_action")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="field-success">{t("guest_profile_capture_all_set")}</p>
+                )}
+              </section>
+
+              <details ref={guestAdvancedDetailsRef} className="advanced-form">
                 <summary>{t("guest_advanced_title")}</summary>
                 <p className="field-help">{t("guest_advanced_hint")}</p>
                 <div className="advanced-grid">

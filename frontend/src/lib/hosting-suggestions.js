@@ -128,6 +128,8 @@ function buildHostingSuggestions({
   const dayMoments = [];
   const experienceTypes = [];
   const relationshipMix = [];
+  const relationshipCodes = [];
+  const experienceTypeCodes = [];
   const allergiesAndIntolerances = [];
   const petAllergies = [];
   let punctualOnTime = 0;
@@ -146,9 +148,14 @@ function buildHostingSuggestions({
     genres.push(...toList(prefs.music_genres).map((item) => toCatalogLabel("music_genre", item, language)));
     dayMoments.push(...toList(prefs.preferred_day_moments).map((item) => toCatalogLabel("day_moment", item, language)));
     experienceTypes.push(...toList(prefs.experience_types).map((item) => toCatalogLabel("experience_type", item, language)));
+    experienceTypeCodes.push(...toList(prefs.experience_types).map((item) => toCatalogCode("experience_type", item) || ""));
     relationshipMix.push(...toList(guest.relationship).map((item) => toCatalogLabel("relationship", item, language)));
+    relationshipCodes.push(...toList(guest.relationship).map((item) => toCatalogCode("relationship", item) || ""));
     relationshipMix.push(
       ...toList(prefs.preferred_guest_relationships).map((item) => toCatalogLabel("relationship", item, language))
+    );
+    relationshipCodes.push(
+      ...toList(prefs.preferred_guest_relationships).map((item) => toCatalogCode("relationship", item) || "")
     );
 
     const punctualityValue = toCatalogCode("punctuality", prefs.punctuality);
@@ -200,7 +207,9 @@ function buildHostingSuggestions({
     selectedEventTitle: selectedEvent?.title || "",
     consideredGuestsCount: sourceGuests.length,
     relationshipMix: topValues(relationshipMix),
+    relationshipCodes: topValues(relationshipCodes),
     experienceTypes: topValues(experienceTypes),
+    experienceTypeCodes: topValues(experienceTypeCodes),
     dayMoments: topValues(dayMoments),
     foodSuggestions,
     drinkSuggestions,

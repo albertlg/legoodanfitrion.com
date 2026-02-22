@@ -3153,6 +3153,11 @@ h2 {
   font-size: 0.78rem;
 }
 
+.stack-md {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .import-status-grid {
   display: grid;
   gap: 0.4rem;
@@ -3257,6 +3262,10 @@ h2 {
   padding: 0.75rem;
   display: grid;
   gap: 0.45rem;
+}
+
+.profile-priority-card {
+  margin-top: 0.05rem;
 }
 
 .profile-capture-card .progress-bar {
