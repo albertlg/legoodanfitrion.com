@@ -681,10 +681,35 @@ h2 {
   margin-top: 1.35rem;
 }
 
+.landing-feature-summary-grid {
+  margin-top: 0.4rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.95rem;
+}
+
+.landing-feature-summary-card {
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.landing-feature-summary-card .kpi-value {
+  margin: 0.08rem 0;
+  font-size: 2rem;
+}
+
 .landing-pricing-grid,
 .landing-contact-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.landing-contact-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
   gap: 1rem;
 }
 
@@ -738,6 +763,77 @@ h2 {
   margin: 0;
   color: var(--text-muted);
   word-break: break-word;
+}
+
+.landing-contact-channel-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.landing-contact-form {
+  border-radius: 14px;
+  padding: 1.18rem;
+}
+
+.landing-contact-form h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.landing-contact-form textarea {
+  resize: vertical;
+  min-height: 120px;
+  border-radius: 10px;
+}
+
+.landing-contact-form .btn {
+  justify-self: start;
+}
+
+.landing-faq-head {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.landing-faq-list {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.landing-faq-item {
+  border-radius: 14px;
+  padding: 0.35rem 0.8rem;
+  overflow: hidden;
+}
+
+.landing-faq-question {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--title);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  text-align: left;
+  padding: 0.72rem 0.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.landing-faq-question .icon {
+  transition: transform 0.18s ease;
+}
+
+.landing-faq-item.open .landing-faq-question .icon {
+  transform: rotate(180deg);
+}
+
+.landing-faq-answer {
+  margin: 0 0.2rem 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.56;
 }
 
 .landing-feature-card {
@@ -886,6 +982,10 @@ h2 {
 :root[data-theme="dark"] .landing-feature-icon {
   background: color-mix(in srgb, var(--primary) 80%, #ffffff 20%);
   color: #102036;
+}
+
+:root[data-theme="dark"] .landing-faq-item {
+  background: color-mix(in srgb, var(--panel-bg) 88%, var(--surface-soft) 12%);
 }
 
 :root[data-theme="dark"] .landing-waitlist-form input {
@@ -3968,9 +4068,19 @@ code {
     margin-top: 0.86rem;
   }
 
+  .landing-feature-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .landing-pricing-grid,
-  .landing-contact-grid {
+  .landing-contact-grid,
+  .landing-contact-layout {
     grid-template-columns: 1fr;
+  }
+
+  .landing-contact-form .btn {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .landing-feature-card {

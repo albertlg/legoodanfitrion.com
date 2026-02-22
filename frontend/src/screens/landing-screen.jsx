@@ -11,6 +11,13 @@ const NAV_ITEMS = [
   { key: "contact", path: "/contact", labelKey: "landing_nav_contact" }
 ];
 
+const FAQ_ITEMS = [
+  { key: "faq_1", questionKey: "landing_faq_q1", answerKey: "landing_faq_a1" },
+  { key: "faq_2", questionKey: "landing_faq_q2", answerKey: "landing_faq_a2" },
+  { key: "faq_3", questionKey: "landing_faq_q3", answerKey: "landing_faq_a3" },
+  { key: "faq_4", questionKey: "landing_faq_q4", answerKey: "landing_faq_a4" }
+];
+
 function LandingScreen({
   t,
   language,
@@ -27,6 +34,14 @@ function LandingScreen({
   const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
   const [waitlistMessage, setWaitlistMessage] = useState("");
   const [waitlistMessageType, setWaitlistMessageType] = useState("info");
+
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessageBody, setContactMessageBody] = useState("");
+  const [isSendingContact, setIsSendingContact] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactMessageType, setContactMessageType] = useState("info");
+  const [openFaqKey, setOpenFaqKey] = useState("faq_1");
 
   const pageMode =
     currentPath === "/features"
@@ -107,6 +122,81 @@ function LandingScreen({
     setWaitlistMessageType("success");
     setWaitlistMessage(status === "already_joined" ? t("waitlist_join_exists") : t("waitlist_join_success"));
     setWaitlistEmail("");
+  };
+
+  const handleSendContact = async (event) => {
+    event.preventDefault();
+    const name = String(contactName || "").trim();
+    const email = String(contactEmail || "").trim();
+    const message = String(contactMessageBody || "").trim();
+    if (!name) {
+      setContactMessageType("error");
+      setContactMessage(t("landing_contact_form_name_required"));
+      return;
+    }
+    if (!email) {
+      setContactMessageType("error");
+      setContactMessage(t("landing_contact_form_email_required"));
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setContactMessageType("error");
+      setContactMessage(t("landing_contact_form_email_invalid"));
+      return;
+    }
+    if (!message) {
+      setContactMessageType("error");
+      setContactMessage(t("landing_contact_form_message_required"));
+      return;
+    }
+    if (!hasSupabaseEnv || !supabase) {
+      setContactMessageType("error");
+      setContactMessage(t("landing_contact_form_error_config"));
+      return;
+    }
+
+    setIsSendingContact(true);
+    setContactMessage("");
+
+    const payload = {
+      p_name: name,
+      p_email: email,
+      p_message: message,
+      p_locale: language,
+      p_source_path: currentPath || "/contact",
+      p_referrer: typeof document !== "undefined" ? document.referrer || null : null,
+      p_user_agent: typeof navigator !== "undefined" ? navigator.userAgent || null : null,
+      p_signup_host: typeof window !== "undefined" ? window.location.host || null : null
+    };
+
+    let { error } = await supabase.rpc("submit_contact_message", payload);
+    if (error) {
+      const fallbackPayload = {
+        name,
+        email,
+        message,
+        locale: language,
+        source_path: currentPath || "/contact",
+        referrer: typeof document !== "undefined" ? document.referrer || null : null,
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent || null : null,
+        signup_host: typeof window !== "undefined" ? window.location.host || null : null
+      };
+      ({ error } = await supabase.from("contact_messages").insert(fallbackPayload));
+    }
+
+    setIsSendingContact(false);
+    if (error) {
+      console.error("[contact] submit failed", error);
+      setContactMessageType("error");
+      setContactMessage(t("landing_contact_form_error"));
+      return;
+    }
+
+    setContactName("");
+    setContactEmail("");
+    setContactMessageBody("");
+    setContactMessageType("success");
+    setContactMessage(t("landing_contact_form_success"));
   };
 
   const renderWaitlistSection = (sectionId, compact = false) => (
@@ -262,6 +352,23 @@ function LandingScreen({
                   <p>{t("landing_feature_rsvp_desc")}</p>
                 </article>
               </div>
+              <div className="landing-feature-summary-grid">
+                <article className="panel landing-feature-summary-card">
+                  <p className="item-title">{t("landing_feature_events_title")}</p>
+                  <p className="kpi-value">24</p>
+                  <p className="item-meta">{t("latest_events_title")}</p>
+                </article>
+                <article className="panel landing-feature-summary-card">
+                  <p className="item-title">{t("landing_feature_guests_title")}</p>
+                  <p className="kpi-value">142</p>
+                  <p className="item-meta">{t("latest_guests_title")}</p>
+                </article>
+                <article className="panel landing-feature-summary-card">
+                  <p className="item-title">{t("landing_feature_rsvp_title")}</p>
+                  <p className="kpi-value">67%</p>
+                  <p className="item-meta">RSVP</p>
+                </article>
+              </div>
             </section>
             {renderWaitlistSection("landing-cta", true)}
           </>
@@ -281,9 +388,10 @@ function LandingScreen({
                   <p className="landing-pricing-price">{t("landing_pricing_card_price")}</p>
                   <p className="landing-pricing-desc">{t("landing_pricing_card_desc")}</p>
                   <ul className="landing-pricing-list">
-                    <li>{t("landing_feature_events_title")}</li>
-                    <li>{t("landing_feature_guests_title")}</li>
-                    <li>{t("landing_feature_rsvp_title")}</li>
+                    <li>{t("landing_pricing_feature_1")}</li>
+                    <li>{t("landing_pricing_feature_2")}</li>
+                    <li>{t("landing_pricing_feature_3")}</li>
+                    <li>{t("landing_pricing_feature_4")}</li>
                   </ul>
                   <button className="btn btn-sm" type="button" onClick={primaryCta.onClick}>
                     {primaryCta.label}
@@ -313,19 +421,88 @@ function LandingScreen({
               <p className="landing-section-subtitle">{t("landing_contact_subtitle")}</p>
             </section>
             <section className="landing-section landing-section-page">
-              <div className="landing-contact-grid">
+              <div className="landing-contact-layout">
                 <article className="panel landing-contact-card">
-                  <h3>{t("landing_nav_contact")}</h3>
-                  <p>hello@legoodanfitrion.com</p>
-                  <p>https://legoodanfitrion.com</p>
+                  <h3>{t("landing_contact_channels_title")}</h3>
+                  <p>{t("landing_contact_channels_hint")}</p>
+                  <div className="landing-contact-channel-list">
+                    <p>
+                      <strong>{t("landing_contact_channel_email")}:</strong> hello@legoodanfitrion.com
+                    </p>
+                    <p>
+                      <strong>{t("landing_contact_channel_web")}:</strong> https://legoodanfitrion.com
+                    </p>
+                    <p>
+                      <strong>{t("landing_contact_channel_response")}:</strong> {t("landing_contact_channel_response_value")}
+                    </p>
+                  </div>
                 </article>
-                <article className="panel landing-contact-card">
-                  <h3>{t("landing_footer_privacy")} & {t("landing_footer_terms")}</h3>
-                  <p>{t("waitlist_privacy_hint")}</p>
-                </article>
+                <form className="panel form-grid landing-contact-form" onSubmit={handleSendContact} noValidate>
+                  <h3>{t("landing_contact_form_title")}</h3>
+                  <p className="field-help">{t("landing_contact_form_hint")}</p>
+                  <label>
+                    <span className="label-title">{t("landing_contact_form_name")}</span>
+                    <input
+                      type="text"
+                      value={contactName}
+                      onChange={(event) => setContactName(event.target.value)}
+                      placeholder="Alex Martin"
+                      disabled={isSendingContact}
+                    />
+                  </label>
+                  <label>
+                    <span className="label-title">{t("email")}</span>
+                    <input
+                      type="email"
+                      value={contactEmail}
+                      onChange={(event) => setContactEmail(event.target.value)}
+                      placeholder={t("placeholder_email")}
+                      disabled={isSendingContact}
+                    />
+                  </label>
+                  <label>
+                    <span className="label-title">{t("landing_contact_form_message")}</span>
+                    <textarea
+                      rows={5}
+                      value={contactMessageBody}
+                      onChange={(event) => setContactMessageBody(event.target.value)}
+                      placeholder={t("landing_contact_form_message_placeholder")}
+                      disabled={isSendingContact}
+                    />
+                  </label>
+                  <button className="btn btn-sm" type="submit" disabled={isSendingContact}>
+                    {isSendingContact ? t("landing_contact_form_submitting") : t("landing_contact_form_submit")}
+                  </button>
+                  <InlineMessage type={contactMessageType} text={contactMessage} />
+                </form>
               </div>
             </section>
-            {renderWaitlistSection("landing-cta", true)}
+
+            <section className="landing-section landing-section-page">
+              <div className="landing-faq-head">
+                <h2 className="landing-section-title">{t("landing_faq_title")}</h2>
+                <p className="landing-section-subtitle">{t("landing_faq_hint")}</p>
+              </div>
+              <div className="landing-faq-list">
+                {FAQ_ITEMS.map((item) => {
+                  const isOpen = openFaqKey === item.key;
+                  return (
+                    <article key={item.key} className={`panel landing-faq-item ${isOpen ? "open" : ""}`}>
+                      <button
+                        type="button"
+                        className="landing-faq-question"
+                        onClick={() => setOpenFaqKey((prev) => (prev === item.key ? "" : item.key))}
+                        aria-expanded={isOpen}
+                      >
+                        <span>{t(item.questionKey)}</span>
+                        <Icon name="chevron_down" className="icon icon-sm" />
+                      </button>
+                      {isOpen ? <p className="landing-faq-answer">{t(item.answerKey)}</p> : null}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           </>
         ) : null}
 
