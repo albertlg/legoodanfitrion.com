@@ -6605,6 +6605,31 @@ function DashboardScreen({
               ) : (
                 <>
                   <p className="hint">{t("global_profile_privacy_intro")}</p>
+                  <article className="recommendation-card global-share-value-card">
+                    <p className="item-title">{t("global_profile_value_title")}</p>
+                    <p className="field-help">
+                      {interpolateText(t("global_profile_value_hint"), { percent: hostGuestProfilePercent })}
+                    </p>
+                    <ul className="list recommendation-list">
+                      <li>{t("global_profile_value_benefit_1")}</li>
+                      <li>{t("global_profile_value_benefit_2")}</li>
+                      <li>{t("global_profile_value_benefit_3")}</li>
+                    </ul>
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "insights")}>
+                        {t("global_profile_value_action_insights")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => (isProfileGuestLinked ? openGuestDetail(profileLinkedGuestId) : syncHostGuestProfileForm())}
+                      >
+                        {isProfileGuestLinked
+                          ? t("global_profile_value_action_profile")
+                          : t("global_profile_value_action_link_profile")}
+                      </button>
+                    </div>
+                  </article>
                   <div className="button-row">
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleClaimGlobalProfile} disabled={isClaimingGlobalProfile}>
                       {isClaimingGlobalProfile ? t("global_profile_claiming") : t("global_profile_claim_action")}
