@@ -900,6 +900,9 @@ function DashboardScreen({
   const [globalShareTargets, setGlobalShareTargets] = useState([]);
   const [globalShareDraftByHostId, setGlobalShareDraftByHostId] = useState({});
   const [savingGlobalShareHostId, setSavingGlobalShareHostId] = useState("");
+  const [integrationStatus, setIntegrationStatus] = useState(null);
+  const [integrationStatusMessage, setIntegrationStatusMessage] = useState("");
+  const [isLoadingIntegrationStatus, setIsLoadingIntegrationStatus] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [, setEventSettingsCacheById] = useState({});
 
@@ -2646,6 +2649,38 @@ function DashboardScreen({
     setGlobalShareDraftByHostId(nextShareDraftByHostId);
   }, [mapShareTargetToDraft, session?.user?.id, t]);
 
+  const loadIntegrationStatusData = useCallback(async () => {
+    if (!supabase || !session?.user?.id) {
+      return;
+    }
+    setIsLoadingIntegrationStatus(true);
+    setIntegrationStatusMessage("");
+    const result = await supabase.rpc("get_shared_profile_feature_status");
+    setIsLoadingIntegrationStatus(false);
+
+    if (result.error) {
+      if (isMissingDbFeatureError(result.error, ["get_shared_profile_feature_status"])) {
+        setIntegrationStatus(null);
+        setIntegrationStatusMessage(t("integration_status_feature_pending"));
+      } else {
+        setIntegrationStatusMessage(`${t("integration_status_load_error")} ${result.error.message}`);
+      }
+      return;
+    }
+
+    const row = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (!row) {
+      setIntegrationStatus(null);
+      setIntegrationStatusMessage(t("integration_status_empty"));
+      return;
+    }
+    setIntegrationStatus(row);
+  }, [session?.user?.id, t]);
+
+  const refreshSharedProfileData = useCallback(async () => {
+    await Promise.all([loadGlobalProfileData(), loadIntegrationStatusData()]);
+  }, [loadGlobalProfileData, loadIntegrationStatusData]);
+
   const loadDashboardData = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
       return;
@@ -2862,8 +2897,8 @@ function DashboardScreen({
     setHostProfileCountry(String(selfGuest?.country || "").trim());
     setHostProfileRelationship(toCatalogLabel("relationship", selfGuest?.relationship, language));
     setHostProfileCreatedAt(String(hostProfileData?.created_at || "").trim());
-    await loadGlobalProfileData();
-  }, [session?.user?.id, session?.user?.email, language, t, onPreferencesSynced, loadGlobalProfileData]);
+    await refreshSharedProfileData();
+  }, [session?.user?.id, session?.user?.email, language, t, onPreferencesSynced, refreshSharedProfileData]);
 
   useEffect(() => {
     loadDashboardData();
@@ -4462,7 +4497,7 @@ function DashboardScreen({
     const normalizedId = String(result.data || "").trim();
     setGlobalProfileId(normalizedId);
     setGlobalProfileMessage(t("global_profile_claimed"));
-    await loadGlobalProfileData();
+    await refreshSharedProfileData();
   };
 
   const handleLinkProfileGuestToGlobal = async (guestId) => {
@@ -4488,7 +4523,7 @@ function DashboardScreen({
     if (row?.linked) {
       setGlobalProfileId(String(row.global_profile_id || globalProfileId || "").trim());
       setGlobalProfileMessage(t("global_profile_link_success"));
-      await loadGlobalProfileData();
+      await refreshSharedProfileData();
       return;
     }
 
@@ -4531,7 +4566,7 @@ function DashboardScreen({
         skipped: Number(row?.skipped_count || 0)
       })
     );
-    await loadGlobalProfileData();
+    await refreshSharedProfileData();
   };
 
   const handleChangeGlobalShareDraft = (hostUserId, field, value) => {
@@ -4593,7 +4628,7 @@ function DashboardScreen({
     }
 
     setGlobalProfileMessage(t("global_profile_share_saved"));
-    await loadGlobalProfileData();
+    await refreshSharedProfileData();
   };
 
   const handleStartEditGuest = (guestItem) => {
@@ -5389,6 +5424,66 @@ function DashboardScreen({
   const globalShareActiveCount = globalShareTargetsVisible.filter(
     (item) => String(item.share_status || "").toLowerCase() === "active"
   ).length;
+  const integrationChecks = useMemo(() => {
+    if (!integrationStatus) {
+      return [];
+    }
+    return [
+      {
+        key: "table_global_guest_profiles",
+        label: t("integration_check_table_global_guest_profiles"),
+        ok: Boolean(integrationStatus.has_table_global_guest_profiles)
+      },
+      {
+        key: "table_host_guest_profile_links",
+        label: t("integration_check_table_host_guest_profile_links"),
+        ok: Boolean(integrationStatus.has_table_host_guest_profile_links)
+      },
+      {
+        key: "table_global_guest_profile_shares",
+        label: t("integration_check_table_global_guest_profile_shares"),
+        ok: Boolean(integrationStatus.has_table_global_guest_profile_shares)
+      },
+      {
+        key: "rpc_get_or_create",
+        label: t("integration_check_rpc_get_or_create"),
+        ok: Boolean(integrationStatus.has_fn_get_or_create_global_profile)
+      },
+      {
+        key: "rpc_link_one",
+        label: t("integration_check_rpc_link_guest"),
+        ok: Boolean(integrationStatus.has_fn_link_guest)
+      },
+      {
+        key: "rpc_link_all",
+        label: t("integration_check_rpc_link_all"),
+        ok: Boolean(integrationStatus.has_fn_link_all_guests)
+      },
+      {
+        key: "rpc_share_targets",
+        label: t("integration_check_rpc_share_targets"),
+        ok: Boolean(integrationStatus.has_fn_share_targets)
+      },
+      {
+        key: "rpc_set_share",
+        label: t("integration_check_rpc_set_share"),
+        ok: Boolean(integrationStatus.has_fn_set_share)
+      },
+      {
+        key: "rpc_runtime_probe",
+        label: t("integration_check_runtime_probe"),
+        ok: Boolean(integrationStatus.share_targets_probe_ok)
+      }
+    ];
+  }, [integrationStatus, t]);
+  const integrationChecksOkCount = integrationChecks.filter((item) => item.ok).length;
+  const integrationChecksTotal = integrationChecks.length;
+  const integrationShareTargetCount = Number.isFinite(Number(integrationStatus?.share_target_count))
+    ? Number(integrationStatus.share_target_count)
+    : 0;
+  const integrationSelfTargetCount = Number.isFinite(Number(integrationStatus?.self_target_count))
+    ? Number(integrationStatus.self_target_count)
+    : 0;
   const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
   const sectionHeader = useMemo(() => {
     if (activeView === "overview") {
@@ -6351,6 +6446,71 @@ function DashboardScreen({
                 </>
               )}
               <InlineMessage text={globalProfileMessage} />
+            </article>
+
+            <article className="panel profile-summary-card">
+              <div className="profile-summary-header">
+                <div>
+                  <h3 className="section-title">
+                    <Icon name="trend" className="icon" />
+                    {t("integration_status_title")}
+                  </h3>
+                  <p className="field-help">{t("integration_status_hint")}</p>
+                </div>
+                <span
+                  className={`status-pill ${
+                    integrationChecksTotal > 0 && integrationChecksOkCount === integrationChecksTotal ? "status-yes" : "status-pending"
+                  }`}
+                >
+                  {integrationChecksOkCount}/{integrationChecksTotal || 0}
+                </span>
+              </div>
+              <div className="button-row">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  type="button"
+                  onClick={loadIntegrationStatusData}
+                  disabled={isLoadingIntegrationStatus}
+                >
+                  {isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_refresh")}
+                </button>
+              </div>
+              {integrationStatus ? (
+                <>
+                  <p className="hint">
+                    {interpolateText(t("integration_status_checks_label"), {
+                      ok: integrationChecksOkCount,
+                      total: integrationChecksTotal
+                    })}
+                  </p>
+                  <div className="profile-summary-signals">
+                    <span className="status-pill status-host-conversion-source-default">
+                      {interpolateText(t("integration_status_profile_id"), {
+                        id: String(integrationStatus.global_profile_id || "—")
+                      })}
+                    </span>
+                    <span className="status-pill status-host-conversion-source-default">
+                      {interpolateText(t("integration_status_share_targets"), { count: integrationShareTargetCount })}
+                    </span>
+                    <span className={`status-pill ${integrationSelfTargetCount > 0 ? "status-no" : "status-yes"}`}>
+                      {interpolateText(t("integration_status_self_targets"), { count: integrationSelfTargetCount })}
+                    </span>
+                  </div>
+                  <ul className="integration-check-list">
+                    {integrationChecks.map((checkItem) => (
+                      <li key={checkItem.key} className="integration-check-item">
+                        <span className="item-meta">{checkItem.label}</span>
+                        <span className={`status-pill ${checkItem.ok ? "status-yes" : "status-no"}`}>
+                          {checkItem.ok ? t("integration_status_check_ok") : t("integration_status_check_missing")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="hint">{isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_empty")}</p>
+              )}
+              <InlineMessage text={integrationStatusMessage} />
             </article>
 
             <div className="profile-grid">

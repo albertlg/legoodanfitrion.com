@@ -200,6 +200,22 @@ ejecuta este SQL:
 
 Este parche excluye tu propio usuario de `get_my_global_profile_share_targets()`.
 
+## Paso 1.13 (panel de estado de integraciones)
+
+Para habilitar el panel de chequeo en "Mi perfil", ejecuta:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/017_shared_profile_feature_status_probe.sql`
+
+Expone la RPC:
+
+- `get_shared_profile_feature_status()`
+
+Validacion:
+
+```sql
+select * from public.get_shared_profile_feature_status();
+```
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:
