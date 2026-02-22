@@ -693,6 +693,29 @@ function formatGlobalShareEventType(t, eventType) {
   return t("global_profile_history_unknown");
 }
 
+function getGlobalShareVisibleScopes(draft, t) {
+  if (String(draft?.status || "").toLowerCase() !== "active") {
+    return [];
+  }
+  const scopes = [];
+  if (draft?.allow_identity) {
+    scopes.push(t("global_profile_scope_identity"));
+  }
+  if (draft?.allow_food) {
+    scopes.push(t("global_profile_scope_food"));
+  }
+  if (draft?.allow_lifestyle) {
+    scopes.push(t("global_profile_scope_lifestyle"));
+  }
+  if (draft?.allow_conversation) {
+    scopes.push(t("global_profile_scope_conversation"));
+  }
+  if (draft?.allow_health) {
+    scopes.push(t("global_profile_scope_health"));
+  }
+  return scopes;
+}
+
 function toSelectedPlaceFromLocationPair(pair, formattedAddress) {
   if (!pair) {
     return null;
@@ -978,6 +1001,7 @@ function DashboardScreen({
   const [isRevokingGlobalShares, setIsRevokingGlobalShares] = useState(false);
   const [globalShareHistory, setGlobalShareHistory] = useState([]);
   const [isLoadingGlobalShareHistory, setIsLoadingGlobalShareHistory] = useState(false);
+  const [pendingGlobalShareSave, setPendingGlobalShareSave] = useState(null);
   const [integrationStatus, setIntegrationStatus] = useState(null);
   const [integrationStatusMessage, setIntegrationStatusMessage] = useState("");
   const [isLoadingIntegrationStatus, setIsLoadingIntegrationStatus] = useState(false);
@@ -4739,7 +4763,7 @@ function DashboardScreen({
     });
   };
 
-  const handleSaveGlobalShare = async (hostUserId) => {
+  const handleSaveGlobalShare = async (hostUserId, draftOverride = null) => {
     if (!supabase || !session?.user?.id || !hostUserId) {
       return;
     }
@@ -4747,7 +4771,7 @@ function DashboardScreen({
       setGlobalProfileMessage(t("global_profile_share_self_error"));
       return;
     }
-    const draft = globalShareDraftByHostId[hostUserId];
+    const draft = draftOverride || globalShareDraftByHostId[hostUserId];
     if (!draft) {
       return;
     }
@@ -4781,6 +4805,32 @@ function DashboardScreen({
 
     setGlobalProfileMessage(t("global_profile_share_saved"));
     await refreshSharedProfileData();
+  };
+
+  const handleRequestSaveGlobalShare = (hostUserId) => {
+    if (!hostUserId) {
+      return;
+    }
+    const targetItem = globalShareTargetsVisible.find((item) => item.host_user_id === hostUserId);
+    const draft = globalShareDraftByHostId[hostUserId] || (targetItem ? mapShareTargetToDraft(targetItem) : null);
+    if (!targetItem || !draft) {
+      return;
+    }
+    setPendingGlobalShareSave({
+      hostUserId,
+      hostName: targetItem.host_name || t("host_default_name"),
+      hostEmail: targetItem.host_email || hostUserId,
+      draft
+    });
+  };
+
+  const handleConfirmSaveGlobalShare = async () => {
+    if (!pendingGlobalShareSave?.hostUserId || !pendingGlobalShareSave?.draft) {
+      setPendingGlobalShareSave(null);
+      return;
+    }
+    await handleSaveGlobalShare(pendingGlobalShareSave.hostUserId, pendingGlobalShareSave.draft);
+    setPendingGlobalShareSave(null);
   };
 
   const handleApplyGlobalShareAction = async (mode) => {
@@ -5723,6 +5773,13 @@ function DashboardScreen({
   const integrationSelfTargetCount = Number.isFinite(Number(integrationStatus?.self_target_count))
     ? Number(integrationStatus.self_target_count)
     : 0;
+  const pendingGlobalShareScopes = useMemo(
+    () => getGlobalShareVisibleScopes(pendingGlobalShareSave?.draft, t),
+    [pendingGlobalShareSave, t]
+  );
+  const pendingGlobalSharePreset = pendingGlobalShareSave?.draft
+    ? inferGlobalSharePreset(pendingGlobalShareSave.draft)
+    : "private";
   const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
   const sectionHeader = useMemo(() => {
     if (activeView === "overview") {
@@ -6727,7 +6784,7 @@ function DashboardScreen({
                               <button
                                 className="btn btn-ghost btn-sm"
                                 type="button"
-                                onClick={() => handleSaveGlobalShare(hostId)}
+                                onClick={() => handleRequestSaveGlobalShare(hostId)}
                                 disabled={savingGlobalShareHostId === hostId}
                               >
                                 {savingGlobalShareHostId === hostId
@@ -10124,6 +10181,66 @@ function DashboardScreen({
           </div>
         )}
       </section>
+        ) : null}
+
+        {pendingGlobalShareSave ? (
+          <div className="confirm-overlay" onClick={() => setPendingGlobalShareSave(null)}>
+            <section
+              className="confirm-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirm-share-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="confirm-share-title" className="item-title">
+                {t("global_profile_share_confirm_title")}
+              </h3>
+              <p className="item-meta">{t("global_profile_share_confirm_hint")}</p>
+              <p className="hint">
+                {t("global_profile_share_confirm_target")}: {pendingGlobalShareSave.hostName}
+              </p>
+              <p className="hint">
+                {t("global_profile_share_confirm_level")}:{" "}
+                {pendingGlobalSharePreset === "basic"
+                  ? t("global_profile_share_preset_basic")
+                  : pendingGlobalSharePreset === "custom"
+                  ? t("global_profile_share_preset_custom")
+                  : t("global_profile_share_preset_private")}
+              </p>
+              <p className="hint">{t("global_profile_share_confirm_scopes")}</p>
+              <div className="profile-summary-signals">
+                {pendingGlobalShareScopes.length > 0 ? (
+                  pendingGlobalShareScopes.map((scopeLabel) => (
+                    <span key={`pending-share-${scopeLabel}`} className="status-pill status-yes">
+                      {scopeLabel}
+                    </span>
+                  ))
+                ) : (
+                  <span className="status-pill status-draft">{t("global_profile_share_confirm_scopes_none")}</span>
+                )}
+              </div>
+              <div className="button-row">
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => setPendingGlobalShareSave(null)}
+                  disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
+                >
+                  {t("cancel_action")}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={handleConfirmSaveGlobalShare}
+                  disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
+                >
+                  {savingGlobalShareHostId === pendingGlobalShareSave.hostUserId
+                    ? t("global_profile_share_confirm_saving")
+                    : t("global_profile_share_confirm_apply")}
+                </button>
+              </div>
+            </section>
+          </div>
         ) : null}
 
         {deleteTarget ? (
