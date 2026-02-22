@@ -3095,6 +3095,21 @@ h2 {
   font-size: 0.78rem;
 }
 
+.import-status-grid {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.import-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.import-preview-pagination {
+  margin-top: 0.5rem;
+}
+
 .coming-soon-panel {
   border-color: color-mix(in srgb, var(--primary) 35%, var(--border) 65%);
   background:

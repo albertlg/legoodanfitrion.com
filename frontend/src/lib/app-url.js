@@ -16,19 +16,27 @@ function getConfiguredAppOrigin() {
   return parsed?.origin || "";
 }
 
+function getRuntimeOrigin() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return String(window.location.origin || "").trim();
+}
+
 function getAppOrigin() {
+  const runtimeOrigin = getRuntimeOrigin();
+  if (runtimeOrigin) {
+    return runtimeOrigin;
+  }
   const configuredOrigin = getConfiguredAppOrigin();
   if (configuredOrigin) {
     return configuredOrigin;
-  }
-  if (typeof window !== "undefined") {
-    return window.location.origin;
   }
   return "";
 }
 
 function getAuthRedirectUrl() {
-  const origin = getAppOrigin();
+  const origin = getRuntimeOrigin() || getAppOrigin();
   if (!origin) {
     return "";
   }

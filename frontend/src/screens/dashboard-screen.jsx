@@ -217,6 +217,8 @@ const VIEW_CONFIG = [
 const EVENTS_PAGE_SIZE = 5;
 const GUESTS_PAGE_SIZE_DEFAULT = 10;
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
+const IMPORT_PREVIEW_PAGE_SIZE_DEFAULT = 20;
+const IMPORT_PREVIEW_PAGE_SIZE_OPTIONS = [10, 20, 50];
 const INVITATIONS_PAGE_SIZE = 8;
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
 const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
@@ -868,6 +870,8 @@ function DashboardScreen({
   const [importContactsGroupFilter, setImportContactsGroupFilter] = useState("all");
   const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
   const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
+  const [importContactsPage, setImportContactsPage] = useState(1);
+  const [importContactsPageSize, setImportContactsPageSize] = useState(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
   const [importContactsMessage, setImportContactsMessage] = useState("");
   const [isImportingContacts, setIsImportingContacts] = useState(false);
   const [isImportingGoogleContacts, setIsImportingGoogleContacts] = useState(false);
@@ -1133,10 +1137,46 @@ function DashboardScreen({
     () => importContactsReady.filter((item) => selectedImportContactIds.includes(item.previewId)),
     [importContactsReady, selectedImportContactIds]
   );
+  const importContactsStatusSummary = useMemo(
+    () =>
+      importContactsAnalysis.reduce(
+        (acc, item) => {
+          if (item.canImport) {
+            acc.ready += 1;
+          }
+          if (item.duplicateExisting) {
+            acc.duplicateExisting += 1;
+          }
+          if (item.duplicateInPreview) {
+            acc.duplicateInPreview += 1;
+          }
+          return acc;
+        },
+        { ready: 0, duplicateExisting: 0, duplicateInPreview: 0 }
+      ),
+    [importContactsAnalysis]
+  );
+  const importContactsTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(importContactsFiltered.length / importContactsPageSize)),
+    [importContactsFiltered.length, importContactsPageSize]
+  );
+  const pagedImportContacts = useMemo(() => {
+    const safePage = Math.min(importContactsPage, importContactsTotalPages);
+    const start = (safePage - 1) * importContactsPageSize;
+    return importContactsFiltered.slice(start, start + importContactsPageSize);
+  }, [importContactsFiltered, importContactsPage, importContactsPageSize, importContactsTotalPages]);
   useEffect(() => {
     const defaultIds = importContactsReady.map((item) => item.previewId);
     setSelectedImportContactIds(defaultIds);
   }, [importContactsReady]);
+  useEffect(() => {
+    setImportContactsPage(1);
+  }, [importContactsSearch, importContactsGroupFilter, importDuplicateMode, importContactsPageSize, importContactsPreview.length]);
+  useEffect(() => {
+    if (importContactsPage > importContactsTotalPages) {
+      setImportContactsPage(importContactsTotalPages);
+    }
+  }, [importContactsPage, importContactsTotalPages]);
   const hostPotentialGuestsCount = useMemo(
     () => guests.filter((guestItem) => guestItem.email || guestItem.phone).length,
     [guests]
@@ -3863,6 +3903,7 @@ function DashboardScreen({
     setImportContactsMessage(`${t("contact_import_preview_ready")} ${parsedContacts.length}.`);
     setImportContactsSearch("");
     setImportContactsGroupFilter("all");
+    setImportContactsPage(1);
   };
 
   const handlePreviewContactsFromDraft = () => {
@@ -3895,6 +3936,7 @@ function DashboardScreen({
       setImportContactsDraft("");
       setImportContactsSearch("");
       setImportContactsGroupFilter("all");
+      setImportContactsPage(1);
       if (googleContacts.length > 0) {
         setImportContactsMessage(`${t("contact_import_google_loaded")} ${googleContacts.length}.`);
       } else {
@@ -3932,6 +3974,7 @@ function DashboardScreen({
       setImportDuplicateMode("skip");
       setImportContactsSearch("");
       setImportContactsGroupFilter("all");
+      setImportContactsPage(1);
       setImportContactsMessage(`${t("contact_import_device_loaded")} ${parsedContacts.length}.`);
     } catch (error) {
       if (error?.name === "AbortError") {
@@ -4027,6 +4070,8 @@ function DashboardScreen({
     setImportContactsGroupFilter("all");
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
+    setImportContactsPage(1);
+    setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
   };
 
@@ -4040,6 +4085,18 @@ function DashboardScreen({
 
   const handleSelectFilteredReadyImportContacts = () => {
     setSelectedImportContactIds(importContactsFilteredReady.map((item) => item.previewId));
+  };
+
+  const handleSelectCurrentImportPageReady = () => {
+    setSelectedImportContactIds(pagedImportContacts.filter((item) => item.canImport).map((item) => item.previewId));
+  };
+
+  const handleSelectOnlyNewImportContacts = () => {
+    setSelectedImportContactIds(
+      importContactsFiltered
+        .filter((item) => item.canImport && !item.duplicateExisting && !item.duplicateInPreview)
+        .map((item) => item.previewId)
+    );
   };
 
   const toggleImportContactSelection = (previewId) => {
@@ -7311,10 +7368,23 @@ function DashboardScreen({
                   </button>
                 </div>
                 {importContactsAnalysis.length > 0 ? (
-                  <p className="hint">
-                    {t("contact_import_preview_total")} {importContactsAnalysis.length}. {t("contact_import_preview_ready")}{" "}
-                    {importContactsReady.length}. {t("contact_import_selected_ready")} {importContactsSelectedReady.length}.
-                  </p>
+                  <div className="import-status-grid">
+                    <p className="hint">
+                      {t("contact_import_preview_total")} {importContactsAnalysis.length}. {t("contact_import_preview_ready")}{" "}
+                      {importContactsReady.length}. {t("contact_import_selected_ready")} {importContactsSelectedReady.length}.
+                    </p>
+                    <div className="import-status-pills" aria-label={t("contact_import_status_summary")}>
+                      <span className="status-pill status-event-published">
+                        {t("contact_import_status_ready")} {importContactsStatusSummary.ready}
+                      </span>
+                      <span className="status-pill status-invitation-pending">
+                        {t("contact_import_status_duplicate_existing")} {importContactsStatusSummary.duplicateExisting}
+                      </span>
+                      <span className="status-pill status-event-draft">
+                        {t("contact_import_status_duplicate_file")} {importContactsStatusSummary.duplicateInPreview}
+                      </span>
+                    </div>
+                  </div>
                 ) : null}
                 {importContactsAnalysis.length > 0 ? (
                   <div className="list-tools">
@@ -7352,6 +7422,19 @@ function DashboardScreen({
                         ))}
                       </select>
                     </label>
+                    <label>
+                      <span className="label-title">{t("pagination_items_per_page")}</span>
+                      <select
+                        value={importContactsPageSize}
+                        onChange={(event) => setImportContactsPageSize(Number(event.target.value) || IMPORT_PREVIEW_PAGE_SIZE_DEFAULT)}
+                      >
+                        {IMPORT_PREVIEW_PAGE_SIZE_OPTIONS.map((optionValue) => (
+                          <option key={optionValue} value={optionValue}>
+                            {optionValue}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                 ) : null}
                 {importContactsAnalysis.length > 0 ? (
@@ -7362,6 +7445,12 @@ function DashboardScreen({
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
                       {t("contact_import_select_filtered_ready")}
                     </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
+                      {t("contact_import_select_page_ready")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectOnlyNewImportContacts}>
+                      {t("contact_import_select_new_only")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearReadyImportContactsSelection}>
                       {t("contact_import_clear_selection")}
                     </button>
@@ -7369,7 +7458,7 @@ function DashboardScreen({
                 ) : null}
                 {importContactsAnalysis.length > 0 ? (
                   <ul className="list import-preview-list">
-                    {importContactsFiltered.slice(0, 20).map((contactItem) => (
+                    {pagedImportContacts.map((contactItem) => (
                       <li key={contactItem.previewId}>
                         <label className="bulk-guest-option import-contact-option">
                           <input
@@ -7403,10 +7492,30 @@ function DashboardScreen({
                     ))}
                   </ul>
                 ) : null}
-                {importContactsFiltered.length > 20 ? (
-                  <p className="hint">
-                    {t("contact_import_preview_more")} {importContactsFiltered.length - 20}
-                  </p>
+                {importContactsFiltered.length > 0 ? (
+                  <div className="pagination-row import-preview-pagination">
+                    <p className="hint">
+                      {t("pagination_page")} {Math.min(importContactsPage, importContactsTotalPages)}/{importContactsTotalPages}
+                    </p>
+                    <div className="button-row">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => setImportContactsPage((prev) => Math.max(1, prev - 1))}
+                        disabled={importContactsPage <= 1}
+                      >
+                        {t("pagination_prev")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => setImportContactsPage((prev) => Math.min(importContactsTotalPages, prev + 1))}
+                        disabled={importContactsPage >= importContactsTotalPages}
+                      >
+                        {t("pagination_next")}
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
                 <div className="button-row">
                   <button
