@@ -2556,10 +2556,27 @@ h2 {
   gap: 0.45rem;
 }
 
+.share-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .global-share-permissions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.3rem 0.6rem;
+}
+
+.global-share-preview {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.global-share-history {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
 }
 
 .integration-check-list {
@@ -3983,7 +4000,14 @@ textarea {
   border-color: #d1d5db;
 }
 
+.status-pill.status-inactive {
+  color: #374151;
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
 .status-pill.status-published,
+.status-pill.status-active,
 .status-pill.status-yes {
   color: #14532d;
   background: #dcfce7;
@@ -3999,6 +4023,7 @@ textarea {
 }
 
 .status-pill.status-cancelled,
+.status-pill.status-revoked,
 .status-pill.status-no {
   color: #7f1d1d;
   background: #fee2e2;
@@ -4035,7 +4060,14 @@ textarea {
   border-color: rgba(156, 163, 175, 0.48);
 }
 
+:root[data-theme="dark"] .status-pill.status-inactive {
+  color: #d1d5db;
+  background: rgba(107, 114, 128, 0.34);
+  border-color: rgba(156, 163, 175, 0.48);
+}
+
 :root[data-theme="dark"] .status-pill.status-published,
+:root[data-theme="dark"] .status-pill.status-active,
 :root[data-theme="dark"] .status-pill.status-yes {
   color: #bbf7d0;
   background: rgba(34, 197, 94, 0.2);
@@ -4051,6 +4083,7 @@ textarea {
 }
 
 :root[data-theme="dark"] .status-pill.status-cancelled,
+:root[data-theme="dark"] .status-pill.status-revoked,
 :root[data-theme="dark"] .status-pill.status-no {
   color: #fecaca;
   background: rgba(239, 68, 68, 0.2);

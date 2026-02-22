@@ -620,6 +620,79 @@ function isMissingDbFeatureError(error, fragments = []) {
   return fragments.some((fragment) => message.includes(String(fragment || "").toLowerCase()));
 }
 
+function inferGlobalSharePreset(draft) {
+  const status = String(draft?.status || "inactive").toLowerCase();
+  if (status !== "active") {
+    return "private";
+  }
+  const allowIdentity = Boolean(draft?.allow_identity);
+  const allowFood = Boolean(draft?.allow_food);
+  const allowLifestyle = Boolean(draft?.allow_lifestyle);
+  const allowConversation = Boolean(draft?.allow_conversation);
+  const allowHealth = Boolean(draft?.allow_health);
+  if (allowIdentity && allowFood && !allowLifestyle && !allowConversation && !allowHealth) {
+    return "basic";
+  }
+  return "custom";
+}
+
+function applyGlobalSharePreset(draft, preset) {
+  const base = {
+    status: String(draft?.status || "inactive").toLowerCase(),
+    allow_identity: Boolean(draft?.allow_identity),
+    allow_food: Boolean(draft?.allow_food),
+    allow_lifestyle: Boolean(draft?.allow_lifestyle),
+    allow_conversation: Boolean(draft?.allow_conversation),
+    allow_health: Boolean(draft?.allow_health)
+  };
+  if (preset === "private") {
+    return {
+      ...base,
+      status: "revoked",
+      allow_identity: false,
+      allow_food: false,
+      allow_lifestyle: false,
+      allow_conversation: false,
+      allow_health: false
+    };
+  }
+  if (preset === "basic") {
+    return {
+      ...base,
+      status: "active",
+      allow_identity: true,
+      allow_food: true,
+      allow_lifestyle: false,
+      allow_conversation: false,
+      allow_health: false
+    };
+  }
+  return {
+    ...base,
+    status: "active"
+  };
+}
+
+function formatGlobalShareEventType(t, eventType) {
+  const normalizedType = String(eventType || "").trim().toLowerCase();
+  if (normalizedType === "share_granted") {
+    return t("global_profile_history_share_granted");
+  }
+  if (normalizedType === "share_revoked") {
+    return t("global_profile_history_share_revoked");
+  }
+  if (normalizedType === "health_consent_granted") {
+    return t("global_profile_history_health_granted");
+  }
+  if (normalizedType === "health_consent_revoked") {
+    return t("global_profile_history_health_revoked");
+  }
+  if (normalizedType === "data_validated") {
+    return t("global_profile_history_data_validated");
+  }
+  return t("global_profile_history_unknown");
+}
+
 function toSelectedPlaceFromLocationPair(pair, formattedAddress) {
   if (!pair) {
     return null;
@@ -900,6 +973,11 @@ function DashboardScreen({
   const [globalShareTargets, setGlobalShareTargets] = useState([]);
   const [globalShareDraftByHostId, setGlobalShareDraftByHostId] = useState({});
   const [savingGlobalShareHostId, setSavingGlobalShareHostId] = useState("");
+  const [previewGlobalShareHostId, setPreviewGlobalShareHostId] = useState("");
+  const [isPausingGlobalShares, setIsPausingGlobalShares] = useState(false);
+  const [isRevokingGlobalShares, setIsRevokingGlobalShares] = useState(false);
+  const [globalShareHistory, setGlobalShareHistory] = useState([]);
+  const [isLoadingGlobalShareHistory, setIsLoadingGlobalShareHistory] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState(null);
   const [integrationStatusMessage, setIntegrationStatusMessage] = useState("");
   const [isLoadingIntegrationStatus, setIsLoadingIntegrationStatus] = useState(false);
@@ -2600,7 +2678,7 @@ function DashboardScreen({
 
   const loadGlobalProfileData = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
-      return;
+      return null;
     }
 
     const defaultFeatureReady = true;
@@ -2620,7 +2698,7 @@ function DashboardScreen({
         nextFeatureReady = false;
       } else {
         setGlobalProfileMessage(`${t("global_profile_load_error")} ${globalProfileError.message}`);
-        return;
+        return null;
       }
     } else {
       nextGlobalProfileId = String(globalProfileRow?.id || "");
@@ -2633,7 +2711,7 @@ function DashboardScreen({
           nextFeatureReady = false;
         } else {
           setGlobalProfileMessage(`${t("global_profile_load_error")} ${shareTargetsResult.error.message}`);
-          return;
+          return null;
         }
       } else {
         nextShareTargets = Array.isArray(shareTargetsResult.data) ? shareTargetsResult.data : [];
@@ -2647,6 +2725,10 @@ function DashboardScreen({
     setGlobalProfileId(nextGlobalProfileId);
     setGlobalShareTargets(nextShareTargets);
     setGlobalShareDraftByHostId(nextShareDraftByHostId);
+    setPreviewGlobalShareHostId((prev) =>
+      prev && nextShareTargets.some((item) => item.host_user_id === prev) ? prev : ""
+    );
+    return { profileId: nextGlobalProfileId, shareTargets: nextShareTargets, featureReady: nextFeatureReady };
   }, [mapShareTargetToDraft, session?.user?.id, t]);
 
   const loadIntegrationStatusData = useCallback(async () => {
@@ -2677,9 +2759,43 @@ function DashboardScreen({
     setIntegrationStatus(row);
   }, [session?.user?.id, t]);
 
+  const loadGlobalShareHistoryData = useCallback(
+    async (profileIdOverride) => {
+      if (!supabase || !session?.user?.id) {
+        return;
+      }
+      const targetProfileId = String(profileIdOverride || globalProfileId || "").trim();
+      if (!targetProfileId) {
+        setGlobalShareHistory([]);
+        return;
+      }
+      setIsLoadingGlobalShareHistory(true);
+      const result = await supabase
+        .from("global_guest_profile_consent_events")
+        .select("id, event_type, created_at, payload")
+        .eq("global_profile_id", targetProfileId)
+        .in("event_type", ["share_granted", "share_revoked"])
+        .order("created_at", { ascending: false })
+        .limit(12);
+      setIsLoadingGlobalShareHistory(false);
+      if (result.error) {
+        if (isMissingDbFeatureError(result.error, ["global_guest_profile_consent_events"])) {
+          setGlobalShareHistory([]);
+          return;
+        }
+        setGlobalProfileMessage(`${t("global_profile_history_load_error")} ${result.error.message}`);
+        return;
+      }
+      setGlobalShareHistory(Array.isArray(result.data) ? result.data : []);
+    },
+    [globalProfileId, session?.user?.id, t]
+  );
+
   const refreshSharedProfileData = useCallback(async () => {
-    await Promise.all([loadGlobalProfileData(), loadIntegrationStatusData()]);
-  }, [loadGlobalProfileData, loadIntegrationStatusData]);
+    const sharedData = await loadGlobalProfileData();
+    const nextProfileId = String(sharedData?.profileId || "").trim();
+    await Promise.all([loadIntegrationStatusData(), loadGlobalShareHistoryData(nextProfileId)]);
+  }, [loadGlobalProfileData, loadIntegrationStatusData, loadGlobalShareHistoryData]);
 
   const loadDashboardData = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -4587,6 +4703,26 @@ function DashboardScreen({
     }));
   };
 
+  const handleApplyGlobalSharePreset = (hostUserId, preset) => {
+    if (!hostUserId) {
+      return;
+    }
+    setGlobalShareDraftByHostId((prev) => {
+      const baseDraft = prev?.[hostUserId] || {
+        status: "inactive",
+        allow_identity: false,
+        allow_food: false,
+        allow_lifestyle: false,
+        allow_conversation: false,
+        allow_health: false
+      };
+      return {
+        ...prev,
+        [hostUserId]: applyGlobalSharePreset(baseDraft, preset)
+      };
+    });
+  };
+
   const handleSaveGlobalShare = async (hostUserId) => {
     if (!supabase || !session?.user?.id || !hostUserId) {
       return;
@@ -4628,6 +4764,72 @@ function DashboardScreen({
     }
 
     setGlobalProfileMessage(t("global_profile_share_saved"));
+    await refreshSharedProfileData();
+  };
+
+  const handleApplyGlobalShareAction = async (mode) => {
+    if (!supabase || !session?.user?.id) {
+      return;
+    }
+    const targets = globalShareTargetsVisible.filter((item) => item?.host_user_id);
+    if (targets.length === 0) {
+      setGlobalProfileMessage(t("global_profile_share_targets_empty"));
+      return;
+    }
+
+    if (mode === "pause") {
+      setIsPausingGlobalShares(true);
+    } else {
+      setIsRevokingGlobalShares(true);
+    }
+    setGlobalProfileMessage("");
+
+    let savedCount = 0;
+    let failedCount = 0;
+    for (const targetItem of targets) {
+      const hostId = targetItem.host_user_id;
+      const currentDraft = globalShareDraftByHostId[hostId] || mapShareTargetToDraft(targetItem);
+      const nextDraft =
+        mode === "pause"
+          ? { ...currentDraft, status: "revoked" }
+          : {
+              ...currentDraft,
+              status: "revoked",
+              allow_identity: false,
+              allow_food: false,
+              allow_lifestyle: false,
+              allow_conversation: false,
+              allow_health: false
+            };
+
+      const result = await supabase.rpc("set_my_global_profile_share", {
+        p_grantee_user_id: hostId,
+        p_status: "revoked",
+        p_allow_identity: Boolean(nextDraft.allow_identity),
+        p_allow_food: Boolean(nextDraft.allow_food),
+        p_allow_lifestyle: Boolean(nextDraft.allow_lifestyle),
+        p_allow_conversation: Boolean(nextDraft.allow_conversation),
+        p_allow_health: Boolean(nextDraft.allow_health),
+        p_expires_at: null
+      });
+      if (result.error) {
+        failedCount += 1;
+      } else {
+        savedCount += 1;
+      }
+    }
+
+    if (mode === "pause") {
+      setIsPausingGlobalShares(false);
+      setGlobalProfileMessage(
+        interpolateText(t("global_profile_share_pause_summary"), { saved: savedCount, failed: failedCount })
+      );
+    } else {
+      setIsRevokingGlobalShares(false);
+      setGlobalProfileMessage(
+        interpolateText(t("global_profile_share_revoke_all_summary"), { saved: savedCount, failed: failedCount })
+      );
+    }
     await refreshSharedProfileData();
   };
 
@@ -5424,6 +5626,27 @@ function DashboardScreen({
   const globalShareActiveCount = globalShareTargetsVisible.filter(
     (item) => String(item.share_status || "").toLowerCase() === "active"
   ).length;
+  const globalShareTargetsByHostId = useMemo(
+    () =>
+      Object.fromEntries(
+        globalShareTargetsVisible.map((targetItem) => [targetItem.host_user_id, targetItem])
+      ),
+    [globalShareTargetsVisible]
+  );
+  const globalShareHistoryItems = useMemo(
+    () =>
+      globalShareHistory.map((entry) => {
+        const granteeUserId = String(entry?.payload?.grantee_user_id || "").trim();
+        const targetItem = globalShareTargetsByHostId[granteeUserId];
+        return {
+          ...entry,
+          granteeUserId,
+          hostName: targetItem?.host_name || t("host_default_name"),
+          hostEmail: targetItem?.host_email || granteeUserId || "—"
+        };
+      }),
+    [globalShareHistory, globalShareTargetsByHostId, t]
+  );
   const integrationChecks = useMemo(() => {
     if (!integrationStatus) {
       return [];
@@ -6308,11 +6531,7 @@ function DashboardScreen({
                 <p className="hint">{t("global_profile_feature_pending")}</p>
               ) : (
                 <>
-                  <p className="hint">
-                    {isGlobalProfileClaimed
-                      ? interpolateText(t("global_profile_id_hint"), { id: globalProfileId })
-                      : t("global_profile_claim_hint")}
-                  </p>
+                  <p className="hint">{t("global_profile_privacy_intro")}</p>
                   <div className="button-row">
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleClaimGlobalProfile} disabled={isClaimingGlobalProfile}>
                       {isClaimingGlobalProfile ? t("global_profile_claiming") : t("global_profile_claim_action")}
@@ -6334,6 +6553,33 @@ function DashboardScreen({
                       {isLinkingAllGlobalGuests ? t("global_profile_linking_all") : t("global_profile_link_all_action")}
                     </button>
                   </div>
+                  {globalShareTargetsVisible.length > 0 ? (
+                    <div className="button-row">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => handleApplyGlobalShareAction("pause")}
+                        disabled={isPausingGlobalShares || isRevokingGlobalShares}
+                      >
+                        {isPausingGlobalShares ? t("global_profile_share_bulk_pausing") : t("global_profile_share_bulk_pause")}
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        type="button"
+                        onClick={() => handleApplyGlobalShareAction("revoke_all")}
+                        disabled={isRevokingGlobalShares || isPausingGlobalShares}
+                      >
+                        {isRevokingGlobalShares
+                          ? t("global_profile_share_bulk_revoking")
+                          : t("global_profile_share_bulk_revoke_all")}
+                      </button>
+                    </div>
+                  ) : null}
+                  <p className="hint">
+                    {isGlobalProfileClaimed
+                      ? interpolateText(t("global_profile_id_hint"), { id: globalProfileId })
+                      : t("global_profile_claim_hint")}
+                  </p>
                   <div className="profile-summary-signals">
                     <span className="status-pill status-host-conversion-source-default">
                       {t("global_profile_share_targets_count")} {globalShareTargetsVisible.length}
@@ -6357,74 +6603,111 @@ function DashboardScreen({
                           allow_conversation: false,
                           allow_health: false
                         };
+                        const appliedPreset = inferGlobalSharePreset(shareDraft);
                         return (
                           <article key={hostId} className="recommendation-card global-share-card">
-                            <p className="item-title">{targetItem.host_name || t("host_default_name")}</p>
-                            <p className="item-meta">{targetItem.host_email || hostId}</p>
+                            <div className="profile-linkage-row">
+                              <div>
+                                <p className="item-title">{targetItem.host_name || t("host_default_name")}</p>
+                                <p className="item-meta">{targetItem.host_email || hostId}</p>
+                              </div>
+                              <span className={`status-pill ${statusClass(shareDraft.status)}`}>
+                                {String(shareDraft.status || "").toLowerCase() === "active"
+                                  ? t("status_active")
+                                  : t("status_revoked")}
+                              </span>
+                            </div>
                             <p className="hint">
                               {t("global_profile_link_count_hint")} {targetItem.link_count || 0}
                             </p>
-                            <label>
-                              <span className="label-title">{t("status")}</span>
-                              <select
-                                value={shareDraft.status || "inactive"}
-                                onChange={(event) => handleChangeGlobalShareDraft(hostId, "status", event.target.value)}
+                            <p className="item-meta">{t("global_profile_share_level_label")}</p>
+                            <div className="share-preset-row">
+                              <button
+                                className={`multi-chip ${appliedPreset === "basic" ? "active" : ""}`}
+                                type="button"
+                                onClick={() => handleApplyGlobalSharePreset(hostId, "basic")}
                               >
-                                <option value="active">{t("status_active")}</option>
-                                <option value="revoked">{t("status_revoked")}</option>
-                              </select>
-                            </label>
-                            <div className="global-share-permissions">
-                              <label className="event-setting-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(shareDraft.allow_identity)}
-                                  onChange={(event) =>
-                                    handleChangeGlobalShareDraft(hostId, "allow_identity", event.target.checked)
-                                  }
-                                />
-                                {t("global_profile_scope_identity")}
-                              </label>
-                              <label className="event-setting-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(shareDraft.allow_food)}
-                                  onChange={(event) => handleChangeGlobalShareDraft(hostId, "allow_food", event.target.checked)}
-                                />
-                                {t("global_profile_scope_food")}
-                              </label>
-                              <label className="event-setting-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(shareDraft.allow_lifestyle)}
-                                  onChange={(event) =>
-                                    handleChangeGlobalShareDraft(hostId, "allow_lifestyle", event.target.checked)
-                                  }
-                                />
-                                {t("global_profile_scope_lifestyle")}
-                              </label>
-                              <label className="event-setting-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(shareDraft.allow_conversation)}
-                                  onChange={(event) =>
-                                    handleChangeGlobalShareDraft(hostId, "allow_conversation", event.target.checked)
-                                  }
-                                />
-                                {t("global_profile_scope_conversation")}
-                              </label>
-                              <label className="event-setting-toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(shareDraft.allow_health)}
-                                  onChange={(event) =>
-                                    handleChangeGlobalShareDraft(hostId, "allow_health", event.target.checked)
-                                  }
-                                />
-                                {t("global_profile_scope_health")}
-                              </label>
+                                {t("global_profile_share_preset_basic")}
+                              </button>
+                              <button
+                                className={`multi-chip ${appliedPreset === "custom" ? "active" : ""}`}
+                                type="button"
+                                onClick={() => handleApplyGlobalSharePreset(hostId, "custom")}
+                              >
+                                {t("global_profile_share_preset_custom")}
+                              </button>
+                              <button
+                                className={`multi-chip ${appliedPreset === "private" ? "active" : ""}`}
+                                type="button"
+                                onClick={() => handleApplyGlobalSharePreset(hostId, "private")}
+                              >
+                                {t("global_profile_share_preset_private")}
+                              </button>
                             </div>
+                            {appliedPreset === "custom" ? (
+                              <div className="global-share-permissions">
+                                <label className="event-setting-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(shareDraft.allow_identity)}
+                                    onChange={(event) =>
+                                      handleChangeGlobalShareDraft(hostId, "allow_identity", event.target.checked)
+                                    }
+                                  />
+                                  {t("global_profile_scope_identity")}
+                                </label>
+                                <label className="event-setting-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(shareDraft.allow_food)}
+                                    onChange={(event) => handleChangeGlobalShareDraft(hostId, "allow_food", event.target.checked)}
+                                  />
+                                  {t("global_profile_scope_food")}
+                                </label>
+                                <label className="event-setting-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(shareDraft.allow_lifestyle)}
+                                    onChange={(event) =>
+                                      handleChangeGlobalShareDraft(hostId, "allow_lifestyle", event.target.checked)
+                                    }
+                                  />
+                                  {t("global_profile_scope_lifestyle")}
+                                </label>
+                                <label className="event-setting-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(shareDraft.allow_conversation)}
+                                    onChange={(event) =>
+                                      handleChangeGlobalShareDraft(hostId, "allow_conversation", event.target.checked)
+                                    }
+                                  />
+                                  {t("global_profile_scope_conversation")}
+                                </label>
+                                <label className="event-setting-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(shareDraft.allow_health)}
+                                    onChange={(event) =>
+                                      handleChangeGlobalShareDraft(hostId, "allow_health", event.target.checked)
+                                    }
+                                  />
+                                  {t("global_profile_scope_health")}
+                                </label>
+                              </div>
+                            ) : null}
                             <div className="button-row">
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                type="button"
+                                onClick={() =>
+                                  setPreviewGlobalShareHostId((prev) => (prev === hostId ? "" : hostId))
+                                }
+                              >
+                                {previewGlobalShareHostId === hostId
+                                  ? t("global_profile_preview_hide")
+                                  : t("global_profile_preview_show")}
+                              </button>
                               <button
                                 className="btn btn-ghost btn-sm"
                                 type="button"
@@ -6436,6 +6719,40 @@ function DashboardScreen({
                                   : t("global_profile_share_save_action")}
                               </button>
                             </div>
+                            {previewGlobalShareHostId === hostId ? (
+                              <div className="global-share-preview">
+                                <p className="item-meta">{t("global_profile_preview_title")}</p>
+                                <ul className="integration-check-list">
+                                  {[
+                                    ["allow_identity", t("global_profile_scope_identity")],
+                                    ["allow_food", t("global_profile_scope_food")],
+                                    ["allow_lifestyle", t("global_profile_scope_lifestyle")],
+                                    ["allow_conversation", t("global_profile_scope_conversation")],
+                                    ["allow_health", t("global_profile_scope_health")]
+                                  ].map(([fieldKey, label]) => (
+                                    <li key={`${hostId}-${fieldKey}`} className="integration-check-item">
+                                      <span className="item-meta">{label}</span>
+                                      <span
+                                        className={`status-pill ${
+                                          Boolean(shareDraft[fieldKey]) && String(shareDraft.status || "") === "active"
+                                            ? "status-yes"
+                                            : "status-no"
+                                        }`}
+                                      >
+                                        <Icon
+                                          name={
+                                            Boolean(shareDraft[fieldKey]) && String(shareDraft.status || "") === "active"
+                                              ? "check"
+                                              : "x"
+                                          }
+                                          className="icon icon-xs"
+                                        />
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
                           </article>
                         );
                       })}
@@ -6443,6 +6760,34 @@ function DashboardScreen({
                   ) : (
                     <p className="hint">{t("global_profile_share_targets_empty")}</p>
                   )}
+                  <div className="global-share-history">
+                    <h4 className="item-title">{t("global_profile_history_title")}</h4>
+                    <p className="field-help">{t("global_profile_history_hint")}</p>
+                    {isLoadingGlobalShareHistory ? (
+                      <p className="hint">{t("global_profile_history_loading")}</p>
+                    ) : globalShareHistoryItems.length === 0 ? (
+                      <p className="hint">{t("global_profile_history_empty")}</p>
+                    ) : (
+                      <ul className="integration-check-list">
+                        {globalShareHistoryItems.map((entry) => (
+                          <li key={entry.id} className="integration-check-item">
+                            <div>
+                              <p className="item-meta">{entry.hostName}</p>
+                              <p className="hint">{entry.hostEmail}</p>
+                            </div>
+                            <div>
+                              <span className="status-pill status-host-conversion-source-default">
+                                {formatGlobalShareEventType(t, entry.event_type)}
+                              </span>
+                              <p className="hint">
+                                {formatRelativeDate(entry.created_at, language, t("no_date"))}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </>
               )}
               <InlineMessage text={globalProfileMessage} />
