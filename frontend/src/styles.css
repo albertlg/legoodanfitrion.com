@@ -458,10 +458,10 @@ h2 {
 }
 
 .landing-shell {
-  width: min(100%, 1320px);
+  width: min(100%, 1240px);
   display: grid;
   gap: 0;
-  padding: 0 1.75rem 1.5rem;
+  padding: 0 2.2rem 1.7rem;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -472,9 +472,9 @@ h2 {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 1rem;
+  gap: 1.1rem;
   border-bottom: 1px solid var(--border);
-  padding: 0.95rem 0 1rem;
+  padding: 1rem 0 1.08rem;
   position: sticky;
   top: 0;
   backdrop-filter: blur(8px);
@@ -504,7 +504,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.42rem;
+  gap: 0.52rem;
 }
 
 .landing-nav-link {
@@ -513,8 +513,8 @@ h2 {
   background: transparent;
   color: var(--text-muted);
   font-weight: 700;
-  font-size: 0.94rem;
-  padding: 0.42rem 0.82rem;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.95rem;
   cursor: pointer;
   transition: color 0.16s ease, background-color 0.16s ease;
 }
@@ -528,29 +528,29 @@ h2 {
 .landing-header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.74rem;
 }
 
 .landing-header-actions .btn {
-  min-height: 41px;
-  padding-inline: 1.12rem;
+  min-height: 43px;
+  padding-inline: 1.18rem;
   border-radius: 999px;
 }
 
 .landing-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
-  gap: clamp(2rem, 4vw, 4.4rem);
+  grid-template-columns: minmax(0, 1.04fr) minmax(420px, 0.96fr);
+  gap: clamp(2.4rem, 4.8vw, 5rem);
   align-items: center;
-  padding-top: clamp(2.2rem, 8vw, 5.7rem);
+  padding-top: clamp(2.7rem, 8.5vw, 6.2rem);
 }
 
 .landing-hero-copy {
   padding: 0;
   display: grid;
-  gap: 1.24rem;
+  gap: 1.35rem;
   align-content: start;
-  max-width: 620px;
+  max-width: 610px;
 }
 
 .landing-badge {
@@ -568,7 +568,7 @@ h2 {
 .landing-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.12rem, 4.45vw, 4.28rem);
+  font-size: clamp(2.02rem, 4.1vw, 3.85rem);
   line-height: 1.06;
   color: var(--title);
   max-width: 13ch;
@@ -577,25 +577,25 @@ h2 {
 .landing-subtitle {
   margin: 0;
   color: var(--text-muted);
-  font-size: clamp(1.04rem, 1.3vw, 1.62rem);
-  line-height: 1.6;
+  font-size: clamp(1.01rem, 1.2vw, 1.3rem);
+  line-height: 1.65;
   max-width: 37ch;
 }
 
 .landing-hero-copy .button-row {
-  margin-top: 0.6rem;
+  margin-top: 0.7rem;
   gap: 0.74rem;
 }
 
 .landing-hero-copy .button-row .btn {
-  min-height: 50px;
-  padding-inline: 1.32rem;
+  min-height: 51px;
+  padding-inline: 1.4rem;
   border-radius: 999px;
 }
 
 .landing-hero-media {
-  min-height: clamp(280px, 42vw, 540px);
-  border-radius: 16px;
+  min-height: clamp(300px, 42vw, 540px);
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--border) 86%, var(--primary) 14%);
   background:
     linear-gradient(180deg, rgba(10, 19, 31, 0.1) 0%, rgba(10, 19, 31, 0.26) 100%),
@@ -630,13 +630,13 @@ h2 {
 .landing-section {
   display: grid;
   gap: 0.86rem;
-  padding-top: clamp(3.8rem, 7.4vw, 7.2rem);
+  padding-top: clamp(4.1rem, 7.6vw, 7.4rem);
 }
 
 .landing-page-head {
   display: grid;
-  gap: 0.92rem;
-  padding-top: clamp(2.1rem, 5vw, 4rem);
+  gap: 1.05rem;
+  padding-top: clamp(2.45rem, 5.2vw, 4.2rem);
   justify-items: center;
 }
 
@@ -645,7 +645,7 @@ h2 {
 }
 
 .landing-section-page {
-  padding-top: 1.8rem;
+  padding-top: 2.2rem;
 }
 
 .landing-eyebrow {
@@ -662,7 +662,7 @@ h2 {
   margin: 0;
   text-align: center;
   font-family: var(--font-display);
-  font-size: clamp(1.82rem, 2.65vw, 2.8rem);
+  font-size: clamp(1.9rem, 2.8vw, 3rem);
   color: var(--title);
 }
 
@@ -670,29 +670,30 @@ h2 {
   margin: 0 auto;
   text-align: center;
   color: var(--text-muted);
-  max-width: 60ch;
-  font-size: clamp(0.98rem, 1.2vw, 1.23rem);
+  max-width: 62ch;
+  font-size: clamp(0.98rem, 1.15vw, 1.18rem);
+  line-height: 1.62;
 }
 
 .landing-feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.05rem;
-  margin-top: 1.35rem;
+  gap: 1.2rem;
+  margin-top: 1.45rem;
 }
 
 .landing-feature-summary-grid {
-  margin-top: 0.4rem;
+  margin-top: 0.72rem;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.95rem;
+  gap: 1.08rem;
 }
 
 .landing-feature-summary-card {
-  padding: 1rem 1.1rem;
-  border-radius: 14px;
+  padding: 1.15rem 1.24rem;
+  border-radius: 16px;
   display: grid;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .landing-feature-summary-card .kpi-value {
@@ -704,22 +705,22 @@ h2 {
 .landing-contact-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 .landing-contact-layout {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 .landing-pricing-card,
 .landing-contact-card {
   display: grid;
-  gap: 0.72rem;
+  gap: 0.84rem;
   align-content: start;
-  border-radius: 14px;
-  padding: 1.18rem;
+  border-radius: 16px;
+  padding: 1.34rem;
 }
 
 .landing-pricing-plan {
@@ -771,8 +772,8 @@ h2 {
 }
 
 .landing-contact-form {
-  border-radius: 14px;
-  padding: 1.18rem;
+  border-radius: 16px;
+  padding: 1.34rem;
 }
 
 .landing-contact-form h3 {
@@ -798,12 +799,12 @@ h2 {
 
 .landing-faq-list {
   display: grid;
-  gap: 0.72rem;
+  gap: 0.82rem;
 }
 
 .landing-faq-item {
-  border-radius: 14px;
-  padding: 0.35rem 0.8rem;
+  border-radius: 16px;
+  padding: 0.36rem 0.9rem;
   overflow: hidden;
 }
 
@@ -817,7 +818,7 @@ h2 {
   justify-content: space-between;
   gap: 0.6rem;
   text-align: left;
-  padding: 0.72rem 0.2rem;
+  padding: 0.86rem 0.2rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -838,9 +839,9 @@ h2 {
 
 .landing-feature-card {
   gap: 0.86rem;
-  padding: 1.28rem;
-  min-height: 208px;
-  border-radius: 14px;
+  padding: 1.42rem;
+  min-height: 220px;
+  border-radius: 16px;
 }
 
 .landing-feature-icon {
@@ -872,7 +873,7 @@ h2 {
 .landing-waitlist {
   display: grid;
   gap: 0.85rem;
-  margin-top: clamp(3.6rem, 7.4vw, 7.2rem);
+  margin-top: clamp(3.9rem, 7.5vw, 7.3rem);
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 62%, #10263e 38%);
   background:
@@ -937,12 +938,37 @@ h2 {
 
 .landing-footer {
   border-top: 1px solid var(--border);
-  margin-top: clamp(2.4rem, 5.6vw, 4.6rem);
-  padding-top: 1.05rem;
+  margin-top: clamp(2.8rem, 5.8vw, 4.8rem);
+  padding-top: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+}
+
+.landing-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: min(92vw, 420px);
+  padding: 0.72rem 0.92rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-bg) 94%, var(--surface-soft) 6%);
+  color: var(--title);
+  box-shadow: 0 12px 28px rgba(8, 16, 28, 0.16);
+}
+
+.landing-toast-success {
+  border-color: color-mix(in srgb, #22c55e 48%, var(--border) 52%);
+}
+
+.landing-toast-error {
+  border-color: color-mix(in srgb, #ef4444 48%, var(--border) 52%);
 }
 
 .landing-footer-links {
@@ -986,6 +1012,11 @@ h2 {
 
 :root[data-theme="dark"] .landing-faq-item {
   background: color-mix(in srgb, var(--panel-bg) 88%, var(--surface-soft) 12%);
+}
+
+:root[data-theme="dark"] .landing-toast {
+  background: color-mix(in srgb, #0f1b2d 90%, #1d2f47 10%);
+  box-shadow: 0 14px 28px rgba(2, 5, 10, 0.45);
 }
 
 :root[data-theme="dark"] .landing-waitlist-form input {
@@ -4090,6 +4121,13 @@ code {
 
   .landing-feature-card h3 {
     font-size: 1.3rem;
+  }
+
+  .landing-toast {
+    right: 0.72rem;
+    left: 0.72rem;
+    bottom: 0.72rem;
+    max-width: none;
   }
 
   .landing-waitlist {

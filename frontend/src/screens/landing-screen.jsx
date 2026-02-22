@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -42,6 +42,31 @@ function LandingScreen({
   const [contactMessage, setContactMessage] = useState("");
   const [contactMessageType, setContactMessageType] = useState("info");
   const [openFaqKey, setOpenFaqKey] = useState("faq_1");
+  const [toast, setToast] = useState({ visible: false, text: "", type: "success" });
+  const toastTimerRef = useRef(null);
+
+  const showToast = (text, type = "success") => {
+    if (!text) {
+      return;
+    }
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    setToast({ visible: true, text, type });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+      toastTimerRef.current = null;
+    }, 3600);
+  };
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    },
+    []
+  );
 
   const pageMode =
     currentPath === "/features"
@@ -61,18 +86,24 @@ function LandingScreen({
     const email = String(waitlistEmail || "").trim();
     if (!email) {
       setWaitlistMessageType("error");
-      setWaitlistMessage(t("waitlist_email_required"));
+      const text = t("waitlist_email_required");
+      setWaitlistMessage(text);
+      showToast(text, "error");
       return;
     }
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if (!isValidEmail) {
       setWaitlistMessageType("error");
-      setWaitlistMessage(t("waitlist_email_invalid"));
+      const text = t("waitlist_email_invalid");
+      setWaitlistMessage(text);
+      showToast(text, "error");
       return;
     }
     if (!hasSupabaseEnv || !supabase) {
       setWaitlistMessageType("error");
-      setWaitlistMessage(t("waitlist_join_error_config"));
+      const text = t("waitlist_join_error_config");
+      setWaitlistMessage(text);
+      showToast(text, "error");
       return;
     }
 
@@ -109,18 +140,24 @@ function LandingScreen({
       const isDuplicate = String(error?.code || "") === "23505";
       if (isDuplicate) {
         setWaitlistMessageType("success");
-        setWaitlistMessage(t("waitlist_join_exists"));
+        const text = t("waitlist_join_exists");
+        setWaitlistMessage(text);
+        showToast(text, "success");
         return;
       }
       console.error("[waitlist] join failed", error);
       setWaitlistMessageType("error");
-      setWaitlistMessage(t("waitlist_join_error"));
+      const text = t("waitlist_join_error");
+      setWaitlistMessage(text);
+      showToast(text, "error");
       return;
     }
 
     const status = Array.isArray(data) ? data[0]?.status : data?.status;
+    const text = status === "already_joined" ? t("waitlist_join_exists") : t("waitlist_join_success");
     setWaitlistMessageType("success");
-    setWaitlistMessage(status === "already_joined" ? t("waitlist_join_exists") : t("waitlist_join_success"));
+    setWaitlistMessage(text);
+    showToast(text, "success");
     setWaitlistEmail("");
   };
 
@@ -131,27 +168,37 @@ function LandingScreen({
     const message = String(contactMessageBody || "").trim();
     if (!name) {
       setContactMessageType("error");
-      setContactMessage(t("landing_contact_form_name_required"));
+      const text = t("landing_contact_form_name_required");
+      setContactMessage(text);
+      showToast(text, "error");
       return;
     }
     if (!email) {
       setContactMessageType("error");
-      setContactMessage(t("landing_contact_form_email_required"));
+      const text = t("landing_contact_form_email_required");
+      setContactMessage(text);
+      showToast(text, "error");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setContactMessageType("error");
-      setContactMessage(t("landing_contact_form_email_invalid"));
+      const text = t("landing_contact_form_email_invalid");
+      setContactMessage(text);
+      showToast(text, "error");
       return;
     }
     if (!message) {
       setContactMessageType("error");
-      setContactMessage(t("landing_contact_form_message_required"));
+      const text = t("landing_contact_form_message_required");
+      setContactMessage(text);
+      showToast(text, "error");
       return;
     }
     if (!hasSupabaseEnv || !supabase) {
       setContactMessageType("error");
-      setContactMessage(t("landing_contact_form_error_config"));
+      const text = t("landing_contact_form_error_config");
+      setContactMessage(text);
+      showToast(text, "error");
       return;
     }
 
@@ -188,7 +235,9 @@ function LandingScreen({
     if (error) {
       console.error("[contact] submit failed", error);
       setContactMessageType("error");
-      setContactMessage(t("landing_contact_form_error"));
+      const text = t("landing_contact_form_error");
+      setContactMessage(text);
+      showToast(text, "error");
       return;
     }
 
@@ -196,7 +245,9 @@ function LandingScreen({
     setContactEmail("");
     setContactMessageBody("");
     setContactMessageType("success");
-    setContactMessage(t("landing_contact_form_success"));
+    const text = t("landing_contact_form_success");
+    setContactMessage(text);
+    showToast(text, "success");
   };
 
   const renderWaitlistSection = (sectionId, compact = false) => (
@@ -520,6 +571,12 @@ function LandingScreen({
             </button>
           </div>
         </footer>
+        {toast.visible ? (
+          <div className={`landing-toast landing-toast-${toast.type}`} role="status" aria-live="polite">
+            <Icon name={toast.type === "error" ? "x" : "check"} className="icon icon-sm" />
+            <span>{toast.text}</span>
+          </div>
+        ) : null}
       </section>
     </main>
   );
