@@ -99,6 +99,47 @@ Esto amplia `get_host_guest_conversions()` para devolver:
 - `conversion_source` (`email`, `phone` o `google`)
 - `converted_at` (fecha estimada de conversion para analitica de growth)
 
+## Paso 1.7 (perfil global compartido de invitado + permisos por categoria)
+
+Ejecuta tambien este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/012_shared_guest_profiles.sql`
+
+Este paso anade un modelo hibrido:
+
+- `global_guest_profiles`: perfil global del invitado, gestionado por su propietario.
+- `global_guest_profile_preferences`: gustos/afinidades compartibles.
+- `global_guest_profile_sensitive`: salud/restricciones con consentimiento explicito.
+- `global_guest_profile_shares`: permisos granulares por anfitrion y categoria.
+- `host_guest_profile_links`: enlace entre el invitado local del host y el perfil global.
+- `host_guest_private_notes`: notas privadas del host (no compartidas).
+- `global_guest_profile_consent_events`: auditoria de consentimientos y cambios.
+
+Funciones incluidas:
+
+- `has_profile_share_access(profile_id, scope)` para resolver permisos por categoria.
+- `get_or_create_my_global_guest_profile()` para crear/recuperar el perfil global del usuario autenticado.
+
+## Paso 1.8 (validacion rapida del modelo compartido)
+
+En `SQL Editor`, ejecuta:
+
+```sql
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name like 'global_guest_profile%'
+order by table_name;
+```
+
+Y tambien:
+
+```sql
+select public.get_or_create_my_global_guest_profile();
+```
+
+Si devuelve un UUID, el perfil global base esta operativo.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

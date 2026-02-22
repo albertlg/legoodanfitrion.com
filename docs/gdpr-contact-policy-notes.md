@@ -30,3 +30,11 @@ Allergies and intolerances can reveal health-related data. In GDPR terms this is
 
 Start with host-entered guest preferences and explicit invitation acceptance flow. Delay automatic contact enrichment until legal and UX consent flows are proven.
 
+## Shared profile model (new)
+
+If guest data is shared between hosts, use a hybrid model:
+
+1. Global profile owned by the guest user (shared by explicit permissions).
+2. Host-private notes that are never shared across hosts.
+3. Category-level sharing controls (identity, food, lifestyle, conversation, health).
+4. Separate explicit consent for health fields and revocation controls.
