@@ -177,6 +177,18 @@ ejecuta este SQL correctivo:
 Este parche reemplaza la funcion `link_my_guest_to_matched_global_profile` usando
 `on conflict on constraint global_guest_profiles_owner_unique`.
 
+## Paso 1.11 (hotfix ambiguedad guest_id)
+
+Si al vincular invitados aparece:
+`column reference "guest_id" is ambiguous`
+
+ejecuta este SQL correctivo:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/015_fix_link_guest_guest_id_ambiguity.sql`
+
+Este parche actualiza `link_my_guest_to_matched_global_profile` para usar:
+`on conflict on constraint host_guest_profile_links_pkey`.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

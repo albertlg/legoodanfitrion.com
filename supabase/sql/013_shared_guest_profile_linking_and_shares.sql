@@ -135,7 +135,7 @@ begin
     'linked',
     auth.uid()
   )
-  on conflict (guest_id) do update
+  on conflict on constraint host_guest_profile_links_pkey do update
   set
     global_profile_id = excluded.global_profile_id,
     link_status = 'linked',

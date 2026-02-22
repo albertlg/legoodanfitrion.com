@@ -1,4 +1,4 @@
--- Fix ambiguous owner_user_id reference in link_my_guest_to_matched_global_profile
+-- Fix ambiguous guest_id reference in link_my_guest_to_matched_global_profile
 -- when ON CONFLICT is resolved inside PL/pgSQL (OUT param name collides with column).
 
 create or replace function public.link_my_guest_to_matched_global_profile(p_guest_id uuid)
