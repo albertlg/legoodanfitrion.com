@@ -450,6 +450,7 @@
   "global_profile_share_saving": "Guardando permisos...",
   "global_profile_share_saved": "Permisos de compartición guardados.",
   "global_profile_share_save_error": "No se pudieron guardar los permisos:",
+  "global_profile_share_self_error": "No puedes compartir tu perfil contigo mismo.",
   "global_profile_health_consent_required": "Para compartir salud/restricciones necesitas consentimiento explícito en tu perfil global.",
   "global_profile_load_error": "No se pudo cargar el perfil compartido:",
   "hint_contact_required": "Requisito mínimo: email o teléfono.",

@@ -229,9 +229,15 @@ as $$
     join my_profile mp on mp.id = s.global_profile_id
   ),
   targets as (
-    select lh.host_user_id from linked_hosts lh
+    select lh.host_user_id
+    from linked_hosts lh
+    where lh.host_user_id is not null
+      and lh.host_user_id <> auth.uid()
     union
-    select s.grantee_user_id from shares s
+    select s.grantee_user_id
+    from shares s
+    where s.grantee_user_id is not null
+      and s.grantee_user_id <> auth.uid()
   )
   select
     target.host_user_id,

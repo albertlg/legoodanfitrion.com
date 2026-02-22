@@ -4556,6 +4556,10 @@ function DashboardScreen({
     if (!supabase || !session?.user?.id || !hostUserId) {
       return;
     }
+    if (hostUserId === session.user.id) {
+      setGlobalProfileMessage(t("global_profile_share_self_error"));
+      return;
+    }
     const draft = globalShareDraftByHostId[hostUserId];
     if (!draft) {
       return;
@@ -5378,7 +5382,10 @@ function DashboardScreen({
   const profileLinkedGuestId = selfGuestCandidate?.id || editingGuestId || "";
   const isProfileGuestLinked = Boolean(profileLinkedGuestId);
   const isGlobalProfileClaimed = Boolean(globalProfileId);
-  const globalShareActiveCount = globalShareTargets.filter((item) => String(item.share_status || "").toLowerCase() === "active").length;
+  const globalShareTargetsVisible = globalShareTargets.filter((item) => item?.host_user_id && item.host_user_id !== session?.user?.id);
+  const globalShareActiveCount = globalShareTargetsVisible.filter(
+    (item) => String(item.share_status || "").toLowerCase() === "active"
+  ).length;
   const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
   const sectionHeader = useMemo(() => {
     if (activeView === "overview") {
@@ -6231,15 +6238,15 @@ function DashboardScreen({
                   </div>
                   <div className="profile-summary-signals">
                     <span className="status-pill status-host-conversion-source-default">
-                      {t("global_profile_share_targets_count")} {globalShareTargets.length}
+                      {t("global_profile_share_targets_count")} {globalShareTargetsVisible.length}
                     </span>
                     <span className="status-pill status-host-conversion-source-default">
                       {t("global_profile_share_active_count")} {globalShareActiveCount}
                     </span>
                   </div>
-                  {globalShareTargets.length > 0 ? (
+                  {globalShareTargetsVisible.length > 0 ? (
                     <div className="global-share-grid">
-                      {globalShareTargets.map((targetItem) => {
+                      {globalShareTargetsVisible.map((targetItem) => {
                         const hostId = targetItem.host_user_id;
                         const shareDraft = globalShareDraftByHostId[hostId] || {
                           status: "inactive",

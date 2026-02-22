@@ -189,6 +189,17 @@ ejecuta este SQL correctivo:
 Este parche actualiza `link_my_guest_to_matched_global_profile` para usar:
 `on conflict on constraint host_guest_profile_links_pkey`.
 
+## Paso 1.12 (hotfix destinos de comparticion)
+
+Si en "Guardar permisos" aparece:
+`cannot share profile with the same owner account`
+
+ejecuta este SQL:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/016_exclude_self_from_global_share_targets.sql`
+
+Este parche excluye tu propio usuario de `get_my_global_profile_share_targets()`.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

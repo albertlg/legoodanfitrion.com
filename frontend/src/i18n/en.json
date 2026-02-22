@@ -450,6 +450,7 @@
   "global_profile_share_saving": "Saving permissions...",
   "global_profile_share_saved": "Share permissions saved.",
   "global_profile_share_save_error": "Could not save share permissions:",
+  "global_profile_share_self_error": "You cannot share your profile with yourself.",
   "global_profile_health_consent_required": "Health sharing requires explicit consent on your global profile.",
   "global_profile_load_error": "Could not load shared profile data:",
   "hint_contact_required": "Minimum requirement: email or phone.",
