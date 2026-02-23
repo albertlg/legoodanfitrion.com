@@ -623,6 +623,7 @@
   "search_invitations_placeholder": "Rechercher par evenement, invite ou statut...",
   "filter_status": "Filtrer par statut",
   "all_status": "Tous les statuts",
+  "all_events": "Tous les evenements",
   "filter_contact": "Filtrer le contact",
   "all_contacts": "Tous",
   "contact_email_only": "Email uniquement",

@@ -623,6 +623,7 @@
   "search_invitations_placeholder": "Search by event, guest, or status...",
   "filter_status": "Filter by status",
   "all_status": "All statuses",
+  "all_events": "All events",
   "filter_contact": "Filter contact",
   "all_contacts": "All",
   "contact_email_only": "Email only",

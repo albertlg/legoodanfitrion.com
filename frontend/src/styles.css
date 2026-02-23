@@ -2818,6 +2818,12 @@ h2 {
   gap: 1rem;
 }
 
+.detail-topnav {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .detail-breadcrumb {
   margin: 0;
   font-size: 0.82rem;

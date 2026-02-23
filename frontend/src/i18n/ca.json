@@ -623,6 +623,7 @@
   "search_invitations_placeholder": "Cerca per esdeveniment, convidat o estat...",
   "filter_status": "Filtrar per estat",
   "all_status": "Tots els estats",
+  "all_events": "Tots els esdeveniments",
   "filter_contact": "Filtrar contacte",
   "all_contacts": "Tots",
   "contact_email_only": "Només amb correu",
