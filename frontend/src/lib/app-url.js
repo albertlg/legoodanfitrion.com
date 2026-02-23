@@ -24,24 +24,31 @@ function getRuntimeOrigin() {
 }
 
 function getAppOrigin() {
-  const runtimeOrigin = getRuntimeOrigin();
-  if (runtimeOrigin) {
-    return runtimeOrigin;
-  }
   const configuredOrigin = getConfiguredAppOrigin();
   if (configuredOrigin) {
     return configuredOrigin;
   }
+  const runtimeOrigin = getRuntimeOrigin();
+  if (runtimeOrigin) {
+    return runtimeOrigin;
+  }
   return "";
 }
 
-function getAuthRedirectUrl() {
-  const origin = getRuntimeOrigin() || getAppOrigin();
+function normalizePath(pathname) {
+  const value = String(pathname || "").trim();
+  if (!value) {
+    return "/login";
+  }
+  return value.startsWith("/") ? value : `/${value}`;
+}
+
+function getAuthRedirectUrl(pathname = "/login") {
+  const origin = getAppOrigin() || getRuntimeOrigin();
   if (!origin) {
     return "";
   }
-  const path = typeof window !== "undefined" ? window.location.pathname : "/";
-  return `${origin}${path || "/"}`;
+  return `${origin}${normalizePath(pathname)}`;
 }
 
 function buildAppUrl(path = "/") {

@@ -427,6 +427,8 @@ const IMPORT_PREVIEW_PAGE_SIZE_DEFAULT = 20;
 const IMPORT_PREVIEW_PAGE_SIZE_OPTIONS = [10, 20, 50];
 const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
 const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
+const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
+const GUEST_ADVANCED_EDIT_TABS = ["identity", "food", "lifestyle", "conversation", "health"];
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
 const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
 const GUEST_GEO_CACHE_KEY_PREFIX = "legood-guest-geocode";
@@ -1179,7 +1181,8 @@ function normalizeDashboardRouteState(appRoute) {
     guestsWorkspace: "latest",
     invitationsWorkspace: "latest",
     selectedEventDetailId: "",
-    selectedGuestDetailId: ""
+    selectedGuestDetailId: "",
+    guestProfileViewTab: "general"
   };
   if (!appRoute || typeof appRoute !== "object") {
     return next;
@@ -1203,6 +1206,10 @@ function normalizeDashboardRouteState(appRoute) {
       next.guestsWorkspace = workspace;
     }
     next.selectedGuestDetailId = String(appRoute.guestId || "").trim();
+    const nextGuestProfileTab = String(appRoute.guestProfileTab || "").trim().toLowerCase();
+    if (GUEST_PROFILE_VIEW_TABS.includes(nextGuestProfileTab)) {
+      next.guestProfileViewTab = nextGuestProfileTab;
+    }
   }
   if (view === "invitations") {
     if (["latest", "create"].includes(workspace)) {
@@ -1222,13 +1229,14 @@ function buildDashboardPathFromState({
   guestsWorkspace,
   invitationsWorkspace,
   selectedEventDetailId,
-  selectedGuestDetailId
+  selectedGuestDetailId,
+  guestProfileViewTab
 }) {
   if (activeView === "overview") {
     return "/app";
   }
   if (activeView === "profile") {
-    return "/app/profile";
+    return "/profile";
   }
   if (activeView === "events") {
     if (eventsWorkspace === "create") {
@@ -1247,6 +1255,10 @@ function buildDashboardPathFromState({
       return "/app/guests/new";
     }
     if (guestsWorkspace === "detail" && selectedGuestDetailId) {
+      const tab = String(guestProfileViewTab || "general").trim().toLowerCase();
+      if (tab && tab !== "general" && GUEST_PROFILE_VIEW_TABS.includes(tab)) {
+        return `/app/guests/${encodePathSegment(selectedGuestDetailId)}/${encodePathSegment(tab)}`;
+      }
       return `/app/guests/${encodePathSegment(selectedGuestDetailId)}`;
     }
     return "/app/guests";
@@ -1284,6 +1296,7 @@ function DashboardScreen({
   const [invitationsWorkspace, setInvitationsWorkspace] = useState(initialRouteState.invitationsWorkspace);
   const [selectedEventDetailId, setSelectedEventDetailId] = useState(initialRouteState.selectedEventDetailId);
   const [selectedGuestDetailId, setSelectedGuestDetailId] = useState(initialRouteState.selectedGuestDetailId);
+  const [guestProfileViewTab, setGuestProfileViewTab] = useState(initialRouteState.guestProfileViewTab || "general");
 
   const [eventTitle, setEventTitle] = useState("");
   const [eventType, setEventType] = useState("");
@@ -1304,6 +1317,8 @@ function DashboardScreen({
   const [guestAddressPredictions, setGuestAddressPredictions] = useState([]);
   const [isGuestAddressLoading, setIsGuestAddressLoading] = useState(false);
   const [selectedGuestAddressPlace, setSelectedGuestAddressPlace] = useState(null);
+  const [openGuestAdvancedOnCreate, setOpenGuestAdvancedOnCreate] = useState(false);
+  const [guestAdvancedEditTab, setGuestAdvancedEditTab] = useState("identity");
   const [eventMessage, setEventMessage] = useState("");
   const [eventErrors, setEventErrors] = useState({});
   const [editingEventId, setEditingEventId] = useState("");
@@ -1313,6 +1328,7 @@ function DashboardScreen({
   const geocoderRef = useRef(null);
   const guestGeocodePendingRef = useRef(new Set());
   const guestAdvancedDetailsRef = useRef(null);
+  const guestAdvancedSectionRefs = useRef({});
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
@@ -1460,10 +1476,27 @@ function DashboardScreen({
     mobilePanelWorkspaceItems.find((workspaceItem) => workspaceItem.key === mobilePanelWorkspace) ||
     mobilePanelWorkspaceItems[0] ||
     null;
-  const eventsWorkspaceItem = WORKSPACE_ITEMS.events.find((item) => item.key === eventsWorkspace) || WORKSPACE_ITEMS.events[0];
-  const guestsWorkspaceItem = WORKSPACE_ITEMS.guests.find((item) => item.key === guestsWorkspace) || WORKSPACE_ITEMS.guests[0];
-  const invitationsWorkspaceItem =
-    WORKSPACE_ITEMS.invitations.find((item) => item.key === invitationsWorkspace) || WORKSPACE_ITEMS.invitations[0];
+  const guestProfileTabs = useMemo(
+    () => [
+      { key: "general", label: t("guest_profile_tab_general") },
+      { key: "food", label: t("guest_profile_tab_food") },
+      { key: "lifestyle", label: t("guest_profile_tab_lifestyle") },
+      { key: "conversation", label: t("guest_profile_tab_conversation") },
+      { key: "health", label: t("guest_profile_tab_health") },
+      { key: "history", label: t("guest_profile_tab_history") }
+    ],
+    [t]
+  );
+  const guestAdvancedEditTabs = useMemo(
+    () => [
+      { key: "identity", label: t("guest_advanced_section_identity") },
+      { key: "food", label: t("guest_advanced_section_food") },
+      { key: "lifestyle", label: t("guest_advanced_section_lifestyle") },
+      { key: "conversation", label: t("guest_advanced_section_conversation") },
+      { key: "health", label: t("guest_advanced_section_health") }
+    ],
+    [t]
+  );
 
   const guestNamesById = useMemo(
     () =>
@@ -2775,7 +2808,7 @@ function DashboardScreen({
         : guestNamesById[invitationItem.guest_id] || t("field_guest");
       const eventDate = formatDate(eventItem?.start_at, language, t("no_date"));
       const eventLocation = eventItem?.location_name || eventItem?.location_address || "-";
-      const url = buildAppUrl(`/?token=${invitationItem.public_token}`);
+      const url = buildAppUrl(`/rsvp/${encodeURIComponent(invitationItem.public_token)}`);
       const shareSubject = interpolateText(t("invitation_share_subject"), {
         event: eventName
       });
@@ -3093,6 +3126,95 @@ function DashboardScreen({
     ]).slice(0, 6);
     return { menu, drinks, ambience, avoid, icebreakers };
   }, [language, selectedGuestDetail, selectedGuestDetailPreference, selectedGuestDetailSensitive]);
+  const selectedGuestTabRecommendations = useMemo(() => {
+    const tabooTopics = uniqueValues(toList(selectedGuestDetailPreference?.taboo_topics || [])).slice(0, 6);
+    const lastTalkTopics = selectedGuestDetailPreference?.last_talk_topic
+      ? [selectedGuestDetailPreference.last_talk_topic]
+      : [];
+    const highlightedTopics = uniqueValues([...selectedGuestHostingRecommendations.icebreakers, ...lastTalkTopics]).slice(0, 6);
+    const healthAlerts = uniqueValues([
+      ...toCatalogLabels("allergy", selectedGuestDetailSensitive?.allergies || [], language),
+      ...toCatalogLabels("intolerance", selectedGuestDetailSensitive?.intolerances || [], language),
+      ...toPetAllergyLabels(selectedGuestDetailSensitive?.pet_allergies || [], language)
+    ]).slice(0, 8);
+    return {
+      food: {
+        title: t("guest_detail_recommendations_food_title"),
+        hint: t("guest_detail_recommendations_food_hint"),
+        cards: [
+          { key: "menu", title: t("smart_hosting_food"), values: selectedGuestHostingRecommendations.menu },
+          { key: "drinks", title: t("smart_hosting_drink"), values: selectedGuestHostingRecommendations.drinks },
+          { key: "avoid", title: t("smart_hosting_avoid"), values: selectedGuestHostingRecommendations.avoid }
+        ]
+      },
+      lifestyle: {
+        title: t("guest_detail_recommendations_lifestyle_title"),
+        hint: t("guest_detail_recommendations_lifestyle_hint"),
+        cards: [
+          { key: "decor", title: t("smart_hosting_decor"), values: selectedGuestHostingRecommendations.ambience },
+          { key: "music", title: t("smart_hosting_music"), values: selectedGuestHostingRecommendations.ambience.slice(0, 5) },
+          { key: "timing", title: t("smart_hosting_timing"), values: [t("smart_hosting_timing_on_time")] }
+        ]
+      },
+      conversation: {
+        title: t("guest_detail_recommendations_conversation_title"),
+        hint: t("guest_detail_recommendations_conversation_hint"),
+        cards: [
+          { key: "icebreakers", title: t("smart_hosting_icebreakers"), values: highlightedTopics },
+          { key: "taboo", title: t("smart_hosting_taboo"), values: tabooTopics },
+          {
+            key: "relationship",
+            title: t("field_relationship"),
+            values: selectedGuestDetail?.relationship
+              ? [toCatalogLabel("relationship", selectedGuestDetail.relationship, language)]
+              : []
+          }
+        ]
+      },
+      health: {
+        title: t("guest_detail_recommendations_health_title"),
+        hint: t("guest_detail_recommendations_health_hint"),
+        cards: [
+          { key: "alerts", title: t("event_detail_alerts_title"), values: healthAlerts },
+          { key: "avoid", title: t("smart_hosting_avoid"), values: selectedGuestHostingRecommendations.avoid },
+          { key: "menu", title: t("smart_hosting_food"), values: selectedGuestHostingRecommendations.menu.slice(0, 4) }
+        ]
+      }
+    };
+  }, [
+    language,
+    selectedGuestDetail,
+    selectedGuestDetailPreference,
+    selectedGuestDetailSensitive,
+    selectedGuestHostingRecommendations,
+    t
+  ]);
+  const selectedGuestActiveTabRecommendations =
+    selectedGuestTabRecommendations[guestProfileViewTab] || null;
+  const selectedGuestAllergyLabels = useMemo(
+    () => toCatalogLabels("allergy", selectedGuestDetailSensitive?.allergies || [], language),
+    [selectedGuestDetailSensitive, language]
+  );
+  const selectedGuestIntoleranceLabels = useMemo(
+    () => toCatalogLabels("intolerance", selectedGuestDetailSensitive?.intolerances || [], language),
+    [selectedGuestDetailSensitive, language]
+  );
+  const selectedGuestPetAllergyLabels = useMemo(
+    () => toPetAllergyLabels(selectedGuestDetailSensitive?.pet_allergies || [], language),
+    [selectedGuestDetailSensitive, language]
+  );
+  const selectedGuestFoodGroups = useMemo(
+    () =>
+      selectedGuestDetailGroups.filter((group) =>
+        [t("guest_detail_group_tastes"), t("guest_detail_group_food"), t("guest_detail_group_avoid")].includes(group.title)
+      ),
+    [selectedGuestDetailGroups, t]
+  );
+  const selectedGuestLifestyleGroups = useMemo(
+    () =>
+      selectedGuestDetailGroups.filter((group) => [t("guest_detail_group_ambience")].includes(group.title)),
+    [selectedGuestDetailGroups, t]
+  );
 
   const filteredEvents = useMemo(() => {
     const term = eventSearch.trim().toLowerCase();
@@ -3788,6 +3910,9 @@ function DashboardScreen({
       if (nextRoute.selectedGuestDetailId) {
         setSelectedGuestDetailId((prev) => (prev === nextRoute.selectedGuestDetailId ? prev : nextRoute.selectedGuestDetailId));
       }
+      setGuestProfileViewTab((prev) =>
+        prev === (nextRoute.guestProfileViewTab || "general") ? prev : nextRoute.guestProfileViewTab || "general"
+      );
     }
     if (nextRoute.activeView === "invitations") {
       setInvitationsWorkspace((prev) =>
@@ -3804,9 +3929,18 @@ function DashboardScreen({
         guestsWorkspace,
         invitationsWorkspace,
         selectedEventDetailId,
-        selectedGuestDetailId
+        selectedGuestDetailId,
+        guestProfileViewTab
       }),
-    [activeView, eventsWorkspace, guestsWorkspace, invitationsWorkspace, selectedEventDetailId, selectedGuestDetailId]
+    [
+      activeView,
+      eventsWorkspace,
+      guestsWorkspace,
+      invitationsWorkspace,
+      selectedEventDetailId,
+      selectedGuestDetailId,
+      guestProfileViewTab
+    ]
   );
 
   useEffect(() => {
@@ -3819,6 +3953,39 @@ function DashboardScreen({
     }
     onNavigateApp(dashboardPath);
   }, [dashboardPath, onNavigateApp]);
+
+  useEffect(() => {
+    if (!openGuestAdvancedOnCreate || activeView !== "guests" || guestsWorkspace !== "create") {
+      return;
+    }
+    if (guestAdvancedDetailsRef.current) {
+      guestAdvancedDetailsRef.current.open = true;
+      guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      setOpenGuestAdvancedOnCreate(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (!guestAdvancedDetailsRef.current) {
+        return;
+      }
+      guestAdvancedDetailsRef.current.open = true;
+      guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      setOpenGuestAdvancedOnCreate(false);
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [openGuestAdvancedOnCreate, activeView, guestsWorkspace]);
+
+  useEffect(() => {
+    if (!GUEST_PROFILE_VIEW_TABS.includes(guestProfileViewTab)) {
+      setGuestProfileViewTab("general");
+    }
+  }, [guestProfileViewTab]);
+
+  useEffect(() => {
+    if (!GUEST_ADVANCED_EDIT_TABS.includes(guestAdvancedEditTab)) {
+      setGuestAdvancedEditTab("identity");
+    }
+  }, [guestAdvancedEditTab]);
 
   useEffect(() => {
     if (!eventSettingsStorageKey || !session?.user?.id) {
@@ -4418,6 +4585,7 @@ function DashboardScreen({
     }
     setGuestsMapFocusId(fallbackGuestId);
     setSelectedGuestDetailId(fallbackGuestId);
+    setGuestProfileViewTab("general");
     setActiveView("guests");
     setGuestsWorkspace("detail");
     setMobileExpandedView("guests");
@@ -5032,6 +5200,22 @@ function DashboardScreen({
       guestAdvancedDetailsRef.current.open = true;
       guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+    setGuestAdvancedEditTab("identity");
+  };
+
+  const scrollToGuestAdvancedSection = (tabKey) => {
+    const normalizedTab = String(tabKey || "").trim();
+    if (!GUEST_ADVANCED_EDIT_TABS.includes(normalizedTab)) {
+      return;
+    }
+    setGuestAdvancedEditTab(normalizedTab);
+    if (guestAdvancedDetailsRef.current) {
+      guestAdvancedDetailsRef.current.open = true;
+    }
+    const sectionNode = guestAdvancedSectionRefs.current[normalizedTab];
+    if (sectionNode) {
+      sectionNode.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   const handleClearImportContacts = () => {
@@ -5641,7 +5825,7 @@ function DashboardScreen({
     await refreshSharedProfileData();
   };
 
-  const handleStartEditGuest = (guestItem) => {
+  const handleStartEditGuest = (guestItem, { openAdvanced = false } = {}) => {
     if (!guestItem) {
       return;
     }
@@ -5670,6 +5854,8 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
+    setGuestAdvancedEditTab("identity");
+    setOpenGuestAdvancedOnCreate(Boolean(openAdvanced));
   };
 
   const handleCancelEditGuest = () => {
@@ -5686,6 +5872,24 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
+    setGuestAdvancedEditTab("identity");
+    setOpenGuestAdvancedOnCreate(false);
+  };
+
+  const openGuestAdvancedEditor = (guestId) => {
+    const fallbackGuestId = String(guestId || "").trim();
+    if (!fallbackGuestId) {
+      return;
+    }
+    const guestItem = guests.find((item) => item.id === fallbackGuestId);
+    if (!guestItem) {
+      openGuestDetail(fallbackGuestId);
+      return;
+    }
+    handleStartEditGuest(guestItem, { openAdvanced: true });
+    setMobileExpandedView("guests");
+    setIsNotificationMenuOpen(false);
+    closeMobileMenu();
   };
 
   const handleSaveGuest = async (event) => {
@@ -6417,16 +6621,20 @@ function DashboardScreen({
     : "private";
   const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
   const sectionHeader = useMemo(() => {
+    const selectedGuestName =
+      selectedGuestDetail
+        ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("guest_detail_title")
+        : t("guest_detail_title");
     if (activeView === "overview") {
       return {
-        eyebrow: t("nav_overview"),
+        eyebrow: "",
         title: interpolateText(t("dashboard_welcome"), { name: hostFirstName }),
         subtitle: t("dashboard_welcome_subtitle")
       };
     }
     if (activeView === "profile") {
       return {
-        eyebrow: t("active_session"),
+        eyebrow: "",
         title: t("host_profile_title"),
         subtitle: t("host_profile_hint")
       };
@@ -6434,27 +6642,27 @@ function DashboardScreen({
     if (activeView === "events") {
       if (eventsWorkspace === "create") {
         return {
-          eyebrow: t("nav_events"),
+          eyebrow: "",
           title: t("create_event_title"),
           subtitle: t("help_event_form")
         };
       }
       if (eventsWorkspace === "detail") {
         return {
-          eyebrow: t("nav_events"),
-          title: t("event_detail_title"),
-          subtitle: t("event_detail_hint")
+          eyebrow: "",
+          title: selectedEventDetail?.title || t("event_detail_title"),
+          subtitle: ""
         };
       }
       if (eventsWorkspace === "insights") {
         return {
-          eyebrow: t("nav_events"),
+          eyebrow: "",
           title: t("smart_hosting_title"),
           subtitle: t("smart_hosting_hint")
         };
       }
       return {
-        eyebrow: t("nav_events"),
+        eyebrow: "",
         title: t("nav_events"),
         subtitle: t("header_events_subtitle")
       };
@@ -6462,20 +6670,20 @@ function DashboardScreen({
     if (activeView === "guests") {
       if (guestsWorkspace === "create") {
         return {
-          eyebrow: t("nav_guests"),
+          eyebrow: "",
           title: t("create_guest_title"),
           subtitle: t("help_guest_form")
         };
       }
       if (guestsWorkspace === "detail") {
         return {
-          eyebrow: t("nav_guests"),
-          title: t("guest_detail_title"),
-          subtitle: t("guest_detail_hint")
+          eyebrow: "",
+          title: selectedGuestName,
+          subtitle: ""
         };
       }
       return {
-        eyebrow: t("nav_guests"),
+        eyebrow: "",
         title: t("nav_guests"),
         subtitle: t("header_guests_subtitle")
       };
@@ -6483,23 +6691,33 @@ function DashboardScreen({
     if (activeView === "invitations") {
       if (invitationsWorkspace === "create") {
         return {
-          eyebrow: t("nav_invitations"),
+          eyebrow: "",
           title: t("create_invitation_title"),
           subtitle: t("help_invitation_form")
         };
       }
       return {
-        eyebrow: t("nav_invitations"),
+        eyebrow: "",
         title: t("nav_invitations"),
         subtitle: t("header_invitations_subtitle")
       };
     }
     return {
-      eyebrow: t(activeViewItem.labelKey),
+      eyebrow: "",
       title: t(activeViewItem.labelKey),
       subtitle: t("dashboard_welcome_subtitle")
     };
-  }, [activeView, activeViewItem.labelKey, eventsWorkspace, guestsWorkspace, hostFirstName, invitationsWorkspace, t]);
+  }, [
+    activeView,
+    activeViewItem.labelKey,
+    eventsWorkspace,
+    guestsWorkspace,
+    hostFirstName,
+    invitationsWorkspace,
+    selectedEventDetail?.title,
+    selectedGuestDetail,
+    t
+  ]);
   const contextualCreateAction =
     activeView === "overview" || activeView === "events"
       ? {
@@ -6528,105 +6746,110 @@ function DashboardScreen({
           onClick: openInvitationBulkWorkspace
         }
       : null;
+  const hideDashboardHeader =
+    (activeView === "events" && eventsWorkspace === "detail") ||
+    (activeView === "guests" && guestsWorkspace === "detail");
 
   return (
     <main className="page dashboard-page">
       <section className="card app-card dashboard-shell">
-        <header className="app-header dashboard-header">
-          <div className="dashboard-header-main">
-            <div className="brand-header brand-header-compact dashboard-mobile-brand">
-              <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
-              <p className="eyebrow">{t("app_name")}</p>
-            </div>
-            <div className="dashboard-context">
-              <p className="eyebrow">{sectionHeader.eyebrow}</p>
-              <h1 className="dashboard-context-title">{sectionHeader.title}</h1>
-              <p className="hero-text dashboard-context-subtitle">{sectionHeader.subtitle}</p>
-            </div>
-          </div>
-          <div className="header-actions dashboard-header-actions">
-            <button
-              className="hamburger-btn mobile-only"
-              type="button"
-              aria-label={t("open_menu")}
-              aria-expanded={isMenuOpen}
-              aria-controls="mobile-menu"
-              onClick={toggleMobileMenu}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-            {contextualCreateAction ? (
-              <div className="dashboard-quick-actions">
-                {contextualSecondaryAction ? (
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={contextualSecondaryAction.onClick}>
-                    <Icon name={contextualSecondaryAction.icon} className="icon icon-sm" />
-                    {contextualSecondaryAction.label}
-                  </button>
-                ) : null}
-                <button className="btn btn-sm" type="button" onClick={contextualCreateAction.onClick}>
-                  <Icon name={contextualCreateAction.icon} className="icon icon-sm" />
-                  {contextualCreateAction.label}
-                </button>
+        {!hideDashboardHeader ? (
+          <header className="app-header dashboard-header">
+            <div className="dashboard-header-main">
+              <div className="brand-header brand-header-compact dashboard-mobile-brand">
+                <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
+                <p className="eyebrow">{t("app_name")}</p>
               </div>
-            ) : null}
-            <div className="dashboard-notification-menu" ref={notificationMenuRef}>
+              <div className="dashboard-context">
+                {sectionHeader.eyebrow ? <p className="eyebrow">{sectionHeader.eyebrow}</p> : null}
+                <h1 className="dashboard-context-title">{sectionHeader.title}</h1>
+                {sectionHeader.subtitle ? <p className="hero-text dashboard-context-subtitle">{sectionHeader.subtitle}</p> : null}
+              </div>
+            </div>
+            <div className="header-actions dashboard-header-actions">
               <button
-                className={`icon-notification-btn ${isNotificationMenuOpen ? "active" : ""}`}
+                className="hamburger-btn mobile-only"
                 type="button"
-                aria-label={interpolateText(t("notifications_button_label"), { count: unreadNotificationCount })}
-                aria-haspopup="menu"
-                aria-expanded={isNotificationMenuOpen}
-                onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
+                aria-label={t("open_menu")}
+                aria-expanded={isMenuOpen}
+                aria-controls="mobile-menu"
+                onClick={toggleMobileMenu}
               >
-                <Icon name="bell" className="icon icon-sm" />
-                {unreadNotificationCount > 0 ? (
-                  <span className="notification-count-badge" aria-hidden="true">
-                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                  </span>
-                ) : null}
+                <span />
+                <span />
+                <span />
               </button>
-              {isNotificationMenuOpen ? (
-                <div className="dashboard-notification-dropdown" role="menu" aria-label={t("notifications_title")}>
-                  <div className="dashboard-notification-head">
-                    <p className="item-title">{t("notifications_title")}</p>
-                    <span className="status-pill status-pending">
-                      {interpolateText(t("notifications_unread"), { count: unreadNotificationCount })}
-                    </span>
-                  </div>
-                  {recentActivityItems.length === 0 ? (
-                    <p className="hint">{t("notifications_empty")}</p>
-                  ) : (
-                    <ul className="dashboard-notification-list">
-                      {recentActivityItems.slice(0, 6).map((activityItem) => (
-                        <li key={`head-${activityItem.id}`} className="dashboard-notification-item">
-                          <span className={`status-pill ${statusClass(activityItem.status)}`}>
-                            <Icon name={activityItem.icon} className="icon icon-xs" />
-                          </span>
-                          <div>
-                            <p className="item-title">{activityItem.title}</p>
-                            <p className="item-meta">
-                              {activityItem.meta} · {activityItem.timeLabel}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="button-row">
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "latest")}>
-                      {t("notifications_open_invitations")}
+              {contextualCreateAction ? (
+                <div className="dashboard-quick-actions">
+                  {contextualSecondaryAction ? (
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={contextualSecondaryAction.onClick}>
+                      <Icon name={contextualSecondaryAction.icon} className="icon icon-sm" />
+                      {contextualSecondaryAction.label}
                     </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "latest")}>
-                      {t("notifications_open_events")}
-                    </button>
-                  </div>
+                  ) : null}
+                  <button className="btn btn-sm" type="button" onClick={contextualCreateAction.onClick}>
+                    <Icon name={contextualCreateAction.icon} className="icon icon-sm" />
+                    {contextualCreateAction.label}
+                  </button>
                 </div>
               ) : null}
+              <div className="dashboard-notification-menu" ref={notificationMenuRef}>
+                <button
+                  className={`icon-notification-btn ${isNotificationMenuOpen ? "active" : ""}`}
+                  type="button"
+                  aria-label={interpolateText(t("notifications_button_label"), { count: unreadNotificationCount })}
+                  aria-haspopup="menu"
+                  aria-expanded={isNotificationMenuOpen}
+                  onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
+                >
+                  <Icon name="bell" className="icon icon-sm" />
+                  {unreadNotificationCount > 0 ? (
+                    <span className="notification-count-badge" aria-hidden="true">
+                      {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                    </span>
+                  ) : null}
+                </button>
+                {isNotificationMenuOpen ? (
+                  <div className="dashboard-notification-dropdown" role="menu" aria-label={t("notifications_title")}>
+                    <div className="dashboard-notification-head">
+                      <p className="item-title">{t("notifications_title")}</p>
+                      <span className="status-pill status-pending">
+                        {interpolateText(t("notifications_unread"), { count: unreadNotificationCount })}
+                      </span>
+                    </div>
+                    {recentActivityItems.length === 0 ? (
+                      <p className="hint">{t("notifications_empty")}</p>
+                    ) : (
+                      <ul className="dashboard-notification-list">
+                        {recentActivityItems.slice(0, 6).map((activityItem) => (
+                          <li key={`head-${activityItem.id}`} className="dashboard-notification-item">
+                            <span className={`status-pill ${statusClass(activityItem.status)}`}>
+                              <Icon name={activityItem.icon} className="icon icon-xs" />
+                            </span>
+                            <div>
+                              <p className="item-title">{activityItem.title}</p>
+                              <p className="item-meta">
+                                {activityItem.meta} · {activityItem.timeLabel}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "latest")}>
+                        {t("notifications_open_invitations")}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "latest")}>
+                        {t("notifications_open_events")}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
+        ) : null}
 
         <nav className="dashboard-nav desktop-only" aria-label={t("nav_sections")}>
           <div className="dashboard-nav-top">
@@ -7088,19 +7311,6 @@ function DashboardScreen({
 
         {activeView === "profile" ? (
           <section className="workspace-shell profile-shell view-transition">
-            <header className="workspace-header">
-              <h2 className="section-title">
-                <Icon name="user" className="icon" />
-                {t("host_profile_title")}
-              </h2>
-              <div className="workspace-meta">
-                <p className="workspace-breadcrumb">
-                  <Icon name="folder" className="icon icon-sm" />
-                  {t("workspace_path_prefix")}: {t("active_session")} / {t("host_profile_title")}
-                </p>
-              </div>
-            </header>
-
             <article className="panel profile-summary-card">
               <div className="profile-summary-header">
                 <div>
@@ -7151,7 +7361,11 @@ function DashboardScreen({
               )}
               <div className="button-row">
                 {isProfileGuestLinked ? (
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openGuestDetail(profileLinkedGuestId)}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={() => openGuestAdvancedEditor(profileLinkedGuestId)}
+                  >
                     {t("host_profile_open_advanced_action")}
                   </button>
                 ) : null}
@@ -7196,7 +7410,9 @@ function DashboardScreen({
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"
-                        onClick={() => (isProfileGuestLinked ? openGuestDetail(profileLinkedGuestId) : syncHostGuestProfileForm())}
+                        onClick={() =>
+                          isProfileGuestLinked ? openGuestAdvancedEditor(profileLinkedGuestId) : syncHostGuestProfileForm()
+                        }
                       >
                         {isProfileGuestLinked
                           ? t("global_profile_value_action_profile")
@@ -7825,6 +8041,15 @@ function DashboardScreen({
                     {t("host_profile_guest_sync")}
                   </button>
                   {isProfileGuestLinked ? (
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={() => openGuestAdvancedEditor(profileLinkedGuestId)}
+                    >
+                      {t("host_profile_open_advanced_action")}
+                    </button>
+                  ) : null}
+                  {isProfileGuestLinked ? (
                     <button className="btn btn-ghost" type="button" onClick={() => openGuestDetail(profileLinkedGuestId)}>
                       {t("view_guest_detail_action")}
                     </button>
@@ -7839,40 +8064,6 @@ function DashboardScreen({
 
         {activeView === "events" ? (
           <section className="workspace-shell view-transition">
-            <header className="workspace-header">
-              <h2 className="section-title">
-                <Icon name="calendar" className="icon" />
-                {t("nav_events")}
-              </h2>
-              <div className="workspace-tabs" role="tablist" aria-label={t("workspace_subsections")}>
-                {WORKSPACE_ITEMS.events.filter((item) => item.key !== "create").map((workspaceItem) => (
-                  <button
-                    key={workspaceItem.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={eventsWorkspace === workspaceItem.key}
-                    className={`workspace-tab ${eventsWorkspace === workspaceItem.key ? "active" : ""}`}
-                    onClick={() => setEventsWorkspace(workspaceItem.key)}
-                  >
-                    <Icon name={workspaceItem.icon} className="icon icon-sm" />
-                    {t(workspaceItem.labelKey)}
-                  </button>
-                ))}
-              </div>
-              <div className="workspace-meta">
-                <p className="workspace-breadcrumb">
-                  <Icon name="folder" className="icon icon-sm" />
-                  {t("workspace_path_prefix")}: {t("nav_events")} / {t(eventsWorkspaceItem.labelKey)}
-                </p>
-                {eventsWorkspace !== "hub" ? (
-                  <button className="btn btn-ghost btn-sm workspace-back-btn" type="button" onClick={() => setEventsWorkspace("hub")}>
-                    <Icon name="arrow_left" className="icon icon-sm" />
-                    {t("workspace_back_to_folders")}
-                  </button>
-                ) : null}
-              </div>
-            </header>
-
             {eventsWorkspace === "hub" ? (
               <div className="workspace-card-grid">
                 {WORKSPACE_ITEMS.events.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
@@ -7896,14 +8087,6 @@ function DashboardScreen({
             <form className="panel form-grid event-builder-form" onSubmit={handleSaveEvent} noValidate>
               <div className="event-builder-shell">
                 <div className="event-builder-main">
-                  <header className="event-builder-heading">
-                    <h2 className="section-title">
-                      <Icon name="calendar" className="icon" />
-                      {isEditingEvent ? t("edit_event_title") : t("create_event_title")}
-                    </h2>
-                    <p className="field-help">{t("help_event_form")}</p>
-                  </header>
-
                   <section className="event-template-strip" aria-label={t("event_templates_title")}>
                     <p className="label-title">
                       <Icon name="sparkle" className="icon icon-sm" />
@@ -8303,11 +8486,6 @@ function DashboardScreen({
 
             {eventsWorkspace === "latest" ? (
             <section className="panel panel-list panel-events-latest">
-              <h2 className="section-title">
-                <Icon name="calendar" className="icon" />
-                {t("latest_events_title")}
-              </h2>
-              <p className="field-help">{t("header_events_subtitle")}</p>
               <div className="list-tools">
                 <label>
                   <span className="label-title">{t("search")}</span>
@@ -8388,7 +8566,15 @@ function DashboardScreen({
                       return (
                       <li key={eventItem.id} className="list-table-row list-row-event">
                         <div className="cell-main">
-                          <p className="item-title">{eventItem.title}</p>
+                          <p className="item-title">
+                            <button
+                              className="text-link-btn event-name-link"
+                              type="button"
+                              onClick={() => openEventDetail(eventItem.id)}
+                            >
+                              {eventItem.title}
+                            </button>
+                          </p>
                           <p className="item-meta">{eventItem.event_type ? toCatalogLabel("experience_type", eventItem.event_type, language) : "—"}</p>
                           <p className="item-meta">{eventItem.location_name || eventItem.location_address || "—"}</p>
                         </div>
@@ -8514,19 +8700,17 @@ function DashboardScreen({
 
             {eventsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
-              <div className="detail-topnav">
-                <button className="btn btn-ghost btn-sm" type="button" onClick={() => setEventsWorkspace("latest")}>
-                  <Icon name="arrow_left" className="icon icon-sm" />
-                  {t("nav_events")}
-                </button>
-              </div>
               <p className="detail-breadcrumb">
-                {t("nav_events")} / {selectedEventDetail?.title || t("event_detail_title")}
+                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => setEventsWorkspace("latest")}>
+                  {t("latest_events_title")}
+                </button>
+                <span>/</span>
+                <span>{selectedEventDetail?.title || t("event_detail_title")}</span>
               </p>
               <div className="detail-head detail-head-rich">
-                <div className="detail-head-primary">
-                  <div className="detail-head-title-row">
-                    <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+                  <div className="detail-head-primary">
+                    <div className="detail-head-title-row">
+                      <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
                     {selectedEventDetail ? (
                       <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>
                         {statusText(t, selectedEventDetail.status)}
@@ -8823,11 +9007,6 @@ function DashboardScreen({
 
             {eventsWorkspace === "insights" ? (
             <section className="panel panel-wide">
-              <h2 className="section-title">
-                <Icon name="sparkle" className="icon" />
-                {t("smart_hosting_title")}
-              </h2>
-              <p className="field-help">{t("smart_hosting_hint")}</p>
               {events.length > 0 ? (
                 <label>
                   <span className="label-title">{t("smart_hosting_event_select")}</span>
@@ -8937,40 +9116,6 @@ function DashboardScreen({
 
         {activeView === "guests" ? (
           <section className="workspace-shell view-transition">
-            <header className="workspace-header">
-              <h2 className="section-title">
-                <Icon name="user" className="icon" />
-                {t("nav_guests")}
-              </h2>
-              <div className="workspace-tabs" role="tablist" aria-label={t("workspace_subsections")}>
-                {WORKSPACE_ITEMS.guests.filter((item) => item.key !== "create").map((workspaceItem) => (
-                  <button
-                    key={workspaceItem.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={guestsWorkspace === workspaceItem.key}
-                    className={`workspace-tab ${guestsWorkspace === workspaceItem.key ? "active" : ""}`}
-                    onClick={() => setGuestsWorkspace(workspaceItem.key)}
-                  >
-                    <Icon name={workspaceItem.icon} className="icon icon-sm" />
-                    {t(workspaceItem.labelKey)}
-                  </button>
-                ))}
-              </div>
-              <div className="workspace-meta">
-                <p className="workspace-breadcrumb">
-                  <Icon name="folder" className="icon icon-sm" />
-                  {t("workspace_path_prefix")}: {t("nav_guests")} / {t(guestsWorkspaceItem.labelKey)}
-                </p>
-                {guestsWorkspace !== "hub" ? (
-                  <button className="btn btn-ghost btn-sm workspace-back-btn" type="button" onClick={() => setGuestsWorkspace("hub")}>
-                    <Icon name="arrow_left" className="icon icon-sm" />
-                    {t("workspace_back_to_folders")}
-                  </button>
-                ) : null}
-              </div>
-            </header>
-
             {guestsWorkspace === "hub" ? (
               <div className="workspace-card-grid">
                 {WORKSPACE_ITEMS.guests.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
@@ -8992,11 +9137,6 @@ function DashboardScreen({
               <div key={`guests-${guestsWorkspace}`} className="dashboard-grid single-section workspace-content">
             {guestsWorkspace === "create" ? (
             <form className="panel form-grid" onSubmit={handleSaveGuest} noValidate>
-              <h2 className="section-title">
-                <Icon name="user" className="icon" />
-                {isEditingGuest ? t("edit_guest_title") : t("create_guest_title")}
-              </h2>
-              <p className="field-help">{t("help_guest_form")}</p>
               <p className="hint">{t("guest_host_potential_hint")}</p>
 
               <section className="recommendation-card">
@@ -9460,8 +9600,27 @@ function DashboardScreen({
               <details ref={guestAdvancedDetailsRef} className="advanced-form">
                 <summary>{t("guest_advanced_title")}</summary>
                 <p className="field-help">{t("guest_advanced_hint")}</p>
+                <div className="profile-tabs advanced-profile-tabs" role="tablist" aria-label={t("guest_advanced_title")}>
+                  {guestAdvancedEditTabs.map((tabItem) => (
+                    <button
+                      key={tabItem.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={guestAdvancedEditTab === tabItem.key}
+                      className={`profile-tab ${guestAdvancedEditTab === tabItem.key ? "active" : ""}`}
+                      onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
+                    >
+                      {tabItem.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="advanced-grid">
-                  <p className="advanced-grid-heading">
+                  <p
+                    className={`advanced-grid-heading ${guestAdvancedEditTab === "identity" ? "is-active" : ""}`}
+                    ref={(node) => {
+                      guestAdvancedSectionRefs.current.identity = node;
+                    }}
+                  >
                     <Icon name="user" className="icon icon-sm" />
                     {t("guest_advanced_section_identity")}
                   </p>
@@ -9604,7 +9763,12 @@ function DashboardScreen({
                     />
                     <FieldMeta errorText={guestErrors.linkedIn ? t(guestErrors.linkedIn) : ""} />
                   </label>
-                  <p className="advanced-grid-heading">
+                  <p
+                    className={`advanced-grid-heading ${guestAdvancedEditTab === "food" ? "is-active" : ""}`}
+                    ref={(node) => {
+                      guestAdvancedSectionRefs.current.food = node;
+                    }}
+                  >
                     <Icon name="sparkle" className="icon icon-sm" />
                     {t("guest_advanced_section_food")}
                   </p>
@@ -9685,7 +9849,12 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
-                  <p className="advanced-grid-heading">
+                  <p
+                    className={`advanced-grid-heading ${guestAdvancedEditTab === "lifestyle" ? "is-active" : ""}`}
+                    ref={(node) => {
+                      guestAdvancedSectionRefs.current.lifestyle = node;
+                    }}
+                  >
                     <Icon name="star" className="icon icon-sm" />
                     {t("guest_advanced_section_lifestyle")}
                   </p>
@@ -9812,7 +9981,12 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
-                  <p className="advanced-grid-heading">
+                  <p
+                    className={`advanced-grid-heading ${guestAdvancedEditTab === "conversation" ? "is-active" : ""}`}
+                    ref={(node) => {
+                      guestAdvancedSectionRefs.current.conversation = node;
+                    }}
+                  >
                     <Icon name="message" className="icon icon-sm" />
                     {t("guest_advanced_section_conversation")}
                   </p>
@@ -9834,7 +10008,12 @@ function DashboardScreen({
                       placeholder={t("placeholder_list_comma")}
                     />
                   </label>
-                  <p className="advanced-grid-heading">
+                  <p
+                    className={`advanced-grid-heading ${guestAdvancedEditTab === "health" ? "is-active" : ""}`}
+                    ref={(node) => {
+                      guestAdvancedSectionRefs.current.health = node;
+                    }}
+                  >
                     <Icon name="shield" className="icon icon-sm" />
                     {t("guest_advanced_section_health")}
                   </p>
@@ -9907,11 +10086,6 @@ function DashboardScreen({
 
             {guestsWorkspace === "latest" ? (
             <section className="panel panel-list panel-guests-latest">
-              <h2 className="section-title">
-                <Icon name="user" className="icon" />
-                {t("latest_guests_title")}
-              </h2>
-              <p className="field-help">{t("header_guests_subtitle")}</p>
               <div className="list-tools">
                 <label>
                   <span className="label-title">{t("search")}</span>
@@ -10007,7 +10181,15 @@ function DashboardScreen({
                         <div className="cell-main list-title-with-avatar">
                           <span className="list-avatar">{getInitials(guestFullName, "IN")}</span>
                           <div>
-                            <p className="item-title">{guestFullName}</p>
+                            <p className="item-title">
+                              <button
+                                className="text-link-btn guest-name-link"
+                                type="button"
+                                onClick={() => openGuestDetail(guestItem.id)}
+                              >
+                                {guestFullName}
+                              </button>
+                            </p>
                             {guestItem.relationship ? (
                               <p className="item-meta">
                                 {toCatalogLabel("relationship", guestItem.relationship, language)}
@@ -10053,16 +10235,52 @@ function DashboardScreen({
                           ) : (
                             <p className="item-meta">{t("host_pending_conversion_label")}</p>
                           )}
+                        </div>
+                        <div className="cell-guest-events cell-extra">
+                          <p className="item-title">{guestEventsCount}</p>
+                        </div>
+                        <div className="item-actions cell-actions list-actions-compact list-actions-iconic">
+                          <div className="button-row list-actions-primary">
+                            <button
+                              className="btn btn-ghost btn-sm btn-icon-only"
+                              type="button"
+                              onClick={() => openGuestDetail(guestItem.id)}
+                              aria-label={t("view_detail")}
+                              title={t("view_detail")}
+                            >
+                              <Icon name="eye" className="icon icon-sm" />
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm btn-icon-only"
+                              type="button"
+                              onClick={() => handleStartEditGuest(guestItem)}
+                              aria-label={t("edit_guest")}
+                              title={t("edit_guest")}
+                            >
+                              <Icon name="edit" className="icon icon-sm" />
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm btn-icon-only"
+                              type="button"
+                              onClick={() => handleRequestDeleteGuest(guestItem)}
+                              disabled={isDeletingGuestId === guestItem.id}
+                              aria-label={isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}
+                              title={isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}
+                            >
+                              <Icon name="x" className="icon icon-sm" />
+                            </button>
+                          </div>
                           {guestItem.email || guestItem.phone ? (
-                            <div className="button-row guest-host-actions-row">
+                            <div className="button-row list-actions-secondary">
                               <button
-                                className="text-link-btn guest-host-convert-btn"
+                                className="btn btn-ghost btn-sm btn-icon-only"
                                 type="button"
                                 onClick={() => handleCopyHostSignupLink(guestItem)}
                                 disabled={Boolean(conversion)}
+                                aria-label={conversion ? t("host_already_registered_action") : t("host_invite_action")}
+                                title={conversion ? t("host_already_registered_action") : t("host_invite_action")}
                               >
                                 <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
-                                {conversion ? t("host_already_registered_action") : t("host_invite_action")}
                               </button>
                               <button
                                 className="btn btn-ghost btn-sm btn-icon-only"
@@ -10086,39 +10304,6 @@ function DashboardScreen({
                               </button>
                             </div>
                           ) : null}
-                        </div>
-                        <div className="cell-guest-events cell-extra">
-                          <p className="item-title">{guestEventsCount}</p>
-                        </div>
-                        <div className="item-actions cell-actions list-actions-compact list-actions-iconic">
-                          <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => openGuestDetail(guestItem.id)}
-                            aria-label={t("view_detail")}
-                            title={t("view_detail")}
-                          >
-                            <Icon name="eye" className="icon icon-sm" />
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => handleStartEditGuest(guestItem)}
-                            aria-label={t("edit_guest")}
-                            title={t("edit_guest")}
-                          >
-                            <Icon name="edit" className="icon icon-sm" />
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => handleRequestDeleteGuest(guestItem)}
-                            disabled={isDeletingGuestId === guestItem.id}
-                            aria-label={isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}
-                            title={isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}
-                          >
-                            <Icon name="x" className="icon icon-sm" />
-                          </button>
                         </div>
                       </li>
                       );
@@ -10168,22 +10353,21 @@ function DashboardScreen({
 
             {guestsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
-              <div className="detail-topnav">
-                <button className="btn btn-ghost btn-sm" type="button" onClick={() => setGuestsWorkspace("latest")}>
-                  <Icon name="arrow_left" className="icon icon-sm" />
-                  {t("nav_guests")}
-                </button>
-              </div>
               <p className="detail-breadcrumb">
-                {t("nav_guests")} /{" "}
-                {selectedGuestDetail
-                  ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
-                  : t("guest_detail_title")}
+                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => setGuestsWorkspace("latest")}>
+                  {t("latest_guests_title")}
+                </button>
+                <span>/</span>
+                <span>
+                  {selectedGuestDetail
+                    ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("guest_detail_title")
+                    : t("guest_detail_title")}
+                </span>
               </p>
               <div className="detail-head detail-head-rich">
-                <div className="detail-head-primary">
-                  <div className="detail-head-title-row">
-                    <h2 className="section-title detail-title">
+                  <div className="detail-head-primary">
+                    <div className="detail-head-title-row">
+                      <h2 className="section-title detail-title">
                       {selectedGuestDetail
                         ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
                         : t("guest_detail_title")}
@@ -10211,6 +10395,14 @@ function DashboardScreen({
                 </div>
                 {selectedGuestDetail ? (
                   <div className="button-row detail-head-actions">
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={() => handleStartEditGuest(selectedGuestDetail, { openAdvanced: true })}
+                    >
+                      <Icon name="sparkle" className="icon icon-sm" />
+                      {t("guest_advanced_title")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(selectedGuestDetail)}>
                       <Icon name="edit" className="icon icon-sm" />
                       {t("guest_detail_edit_action")}
@@ -10261,6 +10453,20 @@ function DashboardScreen({
                       </article>
                     </div>
                   </article>
+                <div className="profile-tabs detail-profile-tabs" role="tablist" aria-label={t("guest_advanced_title")}>
+                  {guestProfileTabs.map((tabItem) => (
+                    <button
+                      key={tabItem.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={guestProfileViewTab === tabItem.key}
+                      className={`profile-tab ${guestProfileViewTab === tabItem.key ? "active" : ""}`}
+                      onClick={() => setGuestProfileViewTab(tabItem.key)}
+                    >
+                      {tabItem.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="detail-layout detail-layout-guest">
                   <article className="detail-card detail-card-guest-contact">
                     <p className="item-title">
@@ -10332,141 +10538,228 @@ function DashboardScreen({
                       </button>
                     </div>
                   </article>
-                  <article className="detail-card detail-card-guest-notes">
-                    <p className="item-title">{t("guest_detail_notes_title")}</p>
-                    {selectedGuestDetailNotes.length === 0 ? (
-                      <p className="hint">{t("guest_detail_notes_empty")}</p>
-                    ) : (
-                      <ul className="list recommendation-list">
-                        {selectedGuestDetailNotes.map((noteItem) => (
-                          <li key={noteItem}>{noteItem}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </article>
-                  <article className="detail-card detail-card-guest-signals">
-                    <p className="item-title">{t("guest_detail_tags_title")}</p>
-                    {selectedGuestDetailTags.length === 0 ? (
-                      <p className="hint">{t("guest_detail_tags_empty")}</p>
-                    ) : (
-                      <div className="multi-chip-group">
-                        {selectedGuestDetailTags.map((tagItem) => (
-                          <span key={`guest-detail-tag-${tagItem}`} className="multi-chip readonly">
-                            {tagItem}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                  <article className="detail-card detail-card-wide detail-card-guest-tags">
-                    <p className="item-title">{t("guest_detail_profile_summary")}</p>
-                    {selectedGuestDetailGroups.length === 0 ? (
-                      <p className="hint">{t("guest_detail_no_profile_data")}</p>
-                    ) : (
-                      <div className="detail-chip-groups">
-                        {selectedGuestDetailGroups.map((group) => (
-                          <div key={group.title} className="detail-chip-group">
-                            <p className="item-meta">{group.title}</p>
-                            <div className="multi-chip-group">
-                              {group.values.map((value) => (
-                                <span key={`${group.title}-${value}`} className="multi-chip readonly">
-                                  {value}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                  <article className="detail-card detail-card-wide detail-card-guest-recommendations">
-                    <p className="item-title">{t("guest_detail_recommendations_title")}</p>
-                    <p className="field-help">{t("guest_detail_recommendations_hint")}</p>
-                    <div className="detail-recommendations-grid">
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("smart_hosting_food")}</p>
-                        <p className="item-meta">
-                          {selectedGuestHostingRecommendations.menu.length > 0
-                            ? selectedGuestHostingRecommendations.menu.join(", ")
-                            : t("smart_hosting_no_data")}
-                        </p>
-                      </article>
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("smart_hosting_drink")}</p>
-                        <p className="item-meta">
-                          {selectedGuestHostingRecommendations.drinks.length > 0
-                            ? selectedGuestHostingRecommendations.drinks.join(", ")
-                            : t("smart_hosting_no_data")}
-                        </p>
-                      </article>
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("smart_hosting_avoid")}</p>
-                        <p className="item-meta">
-                          {selectedGuestHostingRecommendations.avoid.length > 0
-                            ? selectedGuestHostingRecommendations.avoid.join(", ")
-                            : t("smart_hosting_no_data")}
-                        </p>
-                      </article>
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("smart_hosting_decor")}</p>
-                        <p className="item-meta">
-                          {selectedGuestHostingRecommendations.ambience.length > 0
-                            ? selectedGuestHostingRecommendations.ambience.join(", ")
-                            : t("smart_hosting_no_data")}
-                        </p>
-                      </article>
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("smart_hosting_icebreakers")}</p>
-                        <p className="item-meta">
-                          {selectedGuestHostingRecommendations.icebreakers.length > 0
-                            ? selectedGuestHostingRecommendations.icebreakers.join(", ")
-                            : t("smart_hosting_no_data")}
-                        </p>
-                      </article>
-                    </div>
-                  </article>
-                  <article className="detail-card detail-card-wide detail-card-guest-history">
-                    <p className="item-title">{t("guest_detail_invitations_title")}</p>
-                    {selectedGuestDetailInvitations.length === 0 ? (
-                      <p className="hint">{t("guest_detail_no_invitations")}</p>
-                    ) : (
-                      <div className="detail-table-shell">
-                        <div className="detail-table-head detail-table-head-guest-history" aria-hidden="true">
-                          <span>{t("field_event")}</span>
-                          <span>{t("date")}</span>
-                          <span>RSVP</span>
-                          <span>+1</span>
-                        </div>
-                        <ul className="list detail-table-list detail-table-list-guest-history">
-                          {selectedGuestDetailInvitations.map((invitationItem) => {
-                            const eventItem = eventsById[invitationItem.event_id];
-                            return (
-                              <li key={invitationItem.id} className="detail-table-row detail-table-row-guest-history">
-                                <div className="cell-main">
-                                  <button
-                                    className="text-link-btn invitation-linked-name"
-                                    type="button"
-                                    onClick={() => openEventDetail(invitationItem.event_id)}
-                                  >
-                                    {eventItem?.title || eventNamesById[invitationItem.event_id] || t("field_event")}
-                                  </button>
-                                </div>
-                                <p className="item-meta cell-meta">
-                                  {formatDate(eventItem?.start_at || invitationItem.created_at, language, t("no_date"))}
-                                </p>
-                                <p className="item-meta cell-meta">
-                                  <span className={`status-pill ${statusClass(invitationItem.status)}`}>
-                                    {statusText(t, invitationItem.status)}
-                                  </span>
-                                </p>
-                                <p className="item-meta cell-meta">-</p>
-                              </li>
-                            );
-                          })}
+
+                  {guestProfileViewTab === "general" ? (
+                    <article className="detail-card detail-card-guest-notes">
+                      <p className="item-title">{t("guest_detail_notes_title")}</p>
+                      {selectedGuestDetailNotes.length === 0 ? (
+                        <p className="hint">{t("guest_detail_notes_empty")}</p>
+                      ) : (
+                        <ul className="list recommendation-list">
+                          {selectedGuestDetailNotes.map((noteItem) => (
+                            <li key={noteItem}>{noteItem}</li>
+                          ))}
                         </ul>
+                      )}
+                    </article>
+                  ) : null}
+
+                  {guestProfileViewTab === "general" ? (
+                    <article className="detail-card detail-card-guest-signals">
+                      <p className="item-title">{t("guest_detail_tags_title")}</p>
+                      {selectedGuestDetailTags.length === 0 ? (
+                        <p className="hint">{t("guest_detail_tags_empty")}</p>
+                      ) : (
+                        <div className="multi-chip-group">
+                          {selectedGuestDetailTags.map((tagItem) => (
+                            <span key={`guest-detail-tag-${tagItem}`} className="multi-chip readonly">
+                              {tagItem}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  ) : null}
+
+                  {guestProfileViewTab === "food" ? (
+                    <article className="detail-card detail-card-wide detail-card-guest-tags">
+                      <p className="item-title">{t("guest_profile_tab_food")}</p>
+                      {selectedGuestFoodGroups.length === 0 ? (
+                        <p className="hint">{t("guest_detail_no_profile_data")}</p>
+                      ) : (
+                        <div className="detail-chip-groups">
+                          {selectedGuestFoodGroups.map((group) => (
+                            <div key={group.title} className="detail-chip-group">
+                              <p className="item-meta">{group.title}</p>
+                              <div className="multi-chip-group">
+                                {group.values.map((value) => (
+                                  <span key={`${group.title}-${value}`} className="multi-chip readonly">
+                                    {value}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  ) : null}
+
+                  {guestProfileViewTab === "lifestyle" ? (
+                    <article className="detail-card detail-card-wide detail-card-guest-tags">
+                      <p className="item-title">{t("guest_profile_tab_lifestyle")}</p>
+                      {selectedGuestLifestyleGroups.length === 0 ? (
+                        <p className="hint">{t("guest_detail_no_profile_data")}</p>
+                      ) : (
+                        <div className="detail-chip-groups">
+                          {selectedGuestLifestyleGroups.map((group) => (
+                            <div key={group.title} className="detail-chip-group">
+                              <p className="item-meta">{group.title}</p>
+                              <div className="multi-chip-group">
+                                {group.values.map((value) => (
+                                  <span key={`${group.title}-${value}`} className="multi-chip readonly">
+                                    {value}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  ) : null}
+
+                  {selectedGuestActiveTabRecommendations ? (
+                    <article className="detail-card detail-card-wide detail-card-guest-recommendations">
+                      <p className="item-title">{selectedGuestActiveTabRecommendations.title}</p>
+                      <p className="field-help">{selectedGuestActiveTabRecommendations.hint}</p>
+                      <div className="detail-recommendations-grid">
+                        {selectedGuestActiveTabRecommendations.cards.map((recommendationItem) => (
+                          <article key={recommendationItem.key} className="recommendation-card">
+                            <p className="item-title">{recommendationItem.title}</p>
+                            {recommendationItem.values.length > 0 ? (
+                              <ul className="list recommendation-list">
+                                {recommendationItem.values.map((value) => (
+                                  <li key={`${recommendationItem.key}-${value}`}>{value}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="hint">{t("smart_hosting_no_data")}</p>
+                            )}
+                          </article>
+                        ))}
                       </div>
-                    )}
-                  </article>
+                    </article>
+                  ) : null}
+
+                  {guestProfileViewTab === "conversation" ? (
+                    <article className="detail-card detail-card-guest-notes">
+                      <p className="item-title">{t("guest_profile_tab_conversation")}</p>
+                      <ul className="list recommendation-list">
+                        {selectedGuestDetailPreference?.last_talk_topic ? (
+                          <li>{`${t("field_last_talk_topic")}: ${selectedGuestDetailPreference.last_talk_topic}`}</li>
+                        ) : null}
+                        {toList(selectedGuestDetailPreference?.taboo_topics || []).length > 0 ? (
+                          <li>{`${t("field_taboo_topics")}: ${toList(selectedGuestDetailPreference.taboo_topics).join(", ")}`}</li>
+                        ) : null}
+                        {selectedGuestDetail.relationship ? (
+                          <li>
+                            {`${t("field_relationship")}: ${toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}`}
+                          </li>
+                        ) : null}
+                        {!selectedGuestDetailPreference?.last_talk_topic &&
+                        toList(selectedGuestDetailPreference?.taboo_topics || []).length === 0 &&
+                        !selectedGuestDetail.relationship ? (
+                          <li>{t("guest_detail_notes_empty")}</li>
+                        ) : null}
+                      </ul>
+                    </article>
+                  ) : null}
+
+                  {guestProfileViewTab === "health" ? (
+                    <article className="detail-card detail-card-guest-notes">
+                      <p className="item-title">{t("guest_profile_tab_health")}</p>
+                      <div className="detail-chip-groups">
+                        <div className="detail-chip-group">
+                          <p className="item-meta">{t("field_allergies")}</p>
+                          <div className="multi-chip-group">
+                            {selectedGuestAllergyLabels.length > 0 ? (
+                              selectedGuestAllergyLabels.map((item) => (
+                                <span key={`allergy-${item}`} className="multi-chip readonly">
+                                  {item}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="multi-chip readonly">-</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="detail-chip-group">
+                          <p className="item-meta">{t("field_intolerances")}</p>
+                          <div className="multi-chip-group">
+                            {selectedGuestIntoleranceLabels.length > 0 ? (
+                              selectedGuestIntoleranceLabels.map((item) => (
+                                <span key={`intolerance-${item}`} className="multi-chip readonly">
+                                  {item}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="multi-chip readonly">-</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="detail-chip-group">
+                          <p className="item-meta">{t("field_pet_allergies")}</p>
+                          <div className="multi-chip-group">
+                            {selectedGuestPetAllergyLabels.length > 0 ? (
+                              selectedGuestPetAllergyLabels.map((item) => (
+                                <span key={`pet-allergy-${item}`} className="multi-chip readonly">
+                                  {item}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="multi-chip readonly">-</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ) : null}
+
+                  {guestProfileViewTab === "history" ? (
+                    <article className="detail-card detail-card-wide detail-card-guest-history">
+                      <p className="item-title">{t("guest_detail_invitations_title")}</p>
+                      {selectedGuestDetailInvitations.length === 0 ? (
+                        <p className="hint">{t("guest_detail_no_invitations")}</p>
+                      ) : (
+                        <div className="detail-table-shell">
+                          <div className="detail-table-head detail-table-head-guest-history" aria-hidden="true">
+                            <span>{t("field_event")}</span>
+                            <span>{t("date")}</span>
+                            <span>RSVP</span>
+                            <span>+1</span>
+                          </div>
+                          <ul className="list detail-table-list detail-table-list-guest-history">
+                            {selectedGuestDetailInvitations.map((invitationItem) => {
+                              const eventItem = eventsById[invitationItem.event_id];
+                              return (
+                                <li key={invitationItem.id} className="detail-table-row detail-table-row-guest-history">
+                                  <div className="cell-main">
+                                    <button
+                                      className="text-link-btn invitation-linked-name"
+                                      type="button"
+                                      onClick={() => openEventDetail(invitationItem.event_id)}
+                                    >
+                                      {eventItem?.title || eventNamesById[invitationItem.event_id] || t("field_event")}
+                                    </button>
+                                  </div>
+                                  <p className="item-meta cell-meta">
+                                    {formatDate(eventItem?.start_at || invitationItem.created_at, language, t("no_date"))}
+                                  </p>
+                                  <p className="item-meta cell-meta">
+                                    <span className={`status-pill ${statusClass(invitationItem.status)}`}>
+                                      {statusText(t, invitationItem.status)}
+                                    </span>
+                                  </p>
+                                  <p className="item-meta cell-meta">-</p>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </article>
+                  ) : null}
                 </div>
                 </>
               )}
@@ -10479,44 +10772,6 @@ function DashboardScreen({
 
         {activeView === "invitations" ? (
           <section className="workspace-shell view-transition">
-            <header className="workspace-header">
-              <h2 className="section-title">
-                <Icon name="mail" className="icon" />
-                {t("nav_invitations")}
-              </h2>
-              <div className="workspace-tabs" role="tablist" aria-label={t("workspace_subsections")}>
-                {WORKSPACE_ITEMS.invitations.filter((item) => item.key !== "create").map((workspaceItem) => (
-                  <button
-                    key={workspaceItem.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={invitationsWorkspace === workspaceItem.key}
-                    className={`workspace-tab ${invitationsWorkspace === workspaceItem.key ? "active" : ""}`}
-                    onClick={() => setInvitationsWorkspace(workspaceItem.key)}
-                  >
-                    <Icon name={workspaceItem.icon} className="icon icon-sm" />
-                    {t(workspaceItem.labelKey)}
-                  </button>
-                ))}
-              </div>
-              <div className="workspace-meta">
-                <p className="workspace-breadcrumb">
-                  <Icon name="folder" className="icon icon-sm" />
-                  {t("workspace_path_prefix")}: {t("nav_invitations")} / {t(invitationsWorkspaceItem.labelKey)}
-                </p>
-                {invitationsWorkspace !== "hub" ? (
-                  <button
-                    className="btn btn-ghost btn-sm workspace-back-btn"
-                    type="button"
-                    onClick={() => setInvitationsWorkspace("hub")}
-                  >
-                    <Icon name="arrow_left" className="icon icon-sm" />
-                    {t("workspace_back_to_folders")}
-                  </button>
-                ) : null}
-              </div>
-            </header>
-
             {invitationsWorkspace === "hub" ? (
               <div className="workspace-card-grid">
                 {WORKSPACE_ITEMS.invitations.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
@@ -10542,12 +10797,6 @@ function DashboardScreen({
               <div key={`invitations-${invitationsWorkspace}`} className="dashboard-grid single-section workspace-content">
             {invitationsWorkspace === "create" ? (
             <form className="panel form-grid" onSubmit={handleCreateInvitation} noValidate>
-              <h2 className="section-title">
-                <Icon name="mail" className="icon" />
-                {t("create_invitation_title")}
-              </h2>
-              <p className="field-help">{t("help_invitation_form")}</p>
-
               <label>
                 <span className="label-title">{t("field_event")}</span>
                 <select
@@ -10788,11 +11037,6 @@ function DashboardScreen({
 
             {invitationsWorkspace === "latest" ? (
             <section className="panel panel-list panel-invitations-latest">
-              <h2 className="section-title">
-                <Icon name="mail" className="icon" />
-                {t("latest_invitations_title")}
-              </h2>
-              <p className="field-help">{t("header_invitations_subtitle")}</p>
               <div className="button-row invitation-list-head-actions">
                 <button className="btn btn-ghost btn-sm" type="button" onClick={openInvitationBulkWorkspace}>
                   <Icon name="message" className="icon icon-sm" />
@@ -10900,7 +11144,7 @@ function DashboardScreen({
                     const guestItem = guestsById[invitation.guest_id] || null;
                     const eventItem = eventsById[invitation.event_id] || null;
                     const sharePayload = buildInvitationSharePayload(invitation);
-                    const url = sharePayload?.url || buildAppUrl(`/?token=${invitation.public_token}`);
+                    const url = sharePayload?.url || buildAppUrl(`/rsvp/${encodeURIComponent(invitation.public_token)}`);
                     const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                     return (
                       <li key={invitation.id} className="list-table-row list-row-invitation">

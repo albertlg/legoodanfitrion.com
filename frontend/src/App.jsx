@@ -16,6 +16,7 @@ import { PublicRsvpScreen } from "./screens/public-rsvp-screen";
 const I18N = { es, ca, en, fr, it };
 
 const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact"]);
+const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 
 function normalizePathname(pathname) {
   const normalized = String(pathname || "/").trim() || "/";
@@ -37,40 +38,49 @@ function parseAppRoute(pathname) {
   const normalized = normalizePathname(pathname);
   const segments = normalized.split("/").filter(Boolean).slice(1);
   const section = segments[0] || "overview";
+  const normalizedSegment = String(segments[1] || "").trim().toLowerCase();
 
   if (section === "profile") {
     return { view: "profile" };
   }
 
   if (section === "events") {
-    const segment = segments[1] || "";
-    if (segment === "new") {
+    if (normalizedSegment === "new") {
       return { view: "events", workspace: "create" };
     }
-    if (segment === "insights") {
+    if (normalizedSegment === "insights") {
       return { view: "events", workspace: "insights" };
     }
-    if (segment) {
-      return { view: "events", workspace: "detail", eventId: decodePathSegment(segment) };
+    if (normalizedSegment === "latest" || normalizedSegment === "list" || normalizedSegment === "hub") {
+      return { view: "events", workspace: "latest" };
+    }
+    if (segments[1]) {
+      return { view: "events", workspace: "detail", eventId: decodePathSegment(segments[1]) };
     }
     return { view: "events", workspace: "latest" };
   }
 
   if (section === "guests") {
-    const segment = segments[1] || "";
-    if (segment === "new") {
+    if (normalizedSegment === "new") {
       return { view: "guests", workspace: "create" };
     }
-    if (segment) {
-      return { view: "guests", workspace: "detail", guestId: decodePathSegment(segment) };
+    if (normalizedSegment === "latest" || normalizedSegment === "list" || normalizedSegment === "hub") {
+      return { view: "guests", workspace: "latest" };
+    }
+    if (segments[1]) {
+      const tabSegment = decodePathSegment(segments[2] || "").toLowerCase();
+      const guestProfileTab = GUEST_PROFILE_TABS.has(tabSegment) ? tabSegment : "general";
+      return { view: "guests", workspace: "detail", guestId: decodePathSegment(segments[1]), guestProfileTab };
     }
     return { view: "guests", workspace: "latest" };
   }
 
   if (section === "invitations") {
-    const segment = segments[1] || "";
-    if (segment === "new") {
+    if (normalizedSegment === "new") {
       return { view: "invitations", workspace: "create" };
+    }
+    if (normalizedSegment === "latest" || normalizedSegment === "list" || normalizedSegment === "hub") {
+      return { view: "invitations", workspace: "latest" };
     }
     return { view: "invitations", workspace: "latest" };
   }
@@ -80,6 +90,66 @@ function parseAppRoute(pathname) {
   }
 
   return { view: "overview" };
+}
+
+function buildCanonicalAppPath(appRoute) {
+  const view = String(appRoute?.view || "overview").trim();
+  const workspace = String(appRoute?.workspace || "").trim();
+
+  if (view === "profile") {
+    return "/profile";
+  }
+  if (view === "events") {
+    if (workspace === "create") {
+      return "/app/events/new";
+    }
+    if (workspace === "insights") {
+      return "/app/events/insights";
+    }
+    if (workspace === "detail" && appRoute?.eventId) {
+      return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}`;
+    }
+    return "/app/events";
+  }
+  if (view === "guests") {
+    if (workspace === "create") {
+      return "/app/guests/new";
+    }
+    if (workspace === "detail" && appRoute?.guestId) {
+      const tab = String(appRoute?.guestProfileTab || "general").trim().toLowerCase();
+      if (tab && tab !== "general" && GUEST_PROFILE_TABS.has(tab)) {
+        return `/app/guests/${encodeURIComponent(String(appRoute.guestId).trim())}/${encodeURIComponent(tab)}`;
+      }
+      return `/app/guests/${encodeURIComponent(String(appRoute.guestId).trim())}`;
+    }
+    return "/app/guests";
+  }
+  if (view === "invitations") {
+    if (workspace === "create") {
+      return "/app/invitations/new";
+    }
+    return "/app/invitations";
+  }
+  return "/app";
+}
+
+function getCanonicalPathForRoute(route) {
+  if (!route || typeof route !== "object") {
+    return "/";
+  }
+  if (route.kind === "landing") {
+    return LANDING_PATHS.has(route.path) ? route.path : "/";
+  }
+  if (route.kind === "login") {
+    return "/login";
+  }
+  if (route.kind === "rsvp") {
+    return route.token ? `/rsvp/${encodeURIComponent(route.token)}` : "/";
+  }
+  if (route.kind === "app") {
+    return buildCanonicalAppPath(route.appRoute || { view: "overview" });
+  }
+  return "/";
 }
 
 function getRouteFromLocation() {
@@ -96,6 +166,9 @@ function getRouteFromLocation() {
   }
   if (pathname === "/login") {
     return { kind: "login", path: "/login" };
+  }
+  if (pathname === "/profile") {
+    return { kind: "app", path: "/profile", appRoute: { view: "profile" } };
   }
   if (pathname === "/app" || pathname.startsWith("/app/")) {
     return { kind: "app", path: pathname, appRoute: parseAppRoute(pathname) };
@@ -246,6 +319,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const canonicalPath = getCanonicalPathForRoute(route);
+    const currentPath = normalizePathname(window.location.pathname || "/");
+    if (!canonicalPath || canonicalPath === currentPath) {
+      return;
+    }
+    navigate(canonicalPath, { replace: true });
+  }, [navigate, route]);
+
+  useEffect(() => {
     if (!supabase) {
       setIsLoadingAuth(false);
       return undefined;
@@ -393,6 +475,7 @@ function App() {
       return;
     }
     setLoginPassword("");
+    navigate("/app", { replace: true });
   };
 
   const handleSignUp = async () => {
@@ -440,7 +523,7 @@ function App() {
       return;
     }
     setIsSendingPasswordReset(true);
-    const redirectTo = getAuthRedirectUrl();
+    const redirectTo = getAuthRedirectUrl("/login");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo
     });
@@ -494,7 +577,7 @@ function App() {
     setAuthError("");
     setAccountMessage("");
     setIsSigningInWithGoogle(true);
-    const redirectTo = getAuthRedirectUrl();
+    const redirectTo = getAuthRedirectUrl("/login");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo }
