@@ -439,6 +439,26 @@ const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
   talk: "conversation",
   birthday: "identity"
 };
+const GUEST_ADVANCED_ERROR_FIELDS_BY_TAB = {
+  identity: [
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+    "contact",
+    "relationship",
+    "city",
+    "country",
+    "address",
+    "postalCode",
+    "stateRegion",
+    "company",
+    "twitter",
+    "instagram",
+    "linkedIn"
+  ],
+  health: ["sensitiveConsent"]
+};
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
 const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
 const GUEST_GEO_CACHE_KEY_PREFIX = "legood-guest-geocode";
@@ -1369,6 +1389,7 @@ function DashboardScreen({
   const [guestErrors, setGuestErrors] = useState({});
   const [editingGuestId, setEditingGuestId] = useState("");
   const [isSavingGuest, setIsSavingGuest] = useState(false);
+  const [guestLastSavedAt, setGuestLastSavedAt] = useState("");
   const [importContactsDraft, setImportContactsDraft] = useState("");
   const [importContactsPreview, setImportContactsPreview] = useState([]);
   const [importContactsSearch, setImportContactsSearch] = useState("");
@@ -2464,12 +2485,17 @@ function DashboardScreen({
     [guestAdvancedProfileSignals]
   );
   const guestAdvancedCurrentTabIndex = GUEST_ADVANCED_EDIT_TABS.indexOf(guestAdvancedEditTab);
+  const guestAdvancedCurrentStep = guestAdvancedCurrentTabIndex >= 0 ? guestAdvancedCurrentTabIndex + 1 : 1;
   const guestAdvancedPrevTab =
     guestAdvancedCurrentTabIndex > 0 ? GUEST_ADVANCED_EDIT_TABS[guestAdvancedCurrentTabIndex - 1] : "";
   const guestAdvancedNextTab =
     guestAdvancedCurrentTabIndex >= 0 && guestAdvancedCurrentTabIndex < GUEST_ADVANCED_EDIT_TABS.length - 1
       ? GUEST_ADVANCED_EDIT_TABS[guestAdvancedCurrentTabIndex + 1]
       : "";
+  const guestAdvancedCurrentTabLabel =
+    guestAdvancedEditTabs.find((tabItem) => tabItem.key === guestAdvancedEditTab)?.label ||
+    guestAdvancedEditTabs[0]?.label ||
+    "";
   const guestAdvancedFirstPendingTab = useMemo(
     () => GUEST_ADVANCED_EDIT_TABS.find((tabKey) => !guestAdvancedSignalsBySection[tabKey]?.done) || "",
     [guestAdvancedSignalsBySection]
@@ -2481,6 +2507,12 @@ function DashboardScreen({
     () => getNextBirthdaySummary(guestAdvanced.birthday, language),
     [guestAdvanced.birthday, language]
   );
+  const guestLastSavedLabel = useMemo(() => {
+    if (!guestLastSavedAt) {
+      return t("guest_last_saved_never");
+    }
+    return formatDate(guestLastSavedAt, language, guestLastSavedAt);
+  }, [guestLastSavedAt, language, t]);
   const knownLocationPairs = useMemo(() => {
     const uniqueByKey = new Set();
     const list = [];
@@ -4097,6 +4129,7 @@ function DashboardScreen({
     setGuestCity(guestItem.city || "");
     setGuestCountry(guestItem.country || "");
     setGuestAdvanced(getGuestAdvancedState(guestItem));
+    setGuestLastSavedAt(guestItem.updated_at || guestItem.created_at || "");
     setSelectedGuestAddressPlace(
       guestItem.address
         ? {
@@ -4126,6 +4159,12 @@ function DashboardScreen({
       setGuestAdvancedEditTab("identity");
     }
   }, [guestAdvancedEditTab]);
+
+  useEffect(() => {
+    if (activeView === "guests" && guestsWorkspace === "create" && !editingGuestId) {
+      setGuestLastSavedAt("");
+    }
+  }, [activeView, guestsWorkspace, editingGuestId]);
 
   useEffect(() => {
     if (!eventSettingsStorageKey || !session?.user?.id) {
@@ -5325,11 +5364,116 @@ function DashboardScreen({
       const sectionNode = guestAdvancedSectionRefs.current[normalizedTab];
       if (sectionNode) {
         scrollGuestAdvancedSectionIntoView(sectionNode);
+        const firstField = sectionNode.parentElement?.querySelector(
+          "input:not([type='hidden']), select, textarea"
+        );
+        if (firstField && typeof firstField.focus === "function") {
+          firstField.focus({ preventScroll: true });
+        }
       } else if (guestAdvancedDetailsRef.current) {
         guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 30);
+    }, 40);
   };
+
+  const validateGuestAdvancedStep = useCallback(
+    (tabKey) => {
+      const normalizedTab = String(tabKey || "").trim();
+      const tabErrorFields = GUEST_ADVANCED_ERROR_FIELDS_BY_TAB[normalizedTab] || [];
+      const mergeTabErrors = (nextTabErrors = {}) => {
+        setGuestErrors((prev) => {
+          const next = { ...(prev || {}) };
+          tabErrorFields.forEach((fieldKey) => {
+            delete next[fieldKey];
+          });
+          return { ...next, ...nextTabErrors };
+        });
+      };
+
+      if (normalizedTab === "identity") {
+        const validation = validateGuestForm({
+          firstName: guestFirstName,
+          lastName: guestLastName,
+          email: guestEmail,
+          phone: guestPhone,
+          relationship: guestRelationship,
+          city: guestCity,
+          country: guestCountry,
+          address: guestAdvanced.address,
+          postalCode: guestAdvanced.postalCode,
+          stateRegion: guestAdvanced.stateRegion,
+          company: guestAdvanced.company,
+          twitter: guestAdvanced.twitter,
+          instagram: guestAdvanced.instagram,
+          linkedIn: guestAdvanced.linkedIn
+        });
+        const identityErrors = {};
+        if (!validation.success) {
+          for (const [fieldKey, fieldError] of Object.entries(validation.errors || {})) {
+            if (tabErrorFields.includes(fieldKey)) {
+              identityErrors[fieldKey] = fieldError;
+            }
+          }
+        }
+        mergeTabErrors(identityErrors);
+        if (Object.keys(identityErrors).length > 0) {
+          const firstError = identityErrors[Object.keys(identityErrors)[0]];
+          setGuestMessage(t(firstError || "error_create_guest"));
+          window.setTimeout(() => {
+            const firstInvalid = document.querySelector(".guest-create-form [aria-invalid='true']");
+            if (firstInvalid && typeof firstInvalid.focus === "function") {
+              firstInvalid.focus({ preventScroll: true });
+            }
+          }, 0);
+          return false;
+        }
+        return true;
+      }
+
+      if (normalizedTab === "health") {
+        const allergiesList = toCatalogCodes("allergy", splitListInput(guestAdvanced.allergies));
+        const intolerancesList = toCatalogCodes("intolerance", splitListInput(guestAdvanced.intolerances));
+        const petAllergiesList = uniqueValues(
+          splitListInput(guestAdvanced.petAllergies).map((value) => {
+            const raw = String(value || "").trim();
+            if (!raw) {
+              return "";
+            }
+            const petCode = toCatalogCode("pet", raw);
+            const isKnownPetValue =
+              toCatalogLabel("pet", raw, language) !== raw || toCatalogLabel("pet", petCode, language) !== petCode;
+            if (isKnownPetValue) {
+              return petCode;
+            }
+            return toCatalogCode("allergy", raw);
+          })
+        );
+        const hasSensitiveData = allergiesList.length > 0 || intolerancesList.length > 0 || petAllergiesList.length > 0;
+        if (hasSensitiveData && !guestAdvanced.sensitiveConsent) {
+          mergeTabErrors({ sensitiveConsent: "guest_sensitive_consent_required" });
+          setGuestMessage(t("guest_sensitive_consent_required"));
+          return false;
+        }
+        mergeTabErrors();
+        return true;
+      }
+
+      mergeTabErrors();
+      return true;
+    },
+    [
+      guestFirstName,
+      guestLastName,
+      guestEmail,
+      guestPhone,
+      guestRelationship,
+      guestCity,
+      guestCountry,
+      guestAdvanced,
+      language,
+      t
+    ]
+  );
 
   const handleGoToPreviousGuestAdvancedSection = () => {
     if (!guestAdvancedPrevTab) {
@@ -5338,11 +5482,28 @@ function DashboardScreen({
     scrollToGuestAdvancedSection(guestAdvancedPrevTab);
   };
 
-  const handleGoToNextGuestAdvancedSection = () => {
+  const handleGoToNextGuestAdvancedSection = async () => {
     if (!guestAdvancedNextTab) {
       return;
     }
+    if (!validateGuestAdvancedStep(guestAdvancedEditTab)) {
+      return;
+    }
+    const saveResult = await persistGuest({ refreshAfterSave: false, successMessageMode: "step" });
+    if (!saveResult?.ok) {
+      return;
+    }
     scrollToGuestAdvancedSection(guestAdvancedNextTab);
+  };
+
+  const handleSaveGuestDraft = async () => {
+    if (isSavingGuest) {
+      return;
+    }
+    if (!validateGuestAdvancedStep(guestAdvancedEditTab)) {
+      return;
+    }
+    await persistGuest({ refreshAfterSave: false, successMessageMode: "draft" });
   };
 
   const handleGoToFirstPendingGuestAdvancedSection = () => {
@@ -5975,6 +6136,7 @@ function DashboardScreen({
     setGuestCity(guestItem.city || "");
     setGuestCountry(guestItem.country || "");
     setGuestAdvanced(getGuestAdvancedState(guestItem));
+    setGuestLastSavedAt(guestItem.updated_at || guestItem.created_at || "");
     setSelectedGuestAddressPlace(
       guestItem.address
         ? {
@@ -6004,6 +6166,7 @@ function DashboardScreen({
     setGuestCity("");
     setGuestCountry("");
     setGuestAdvanced(GUEST_ADVANCED_INITIAL_STATE);
+    setGuestLastSavedAt("");
     setSelectedGuestAddressPlace(null);
     setGuestAddressPredictions([]);
     setGuestErrors({});
@@ -6028,10 +6191,9 @@ function DashboardScreen({
     closeMobileMenu();
   };
 
-  const handleSaveGuest = async (event) => {
-    event.preventDefault();
+  const persistGuest = useCallback(async ({ refreshAfterSave = true, successMessageMode = "form" } = {}) => {
     if (!supabase || !session?.user?.id) {
-      return;
+      return { ok: false, savedGuestId: "" };
     }
     setGuestMessage("");
 
@@ -6056,7 +6218,7 @@ function DashboardScreen({
       setGuestErrors(validation.errors);
       const firstError = validation.errors[Object.keys(validation.errors)[0]];
       setGuestMessage(t(firstError || "error_create_guest"));
-      return;
+      return { ok: false, savedGuestId: "" };
     }
 
     const allergiesList = toCatalogCodes("allergy", splitListInput(guestAdvanced.allergies));
@@ -6080,7 +6242,7 @@ function DashboardScreen({
     if (hasSensitiveData && !guestAdvanced.sensitiveConsent) {
       setGuestErrors((prev) => ({ ...prev, sensitiveConsent: "guest_sensitive_consent_required" }));
       setGuestMessage(t("guest_sensitive_consent_required"));
-      return;
+      return { ok: false, savedGuestId: "" };
     }
 
     setGuestErrors({});
@@ -6174,7 +6336,7 @@ function DashboardScreen({
     if (error) {
       setIsSavingGuest(false);
       setGuestMessage(`${isEditingGuest ? t("error_update_guest") : t("error_create_guest")} ${error.message}`);
-      return;
+      return { ok: false, savedGuestId: "" };
     }
 
     const preferencePayload = {
@@ -6273,8 +6435,11 @@ function DashboardScreen({
     setIsSavingGuest(false);
 
     if (relatedDataError) {
+      setGuestLastSavedAt(new Date().toISOString());
       setGuestMessage(`${t("guest_saved_partial_warning")} ${relatedDataError.message}`);
-      await loadDashboardData();
+      if (refreshAfterSave) {
+        await loadDashboardData();
+      }
       if (!savedGuestId) {
         savedGuestId = await resolveCreatedGuestId({
           firstName: guestFirstName.trim(),
@@ -6287,7 +6452,7 @@ function DashboardScreen({
       if (!isEditingGuest && savedGuestId) {
         setEditingGuestId(savedGuestId);
       }
-      return;
+      return { ok: false, savedGuestId };
     }
 
     const resolvedGuestAddress = String(selectedGuestAddressPlace?.formattedAddress || guestAdvanced.address || "").trim();
@@ -6322,12 +6487,23 @@ function DashboardScreen({
     }
 
     if (isEditingGuest) {
-      setGuestMessage(t("guest_updated"));
-      await loadDashboardData();
-      return;
+      setGuestLastSavedAt(new Date().toISOString());
+      if (successMessageMode === "form") {
+        setGuestMessage(t("guest_updated"));
+      } else if (successMessageMode === "step") {
+        setGuestMessage(t("guest_step_saved"));
+      } else if (successMessageMode === "draft") {
+        setGuestMessage(t("guest_draft_saved"));
+      }
+      if (refreshAfterSave) {
+        await loadDashboardData();
+      }
+      return { ok: true, savedGuestId };
     }
 
-    await loadDashboardData();
+    if (refreshAfterSave) {
+      await loadDashboardData();
+    }
     if (!savedGuestId) {
       savedGuestId = await resolveCreatedGuestId({
         firstName: guestFirstName.trim(),
@@ -6339,10 +6515,42 @@ function DashboardScreen({
     }
     if (savedGuestId) {
       setEditingGuestId(savedGuestId);
-      setGuestMessage(t("guest_created_continue_edit"));
+      setSelectedGuestDetailId(savedGuestId);
+      setGuestLastSavedAt(new Date().toISOString());
+      if (successMessageMode === "form") {
+        setGuestMessage(t("guest_created_continue_edit"));
+      } else if (successMessageMode === "step") {
+        setGuestMessage(t("guest_step_saved"));
+      } else if (successMessageMode === "draft") {
+        setGuestMessage(t("guest_draft_saved"));
+      }
     } else {
-      setGuestMessage(t("guest_created_missing_id_warning"));
+      setGuestMessage(successMessageMode === "form" ? t("guest_created_missing_id_warning") : t("error_create_guest"));
+      return { ok: false, savedGuestId: "" };
     }
+    return { ok: true, savedGuestId };
+  }, [
+    editingGuestId,
+    guestAdvanced,
+    guestCity,
+    guestCountry,
+    guestEmail,
+    guestFirstName,
+    guestLastName,
+    guestPhone,
+    guestRelationship,
+    isEditingGuest,
+    language,
+    loadDashboardData,
+    resolveCreatedGuestId,
+    selectedGuestAddressPlace,
+    session?.user?.id,
+    t
+  ]);
+
+  const handleSaveGuest = async (event) => {
+    event.preventDefault();
+    await persistGuest({ refreshAfterSave: true, successMessageMode: "form" });
   };
 
   const handleRequestDeleteEvent = (eventItem) => {
@@ -9272,7 +9480,7 @@ function DashboardScreen({
             ) : (
               <div key={`guests-${guestsWorkspace}`} className="dashboard-grid single-section workspace-content">
             {guestsWorkspace === "create" ? (
-            <form className="panel form-grid" onSubmit={handleSaveGuest} noValidate>
+            <form className="panel form-grid guest-create-form" onSubmit={handleSaveGuest} noValidate>
               <p className="hint">{t("guest_host_potential_hint")}</p>
 
               <section className="recommendation-card">
@@ -9773,6 +9981,12 @@ function DashboardScreen({
                       );
                     })}
                   </div>
+                  <p className="advanced-current-step" aria-live="polite">
+                    <span className="advanced-current-step-index">
+                      {guestAdvancedCurrentStep}/{guestAdvancedEditTabs.length}
+                    </span>
+                    <span className="advanced-current-step-label">{guestAdvancedCurrentTabLabel}</span>
+                  </p>
                   <div className="advanced-nav-row">
                     <p className="item-meta">
                       {interpolateText(t("guest_profile_capture_progress"), {
@@ -9780,6 +9994,11 @@ function DashboardScreen({
                         total: guestAdvancedEditTabs.length,
                         percent: guestAdvancedProfilePercent
                       })}
+                    </p>
+                    <p className="advanced-last-saved">
+                      <Icon name="clock" className="icon icon-xs" />
+                      <span className="advanced-last-saved-label">{t("guest_last_saved_label")}:</span>
+                      <span>{isSavingGuest ? t("guest_saving_draft") : guestLastSavedLabel}</span>
                     </p>
                     <div className="button-row advanced-nav-actions">
                       <button
@@ -9790,13 +10009,18 @@ function DashboardScreen({
                       >
                         {t("pagination_prev")}
                       </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSaveGuestDraft} disabled={isSavingGuest}>
+                        <Icon name="check" className="icon icon-sm" />
+                        {isSavingGuest ? t("guest_saving_draft") : t("guest_save_draft")}
+                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"
                         onClick={handleGoToNextGuestAdvancedSection}
-                        disabled={!guestAdvancedNextTab}
+                        disabled={!guestAdvancedNextTab || isSavingGuest}
                       >
-                        {t("pagination_next")}
+                        <Icon name="check" className="icon icon-sm" />
+                        {t("guest_wizard_validate_next")}
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -9816,7 +10040,8 @@ function DashboardScreen({
                   </div>
                 </div>
                 <div className="advanced-grid">
-                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "identity"}>
+                  {guestAdvancedEditTab === "identity" ? (
+                  <section className="advanced-section-block">
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "identity" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -9966,7 +10191,9 @@ function DashboardScreen({
                     <FieldMeta errorText={guestErrors.linkedIn ? t(guestErrors.linkedIn) : ""} />
                   </label>
                   </section>
-                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "food"}>
+                  ) : null}
+                  {guestAdvancedEditTab === "food" ? (
+                  <section className="advanced-section-block">
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "food" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -10054,7 +10281,9 @@ function DashboardScreen({
                   t={t}
                   />
                   </section>
-                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "lifestyle"}>
+                  ) : null}
+                  {guestAdvancedEditTab === "lifestyle" ? (
+                  <section className="advanced-section-block">
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "lifestyle" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -10188,7 +10417,9 @@ function DashboardScreen({
                   t={t}
                   />
                   </section>
-                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "conversation"}>
+                  ) : null}
+                  {guestAdvancedEditTab === "conversation" ? (
+                  <section className="advanced-section-block">
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "conversation" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -10217,7 +10448,9 @@ function DashboardScreen({
                     />
                   </label>
                   </section>
-                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "health"}>
+                  ) : null}
+                  {guestAdvancedEditTab === "health" ? (
+                  <section className="advanced-section-block">
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "health" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -10267,6 +10500,7 @@ function DashboardScreen({
                     errorText={guestErrors.sensitiveConsent ? t(guestErrors.sensitiveConsent) : ""}
                   />
                   </section>
+                  ) : null}
                 </div>
               </details>
 
