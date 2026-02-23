@@ -8525,7 +8525,14 @@ function DashboardScreen({
               </p>
               <div className="detail-head detail-head-rich">
                 <div className="detail-head-primary">
-                  <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+                  <div className="detail-head-title-row">
+                    <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+                    {selectedEventDetail ? (
+                      <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>
+                        {statusText(t, selectedEventDetail.status)}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="detail-meta-inline">
                     <span>
                       <Icon name="calendar" className="icon icon-sm" />
@@ -10175,11 +10182,18 @@ function DashboardScreen({
               </p>
               <div className="detail-head detail-head-rich">
                 <div className="detail-head-primary">
-                  <h2 className="section-title detail-title">
-                    {selectedGuestDetail
-                      ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
-                      : t("guest_detail_title")}
-                  </h2>
+                  <div className="detail-head-title-row">
+                    <h2 className="section-title detail-title">
+                      {selectedGuestDetail
+                        ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
+                        : t("guest_detail_title")}
+                    </h2>
+                    {selectedGuestDetail?.relationship ? (
+                      <span className="status-pill status-host-conversion-source-default">
+                        {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="detail-meta-inline">
                     <span>
                       <Icon name="mail" className="icon icon-sm" />
@@ -10779,6 +10793,16 @@ function DashboardScreen({
                 {t("latest_invitations_title")}
               </h2>
               <p className="field-help">{t("header_invitations_subtitle")}</p>
+              <div className="button-row invitation-list-head-actions">
+                <button className="btn btn-ghost btn-sm" type="button" onClick={openInvitationBulkWorkspace}>
+                  <Icon name="message" className="icon icon-sm" />
+                  {t("invitation_bulk_title")}
+                </button>
+                <button className="btn btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
+                  <Icon name="mail" className="icon icon-sm" />
+                  {t("quick_create_invitation")}
+                </button>
+              </div>
               <div className="list-tools">
                 <label>
                   <span className="label-title">{t("search")}</span>
@@ -10850,7 +10874,15 @@ function DashboardScreen({
               </p>
               <InlineMessage text={invitationMessage} />
               {filteredInvitations.length === 0 ? (
-                <p>{t("no_invitations")}</p>
+                <div className="empty-list-state">
+                  <p>{t("no_invitations")}</p>
+                  <div className="button-row">
+                    <button className="btn btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
+                      <Icon name="mail" className="icon icon-sm" />
+                      {t("quick_create_invitation")}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                 <div className="list-table-shell">

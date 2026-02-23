@@ -70,6 +70,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const invitationOrganizer = String(
     invitation?.host_name || invitation?.host_display_name || invitation?.organizer_name || t("app_name")
   ).trim();
+  const invitationLocationMapsUrl = invitationLocation
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(invitationLocation)}`
+    : "";
   const dietaryOptions = useMemo(
     () => [
       { value: "gluten_free", label: t("rsvp_dietary_gluten_free") },
@@ -221,7 +224,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               </p>
             </section>
             <form className="rsvp-layout" onSubmit={handleSubmit} aria-labelledby="rsvp-form-title">
-              <article className="panel rsvp-panel">
+              <article className="panel rsvp-panel rsvp-panel-summary">
                 <h2 id="rsvp-form-title" className="section-title">
                   <Icon name="calendar" className="icon" />
                   {t("field_event")}
@@ -254,9 +257,17 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     </p>
                   ) : null}
                 </div>
+                {invitationLocationMapsUrl ? (
+                  <div className="button-row">
+                    <a className="btn btn-ghost btn-sm" href={invitationLocationMapsUrl} target="_blank" rel="noreferrer">
+                      <Icon name="location" className="icon icon-sm" />
+                      {t("map_open_external")}
+                    </a>
+                  </div>
+                ) : null}
               </article>
 
-              <article className="panel rsvp-panel">
+              <article className="panel rsvp-panel rsvp-panel-response">
                 <h2 className="section-title">
                   <Icon name="check" className="icon" />
                   {t("rsvp_title")}
@@ -277,7 +288,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
                 <fieldset className="rsvp-choice-fieldset">
                   <legend className="label-title">
-                    <Icon name="calendar" className="icon icon-sm" />
+                    <Icon name="check" className="icon icon-sm" />
                     {t("rsvp_question")}
                   </legend>
                   <div className="rsvp-choice-grid" role="radiogroup" aria-label={t("rsvp_question")}>
@@ -311,6 +322,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                   </div>
                 </fieldset>
 
+                <div className="rsvp-divider" aria-hidden="true" />
+
                 <div className="rsvp-plus-one-row">
                   <label className="rsvp-inline-toggle">
                     <input
@@ -318,7 +331,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                       checked={plusOne}
                       onChange={(event) => setPlusOne(event.target.checked)}
                     />
-                    <span>{t("rsvp_plus_one_question")}</span>
+                    <span className="rsvp-toggle-control" aria-hidden="true">
+                      <span />
+                    </span>
+                    <span className="rsvp-toggle-copy">{t("rsvp_plus_one_question")}</span>
                   </label>
                   <p className="field-help">{t("rsvp_plus_one_hint")}</p>
                 </div>

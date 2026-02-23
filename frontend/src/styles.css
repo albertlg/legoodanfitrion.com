@@ -1374,6 +1374,14 @@ h2 {
   border-radius: 16px;
 }
 
+.rsvp-panel-summary {
+  background: color-mix(in srgb, var(--panel-bg) 92%, var(--surface-soft) 8%);
+}
+
+.rsvp-panel-response {
+  background: var(--panel-bg);
+}
+
 .rsvp-meta-list {
   display: grid;
   gap: 0.6rem;
@@ -1408,6 +1416,13 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
+}
+
+.rsvp-divider {
+  height: 1px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 86%, transparent 14%);
+  margin: -0.05rem 0 0.05rem;
 }
 
 .rsvp-choice-btn {
@@ -1475,10 +1490,51 @@ h2 {
 }
 
 .rsvp-inline-toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.rsvp-toggle-control {
+  width: 2.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  background: color-mix(in srgb, var(--surface-soft) 84%, var(--panel-bg) 16%);
+  padding: 0.1rem;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.rsvp-toggle-control > span {
   width: 1rem;
   height: 1rem;
-  accent-color: var(--primary);
-  margin: 0;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.24);
+  transform: translateX(0);
+  transition: transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.rsvp-inline-toggle input[type="checkbox"]:checked + .rsvp-toggle-control {
+  background: color-mix(in srgb, var(--primary) 36%, var(--panel-bg) 64%);
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border) 38%);
+}
+
+.rsvp-inline-toggle input[type="checkbox"]:checked + .rsvp-toggle-control > span {
+  transform: translateX(1rem);
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 80%, var(--border) 20%);
+}
+
+.rsvp-toggle-copy {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
 }
 
 .rsvp-dietary-field {
@@ -1518,6 +1574,15 @@ h2 {
   color: #fde68a;
   background: rgba(234, 179, 8, 0.22);
   border-color: rgba(250, 204, 21, 0.44);
+}
+
+:root[data-theme="dark"] .rsvp-toggle-control {
+  background: color-mix(in srgb, var(--surface-soft) 60%, var(--panel-bg) 40%);
+  border-color: color-mix(in srgb, var(--border) 70%, var(--primary) 30%);
+}
+
+:root[data-theme="dark"] .rsvp-toggle-control > span {
+  background: color-mix(in srgb, var(--panel-bg) 72%, #fff 28%);
 }
 
 .dashboard-grid {
@@ -2848,6 +2913,13 @@ h2 {
   gap: 0.45rem;
 }
 
+.detail-head-title-row {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .detail-title {
   margin: 0;
 }
@@ -3099,6 +3171,7 @@ h2 {
 
 .invitation-list-head-actions {
   margin-top: 0.35rem;
+  justify-content: flex-end;
 }
 
 .checklist-list {
@@ -4310,6 +4383,13 @@ textarea {
   text-underline-offset: 0.12em;
 }
 
+.empty-list-state {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  padding: 0.35rem 0;
+}
+
 .item-title {
   margin: 0;
   font-size: 1rem;
@@ -5120,6 +5200,15 @@ code {
   .invitation-actions .btn-icon-only {
     min-width: 2.1rem;
     flex: 0 0 auto;
+  }
+
+  .invitation-list-head-actions {
+    justify-content: stretch;
+  }
+
+  .invitation-list-head-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
   .advanced-grid,
