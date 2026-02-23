@@ -429,6 +429,16 @@ const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
 const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
 const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
 const GUEST_ADVANCED_EDIT_TABS = ["identity", "food", "lifestyle", "conversation", "health"];
+const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
+  diet: "food",
+  menu: "food",
+  drink: "food",
+  health: "health",
+  music: "lifestyle",
+  moment: "lifestyle",
+  talk: "conversation",
+  birthday: "identity"
+};
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
 const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
 const GUEST_GEO_CACHE_KEY_PREFIX = "legood-guest-geocode";
@@ -1182,7 +1192,8 @@ function normalizeDashboardRouteState(appRoute) {
     invitationsWorkspace: "latest",
     selectedEventDetailId: "",
     selectedGuestDetailId: "",
-    guestProfileViewTab: "general"
+    guestProfileViewTab: "general",
+    guestAdvancedEditTab: "identity"
   };
   if (!appRoute || typeof appRoute !== "object") {
     return next;
@@ -1210,6 +1221,10 @@ function normalizeDashboardRouteState(appRoute) {
     if (GUEST_PROFILE_VIEW_TABS.includes(nextGuestProfileTab)) {
       next.guestProfileViewTab = nextGuestProfileTab;
     }
+    const nextGuestAdvancedTab = String(appRoute.guestAdvancedTab || "").trim().toLowerCase();
+    if (GUEST_ADVANCED_EDIT_TABS.includes(nextGuestAdvancedTab)) {
+      next.guestAdvancedEditTab = nextGuestAdvancedTab;
+    }
   }
   if (view === "invitations") {
     if (["latest", "create"].includes(workspace)) {
@@ -1230,7 +1245,9 @@ function buildDashboardPathFromState({
   invitationsWorkspace,
   selectedEventDetailId,
   selectedGuestDetailId,
-  guestProfileViewTab
+  guestProfileViewTab,
+  guestAdvancedEditTab,
+  editingGuestId
 }) {
   if (activeView === "overview") {
     return "/app";
@@ -1252,7 +1269,12 @@ function buildDashboardPathFromState({
   }
   if (activeView === "guests") {
     if (guestsWorkspace === "create") {
-      return "/app/guests/new";
+      const tab = String(guestAdvancedEditTab || "identity").trim().toLowerCase();
+      const safeTab = GUEST_ADVANCED_EDIT_TABS.includes(tab) ? tab : "identity";
+      if (editingGuestId) {
+        return `/app/guests/${encodePathSegment(editingGuestId)}/edit/advanced/${encodePathSegment(safeTab)}`;
+      }
+      return `/app/guests/new/advanced/${encodePathSegment(safeTab)}`;
     }
     if (guestsWorkspace === "detail" && selectedGuestDetailId) {
       const tab = String(guestProfileViewTab || "general").trim().toLowerCase();
@@ -1318,7 +1340,7 @@ function DashboardScreen({
   const [isGuestAddressLoading, setIsGuestAddressLoading] = useState(false);
   const [selectedGuestAddressPlace, setSelectedGuestAddressPlace] = useState(null);
   const [openGuestAdvancedOnCreate, setOpenGuestAdvancedOnCreate] = useState(false);
-  const [guestAdvancedEditTab, setGuestAdvancedEditTab] = useState("identity");
+  const [guestAdvancedEditTab, setGuestAdvancedEditTab] = useState(initialRouteState.guestAdvancedEditTab || "identity");
   const [eventMessage, setEventMessage] = useState("");
   const [eventErrors, setEventErrors] = useState({});
   const [editingEventId, setEditingEventId] = useState("");
@@ -1328,6 +1350,7 @@ function DashboardScreen({
   const geocoderRef = useRef(null);
   const guestGeocodePendingRef = useRef(new Set());
   const guestAdvancedDetailsRef = useRef(null);
+  const guestAdvancedToolbarRef = useRef(null);
   const guestAdvancedSectionRefs = useRef({});
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
@@ -2436,6 +2459,24 @@ function DashboardScreen({
   const guestPriorityTotal = Math.max(1, guestPrioritySignals.length);
   const guestPriorityPercent = Math.round((guestPriorityCompleted / guestPriorityTotal) * 100);
   const guestPriorityMissing = guestPrioritySignals.filter((item) => !item.done);
+  const guestAdvancedSignalsBySection = useMemo(
+    () => Object.fromEntries(guestAdvancedProfileSignals.map((item) => [item.key, item])),
+    [guestAdvancedProfileSignals]
+  );
+  const guestAdvancedCurrentTabIndex = GUEST_ADVANCED_EDIT_TABS.indexOf(guestAdvancedEditTab);
+  const guestAdvancedPrevTab =
+    guestAdvancedCurrentTabIndex > 0 ? GUEST_ADVANCED_EDIT_TABS[guestAdvancedCurrentTabIndex - 1] : "";
+  const guestAdvancedNextTab =
+    guestAdvancedCurrentTabIndex >= 0 && guestAdvancedCurrentTabIndex < GUEST_ADVANCED_EDIT_TABS.length - 1
+      ? GUEST_ADVANCED_EDIT_TABS[guestAdvancedCurrentTabIndex + 1]
+      : "";
+  const guestAdvancedFirstPendingTab = useMemo(
+    () => GUEST_ADVANCED_EDIT_TABS.find((tabKey) => !guestAdvancedSignalsBySection[tabKey]?.done) || "",
+    [guestAdvancedSignalsBySection]
+  );
+  const guestAdvancedFirstPendingLabel = guestAdvancedFirstPendingTab
+    ? guestAdvancedSignalsBySection[guestAdvancedFirstPendingTab]?.label || ""
+    : "";
   const guestNextBirthday = useMemo(
     () => getNextBirthdaySummary(guestAdvanced.birthday, language),
     [guestAdvanced.birthday, language]
@@ -3913,6 +3954,12 @@ function DashboardScreen({
       setGuestProfileViewTab((prev) =>
         prev === (nextRoute.guestProfileViewTab || "general") ? prev : nextRoute.guestProfileViewTab || "general"
       );
+      setGuestAdvancedEditTab((prev) =>
+        prev === (nextRoute.guestAdvancedEditTab || "identity") ? prev : nextRoute.guestAdvancedEditTab || "identity"
+      );
+      if (nextRoute.guestsWorkspace === "create") {
+        setOpenGuestAdvancedOnCreate(true);
+      }
     }
     if (nextRoute.activeView === "invitations") {
       setInvitationsWorkspace((prev) =>
@@ -3930,7 +3977,9 @@ function DashboardScreen({
         invitationsWorkspace,
         selectedEventDetailId,
         selectedGuestDetailId,
-        guestProfileViewTab
+        guestProfileViewTab,
+        guestAdvancedEditTab,
+        editingGuestId
       }),
     [
       activeView,
@@ -3939,9 +3988,62 @@ function DashboardScreen({
       invitationsWorkspace,
       selectedEventDetailId,
       selectedGuestDetailId,
-      guestProfileViewTab
+      guestProfileViewTab,
+      guestAdvancedEditTab,
+      editingGuestId
     ]
   );
+
+  const getGuestAdvancedState = useCallback((guestItem) => {
+    const preferenceItem = guestPreferencesById[guestItem?.id] || {};
+    const sensitiveItem = guestSensitiveById[guestItem?.id] || {};
+    const hasSensitiveValues =
+      toList(sensitiveItem.allergies).length > 0 ||
+      toList(sensitiveItem.intolerances).length > 0 ||
+      toList(sensitiveItem.pet_allergies).length > 0;
+
+    return {
+      address: guestItem?.address || "",
+      postalCode: guestItem?.postal_code || "",
+      stateRegion: guestItem?.state_region || "",
+      company: guestItem?.company || "",
+      birthday: guestItem?.birthday || "",
+      twitter: guestItem?.twitter || "",
+      instagram: guestItem?.instagram || "",
+      linkedIn: guestItem?.linkedin || "",
+      lastMeetAt: guestItem?.last_meet_at || "",
+      experienceTypes: listToInput(toCatalogLabels("experience_type", preferenceItem.experience_types || [], language)),
+      preferredGuestRelationships: listToInput(
+        toCatalogLabels("relationship", preferenceItem.preferred_guest_relationships || [], language)
+      ),
+      preferredDayMoments: listToInput(toCatalogLabels("day_moment", preferenceItem.preferred_day_moments || [], language)),
+      periodicity: toCatalogLabel("periodicity", preferenceItem.periodicity, language),
+      cuisineTypes: listToInput(toCatalogLabels("cuisine_type", preferenceItem.cuisine_types || [], language)),
+      dietType: toCatalogLabel("diet_type", preferenceItem.diet_type, language),
+      tastingPreferences: listToInput(
+        toCatalogLabels("tasting_preference", preferenceItem.tasting_preferences || [], language)
+      ),
+      foodLikes: listToInput(preferenceItem.food_likes),
+      foodDislikes: listToInput(preferenceItem.food_dislikes),
+      drinkLikes: listToInput(toCatalogLabels("drink", preferenceItem.drink_likes || [], language)),
+      drinkDislikes: listToInput(toCatalogLabels("drink", preferenceItem.drink_dislikes || [], language)),
+      allergies: listToInput(toCatalogLabels("allergy", sensitiveItem.allergies || [], language)),
+      intolerances: listToInput(toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)),
+      petAllergies: listToInput(toPetAllergyLabels(sensitiveItem.pet_allergies || [], language)),
+      pets: listToInput(toCatalogLabels("pet", preferenceItem.pets || [], language)),
+      musicGenres: listToInput(toCatalogLabels("music_genre", preferenceItem.music_genres || [], language)),
+      favoriteColor: toCatalogLabel("color", preferenceItem.favorite_color, language),
+      books: listToInput(preferenceItem.books),
+      movies: listToInput(preferenceItem.movies),
+      series: listToInput(preferenceItem.series),
+      sports: listToInput(toCatalogLabels("sport", preferenceItem.sports || [], language)),
+      teamFan: preferenceItem.team_fan || "",
+      punctuality: toCatalogLabel("punctuality", preferenceItem.punctuality, language),
+      lastTalkTopic: preferenceItem.last_talk_topic || "",
+      tabooTopics: listToInput(preferenceItem.taboo_topics),
+      sensitiveConsent: Boolean(sensitiveItem.consent_granted || hasSensitiveValues)
+    };
+  }, [guestPreferencesById, guestSensitiveById, language]);
 
   useEffect(() => {
     if (applyingExternalRouteRef.current) {
@@ -3974,6 +4076,44 @@ function DashboardScreen({
     }, 40);
     return () => window.clearTimeout(timer);
   }, [openGuestAdvancedOnCreate, activeView, guestsWorkspace]);
+
+  useEffect(() => {
+    if (activeView !== "guests" || guestsWorkspace !== "create") {
+      return;
+    }
+    if (!selectedGuestDetailId || editingGuestId === selectedGuestDetailId || guests.length === 0) {
+      return;
+    }
+    const guestItem = guests.find((item) => item.id === selectedGuestDetailId);
+    if (!guestItem) {
+      return;
+    }
+    setEditingGuestId(guestItem.id);
+    setGuestFirstName(guestItem.first_name || "");
+    setGuestLastName(guestItem.last_name || "");
+    setGuestEmail(guestItem.email || "");
+    setGuestPhone(guestItem.phone || "");
+    setGuestRelationship(toCatalogLabel("relationship", guestItem.relationship, language));
+    setGuestCity(guestItem.city || "");
+    setGuestCountry(guestItem.country || "");
+    setGuestAdvanced(getGuestAdvancedState(guestItem));
+    setSelectedGuestAddressPlace(
+      guestItem.address
+        ? {
+            placeId: null,
+            formattedAddress: guestItem.address,
+            lat: null,
+            lng: null
+          }
+        : null
+    );
+    setGuestAddressPredictions([]);
+    setGuestErrors({});
+    setGuestMessage("");
+    const nextTab = GUEST_ADVANCED_EDIT_TABS.includes(guestAdvancedEditTab) ? guestAdvancedEditTab : "identity";
+    setGuestAdvancedEditTab(nextTab);
+    setOpenGuestAdvancedOnCreate(true);
+  }, [activeView, guestsWorkspace, selectedGuestDetailId, editingGuestId, guests, guestAdvancedEditTab, language, getGuestAdvancedState]);
 
   useEffect(() => {
     if (!GUEST_PROFILE_VIEW_TABS.includes(guestProfileViewTab)) {
@@ -4403,57 +4543,6 @@ function DashboardScreen({
 
   const handleAdvancedMultiSelectChange = (field, nextValue) => {
     setGuestAdvancedField(field, nextValue);
-  };
-
-  const getGuestAdvancedState = (guestItem) => {
-    const preferenceItem = guestPreferencesById[guestItem?.id] || {};
-    const sensitiveItem = guestSensitiveById[guestItem?.id] || {};
-    const hasSensitiveValues =
-      toList(sensitiveItem.allergies).length > 0 ||
-      toList(sensitiveItem.intolerances).length > 0 ||
-      toList(sensitiveItem.pet_allergies).length > 0;
-
-    return {
-      address: guestItem?.address || "",
-      postalCode: guestItem?.postal_code || "",
-      stateRegion: guestItem?.state_region || "",
-      company: guestItem?.company || "",
-      birthday: guestItem?.birthday || "",
-      twitter: guestItem?.twitter || "",
-      instagram: guestItem?.instagram || "",
-      linkedIn: guestItem?.linkedin || "",
-      lastMeetAt: guestItem?.last_meet_at || "",
-      experienceTypes: listToInput(toCatalogLabels("experience_type", preferenceItem.experience_types || [], language)),
-      preferredGuestRelationships: listToInput(
-        toCatalogLabels("relationship", preferenceItem.preferred_guest_relationships || [], language)
-      ),
-      preferredDayMoments: listToInput(toCatalogLabels("day_moment", preferenceItem.preferred_day_moments || [], language)),
-      periodicity: toCatalogLabel("periodicity", preferenceItem.periodicity, language),
-      cuisineTypes: listToInput(toCatalogLabels("cuisine_type", preferenceItem.cuisine_types || [], language)),
-      dietType: toCatalogLabel("diet_type", preferenceItem.diet_type, language),
-      tastingPreferences: listToInput(
-        toCatalogLabels("tasting_preference", preferenceItem.tasting_preferences || [], language)
-      ),
-      foodLikes: listToInput(preferenceItem.food_likes),
-      foodDislikes: listToInput(preferenceItem.food_dislikes),
-      drinkLikes: listToInput(toCatalogLabels("drink", preferenceItem.drink_likes || [], language)),
-      drinkDislikes: listToInput(toCatalogLabels("drink", preferenceItem.drink_dislikes || [], language)),
-      allergies: listToInput(toCatalogLabels("allergy", sensitiveItem.allergies || [], language)),
-      intolerances: listToInput(toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)),
-      petAllergies: listToInput(toPetAllergyLabels(sensitiveItem.pet_allergies || [], language)),
-      pets: listToInput(toCatalogLabels("pet", preferenceItem.pets || [], language)),
-      musicGenres: listToInput(toCatalogLabels("music_genre", preferenceItem.music_genres || [], language)),
-      favoriteColor: toCatalogLabel("color", preferenceItem.favorite_color, language),
-      books: listToInput(preferenceItem.books),
-      movies: listToInput(preferenceItem.movies),
-      series: listToInput(preferenceItem.series),
-      sports: listToInput(toCatalogLabels("sport", preferenceItem.sports || [], language)),
-      teamFan: preferenceItem.team_fan || "",
-      punctuality: toCatalogLabel("punctuality", preferenceItem.punctuality, language),
-      lastTalkTopic: preferenceItem.last_talk_topic || "",
-      tabooTopics: listToInput(preferenceItem.taboo_topics),
-      sensitiveConsent: Boolean(sensitiveItem.consent_granted || hasSensitiveValues)
-    };
   };
 
   const setWorkspaceByView = (viewKey, workspaceKey) => {
@@ -5203,6 +5292,26 @@ function DashboardScreen({
     setGuestAdvancedEditTab("identity");
   };
 
+  const scrollGuestAdvancedSectionIntoView = useCallback((sectionNode) => {
+    if (!sectionNode) {
+      return;
+    }
+    const toolbarNode = guestAdvancedToolbarRef.current;
+    const toolbarHeight = toolbarNode ? toolbarNode.getBoundingClientRect().height : 0;
+    const toolbarTopOffset = toolbarNode
+      ? Number.parseFloat(window.getComputedStyle(toolbarNode).top || "0") || 0
+      : 0;
+    const safeSpacing = 12;
+    const sectionTop = window.scrollY + sectionNode.getBoundingClientRect().top;
+    const targetTop = Math.max(0, sectionTop - toolbarHeight - toolbarTopOffset - safeSpacing);
+    window.scrollTo({ top: targetTop, behavior: "smooth" });
+  }, []);
+
+  const getGuestAdvancedSectionFromPriorityKey = useCallback((priorityKey) => {
+    const normalizedKey = String(priorityKey || "").trim();
+    return GUEST_ADVANCED_PRIORITY_SECTION_MAP[normalizedKey] || "identity";
+  }, []);
+
   const scrollToGuestAdvancedSection = (tabKey) => {
     const normalizedTab = String(tabKey || "").trim();
     if (!GUEST_ADVANCED_EDIT_TABS.includes(normalizedTab)) {
@@ -5212,10 +5321,35 @@ function DashboardScreen({
     if (guestAdvancedDetailsRef.current) {
       guestAdvancedDetailsRef.current.open = true;
     }
-    const sectionNode = guestAdvancedSectionRefs.current[normalizedTab];
-    if (sectionNode) {
-      sectionNode.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      const sectionNode = guestAdvancedSectionRefs.current[normalizedTab];
+      if (sectionNode) {
+        scrollGuestAdvancedSectionIntoView(sectionNode);
+      } else if (guestAdvancedDetailsRef.current) {
+        guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 30);
+  };
+
+  const handleGoToPreviousGuestAdvancedSection = () => {
+    if (!guestAdvancedPrevTab) {
+      return;
     }
+    scrollToGuestAdvancedSection(guestAdvancedPrevTab);
+  };
+
+  const handleGoToNextGuestAdvancedSection = () => {
+    if (!guestAdvancedNextTab) {
+      return;
+    }
+    scrollToGuestAdvancedSection(guestAdvancedNextTab);
+  };
+
+  const handleGoToFirstPendingGuestAdvancedSection = () => {
+    if (!guestAdvancedFirstPendingTab) {
+      return;
+    }
+    scrollToGuestAdvancedSection(guestAdvancedFirstPendingTab);
   };
 
   const handleClearImportContacts = () => {
@@ -5825,7 +5959,7 @@ function DashboardScreen({
     await refreshSharedProfileData();
   };
 
-  const handleStartEditGuest = (guestItem, { openAdvanced = false } = {}) => {
+  const handleStartEditGuest = (guestItem, { openAdvanced = false, preferredAdvancedTab = "identity" } = {}) => {
     if (!guestItem) {
       return;
     }
@@ -5854,12 +5988,14 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
-    setGuestAdvancedEditTab("identity");
+    const nextTab = GUEST_ADVANCED_EDIT_TABS.includes(preferredAdvancedTab) ? preferredAdvancedTab : "identity";
+    setGuestAdvancedEditTab(nextTab);
     setOpenGuestAdvancedOnCreate(Boolean(openAdvanced));
   };
 
   const handleCancelEditGuest = () => {
     setEditingGuestId("");
+    setSelectedGuestDetailId("");
     setGuestFirstName("");
     setGuestLastName("");
     setGuestEmail("");
@@ -9550,9 +9686,14 @@ function DashboardScreen({
                     {guestAdvancedProfileSignals
                       .filter((item) => !item.done)
                       .map((item) => (
-                        <span key={item.key} className="multi-chip readonly">
+                        <button
+                          key={item.key}
+                          type="button"
+                          className="multi-chip"
+                          onClick={() => scrollToGuestAdvancedSection(item.key)}
+                        >
                           {item.label}
-                        </span>
+                        </button>
                       ))}
                   </div>
                 ) : (
@@ -9581,9 +9722,14 @@ function DashboardScreen({
                     <p className="hint">{t("guest_profile_priority_next_label")}</p>
                     <div className="multi-chip-group">
                       {guestPriorityMissing.slice(0, 5).map((item) => (
-                        <span key={item.key} className="multi-chip readonly">
+                        <button
+                          key={item.key}
+                          type="button"
+                          className="multi-chip"
+                          onClick={() => scrollToGuestAdvancedSection(getGuestAdvancedSectionFromPriorityKey(item.key))}
+                        >
                           {item.label}
-                        </span>
+                        </button>
                       ))}
                     </div>
                     <div className="button-row">
@@ -9598,23 +9744,79 @@ function DashboardScreen({
               </section>
 
               <details ref={guestAdvancedDetailsRef} className="advanced-form">
-                <summary>{t("guest_advanced_title")}</summary>
+                <summary>
+                  <span>{t("guest_advanced_title")}</span>
+                  <span className="advanced-summary-progress">{guestAdvancedProfilePercent}%</span>
+                </summary>
                 <p className="field-help">{t("guest_advanced_hint")}</p>
-                <div className="profile-tabs advanced-profile-tabs" role="tablist" aria-label={t("guest_advanced_title")}>
-                  {guestAdvancedEditTabs.map((tabItem) => (
-                    <button
-                      key={tabItem.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={guestAdvancedEditTab === tabItem.key}
-                      className={`profile-tab ${guestAdvancedEditTab === tabItem.key ? "active" : ""}`}
-                      onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
-                    >
-                      {tabItem.label}
-                    </button>
-                  ))}
+                <div className="advanced-form-toolbar" ref={guestAdvancedToolbarRef}>
+                  <div className="profile-tabs advanced-profile-tabs" role="tablist" aria-label={t("guest_advanced_title")}>
+                    {guestAdvancedEditTabs.map((tabItem) => {
+                      const isCompleted = Boolean(guestAdvancedSignalsBySection[tabItem.key]?.done);
+                      const statusLabel = isCompleted ? t("status_completed") : t("status_pending");
+                      return (
+                        <button
+                          key={tabItem.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={guestAdvancedEditTab === tabItem.key}
+                          aria-label={`${tabItem.label}. ${statusLabel}`}
+                          title={`${tabItem.label}. ${statusLabel}`}
+                          className={`profile-tab ${guestAdvancedEditTab === tabItem.key ? "active" : ""}`}
+                          onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
+                        >
+                          <span className="profile-tab-text">{tabItem.label}</span>
+                          <span className={`profile-tab-state ${isCompleted ? "is-done" : "is-pending"}`} aria-hidden="true">
+                            <Icon name={isCompleted ? "check" : "clock"} className="icon icon-xs" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="advanced-nav-row">
+                    <p className="item-meta">
+                      {interpolateText(t("guest_profile_capture_progress"), {
+                        done: guestAdvancedProfileCompleted,
+                        total: guestAdvancedEditTabs.length,
+                        percent: guestAdvancedProfilePercent
+                      })}
+                    </p>
+                    <div className="button-row advanced-nav-actions">
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={handleGoToPreviousGuestAdvancedSection}
+                        disabled={!guestAdvancedPrevTab}
+                      >
+                        {t("pagination_prev")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={handleGoToNextGuestAdvancedSection}
+                        disabled={!guestAdvancedNextTab}
+                      >
+                        {t("pagination_next")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={handleGoToFirstPendingGuestAdvancedSection}
+                        disabled={!guestAdvancedFirstPendingTab}
+                        title={
+                          guestAdvancedFirstPendingLabel
+                            ? `${t("guest_advanced_jump_pending")} ${guestAdvancedFirstPendingLabel}`
+                            : t("guest_advanced_jump_pending")
+                        }
+                      >
+                        <Icon name="sparkle" className="icon icon-sm" />
+                        {t("guest_advanced_jump_pending")}
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className="advanced-grid">
+                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "identity"}>
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "identity" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -9763,6 +9965,8 @@ function DashboardScreen({
                     />
                     <FieldMeta errorText={guestErrors.linkedIn ? t(guestErrors.linkedIn) : ""} />
                   </label>
+                  </section>
+                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "food"}>
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "food" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -9849,6 +10053,8 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
+                  </section>
+                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "lifestyle"}>
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "lifestyle" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -9981,6 +10187,8 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
+                  </section>
+                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "conversation"}>
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "conversation" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -10008,6 +10216,8 @@ function DashboardScreen({
                       placeholder={t("placeholder_list_comma")}
                     />
                   </label>
+                  </section>
+                  <section className="advanced-section-block" hidden={guestAdvancedEditTab !== "health"}>
                   <p
                     className={`advanced-grid-heading ${guestAdvancedEditTab === "health" ? "is-active" : ""}`}
                     ref={(node) => {
@@ -10044,19 +10254,20 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
-                </div>
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(guestAdvanced.sensitiveConsent)}
-                    onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)}
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(guestAdvanced.sensitiveConsent)}
+                      onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)}
+                    />
+                    <span>{t("field_sensitive_consent")}</span>
+                  </label>
+                  <FieldMeta
+                    helpText={t("guest_sensitive_consent_hint")}
+                    errorText={guestErrors.sensitiveConsent ? t(guestErrors.sensitiveConsent) : ""}
                   />
-                  <span>{t("field_sensitive_consent")}</span>
-                </label>
-                <FieldMeta
-                  helpText={t("guest_sensitive_consent_hint")}
-                  errorText={guestErrors.sensitiveConsent ? t(guestErrors.sensitiveConsent) : ""}
-                />
+                  </section>
+                </div>
               </details>
 
               <datalist id="guest-city-options">

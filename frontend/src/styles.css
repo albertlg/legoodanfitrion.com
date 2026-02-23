@@ -3107,6 +3107,9 @@ h2 {
 }
 
 .profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
@@ -3117,6 +3120,34 @@ h2 {
   padding: 0.56rem 0.82rem;
   cursor: pointer;
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.profile-tab-text {
+  white-space: nowrap;
+}
+
+.profile-tab-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 72%, transparent 28%);
+  color: var(--text-muted);
+}
+
+.profile-tab-state.is-done {
+  border-color: color-mix(in srgb, var(--success) 48%, var(--border) 52%);
+  background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%);
+  color: var(--success);
+}
+
+.profile-tab-state.is-pending {
+  border-color: color-mix(in srgb, var(--warning) 44%, var(--border) 56%);
+  background: color-mix(in srgb, var(--warning) 14%, var(--surface) 86%);
+  color: color-mix(in srgb, var(--warning) 82%, var(--title) 18%);
 }
 
 .profile-tab:hover {
@@ -3544,6 +3575,34 @@ h2 {
   border-radius: 12px;
   padding: 0.65rem 0.75rem;
   background: var(--surface-soft);
+  overflow: visible;
+}
+
+.advanced-form-toolbar {
+  position: sticky;
+  top: 0.55rem;
+  z-index: 8;
+  display: grid;
+  min-width: 0;
+  gap: 0.55rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-bg) 86%, transparent 14%);
+}
+
+.advanced-summary-progress {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.65rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 36%, var(--border) 64%);
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface) 84%);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .contact-import-box textarea {
@@ -3648,6 +3707,9 @@ h2 {
 }
 
 .advanced-form summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   cursor: pointer;
   font-weight: 700;
   color: var(--title);
@@ -3659,9 +3721,16 @@ h2 {
 }
 
 .advanced-grid {
+  display: block;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.advanced-section-block {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
+  min-width: 0;
 }
 
 .advanced-grid-heading {
@@ -3680,6 +3749,45 @@ h2 {
 
 .advanced-profile-tabs {
   margin: 0.2rem 0 0.65rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  flex-wrap: nowrap;
+  overflow-x: visible;
+  row-gap: 0.32rem;
+}
+
+.advanced-profile-tabs .profile-tab {
+  max-width: 100%;
+  width: 100%;
+  justify-content: center;
+}
+
+.advanced-profile-tabs .profile-tab-text {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.advanced-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.advanced-nav-row .item-meta {
+  margin: 0;
+}
+
+.advanced-nav-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.advanced-nav-actions .btn {
+  min-width: 0;
 }
 
 .profile-capture-card {
@@ -5335,6 +5443,30 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .advanced-section-block {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-form-toolbar {
+    top: 0.2rem;
+    padding: 0.35rem;
+  }
+
+  .advanced-nav-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .advanced-nav-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .advanced-nav-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
   .event-builder-shell {
     grid-template-columns: 1fr;
   }
@@ -5446,6 +5578,11 @@ code {
   .profile-tab {
     font-size: 0.74rem;
     padding: 0.48rem 0.62rem;
+  }
+
+  .profile-tab-state {
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
   .detail-meta-inline {

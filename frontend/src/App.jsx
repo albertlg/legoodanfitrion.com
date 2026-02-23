@@ -17,6 +17,7 @@ const I18N = { es, ca, en, fr, it };
 
 const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
+const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
 
 function normalizePathname(pathname) {
   const normalized = String(pathname || "/").trim() || "/";
@@ -62,7 +63,24 @@ function parseAppRoute(pathname) {
 
   if (section === "guests") {
     if (normalizedSegment === "new") {
-      return { view: "guests", workspace: "create" };
+      const advancedSegment = decodePathSegment(segments[2] || "").toLowerCase();
+      const stepSegment = decodePathSegment(segments[3] || "").toLowerCase();
+      if (advancedSegment === "advanced") {
+        const guestAdvancedTab = GUEST_ADVANCED_EDIT_TABS.has(stepSegment) ? stepSegment : "identity";
+        return { view: "guests", workspace: "create", guestAdvancedTab };
+      }
+      return { view: "guests", workspace: "create", guestAdvancedTab: "identity" };
+    }
+    if (segments[1] && String(segments[2] || "").trim().toLowerCase() === "edit") {
+      const advancedSegment = decodePathSegment(segments[3] || "").toLowerCase();
+      const stepSegment = decodePathSegment(segments[4] || "").toLowerCase();
+      const guestAdvancedTab = advancedSegment === "advanced" && GUEST_ADVANCED_EDIT_TABS.has(stepSegment) ? stepSegment : "identity";
+      return {
+        view: "guests",
+        workspace: "create",
+        guestId: decodePathSegment(segments[1]),
+        guestAdvancedTab
+      };
     }
     if (normalizedSegment === "latest" || normalizedSegment === "list" || normalizedSegment === "hub") {
       return { view: "guests", workspace: "latest" };
@@ -113,7 +131,12 @@ function buildCanonicalAppPath(appRoute) {
   }
   if (view === "guests") {
     if (workspace === "create") {
-      return "/app/guests/new";
+      const tab = String(appRoute?.guestAdvancedTab || "identity").trim().toLowerCase();
+      const safeTab = GUEST_ADVANCED_EDIT_TABS.has(tab) ? tab : "identity";
+      if (appRoute?.guestId) {
+        return `/app/guests/${encodeURIComponent(String(appRoute.guestId).trim())}/edit/advanced/${encodeURIComponent(safeTab)}`;
+      }
+      return `/app/guests/new/advanced/${encodeURIComponent(safeTab)}`;
     }
     if (workspace === "detail" && appRoute?.guestId) {
       const tab = String(appRoute?.guestProfileTab || "general").trim().toLowerCase();

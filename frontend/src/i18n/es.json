@@ -886,6 +886,7 @@
   "guest_advanced_section_lifestyle": "Lifestyle y afinidades",
   "guest_advanced_section_health": "Salud y restricciones",
   "guest_advanced_section_conversation": "Conversación y vínculo",
+  "guest_advanced_jump_pending": "Ir al primer bloque pendiente",
   "birthday_event_create": "Crear evento de cumpleaños",
   "birthday_event_missing": "Añade fecha de cumpleaños para generar un evento automático.",
   "birthday_event_prefilled": "Evento de cumpleaños preconfigurado. Revisa y publica cuando quieras.",

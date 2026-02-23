@@ -886,6 +886,7 @@
   "guest_advanced_section_lifestyle": "Estil de vida i afinitats",
   "guest_advanced_section_health": "Salut i restriccions",
   "guest_advanced_section_conversation": "Conversació i vincle",
+  "guest_advanced_jump_pending": "Ves al primer bloc pendent",
   "birthday_event_create": "Crear esdeveniment d'aniversari",
   "birthday_event_missing": "Afegeix data d'aniversari per generar un esdeveniment automàtic.",
   "birthday_event_prefilled": "Esdeveniment d'aniversari preconfigurat. Revisa'l i publica'l quan vulguis.",
