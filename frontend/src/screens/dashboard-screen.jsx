@@ -74,6 +74,28 @@ function formatShortDate(dateText, language, fallbackText) {
   }
 }
 
+function formatLongDate(dateText, language, fallbackText) {
+  if (!dateText) {
+    return fallbackText;
+  }
+  try {
+    return new Date(dateText).toLocaleDateString(language, { day: "2-digit", month: "long", year: "numeric" });
+  } catch {
+    return new Date(dateText).toLocaleDateString();
+  }
+}
+
+function formatTimeLabel(dateText, language, fallbackText) {
+  if (!dateText) {
+    return fallbackText;
+  }
+  try {
+    return new Date(dateText).toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return new Date(dateText).toLocaleTimeString();
+  }
+}
+
 function formatRelativeDate(dateText, language, fallbackText) {
   if (!dateText) {
     return fallbackText;
@@ -296,18 +318,115 @@ function buildHostingPlaybookActions(eventInsights, t) {
   return actions.slice(0, 6);
 }
 
+function buildEventMealPlan(eventInsights, t) {
+  const guestCount = Math.max(1, Number(eventInsights?.consideredGuestsCount || 0));
+  const foodBase = uniqueValues(
+    Array.isArray(eventInsights?.foodSuggestions) ? eventInsights.foodSuggestions : []
+  );
+  const drinkBase = uniqueValues(
+    Array.isArray(eventInsights?.drinkSuggestions) ? eventInsights.drinkSuggestions : []
+  );
+  const avoidBase = uniqueValues(
+    Array.isArray(eventInsights?.avoidItems) ? eventInsights.avoidItems : []
+  );
+
+  const menuItems = (foodBase.length > 0 ? foodBase : [t("event_menu_fallback_food_1"), t("event_menu_fallback_food_2")]).slice(
+    0,
+    4
+  );
+  const drinkItems = (drinkBase.length > 0 ? drinkBase : [t("event_menu_fallback_drink_1"), t("event_menu_fallback_drink_2")]).slice(
+    0,
+    3
+  );
+
+  const recipeCards = menuItems.slice(0, 3).map((item, index) => ({
+    id: `${index + 1}-${item}`,
+    title: interpolateText(t("event_menu_recipe_card_title"), { index: index + 1 }),
+    subtitle: item,
+    note: interpolateText(t("event_menu_recipe_card_note"), {
+      portions: Math.max(4, Math.ceil(guestCount * 0.9))
+    })
+  }));
+
+  const shoppingChecklist = [
+    ...menuItems.map((item) =>
+      interpolateText(t("event_menu_shopping_food_item"), {
+        item,
+        amount: Math.max(2, Math.ceil(guestCount * 0.35))
+      })
+    ),
+    ...drinkItems.map((item) =>
+      interpolateText(t("event_menu_shopping_drink_item"), {
+        item,
+        amount: Math.max(2, Math.ceil(guestCount * 0.65))
+      })
+    )
+  ];
+
+  if (avoidBase.length > 0) {
+    shoppingChecklist.push(
+      interpolateText(t("event_menu_shopping_avoid_item"), {
+        items: avoidBase.slice(0, 6).join(", ")
+      })
+    );
+  }
+
+  shoppingChecklist.push(
+    eventInsights?.timingRecommendation === "start_with_buffer"
+      ? t("event_menu_shopping_timing_buffer")
+      : t("event_menu_shopping_timing_on_time")
+  );
+
+  return {
+    recipeCards,
+    shoppingChecklist
+  };
+}
+
+function buildHostInvitePayload(guestItem, t) {
+  const guestLabel = `${guestItem?.first_name || ""} ${guestItem?.last_name || ""}`.trim() || t("field_guest");
+  const signupUrl = buildAppUrl(
+    `/login?invite_guest=${encodeURIComponent(String(guestItem?.id || ""))}&invite_source=host`
+  );
+  const inviteText = interpolateText(t("host_invite_message_template"), {
+    guest: guestLabel,
+    url: signupUrl
+  });
+  const inviteSubject = interpolateText(t("host_invite_email_subject"), {
+    guest: guestLabel
+  });
+  const guestEmail = String(guestItem?.email || "").trim();
+  return {
+    guestLabel,
+    signupUrl,
+    inviteText,
+    inviteSubject,
+    whatsappUrl: `https://wa.me/?text=${encodeURIComponent(inviteText)}`,
+    emailUrl: `mailto:${guestEmail}?subject=${encodeURIComponent(inviteSubject)}&body=${encodeURIComponent(inviteText)}`
+  };
+}
+
+function hasGuestHealthAlerts(sensitiveItem) {
+  return (
+    toList(sensitiveItem?.allergies).length > 0 ||
+    toList(sensitiveItem?.intolerances).length > 0 ||
+    toList(sensitiveItem?.pet_allergies).length > 0
+  );
+}
+
 const VIEW_CONFIG = [
   { key: "overview", icon: "sparkle", labelKey: "nav_overview" },
   { key: "events", icon: "calendar", labelKey: "nav_events" },
   { key: "guests", icon: "user", labelKey: "nav_guests" },
   { key: "invitations", icon: "mail", labelKey: "nav_invitations" }
 ];
-const EVENTS_PAGE_SIZE = 5;
+const EVENTS_PAGE_SIZE_DEFAULT = 5;
 const GUESTS_PAGE_SIZE_DEFAULT = 10;
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 const IMPORT_PREVIEW_PAGE_SIZE_DEFAULT = 20;
 const IMPORT_PREVIEW_PAGE_SIZE_OPTIONS = [10, 20, 50];
-const INVITATIONS_PAGE_SIZE = 8;
+const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
+const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
 const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
 const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
 const GUEST_GEO_CACHE_KEY_PREFIX = "legood-guest-geocode";
@@ -1053,6 +1172,94 @@ function GeoPointsMapPanel({ mapsStatus, mapsError, points, title, hint, emptyTe
   );
 }
 
+function normalizeDashboardRouteState(appRoute) {
+  const next = {
+    activeView: "overview",
+    eventsWorkspace: "latest",
+    guestsWorkspace: "latest",
+    invitationsWorkspace: "latest",
+    selectedEventDetailId: "",
+    selectedGuestDetailId: ""
+  };
+  if (!appRoute || typeof appRoute !== "object") {
+    return next;
+  }
+
+  const view = String(appRoute.view || "").trim();
+  if (!["overview", "profile", "events", "guests", "invitations"].includes(view)) {
+    return next;
+  }
+  next.activeView = view;
+
+  const workspace = String(appRoute.workspace || "").trim();
+  if (view === "events") {
+    if (["latest", "create", "detail", "insights"].includes(workspace)) {
+      next.eventsWorkspace = workspace;
+    }
+    next.selectedEventDetailId = String(appRoute.eventId || "").trim();
+  }
+  if (view === "guests") {
+    if (["latest", "create", "detail"].includes(workspace)) {
+      next.guestsWorkspace = workspace;
+    }
+    next.selectedGuestDetailId = String(appRoute.guestId || "").trim();
+  }
+  if (view === "invitations") {
+    if (["latest", "create"].includes(workspace)) {
+      next.invitationsWorkspace = workspace;
+    }
+  }
+  return next;
+}
+
+function encodePathSegment(segment) {
+  return encodeURIComponent(String(segment || "").trim());
+}
+
+function buildDashboardPathFromState({
+  activeView,
+  eventsWorkspace,
+  guestsWorkspace,
+  invitationsWorkspace,
+  selectedEventDetailId,
+  selectedGuestDetailId
+}) {
+  if (activeView === "overview") {
+    return "/app";
+  }
+  if (activeView === "profile") {
+    return "/app/profile";
+  }
+  if (activeView === "events") {
+    if (eventsWorkspace === "create") {
+      return "/app/events/new";
+    }
+    if (eventsWorkspace === "insights") {
+      return "/app/events/insights";
+    }
+    if (eventsWorkspace === "detail" && selectedEventDetailId) {
+      return `/app/events/${encodePathSegment(selectedEventDetailId)}`;
+    }
+    return "/app/events";
+  }
+  if (activeView === "guests") {
+    if (guestsWorkspace === "create") {
+      return "/app/guests/new";
+    }
+    if (guestsWorkspace === "detail" && selectedGuestDetailId) {
+      return `/app/guests/${encodePathSegment(selectedGuestDetailId)}`;
+    }
+    return "/app/guests";
+  }
+  if (activeView === "invitations") {
+    if (invitationsWorkspace === "create") {
+      return "/app/invitations/new";
+    }
+    return "/app/invitations";
+  }
+  return "/app";
+}
+
 function DashboardScreen({
   t,
   language,
@@ -1061,18 +1268,22 @@ function DashboardScreen({
   setThemeMode,
   session,
   onSignOut,
-  onPreferencesSynced
+  onPreferencesSynced,
+  appRoute,
+  appPath,
+  onNavigateApp
 }) {
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Madrid", []);
-  const [activeView, setActiveView] = useState("overview");
+  const initialRouteState = useMemo(() => normalizeDashboardRouteState(appRoute), [appRoute]);
+  const [activeView, setActiveView] = useState(initialRouteState.activeView);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [mobileExpandedView, setMobileExpandedView] = useState("overview");
+  const [mobileExpandedView, setMobileExpandedView] = useState(initialRouteState.activeView);
   const [mobileMenuDepth, setMobileMenuDepth] = useState("root");
-  const [eventsWorkspace, setEventsWorkspace] = useState("latest");
-  const [guestsWorkspace, setGuestsWorkspace] = useState("latest");
-  const [invitationsWorkspace, setInvitationsWorkspace] = useState("latest");
-  const [selectedEventDetailId, setSelectedEventDetailId] = useState("");
-  const [selectedGuestDetailId, setSelectedGuestDetailId] = useState("");
+  const [eventsWorkspace, setEventsWorkspace] = useState(initialRouteState.eventsWorkspace);
+  const [guestsWorkspace, setGuestsWorkspace] = useState(initialRouteState.guestsWorkspace);
+  const [invitationsWorkspace, setInvitationsWorkspace] = useState(initialRouteState.invitationsWorkspace);
+  const [selectedEventDetailId, setSelectedEventDetailId] = useState(initialRouteState.selectedEventDetailId);
+  const [selectedGuestDetailId, setSelectedGuestDetailId] = useState(initialRouteState.selectedGuestDetailId);
 
   const [eventTitle, setEventTitle] = useState("");
   const [eventType, setEventType] = useState("");
@@ -1105,6 +1316,7 @@ function DashboardScreen({
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
+  const applyingExternalRouteRef = useRef(false);
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
@@ -1181,11 +1393,13 @@ function DashboardScreen({
   const [lastInvitationShareSubject, setLastInvitationShareSubject] = useState("");
   const [bulkInvitationGuestIds, setBulkInvitationGuestIds] = useState([]);
   const [bulkInvitationSearch, setBulkInvitationSearch] = useState("");
+  const [bulkInvitationSegment, setBulkInvitationSegment] = useState("all");
   const [isCreatingBulkInvitations, setIsCreatingBulkInvitations] = useState(false);
   const [eventSearch, setEventSearch] = useState("");
   const [eventStatusFilter, setEventStatusFilter] = useState("all");
   const [eventSort, setEventSort] = useState("created_desc");
   const [eventPage, setEventPage] = useState(1);
+  const [eventPageSize, setEventPageSize] = useState(EVENTS_PAGE_SIZE_DEFAULT);
   const [guestSearch, setGuestSearch] = useState("");
   const [guestContactFilter, setGuestContactFilter] = useState("all");
   const [guestSort, setGuestSort] = useState("created_desc");
@@ -1194,6 +1408,7 @@ function DashboardScreen({
   const [invitationStatusFilter, setInvitationStatusFilter] = useState("all");
   const [invitationSort, setInvitationSort] = useState("created_desc");
   const [invitationPage, setInvitationPage] = useState(1);
+  const [invitationPageSize, setInvitationPageSize] = useState(INVITATIONS_PAGE_SIZE_DEFAULT);
   const [showInvitationBulkActions, setShowInvitationBulkActions] = useState(false);
   const [guestPageSize, setGuestPageSize] = useState(GUESTS_PAGE_SIZE_DEFAULT);
   const [eventsMapFocusId, setEventsMapFocusId] = useState("");
@@ -1715,17 +1930,70 @@ function DashboardScreen({
     () => guests.filter((guestItem) => !invitedGuestIdsForSelectedEvent.has(guestItem.id)),
     [guests, invitedGuestIdsForSelectedEvent]
   );
+  const bulkSegmentCounts = useMemo(() => {
+    const totals = {
+      all: availableGuestsForSelectedEvent.length,
+      high_potential: 0,
+      health_sensitive: 0,
+      no_invites: 0,
+      converted_hosts: 0
+    };
+    for (const guestItem of availableGuestsForSelectedEvent) {
+      const hasContact = Boolean(guestItem.email || guestItem.phone);
+      const hasConversion = Boolean(guestHostConversionById[guestItem.id]);
+      const hasHealthAlerts = hasGuestHealthAlerts(guestSensitiveById[guestItem.id] || {});
+      const invitationCount = Number(guestEventCountByGuestId[guestItem.id] || 0);
+      if (hasContact && !hasConversion) {
+        totals.high_potential += 1;
+      }
+      if (hasHealthAlerts) {
+        totals.health_sensitive += 1;
+      }
+      if (!invitationCount) {
+        totals.no_invites += 1;
+      }
+      if (hasConversion) {
+        totals.converted_hosts += 1;
+      }
+    }
+    return totals;
+  }, [availableGuestsForSelectedEvent, guestEventCountByGuestId, guestHostConversionById, guestSensitiveById]);
   const bulkFilteredGuests = useMemo(() => {
     const term = bulkInvitationSearch.trim().toLowerCase();
-    if (!term) {
-      return availableGuestsForSelectedEvent;
-    }
     return availableGuestsForSelectedEvent.filter((guestItem) => {
+      const hasContact = Boolean(guestItem.email || guestItem.phone);
+      const hasConversion = Boolean(guestHostConversionById[guestItem.id]);
+      const hasHealthAlerts = hasGuestHealthAlerts(guestSensitiveById[guestItem.id] || {});
+      const invitationCount = Number(guestEventCountByGuestId[guestItem.id] || 0);
+
+      if (bulkInvitationSegment === "high_potential" && (!hasContact || hasConversion)) {
+        return false;
+      }
+      if (bulkInvitationSegment === "health_sensitive" && !hasHealthAlerts) {
+        return false;
+      }
+      if (bulkInvitationSegment === "no_invites" && invitationCount > 0) {
+        return false;
+      }
+      if (bulkInvitationSegment === "converted_hosts" && !hasConversion) {
+        return false;
+      }
+
+      if (!term) {
+        return true;
+      }
       const fullName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim();
       const haystack = `${fullName} ${guestItem.email || ""} ${guestItem.phone || ""} ${guestItem.city || ""}`.toLowerCase();
       return haystack.includes(term);
     });
-  }, [availableGuestsForSelectedEvent, bulkInvitationSearch]);
+  }, [
+    availableGuestsForSelectedEvent,
+    bulkInvitationSearch,
+    bulkInvitationSegment,
+    guestEventCountByGuestId,
+    guestHostConversionById,
+    guestSensitiveById
+  ]);
   const allGuestsAlreadyInvitedForSelectedEvent =
     guests.length > 0 && availableGuestsForSelectedEvent.length === 0;
   const latestEventPreview = useMemo(
@@ -1780,18 +2048,6 @@ function DashboardScreen({
         })),
     [invitations, guestNamesById, eventNamesById, language, t]
   );
-  const nextScheduledEvent = useMemo(() => {
-    const nowMs = Date.now();
-    return events
-      .filter((eventItem) => {
-        if (!eventItem?.start_at) {
-          return false;
-        }
-        const eventMs = new Date(eventItem.start_at).getTime();
-        return Number.isFinite(eventMs) && eventMs >= nowMs;
-      })
-      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0] || null;
-  }, [events]);
   const upcomingEventsPreview = useMemo(() => {
     const nowMs = Date.now();
     return events
@@ -2294,6 +2550,13 @@ function DashboardScreen({
     () => getSuggestedEventSettingsFromInsights(eventBuilderInsights),
     [eventBuilderInsights]
   );
+  const eventBuilderMealPlan = useMemo(() => buildEventMealPlan(eventBuilderInsights, t), [eventBuilderInsights, t]);
+  const eventBuilderShoppingChecklistText = useMemo(() => {
+    if (!eventBuilderMealPlan.shoppingChecklist.length) {
+      return "";
+    }
+    return [t("event_menu_shopping_title"), ...eventBuilderMealPlan.shoppingChecklist.map((item) => `- ${item}`)].join("\n");
+  }, [eventBuilderMealPlan.shoppingChecklist, t]);
   const invitationCountForEditingEvent = useMemo(() => {
     if (!editingEventId) {
       return 0;
@@ -2584,6 +2847,15 @@ function DashboardScreen({
     }
     return totals;
   }, [selectedEventDetailInvitations]);
+  const selectedEventDetailPrimaryShare = useMemo(() => {
+    for (const invitationItem of selectedEventDetailInvitations) {
+      const payload = buildInvitationSharePayload(invitationItem);
+      if (payload?.url) {
+        return payload;
+      }
+    }
+    return null;
+  }, [selectedEventDetailInvitations, buildInvitationSharePayload]);
   const selectedEventDetailGuests = useMemo(
     () =>
       selectedEventDetailInvitations.map((invitationItem) => {
@@ -2704,6 +2976,25 @@ function DashboardScreen({
         return bTime - aTime;
       });
   }, [invitations, selectedGuestDetail?.id]);
+  const selectedGuestDetailStatusCounts = useMemo(() => {
+    const totals = { pending: 0, yes: 0, no: 0, maybe: 0 };
+    for (const invitationItem of selectedGuestDetailInvitations) {
+      const status = String(invitationItem.status || "pending").toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(totals, status)) {
+        totals[status] += 1;
+      } else {
+        totals.pending += 1;
+      }
+    }
+    return totals;
+  }, [selectedGuestDetailInvitations]);
+  const selectedGuestDetailRespondedRate = useMemo(() => {
+    if (selectedGuestDetailInvitations.length === 0) {
+      return 0;
+    }
+    const responded = selectedGuestDetailInvitations.filter((item) => String(item.status || "pending") !== "pending").length;
+    return Math.round((responded / selectedGuestDetailInvitations.length) * 100);
+  }, [selectedGuestDetailInvitations]);
   const selectedGuestDetailGroups = useMemo(() => {
     if (!selectedGuestDetail) {
       return [];
@@ -2745,6 +3036,33 @@ function DashboardScreen({
       }
     ];
     return groups.map((group) => ({ ...group, values: uniqueValues(group.values || []) })).filter((group) => group.values.length > 0);
+  }, [language, selectedGuestDetail, selectedGuestDetailPreference, selectedGuestDetailSensitive, t]);
+  const selectedGuestDetailTags = useMemo(
+    () => uniqueValues(selectedGuestDetailGroups.flatMap((group) => group.values || [])).slice(0, 8),
+    [selectedGuestDetailGroups]
+  );
+  const selectedGuestDetailNotes = useMemo(() => {
+    if (!selectedGuestDetail) {
+      return [];
+    }
+    const preferenceItem = selectedGuestDetailPreference || {};
+    const sensitiveItem = selectedGuestDetailSensitive || {};
+    const notes = [];
+    if (preferenceItem.last_talk_topic) {
+      notes.push(`${t("field_last_talk_topic")}: ${preferenceItem.last_talk_topic}`);
+    }
+    const tabooTopics = toList(preferenceItem.taboo_topics || []);
+    if (tabooTopics.length > 0) {
+      notes.push(`${t("field_taboo_topics")}: ${tabooTopics.slice(0, 3).join(", ")}`);
+    }
+    const alerts = uniqueValues([
+      ...toCatalogLabels("allergy", sensitiveItem.allergies || [], language),
+      ...toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)
+    ]);
+    if (alerts.length > 0) {
+      notes.push(`${t("event_detail_alerts_title")}: ${alerts.slice(0, 3).join(", ")}`);
+    }
+    return notes.slice(0, 4);
   }, [language, selectedGuestDetail, selectedGuestDetailPreference, selectedGuestDetailSensitive, t]);
   const selectedGuestHostingRecommendations = useMemo(() => {
     if (!selectedGuestDetail) {
@@ -2915,14 +3233,14 @@ function DashboardScreen({
     return list;
   }, [invitations, invitationSearch, invitationStatusFilter, invitationSort, eventNamesById, guestNamesById]);
 
-  const eventTotalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PAGE_SIZE));
+  const eventTotalPages = Math.max(1, Math.ceil(filteredEvents.length / eventPageSize));
   const guestTotalPages = Math.max(1, Math.ceil(filteredGuests.length / guestPageSize));
-  const invitationTotalPages = Math.max(1, Math.ceil(filteredInvitations.length / INVITATIONS_PAGE_SIZE));
+  const invitationTotalPages = Math.max(1, Math.ceil(filteredInvitations.length / invitationPageSize));
 
   const pagedEvents = useMemo(() => {
-    const start = (eventPage - 1) * EVENTS_PAGE_SIZE;
-    return filteredEvents.slice(start, start + EVENTS_PAGE_SIZE);
-  }, [filteredEvents, eventPage]);
+    const start = (eventPage - 1) * eventPageSize;
+    return filteredEvents.slice(start, start + eventPageSize);
+  }, [filteredEvents, eventPage, eventPageSize]);
 
   const pagedGuests = useMemo(() => {
     const start = (guestPage - 1) * guestPageSize;
@@ -2930,9 +3248,9 @@ function DashboardScreen({
   }, [filteredGuests, guestPage, guestPageSize]);
 
   const pagedInvitations = useMemo(() => {
-    const start = (invitationPage - 1) * INVITATIONS_PAGE_SIZE;
-    return filteredInvitations.slice(start, start + INVITATIONS_PAGE_SIZE);
-  }, [filteredInvitations, invitationPage]);
+    const start = (invitationPage - 1) * invitationPageSize;
+    return filteredInvitations.slice(start, start + invitationPageSize);
+  }, [filteredInvitations, invitationPage, invitationPageSize]);
   const selectedLatestInvitations = useMemo(
     () => selectedLatestInvitationIds.map((invitationId) => invitationsById[invitationId]).filter(Boolean),
     [selectedLatestInvitationIds, invitationsById]
@@ -3446,7 +3764,7 @@ function DashboardScreen({
 
   useEffect(() => {
     setEventPage(1);
-  }, [eventSearch, eventStatusFilter, eventSort]);
+  }, [eventSearch, eventStatusFilter, eventSort, eventPageSize]);
 
   useEffect(() => {
     setGuestPage(1);
@@ -3454,7 +3772,55 @@ function DashboardScreen({
 
   useEffect(() => {
     setInvitationPage(1);
-  }, [invitationSearch, invitationStatusFilter, invitationSort]);
+  }, [invitationSearch, invitationStatusFilter, invitationSort, invitationPageSize]);
+
+  useEffect(() => {
+    const nextRoute = normalizeDashboardRouteState(appRoute);
+    applyingExternalRouteRef.current = true;
+    setActiveView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
+    setMobileExpandedView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
+    if (nextRoute.activeView === "events") {
+      setEventsWorkspace((prev) => (prev === nextRoute.eventsWorkspace ? prev : nextRoute.eventsWorkspace));
+      if (nextRoute.selectedEventDetailId) {
+        setSelectedEventDetailId((prev) => (prev === nextRoute.selectedEventDetailId ? prev : nextRoute.selectedEventDetailId));
+      }
+    }
+    if (nextRoute.activeView === "guests") {
+      setGuestsWorkspace((prev) => (prev === nextRoute.guestsWorkspace ? prev : nextRoute.guestsWorkspace));
+      if (nextRoute.selectedGuestDetailId) {
+        setSelectedGuestDetailId((prev) => (prev === nextRoute.selectedGuestDetailId ? prev : nextRoute.selectedGuestDetailId));
+      }
+    }
+    if (nextRoute.activeView === "invitations") {
+      setInvitationsWorkspace((prev) =>
+        prev === nextRoute.invitationsWorkspace ? prev : nextRoute.invitationsWorkspace
+      );
+    }
+  }, [appRoute]);
+
+  const dashboardPath = useMemo(
+    () =>
+      buildDashboardPathFromState({
+        activeView,
+        eventsWorkspace,
+        guestsWorkspace,
+        invitationsWorkspace,
+        selectedEventDetailId,
+        selectedGuestDetailId
+      }),
+    [activeView, eventsWorkspace, guestsWorkspace, invitationsWorkspace, selectedEventDetailId, selectedGuestDetailId]
+  );
+
+  useEffect(() => {
+    if (applyingExternalRouteRef.current) {
+      applyingExternalRouteRef.current = false;
+      return;
+    }
+    if (typeof onNavigateApp !== "function") {
+      return;
+    }
+    onNavigateApp(dashboardPath);
+  }, [dashboardPath, onNavigateApp]);
 
   useEffect(() => {
     if (!eventSettingsStorageKey || !session?.user?.id) {
@@ -3549,6 +3915,9 @@ function DashboardScreen({
       if (typeof parsed?.eventSort === "string") {
         setEventSort(parsed.eventSort);
       }
+      if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.eventPageSize))) {
+        setEventPageSize(Number(parsed.eventPageSize));
+      }
       if (typeof parsed?.guestSearch === "string") {
         setGuestSearch(parsed.guestSearch);
       }
@@ -3570,36 +3939,45 @@ function DashboardScreen({
       if (typeof parsed?.invitationSort === "string") {
         setInvitationSort(parsed.invitationSort);
       }
+      if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.invitationPageSize))) {
+        setInvitationPageSize(Number(parsed.invitationPageSize));
+      }
+      const isRootAppPath = String(appPath || "/app").trim() === "/app";
       const validViews = [...VIEW_CONFIG.map((item) => item.key), "profile"];
-      if (typeof parsed?.activeView === "string" && validViews.includes(parsed.activeView)) {
-        setActiveView(parsed.activeView);
-      }
-      const validEventsWorkspace = getWorkspaceItemsByView("events", true).map((item) => item.key);
-      if (typeof parsed?.eventsWorkspace === "string" && validEventsWorkspace.includes(parsed.eventsWorkspace)) {
-        setEventsWorkspace(parsed.eventsWorkspace === "hub" ? "latest" : parsed.eventsWorkspace);
-      }
-      const validGuestsWorkspace = getWorkspaceItemsByView("guests", true).map((item) => item.key);
-      if (typeof parsed?.guestsWorkspace === "string" && validGuestsWorkspace.includes(parsed.guestsWorkspace)) {
-        setGuestsWorkspace(parsed.guestsWorkspace === "hub" ? "latest" : parsed.guestsWorkspace);
-      }
-      const validInvitationsWorkspace = getWorkspaceItemsByView("invitations", true).map((item) => item.key);
-      if (
-        typeof parsed?.invitationsWorkspace === "string" &&
-        validInvitationsWorkspace.includes(parsed.invitationsWorkspace)
-      ) {
-        setInvitationsWorkspace(parsed.invitationsWorkspace === "hub" ? "latest" : parsed.invitationsWorkspace);
-      }
-      if (typeof parsed?.mobileExpandedView === "string" && validViews.includes(parsed.mobileExpandedView)) {
-        setMobileExpandedView(parsed.mobileExpandedView);
+      if (isRootAppPath) {
+        if (typeof parsed?.activeView === "string" && validViews.includes(parsed.activeView)) {
+          setActiveView(parsed.activeView);
+        }
+        const validEventsWorkspace = getWorkspaceItemsByView("events", true).map((item) => item.key);
+        if (typeof parsed?.eventsWorkspace === "string" && validEventsWorkspace.includes(parsed.eventsWorkspace)) {
+          setEventsWorkspace(parsed.eventsWorkspace === "hub" ? "latest" : parsed.eventsWorkspace);
+        }
+        const validGuestsWorkspace = getWorkspaceItemsByView("guests", true).map((item) => item.key);
+        if (typeof parsed?.guestsWorkspace === "string" && validGuestsWorkspace.includes(parsed.guestsWorkspace)) {
+          setGuestsWorkspace(parsed.guestsWorkspace === "hub" ? "latest" : parsed.guestsWorkspace);
+        }
+        const validInvitationsWorkspace = getWorkspaceItemsByView("invitations", true).map((item) => item.key);
+        if (
+          typeof parsed?.invitationsWorkspace === "string" &&
+          validInvitationsWorkspace.includes(parsed.invitationsWorkspace)
+        ) {
+          setInvitationsWorkspace(parsed.invitationsWorkspace === "hub" ? "latest" : parsed.invitationsWorkspace);
+        }
+        if (typeof parsed?.mobileExpandedView === "string" && validViews.includes(parsed.mobileExpandedView)) {
+          setMobileExpandedView(parsed.mobileExpandedView);
+        }
       }
       if (typeof parsed?.showInvitationBulkActions === "boolean") {
         setShowInvitationBulkActions(parsed.showInvitationBulkActions);
+      }
+      if (typeof parsed?.bulkInvitationSegment === "string" && INVITATION_BULK_SEGMENTS.includes(parsed.bulkInvitationSegment)) {
+        setBulkInvitationSegment(parsed.bulkInvitationSegment);
       }
     } catch {
       // Ignore malformed local settings and continue with defaults.
     }
     setPrefsReady(true);
-  }, [prefsStorageKey]);
+  }, [prefsStorageKey, appPath]);
 
   useEffect(() => {
     if (!prefsReady || !prefsStorageKey) {
@@ -3609,6 +3987,7 @@ function DashboardScreen({
       eventSearch,
       eventStatusFilter,
       eventSort,
+      eventPageSize,
       guestSearch,
       guestContactFilter,
       guestSort,
@@ -3616,18 +3995,21 @@ function DashboardScreen({
       invitationSearch,
       invitationStatusFilter,
       invitationSort,
+      invitationPageSize,
       activeView,
       eventsWorkspace,
       guestsWorkspace,
       invitationsWorkspace,
       mobileExpandedView,
-      showInvitationBulkActions
+      showInvitationBulkActions,
+      bulkInvitationSegment
     };
     window.localStorage.setItem(prefsStorageKey, JSON.stringify(payload));
   }, [
     eventSearch,
     eventStatusFilter,
     eventSort,
+    eventPageSize,
     guestSearch,
     guestContactFilter,
     guestSort,
@@ -3635,12 +4017,14 @@ function DashboardScreen({
     invitationSearch,
     invitationStatusFilter,
     invitationSort,
+    invitationPageSize,
     activeView,
     eventsWorkspace,
     guestsWorkspace,
     invitationsWorkspace,
     mobileExpandedView,
     showInvitationBulkActions,
+    bulkInvitationSegment,
     prefsReady,
     prefsStorageKey
   ]);
@@ -4174,6 +4558,19 @@ function DashboardScreen({
       return;
     }
     setEventMessage(interpolateText(t("smart_hosting_settings_applied"), { count: changedCount }));
+  };
+
+  const handleCopyEventBuilderShoppingChecklist = async () => {
+    if (!eventBuilderShoppingChecklistText) {
+      setEventMessage(t("event_menu_shopping_empty"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(eventBuilderShoppingChecklistText);
+      setEventMessage(t("event_menu_shopping_copied"));
+    } catch {
+      setEventMessage(t("copy_fail"));
+    }
   };
 
   const resolveCreatedGuestId = useCallback(
@@ -4842,15 +5239,41 @@ function DashboardScreen({
     }
   };
 
-  const handleCopyHostSignupLink = async (guestItem) => {
-    const guestLabel = `${guestItem?.first_name || ""} ${guestItem?.last_name || ""}`.trim() || t("field_guest");
-    const signupUrl = buildAppUrl("/login");
+  const handleShareHostSignupLink = async (guestItem, channel = "copy") => {
+    if (!guestItem) {
+      return;
+    }
+    const payload = buildHostInvitePayload(guestItem, t);
+    if (channel === "whatsapp") {
+      window.open(payload.whatsappUrl, "_blank", "noopener,noreferrer");
+      setGuestMessage(
+        interpolateText(t("host_invite_channel_opened"), {
+          guest: payload.guestLabel,
+          channel: t("host_invite_channel_whatsapp")
+        })
+      );
+      return;
+    }
+    if (channel === "email") {
+      window.open(payload.emailUrl, "_blank", "noopener,noreferrer");
+      setGuestMessage(
+        interpolateText(t("host_invite_channel_opened"), {
+          guest: payload.guestLabel,
+          channel: t("host_invite_channel_email")
+        })
+      );
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(signupUrl);
-      setGuestMessage(`${t("host_invite_link_copied")} ${guestLabel}`);
+      await navigator.clipboard.writeText(payload.signupUrl);
+      setGuestMessage(`${t("host_invite_link_copied")} ${payload.guestLabel}`);
     } catch {
       setGuestMessage(t("copy_fail"));
     }
+  };
+
+  const handleCopyHostSignupLink = async (guestItem) => {
+    await handleShareHostSignupLink(guestItem, "copy");
   };
 
   const handleSaveHostProfile = async (event) => {
@@ -6468,77 +6891,25 @@ function DashboardScreen({
           </div>
         </aside>
 
+        <nav className="mobile-bottom-nav" aria-label={t("nav_sections")}>
+          {VIEW_CONFIG.map((item) => (
+            <button
+              key={`mobile-bottom-${item.key}`}
+              type="button"
+              className={`mobile-bottom-nav-btn ${activeView === item.key ? "active" : ""}`}
+              onClick={() => changeView(item.key)}
+              aria-current={activeView === item.key ? "page" : undefined}
+            >
+              <Icon name={item.icon} className="icon" />
+              <span>{t(item.labelKey)}</span>
+            </button>
+          ))}
+        </nav>
+
         <InlineMessage type="error" text={dashboardError} />
 
         {activeView === "overview" ? (
           <section className="overview-grid view-transition">
-            <div className="overview-top-grid">
-              <article className="panel overview-hero-card">
-                <div className="overview-hero-head">
-                  <div>
-                    <p className="hint">{t("overview_hero_title")}</p>
-                    <p className="kpi-value">{events.length + guests.length + invitations.length}</p>
-                    <p className="field-help">{t("overview_hero_subtitle")}</p>
-                  </div>
-                  <div className="overview-hero-pills">
-                    <span className="status-pill status-pending">
-                      {t("kpi_pending_rsvp")}: {pendingInvites}
-                    </span>
-                    <span className="status-pill status-yes">
-                      {t("kpi_answered_rsvp")}: {respondedInvitesRate}%
-                    </span>
-                    <span className="status-pill status-host-converted">
-                      {t("kpi_converted_hosts")}: {convertedHostGuestsCount}
-                    </span>
-                  </div>
-                </div>
-                <div className="overview-hero-footer">
-                  <p className="item-meta">
-                    {nextScheduledEvent
-                      ? `${t("overview_next_event_label")} ${nextScheduledEvent.title || "-"} - ${formatDate(
-                          nextScheduledEvent.start_at,
-                          language,
-                          t("no_date")
-                        )}`
-                      : t("overview_next_event_empty")}
-                  </p>
-                  <div className="button-row">
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "create")}>
-                      {t("create_event_title")}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
-                      {t("create_invitation_title")}
-                    </button>
-                  </div>
-                </div>
-              </article>
-              <article className="panel host-rating-panel">
-                <h2 className="section-title">
-                  <Icon name="star" className="icon" />
-                  {t("host_rating_title")}
-                </h2>
-                <p className="field-help">{t("host_rating_hint")}</p>
-                <p className="host-rating-score">
-                  {hostRatingScore}
-                  <span>/5</span>
-                </p>
-                <p className="item-meta">{t("host_rating_score_label")}</p>
-                <div className="detail-badge-row">
-                  <span className="status-pill status-completed">
-                    {t("host_rating_metric_completed")}: {events.filter((eventItem) => eventItem.status === "completed").length}
-                  </span>
-                  <span className="status-pill status-yes">
-                    {t("host_rating_metric_response")}: {respondedInvitesRate}%
-                  </span>
-                  <span className="status-pill status-host-converted">
-                    {t("host_rating_metric_growth")}: {convertedHostRate}%
-                  </span>
-                </div>
-                <p className="hint">
-                  {t("host_rating_since_label")} {hostMemberSinceLabel}
-                </p>
-              </article>
-            </div>
             <div className="overview-kpi-grid">
               <article
                 className="panel kpi-card is-interactive"
@@ -6559,21 +6930,7 @@ function DashboardScreen({
                   </span>
                 </div>
                 <p className="kpi-value">{events.length}</p>
-                <div className="kpi-preview">
-                  <p className="hint">{t("kpi_latest_events")}</p>
-                  {latestEventPreview.length > 0 ? (
-                    <ul className="kpi-preview-list">
-                      {latestEventPreview.map((item) => (
-                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                          <p className="kpi-preview-main">{item.main}</p>
-                          <p className="kpi-preview-meta">{item.meta}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
-                  )}
-                </div>
+                <p className="kpi-inline-meta">{latestEventPreview[0]?.meta || t("kpi_latest_events")}</p>
               </article>
               <article
                 className="panel kpi-card is-interactive"
@@ -6594,21 +6951,7 @@ function DashboardScreen({
                   </span>
                 </div>
                 <p className="kpi-value">{guests.length}</p>
-                <div className="kpi-preview">
-                  <p className="hint">{t("kpi_latest_guests")}</p>
-                  {latestGuestPreview.length > 0 ? (
-                    <ul className="kpi-preview-list">
-                      {latestGuestPreview.map((item) => (
-                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                          <p className="kpi-preview-main">{item.main}</p>
-                          <p className="kpi-preview-meta">{item.meta}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
-                  )}
-                </div>
+                <p className="kpi-inline-meta">{latestGuestPreview[0]?.main || t("kpi_latest_guests")}</p>
               </article>
               <article
                 className="panel kpi-card is-interactive"
@@ -6629,21 +6972,9 @@ function DashboardScreen({
                   </span>
                 </div>
                 <p className="kpi-value">{invitations.length}</p>
-                <div className="kpi-preview">
-                  <p className="hint">{t("kpi_latest_pending")}</p>
-                  {pendingInvitationPreview.length > 0 ? (
-                    <ul className="kpi-preview-list">
-                      {pendingInvitationPreview.map((item) => (
-                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                          <p className="kpi-preview-main">{item.main}</p>
-                          <p className="kpi-preview-meta">{item.meta}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
-                  )}
-                </div>
+                <p className="kpi-inline-meta">
+                  {pendingInvitationPreview[0]?.main || `${t("kpi_pending_rsvp")}: ${pendingInvites}`}
+                </p>
               </article>
               <article
                 className="panel kpi-card is-interactive"
@@ -6664,24 +6995,12 @@ function DashboardScreen({
                   </span>
                 </div>
                 <p className="kpi-value">{respondedInvitesRate}%</p>
-                <div className="kpi-preview">
-                  <p className="hint">{t("kpi_latest_answered")}</p>
-                  {answeredInvitationPreview.length > 0 ? (
-                    <ul className="kpi-preview-list">
-                      {answeredInvitationPreview.map((item) => (
-                        <li key={`${item.main}-${item.meta}`} className="kpi-preview-item">
-                          <p className="kpi-preview-main">{item.main}</p>
-                          <p className="kpi-preview-meta">{item.meta}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="kpi-preview-meta">{t("kpi_preview_empty")}</p>
-                  )}
-                </div>
+                <p className="kpi-inline-meta">
+                  {answeredInvitationPreview[0]?.main || `${t("kpi_answered_rsvp")}: ${respondedInvites}`}
+                </p>
               </article>
             </div>
-            <div className="overview-pair-grid">
+            <div className="overview-secondary-grid">
               <article className="panel overview-upcoming-panel">
                 <div className="overview-upcoming-head">
                   <div>
@@ -6700,7 +7019,19 @@ function DashboardScreen({
                 ) : (
                   <ul className="overview-upcoming-list">
                     {upcomingEventsPreview.map((eventItem) => (
-                      <li key={`upcoming-${eventItem.id}`} className="overview-upcoming-item">
+                      <li
+                        key={`upcoming-${eventItem.id}`}
+                        className={`overview-upcoming-item ${statusClass(eventItem.status)}`}
+                        tabIndex={0}
+                        role="button"
+                        onClick={() => openEventDetail(eventItem.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openEventDetail(eventItem.id);
+                          }
+                        }}
+                      >
                         <div className="overview-upcoming-main">
                           <p className="item-title">{eventItem.title}</p>
                           <p className="item-meta">
@@ -6709,40 +7040,71 @@ function DashboardScreen({
                         </div>
                         <div className="overview-upcoming-meta">
                           <span className={`status-pill ${statusClass(eventItem.status)}`}>{statusText(t, eventItem.status)}</span>
-                          <button className="btn btn-ghost btn-sm" type="button" onClick={() => openEventDetail(eventItem.id)}>
-                            {t("view_detail")}
-                          </button>
                         </div>
                       </li>
                     ))}
                   </ul>
                 )}
               </article>
-              <article className="panel recent-activity-panel">
-                <h2 className="section-title">
-                  <Icon name="bell" className="icon" />
-                  {t("recent_activity_title")}
-                </h2>
-                <p className="field-help">{t("recent_activity_hint")}</p>
-                {recentActivityItems.length === 0 ? (
-                  <p className="hint">{t("recent_activity_empty")}</p>
-                ) : (
-                  <ul className="recent-activity-list">
-                    {recentActivityItems.slice(0, 6).map((activityItem) => (
-                      <li key={activityItem.id} className="recent-activity-item">
-                        <span className={`status-pill ${statusClass(activityItem.status)}`}>
-                          <Icon name={activityItem.icon} className="icon icon-xs" />
-                        </span>
-                        <div>
-                          <p className="item-title">{activityItem.title}</p>
-                          <p className="item-meta">{activityItem.meta}</p>
-                          <p className="hint">{activityItem.timeLabel}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
+              <div className="overview-side-stack">
+                <article className="panel host-rating-panel">
+                  <div className="host-profile-snapshot">
+                    <span className="session-avatar" aria-hidden="true">
+                      {hostInitials}
+                    </span>
+                    <div>
+                      <p className="item-title">{hostDisplayName}</p>
+                      <p className="field-help">{t("panel_title")}</p>
+                    </div>
+                  </div>
+                  <div className="host-rating-metrics">
+                    <p className="item-meta">
+                      <span>{t("host_rating_metric_completed")}</span>
+                      <strong>{events.filter((eventItem) => eventItem.status === "completed").length}</strong>
+                    </p>
+                    <p className="item-meta">
+                      <span>{t("host_rating_metric_response")}</span>
+                      <strong>{respondedInvitesRate}%</strong>
+                    </p>
+                    <p className="item-meta">
+                      <span>{t("host_rating_metric_growth")}</span>
+                      <strong>{convertedHostRate}%</strong>
+                    </p>
+                    <p className="item-meta">
+                      <span>{t("host_rating_since_label")}</span>
+                      <strong>{hostMemberSinceLabel}</strong>
+                    </p>
+                  </div>
+                  <p className="host-rating-score-inline">
+                    <Icon name="star" className="icon icon-sm" /> {hostRatingScore}/5
+                  </p>
+                </article>
+                <article className="panel recent-activity-panel">
+                  <h2 className="section-title">
+                    <Icon name="bell" className="icon" />
+                    {t("recent_activity_title")}
+                  </h2>
+                  <p className="field-help">{t("recent_activity_hint")}</p>
+                  {recentActivityItems.length === 0 ? (
+                    <p className="hint">{t("recent_activity_empty")}</p>
+                  ) : (
+                    <ul className="recent-activity-list">
+                      {recentActivityItems.slice(0, 6).map((activityItem) => (
+                        <li key={activityItem.id} className="recent-activity-item">
+                          <span className={`status-pill ${statusClass(activityItem.status)}`}>
+                            <Icon name={activityItem.icon} className="icon icon-xs" />
+                          </span>
+                          <div>
+                            <p className="item-title">{activityItem.title}</p>
+                            <p className="item-meta">{activityItem.meta}</p>
+                            <p className="hint">{activityItem.timeLabel}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </article>
+              </div>
             </div>
             <article className="panel growth-panel">
               <h2 className="section-title">
@@ -7956,6 +8318,40 @@ function DashboardScreen({
                     </div>
                   </section>
 
+                  <section className="event-phase-section">
+                    <h3>{t("event_menu_plan_title")}</h3>
+                    <p className="field-help">{t("event_menu_plan_hint")}</p>
+                    {eventBuilderMealPlan.recipeCards.length > 0 ? (
+                      <div className="event-menu-plan-grid">
+                        {eventBuilderMealPlan.recipeCards.map((recipeItem) => (
+                          <article key={recipeItem.id} className="event-menu-card">
+                            <p className="item-title">{recipeItem.title}</p>
+                            <p className="item-meta">{recipeItem.subtitle}</p>
+                            <p className="hint">{recipeItem.note}</p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="hint">{t("event_menu_shopping_empty")}</p>
+                    )}
+                    <p className="item-title">{t("event_menu_shopping_title")}</p>
+                    {eventBuilderMealPlan.shoppingChecklist.length > 0 ? (
+                      <ul className="list recommendation-list event-shopping-list">
+                        {eventBuilderMealPlan.shoppingChecklist.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="hint">{t("event_menu_shopping_empty")}</p>
+                    )}
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleCopyEventBuilderShoppingChecklist}>
+                        <Icon name="check" className="icon icon-sm" />
+                        {t("event_menu_shopping_copy_action")}
+                      </button>
+                    </div>
+                  </section>
+
                   <section className="event-phase-summary">
                     <p className="label-title">{t("event_progress_title")}</p>
                     <ul className="event-phase-summary-list">
@@ -8001,6 +8397,7 @@ function DashboardScreen({
                 <Icon name="calendar" className="icon" />
                 {t("latest_events_title")}
               </h2>
+              <p className="field-help">{t("header_events_subtitle")}</p>
               <div className="list-tools">
                 <label>
                   <span className="label-title">{t("search")}</span>
@@ -8021,8 +8418,18 @@ function DashboardScreen({
                     <option value="title_asc">{t("sort_title_asc")}</option>
                   </select>
                 </label>
+                <label>
+                  <span className="label-title">{t("pagination_items_per_page")}</span>
+                  <select value={eventPageSize} onChange={(event) => setEventPageSize(Number(event.target.value) || EVENTS_PAGE_SIZE_DEFAULT)}>
+                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                      <option key={optionValue} value={optionValue}>
+                        {optionValue}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
-              <div className="list-filter-tabs" role="group" aria-label={t("filter_status")}>
+              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_status")}>
                 {[
                   { key: "all", label: t("all_status") },
                   { key: "published", label: t("status_published") },
@@ -8197,55 +8604,82 @@ function DashboardScreen({
 
             {eventsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
-              <div className="detail-head">
-                <div>
-                  <h2 className="section-title">
-                    <Icon name="eye" className="icon" />
-                    {t("event_detail_title")}
-                  </h2>
-                  <p className="field-help">{t("event_detail_hint")}</p>
+              <p className="detail-breadcrumb">
+                {t("nav_events")} / {selectedEventDetail?.title || t("event_detail_title")}
+              </p>
+              <div className="detail-head detail-head-rich">
+                <div className="detail-head-primary">
+                  <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+                  <div className="detail-meta-inline">
+                    <span>
+                      <Icon name="calendar" className="icon icon-sm" />
+                      {formatLongDate(selectedEventDetail?.start_at, language, t("no_date"))}
+                    </span>
+                    <span>
+                      <Icon name="clock" className="icon icon-sm" />
+                      {formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"))}
+                    </span>
+                    <span>
+                      <Icon name="location" className="icon icon-sm" />
+                      {selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-"}
+                    </span>
+                  </div>
                 </div>
                 {selectedEventDetail ? (
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
-                    <Icon name="edit" className="icon icon-sm" />
-                    {t("event_detail_edit_action")}
-                  </button>
+                  <div className="button-row detail-head-actions">
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
+                      <Icon name="edit" className="icon icon-sm" />
+                      {t("event_detail_edit_action")}
+                    </button>
+                    {selectedEventDetailPrimaryShare?.url ? (
+                      <a className="btn btn-sm" href={selectedEventDetailPrimaryShare.url} target="_blank" rel="noreferrer">
+                        <Icon name="mail" className="icon icon-sm" />
+                        {t("open_rsvp")}
+                      </a>
+                    ) : (
+                      <button
+                        className="btn btn-sm"
+                        type="button"
+                        onClick={() =>
+                          openInvitationCreate({
+                            eventId: selectedEventDetail.id,
+                            messageKey: "invitation_prefill_event"
+                          })
+                        }
+                      >
+                        <Icon name="mail" className="icon icon-sm" />
+                        {t("event_detail_create_invitation_action")}
+                      </button>
+                    )}
+                  </div>
                 ) : null}
               </div>
-              {events.length > 0 ? (
-                <label>
-                  <span className="label-title">{t("event_detail_select_label")}</span>
-                  <select value={selectedEventDetail?.id || ""} onChange={(event) => setSelectedEventDetailId(event.target.value)}>
-                    {events.map((eventItem) => (
-                      <option key={eventItem.id} value={eventItem.id}>
-                        {eventItem.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
               {selectedEventDetail ? (
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() =>
-                      openInvitationCreate({
-                        eventId: selectedEventDetail.id,
-                        messageKey: "invitation_prefill_event"
-                      })
-                    }
-                  >
-                    {t("event_detail_create_invitation_action")}
-                  </button>
+                <div className="detail-kpi-row">
+                  <article className="detail-kpi-card">
+                    <p className="item-meta">{t("event_detail_total_invites")}</p>
+                    <p className="item-title">{selectedEventDetailInvitations.length}</p>
+                  </article>
+                  <article className="detail-kpi-card">
+                    <p className="item-meta">{t("status_yes")}</p>
+                    <p className="item-title">{selectedEventDetailStatusCounts.yes}</p>
+                  </article>
+                  <article className="detail-kpi-card">
+                    <p className="item-meta">{t("status_pending")}</p>
+                    <p className="item-title">{selectedEventDetailStatusCounts.pending}</p>
+                  </article>
+                  <article className="detail-kpi-card">
+                    <p className="item-meta">{t("status_no")}</p>
+                    <p className="item-title">{selectedEventDetailStatusCounts.no}</p>
+                  </article>
                 </div>
               ) : null}
               <InlineMessage text={invitationMessage} />
               {!selectedEventDetail ? (
                 <p className="hint">{t("event_detail_empty")}</p>
               ) : (
-                <div className="detail-layout">
-                  <article className="detail-card">
+                <div className="detail-layout detail-layout-event">
+                  <article className="detail-card detail-card-event-overview">
                     <p className="item-title">{selectedEventDetail.title}</p>
                     <p className="item-meta">
                       {t("status")}:{" "}
@@ -8296,18 +8730,6 @@ function DashboardScreen({
                       </span>
                     </div>
                     <div className="button-row">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() =>
-                          openInvitationCreate({
-                            eventId: selectedEventDetail.id,
-                            messageKey: "invitation_prefill_event"
-                          })
-                        }
-                      >
-                        {t("event_detail_create_invitation_action")}
-                      </button>
                       {selectedEventDetail.location_lat != null && selectedEventDetail.location_lng != null ? (
                         <a
                           className="btn btn-ghost btn-sm"
@@ -8320,7 +8742,7 @@ function DashboardScreen({
                       ) : null}
                     </div>
                   </article>
-                  <article className="detail-card">
+                  <article className="detail-card detail-card-event-rsvp">
                     <p className="item-title">{t("event_detail_rsvp_summary")}</p>
                     <div className="detail-badge-row">
                       <span className="status-pill status-pending">
@@ -8343,7 +8765,7 @@ function DashboardScreen({
                       <p className="hint">{t("event_detail_no_invites")}</p>
                     ) : null}
                   </article>
-                  <article className="detail-card">
+                  <article className="detail-card detail-card-event-checklist">
                     <p className="item-title">{t("event_detail_checklist_title")}</p>
                     <ul className="checklist-list">
                       {selectedEventChecklist.map((item) => (
@@ -8371,7 +8793,7 @@ function DashboardScreen({
                     )}
                   </article>
                   {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
-                    <article className="detail-card detail-card-map">
+                    <article className="detail-card detail-card-map detail-card-event-map">
                       <p className="item-title">{t("map_preview_title")}</p>
                       <div className="map-preview" aria-label={t("map_preview_title")}>
                         <iframe
@@ -8383,76 +8805,75 @@ function DashboardScreen({
                       </div>
                     </article>
                   ) : null}
-                  <article className="detail-card detail-card-wide">
+                  <article className="detail-card detail-card-wide detail-card-event-guests">
                     <p className="item-title">{t("event_detail_guest_list_title")}</p>
                     {selectedEventDetailGuests.length === 0 ? (
                       <p className="hint">{t("event_detail_no_invites")}</p>
                     ) : (
-                      <ul className="list detail-list">
-                        {selectedEventDetailGuests.map((row) => {
-                          const sharePayload = buildInvitationSharePayload(row.invitation);
-                          const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
-                          return (
-                            <li key={row.invitation.id}>
-                              <p className="item-title">{row.name}</p>
-                              <p className="item-meta">{row.contact}</p>
-                              <p className="item-meta">
-                                {t("status")}:{" "}
-                                <span className={`status-pill ${statusClass(row.invitation.status)}`}>
-                                  {statusText(t, row.invitation.status)}
-                                </span>{" "}
-                                - {t("responded")}: {formatDate(row.invitation.responded_at, language, t("no_response"))}
-                              </p>
-                              <div className="item-actions">
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  type="button"
-                                  onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
-                                >
-                                  {t("view_guest_detail_action")}
-                                </button>
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  type="button"
-                                  onClick={() => {
-                                    const prepared = handlePrepareInvitationShare(row.invitation);
-                                    if (prepared?.whatsappUrl) {
-                                      window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
-                                    }
-                                  }}
-                                >
-                                  {t("invitation_send_message_action")}
-                                </button>
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  type="button"
-                                  onClick={() => {
-                                    const prepared = handlePrepareInvitationShare(row.invitation) || sharePayload;
-                                    if (prepared?.shareText) {
-                                      handleCopyInvitationMessage(prepared.shareText);
-                                    }
-                                  }}
-                                >
-                                  {t("invitation_copy_message")}
-                                </button>
-                                <button
-                                  className="btn btn-danger btn-sm"
-                                  type="button"
-                                  onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
-                                >
-                                  {t("delete_invitation")}
-                                </button>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div className="detail-table-shell">
+                        <div className="detail-table-head detail-table-head-event-guests" aria-hidden="true">
+                          <span>{t("field_guest")}</span>
+                          <span>{t("email")}</span>
+                          <span>{t("status")}</span>
+                          <span>+1</span>
+                        </div>
+                        <ul className="list detail-table-list detail-table-list-event-guests">
+                          {selectedEventDetailGuests.map((row) => {
+                            const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
+                            return (
+                              <li key={row.invitation.id} className="detail-table-row detail-table-row-event-guests">
+                                <div className="cell-main">
+                                  <button
+                                    className="text-link-btn invitation-linked-name"
+                                    type="button"
+                                    onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
+                                  >
+                                    {row.name}
+                                  </button>
+                                </div>
+                                <p className="item-meta cell-meta">{row.contact}</p>
+                                <p className="item-meta cell-meta">
+                                  <span className={`status-pill ${statusClass(row.invitation.status)}`}>
+                                    {statusText(t, row.invitation.status)}
+                                  </span>
+                                </p>
+                                <div className="cell-meta detail-table-actions">
+                                  <span className="item-meta">-</span>
+                                  <button
+                                    className="btn btn-ghost btn-sm btn-icon-only"
+                                    type="button"
+                                    onClick={() => {
+                                      const prepared = handlePrepareInvitationShare(row.invitation);
+                                      if (prepared?.whatsappUrl) {
+                                        window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                                      }
+                                    }}
+                                    aria-label={t("invitation_send_message_action")}
+                                    title={t("invitation_send_message_action")}
+                                  >
+                                    <Icon name="message" className="icon icon-sm" />
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm btn-icon-only"
+                                    type="button"
+                                    onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
+                                    aria-label={t("delete_invitation")}
+                                    title={t("delete_invitation")}
+                                  >
+                                    <Icon name="x" className="icon icon-sm" />
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     )}
                   </article>
-                  <article className="detail-card detail-card-wide">
-                    <p className="item-title">{t("event_detail_rsvp_timeline_title")}</p>
+                  <article className="detail-card detail-card-wide detail-card-event-activity">
+                    <p className="item-title">{t("recent_activity_title")}</p>
                     {selectedEventRsvpTimeline.length === 0 ? (
-                      <p className="hint">{t("event_detail_rsvp_timeline_empty")}</p>
+                      <p className="hint">{t("recent_activity_empty")}</p>
                     ) : (
                       <ul className="timeline-list">
                         {selectedEventRsvpTimeline.map((item) => (
@@ -9567,6 +9988,7 @@ function DashboardScreen({
                 <Icon name="user" className="icon" />
                 {t("latest_guests_title")}
               </h2>
+              <p className="field-help">{t("header_guests_subtitle")}</p>
               <div className="list-tools">
                 <label>
                   <span className="label-title">{t("search")}</span>
@@ -9618,15 +10040,20 @@ function DashboardScreen({
               <p className="hint">
                 {t("results_count")}: {filteredGuests.length}
               </p>
-              <p className="hint">
-                {t("host_potential_count_label")} {hostPotentialGuestsCount}
-              </p>
-              <p className="hint">
-                {t("host_converted_count_label")} {convertedHostGuestsCount} - {t("host_pending_conversion_label")} {pendingHostGuestsCount}
-              </p>
-              <p className="hint">
-                {t("kpi_converted_hosts_30d")} {convertedHostGuests30dCount}
-              </p>
+              <div className="list-inline-stats">
+                <span className="status-pill status-host-candidate">
+                  {t("host_potential_count_label")} {hostPotentialGuestsCount}
+                </span>
+                <span className="status-pill status-host-converted">
+                  {t("host_converted_count_label")} {convertedHostGuestsCount}
+                </span>
+                <span className="status-pill status-pending">
+                  {t("host_pending_conversion_label")} {pendingHostGuestsCount}
+                </span>
+                <span className="status-pill status-host-conversion-source-default">
+                  {t("kpi_converted_hosts_30d")} {convertedHostGuests30dCount}
+                </span>
+              </div>
               <InlineMessage text={guestMessage} />
               {filteredGuests.length === 0 ? (
                 <p>{t("no_guests")}</p>
@@ -9704,15 +10131,37 @@ function DashboardScreen({
                             <p className="item-meta">{t("host_pending_conversion_label")}</p>
                           )}
                           {guestItem.email || guestItem.phone ? (
-                            <button
-                              className="text-link-btn guest-host-convert-btn"
-                              type="button"
-                              onClick={() => handleCopyHostSignupLink(guestItem)}
-                              disabled={Boolean(conversion)}
-                            >
-                              <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
-                              {conversion ? t("host_already_registered_action") : t("host_invite_action")}
-                            </button>
+                            <div className="button-row guest-host-actions-row">
+                              <button
+                                className="text-link-btn guest-host-convert-btn"
+                                type="button"
+                                onClick={() => handleCopyHostSignupLink(guestItem)}
+                                disabled={Boolean(conversion)}
+                              >
+                                <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
+                                {conversion ? t("host_already_registered_action") : t("host_invite_action")}
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm btn-icon-only"
+                                type="button"
+                                onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
+                                disabled={Boolean(conversion)}
+                                aria-label={t("host_invite_whatsapp_action")}
+                                title={t("host_invite_whatsapp_action")}
+                              >
+                                <Icon name="message" className="icon icon-sm" />
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm btn-icon-only"
+                                type="button"
+                                onClick={() => handleShareHostSignupLink(guestItem, "email")}
+                                disabled={Boolean(conversion)}
+                                aria-label={t("host_invite_email_action")}
+                                title={t("host_invite_email_action")}
+                              >
+                                <Icon name="mail" className="icon icon-sm" />
+                              </button>
+                            </div>
                           ) : null}
                         </div>
                         <div className="cell-guest-events cell-extra">
@@ -9796,83 +10245,88 @@ function DashboardScreen({
 
             {guestsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
-              <div className="detail-head">
-                <div>
-                  <h2 className="section-title">
-                    <Icon name="eye" className="icon" />
-                    {t("guest_detail_title")}
+              <p className="detail-breadcrumb">
+                {t("nav_guests")} /{" "}
+                {selectedGuestDetail
+                  ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
+                  : t("guest_detail_title")}
+              </p>
+              <div className="detail-head detail-head-rich">
+                <div className="detail-head-primary">
+                  <h2 className="section-title detail-title">
+                    {selectedGuestDetail
+                      ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
+                      : t("guest_detail_title")}
                   </h2>
-                  <p className="field-help">{t("guest_detail_hint")}</p>
+                  <div className="detail-meta-inline">
+                    <span>
+                      <Icon name="mail" className="icon icon-sm" />
+                      {selectedGuestDetail?.email || "-"}
+                    </span>
+                    <span>
+                      <Icon name="phone" className="icon icon-sm" />
+                      {selectedGuestDetail?.phone || "-"}
+                    </span>
+                    <span>
+                      <Icon name="location" className="icon icon-sm" />
+                      {[selectedGuestDetail?.city, selectedGuestDetail?.country].filter(Boolean).join(", ") || "-"}
+                    </span>
+                  </div>
                 </div>
                 {selectedGuestDetail ? (
-                  <div className="button-row">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => handleLinkProfileGuestToGlobal(selectedGuestDetail.id)}
-                      disabled={isLinkingGlobalGuest}
-                    >
-                      <Icon name="shield" className="icon icon-sm" />
-                      {isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}
-                    </button>
+                  <div className="button-row detail-head-actions">
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(selectedGuestDetail)}>
                       <Icon name="edit" className="icon icon-sm" />
                       {t("guest_detail_edit_action")}
                     </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      type="button"
+                      onClick={() => handleRequestDeleteGuest(selectedGuestDetail)}
+                      disabled={isDeletingGuestId === selectedGuestDetail.id}
+                    >
+                      <Icon name="x" className="icon icon-sm" />
+                      {isDeletingGuestId === selectedGuestDetail.id ? t("deleting") : t("delete_guest")}
+                    </button>
                   </div>
                 ) : null}
               </div>
-              {guests.length > 0 ? (
-                <label>
-                  <span className="label-title">{t("guest_detail_select_label")}</span>
-                  <select value={selectedGuestDetail?.id || ""} onChange={(event) => setSelectedGuestDetailId(event.target.value)}>
-                    {guests.map((guestItem) => (
-                      <option key={guestItem.id} value={guestItem.id}>
-                        {`${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              {selectedGuestDetail ? (
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => handleLinkProfileGuestToGlobal(selectedGuestDetail.id)}
-                    disabled={isLinkingGlobalGuest}
-                  >
-                    <Icon name="shield" className="icon icon-sm" />
-                    {isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() =>
-                      openInvitationCreate({
-                        guestId: selectedGuestDetail.id,
-                        messageKey: "invitation_prefill_guest"
-                      })
-                    }
-                  >
-                    {t("guest_detail_create_invitation_action")}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => handleCopyHostSignupLink(selectedGuestDetail)}
-                    disabled={Boolean(selectedGuestDetailConversion)}
-                  >
-                    <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="icon icon-sm" />
-                    {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
-                  </button>
-                </div>
-              ) : null}
               {!selectedGuestDetail ? (
                 <p className="hint">{t("guest_detail_empty")}</p>
               ) : (
-                <div className="detail-layout">
-                  <article className="detail-card">
+                <>
+                  <article className="detail-guest-hero">
+                    <div className="list-title-with-avatar">
+                      <span className="list-avatar">
+                        {getInitials(
+                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest"),
+                          "IN"
+                        )}
+                      </span>
+                      <div>
+                        <p className="item-title">
+                          {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
+                        </p>
+                        <p className="item-meta">{selectedGuestDetail.email || selectedGuestDetail.phone || "-"}</p>
+                      </div>
+                    </div>
+                    <div className="detail-kpi-row detail-kpi-row-guest">
+                      <article className="detail-kpi-card">
+                        <p className="item-meta">{t("nav_events")}</p>
+                        <p className="item-title">{selectedGuestDetailInvitations.length}</p>
+                      </article>
+                      <article className="detail-kpi-card">
+                        <p className="item-meta">{t("status_yes")}</p>
+                        <p className="item-title">{selectedGuestDetailStatusCounts.yes}</p>
+                      </article>
+                      <article className="detail-kpi-card">
+                        <p className="item-meta">RSVP</p>
+                        <p className="item-title">{selectedGuestDetailRespondedRate}%</p>
+                      </article>
+                    </div>
+                  </article>
+                <div className="detail-layout detail-layout-guest">
+                  <article className="detail-card detail-card-guest-contact">
                     <p className="item-title">
                       {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
                     </p>
@@ -9928,6 +10382,7 @@ function DashboardScreen({
                           })
                         }
                       >
+                        <Icon name="mail" className="icon icon-sm" />
                         {t("guest_detail_create_invitation_action")}
                       </button>
                       <button
@@ -9941,7 +10396,33 @@ function DashboardScreen({
                       </button>
                     </div>
                   </article>
-                  <article className="detail-card detail-card-wide">
+                  <article className="detail-card detail-card-guest-notes">
+                    <p className="item-title">{t("guest_detail_notes_title")}</p>
+                    {selectedGuestDetailNotes.length === 0 ? (
+                      <p className="hint">{t("guest_detail_notes_empty")}</p>
+                    ) : (
+                      <ul className="list recommendation-list">
+                        {selectedGuestDetailNotes.map((noteItem) => (
+                          <li key={noteItem}>{noteItem}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </article>
+                  <article className="detail-card detail-card-guest-signals">
+                    <p className="item-title">{t("guest_detail_tags_title")}</p>
+                    {selectedGuestDetailTags.length === 0 ? (
+                      <p className="hint">{t("guest_detail_tags_empty")}</p>
+                    ) : (
+                      <div className="multi-chip-group">
+                        {selectedGuestDetailTags.map((tagItem) => (
+                          <span key={`guest-detail-tag-${tagItem}`} className="multi-chip readonly">
+                            {tagItem}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                  <article className="detail-card detail-card-wide detail-card-guest-tags">
                     <p className="item-title">{t("guest_detail_profile_summary")}</p>
                     {selectedGuestDetailGroups.length === 0 ? (
                       <p className="hint">{t("guest_detail_no_profile_data")}</p>
@@ -9962,7 +10443,7 @@ function DashboardScreen({
                       </div>
                     )}
                   </article>
-                  <article className="detail-card detail-card-wide">
+                  <article className="detail-card detail-card-wide detail-card-guest-recommendations">
                     <p className="item-title">{t("guest_detail_recommendations_title")}</p>
                     <p className="field-help">{t("guest_detail_recommendations_hint")}</p>
                     <div className="detail-recommendations-grid">
@@ -10008,40 +10489,50 @@ function DashboardScreen({
                       </article>
                     </div>
                   </article>
-                  <article className="detail-card detail-card-wide">
+                  <article className="detail-card detail-card-wide detail-card-guest-history">
                     <p className="item-title">{t("guest_detail_invitations_title")}</p>
                     {selectedGuestDetailInvitations.length === 0 ? (
                       <p className="hint">{t("guest_detail_no_invitations")}</p>
                     ) : (
-                      <ul className="list detail-list">
-                        {selectedGuestDetailInvitations.map((invitationItem) => {
-                          const eventItem = eventsById[invitationItem.event_id];
-                          return (
-                            <li key={invitationItem.id}>
-                              <p className="item-title">{eventItem?.title || eventNamesById[invitationItem.event_id] || t("field_event")}</p>
-                              <p className="item-meta">
-                                {t("status")}:{" "}
-                                <span className={`status-pill ${statusClass(invitationItem.status)}`}>
-                                  {statusText(t, invitationItem.status)}
-                                </span>{" "}
-                                - {t("responded")}: {formatDate(invitationItem.responded_at, language, t("no_response"))}
-                              </p>
-                              <div className="item-actions">
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  type="button"
-                                  onClick={() => openEventDetail(invitationItem.event_id)}
-                                >
-                                  {t("view_event_detail_action")}
-                                </button>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div className="detail-table-shell">
+                        <div className="detail-table-head detail-table-head-guest-history" aria-hidden="true">
+                          <span>{t("field_event")}</span>
+                          <span>{t("date")}</span>
+                          <span>RSVP</span>
+                          <span>+1</span>
+                        </div>
+                        <ul className="list detail-table-list detail-table-list-guest-history">
+                          {selectedGuestDetailInvitations.map((invitationItem) => {
+                            const eventItem = eventsById[invitationItem.event_id];
+                            return (
+                              <li key={invitationItem.id} className="detail-table-row detail-table-row-guest-history">
+                                <div className="cell-main">
+                                  <button
+                                    className="text-link-btn invitation-linked-name"
+                                    type="button"
+                                    onClick={() => openEventDetail(invitationItem.event_id)}
+                                  >
+                                    {eventItem?.title || eventNamesById[invitationItem.event_id] || t("field_event")}
+                                  </button>
+                                </div>
+                                <p className="item-meta cell-meta">
+                                  {formatDate(eventItem?.start_at || invitationItem.created_at, language, t("no_date"))}
+                                </p>
+                                <p className="item-meta cell-meta">
+                                  <span className={`status-pill ${statusClass(invitationItem.status)}`}>
+                                    {statusText(t, invitationItem.status)}
+                                  </span>
+                                </p>
+                                <p className="item-meta cell-meta">-</p>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     )}
                   </article>
                 </div>
+                </>
               )}
             </section>
             ) : null}
@@ -10181,6 +10672,20 @@ function DashboardScreen({
                     disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent}
                   />
                 </label>
+                <div className="list-filter-tabs" role="group" aria-label={t("invitation_bulk_segment_label")}>
+                  {INVITATION_BULK_SEGMENTS.map((segmentKey) => (
+                    <button
+                      key={segmentKey}
+                      className={`list-filter-tab ${bulkInvitationSegment === segmentKey ? "active" : ""}`}
+                      type="button"
+                      aria-pressed={bulkInvitationSegment === segmentKey}
+                      onClick={() => setBulkInvitationSegment(segmentKey)}
+                    >
+                      {t(`invitation_bulk_segment_${segmentKey}`)} ({bulkSegmentCounts[segmentKey] || 0})
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">{t("invitation_bulk_segment_hint")}</p>
                 <div className="button-row">
                   <button
                     className="btn btn-ghost btn-sm"
@@ -10351,7 +10856,7 @@ function DashboardScreen({
                 <Icon name="mail" className="icon" />
                 {t("latest_invitations_title")}
               </h2>
-              <p className="field-help">{t("hint_accessibility")}</p>
+              <p className="field-help">{t("header_invitations_subtitle")}</p>
               <div className="list-tools">
                 <label>
                   <span className="label-title">{t("search")}</span>
@@ -10371,8 +10876,21 @@ function DashboardScreen({
                     <option value="responded_asc">{t("sort_responded_asc")}</option>
                   </select>
                 </label>
+                <label>
+                  <span className="label-title">{t("pagination_items_per_page")}</span>
+                  <select
+                    value={invitationPageSize}
+                    onChange={(event) => setInvitationPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                      <option key={optionValue} value={optionValue}>
+                        {optionValue}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
-              <div className="list-filter-tabs" role="group" aria-label={t("filter_status")}>
+              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_status")}>
                 {[
                   { key: "all", label: t("all_status") },
                   { key: "pending", label: t("status_pending") },
@@ -10402,12 +10920,7 @@ function DashboardScreen({
                 </p>
               ) : null}
               {showInvitationBulkActions ? (
-                <section className="recommendation-card invitation-bulk-card">
-                  <p className="label-title">
-                    <Icon name="check" className="icon icon-sm" />
-                    {t("invitation_list_bulk_title")}
-                  </p>
-                  <p className="field-help">{t("invitation_list_bulk_hint")}</p>
+                <div className="list-inline-bulk-toolbar" role="group" aria-label={t("invitation_list_bulk_title")}>
                   <div className="button-row">
                     <button
                       className="btn btn-ghost btn-sm"
@@ -10426,9 +10939,6 @@ function DashboardScreen({
                       {t("invitation_list_bulk_clear")}
                     </button>
                   </div>
-                  <p className="hint">
-                    {t("invitation_list_bulk_selected_count")} {selectedLatestInvitationIds.length}
-                  </p>
                   <div className="button-row">
                     <button
                       className="btn btn-ghost btn-sm"
@@ -10455,7 +10965,7 @@ function DashboardScreen({
                       {t("invitation_list_bulk_delete")}
                     </button>
                   </div>
-                </section>
+                </div>
               ) : null}
               <InlineMessage text={invitationMessage} />
               {filteredInvitations.length === 0 ? (
@@ -10507,12 +11017,28 @@ function DashboardScreen({
                         <div className="cell-main list-title-with-avatar">
                           <span className="list-avatar list-avatar-sm">{getInitials(guestName, "IN")}</span>
                           <div>
-                            <p className="item-title">{guestName}</p>
+                            <p className="item-title">
+                              <button
+                                className="text-link-btn invitation-linked-name"
+                                type="button"
+                                onClick={() => openGuestDetail(invitation.guest_id)}
+                              >
+                                {guestName}
+                              </button>
+                            </p>
                             <p className="item-meta">{guestItem?.email || guestItem?.phone || "-"}</p>
                           </div>
                         </div>
                         <div className="cell-invitation-event cell-meta">
-                          <p className="item-title">{eventName}</p>
+                          <p className="item-title">
+                            <button
+                              className="text-link-btn invitation-linked-name"
+                              type="button"
+                              onClick={() => openEventDetail(invitation.event_id)}
+                            >
+                              {eventName}
+                            </button>
+                          </p>
                           <p className="item-meta">
                             {eventItem?.start_at ? formatDate(eventItem.start_at, language, t("no_date")) : t("no_date")}
                           </p>
@@ -10523,17 +11049,9 @@ function DashboardScreen({
                         <p className="item-meta cell-invitation-created cell-extra">
                           {formatDate(invitation.created_at, language, t("no_date"))}
                         </p>
-                        <div className="cell-extra invitation-row-links">
-                          <button className="btn btn-ghost btn-sm btn-icon-only" type="button" onClick={() => openEventDetail(invitation.event_id)} aria-label={t("view_event_detail_action")} title={t("view_event_detail_action")}>
-                            <Icon name="calendar" className="icon icon-sm" />
-                          </button>
-                          <button className="btn btn-ghost btn-sm btn-icon-only" type="button" onClick={() => openGuestDetail(invitation.guest_id)} aria-label={t("view_guest_detail_action")} title={t("view_guest_detail_action")}>
-                            <Icon name="user" className="icon icon-sm" />
-                          </button>
-                        </div>
                         <div className="button-row cell-actions invitation-actions">
                           <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
+                            className="btn btn-ghost btn-sm invitation-share-chip"
                             type="button"
                             onClick={() => {
                               const prepared = handlePrepareInvitationShare(invitation);
@@ -10545,6 +11063,7 @@ function DashboardScreen({
                             title={t("invitation_open_whatsapp")}
                           >
                             <Icon name="message" className="icon icon-sm" />
+                            <span>WhatsApp</span>
                           </button>
                           <button
                             className="btn btn-ghost btn-sm btn-icon-only"
@@ -10563,7 +11082,14 @@ function DashboardScreen({
                           <button className="btn btn-ghost btn-sm btn-icon-only" type="button" onClick={() => handleCopyInvitationLink(url)} aria-label={t("copy_link")} title={t("copy_link")}>
                             <Icon name="link" className="icon icon-sm" />
                           </button>
-                          <a className="btn btn-ghost btn-sm btn-icon-only" href={url} target="_blank" rel="noreferrer" aria-label={t("open_rsvp")} title={t("open_rsvp")}>
+                          <a
+                            className="btn btn-ghost btn-sm btn-icon-only"
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={t("open_rsvp")}
+                            title={t("open_rsvp")}
+                          >
                             <Icon name="eye" className="icon icon-sm" />
                           </a>
                           <button

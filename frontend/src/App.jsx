@@ -25,6 +25,63 @@ function normalizePathname(pathname) {
   return normalized;
 }
 
+function decodePathSegment(segment) {
+  try {
+    return decodeURIComponent(String(segment || "").trim());
+  } catch {
+    return String(segment || "").trim();
+  }
+}
+
+function parseAppRoute(pathname) {
+  const normalized = normalizePathname(pathname);
+  const segments = normalized.split("/").filter(Boolean).slice(1);
+  const section = segments[0] || "overview";
+
+  if (section === "profile") {
+    return { view: "profile" };
+  }
+
+  if (section === "events") {
+    const segment = segments[1] || "";
+    if (segment === "new") {
+      return { view: "events", workspace: "create" };
+    }
+    if (segment === "insights") {
+      return { view: "events", workspace: "insights" };
+    }
+    if (segment) {
+      return { view: "events", workspace: "detail", eventId: decodePathSegment(segment) };
+    }
+    return { view: "events", workspace: "latest" };
+  }
+
+  if (section === "guests") {
+    const segment = segments[1] || "";
+    if (segment === "new") {
+      return { view: "guests", workspace: "create" };
+    }
+    if (segment) {
+      return { view: "guests", workspace: "detail", guestId: decodePathSegment(segment) };
+    }
+    return { view: "guests", workspace: "latest" };
+  }
+
+  if (section === "invitations") {
+    const segment = segments[1] || "";
+    if (segment === "new") {
+      return { view: "invitations", workspace: "create" };
+    }
+    return { view: "invitations", workspace: "latest" };
+  }
+
+  if (section === "overview") {
+    return { view: "overview" };
+  }
+
+  return { view: "overview" };
+}
+
 function getRouteFromLocation() {
   const search = new URLSearchParams(window.location.search);
   const queryToken = String(search.get("token") || "").trim();
@@ -40,8 +97,8 @@ function getRouteFromLocation() {
   if (pathname === "/login") {
     return { kind: "login", path: "/login" };
   }
-  if (pathname === "/app") {
-    return { kind: "app", path: "/app" };
+  if (pathname === "/app" || pathname.startsWith("/app/")) {
+    return { kind: "app", path: pathname, appRoute: parseAppRoute(pathname) };
   }
   if (LANDING_PATHS.has(pathname)) {
     return { kind: "landing", path: pathname };
@@ -615,6 +672,9 @@ function App() {
       setThemeMode={setThemeMode}
       session={session}
       onSignOut={handleSignOut}
+      appRoute={route.appRoute || null}
+      appPath={route.path || "/app"}
+      onNavigateApp={navigate}
     />
   );
 }
