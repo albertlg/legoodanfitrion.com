@@ -359,6 +359,35 @@ function rankItemsWithKeywords(items, keywords = [], contextText = "") {
   });
 }
 
+function parseEventDurationHours(sourceText, preset, momentKey) {
+  const normalized = normalizeLookupValue(sourceText);
+  const explicitHours = normalized.match(/\b(\d{1,2})\s*(h|hr|hrs|hora|horas)\b/);
+  if (explicitHours) {
+    const parsed = Number(explicitHours[1]);
+    if (Number.isFinite(parsed)) {
+      return Math.max(2, Math.min(12, Math.round(parsed)));
+    }
+  }
+  let fallback =
+    preset === "brunch"
+      ? 3
+      : preset === "bbq"
+      ? 5
+      : preset === "movie"
+      ? 4
+      : preset === "bookclub"
+      ? 3
+      : preset === "romantic"
+      ? 4
+      : preset === "celebration"
+      ? 5
+      : 4;
+  if (momentKey === "night" && (preset === "celebration" || preset === "movie")) {
+    fallback += 1;
+  }
+  return Math.max(2, Math.min(10, fallback));
+}
+
 function buildEventPlannerContext(eventItem, language, t) {
   const source = eventItem || {};
   const title = String(source.title || "").trim();
@@ -403,10 +432,30 @@ function buildEventPlannerContext(eventItem, language, t) {
   ) {
     preset = "movie";
   } else if (
-    ["book club", "club de lectura", "lectura", "llibre", "book"].some((value) => searchText.includes(value))
+      ["book club", "club de lectura", "lectura", "llibre", "book"].some((value) => searchText.includes(value))
   ) {
     preset = "bookclub";
   }
+
+  let budgetKey = "medium";
+  if (
+    ["low cost", "budget", "cheap", "econom", "barat", "barato", "caser", "potluck"].some((value) =>
+      searchText.includes(value)
+    )
+  ) {
+    budgetKey = "low";
+  } else if (
+    toneKey === "formal" ||
+    ["premium", "gourmet", "lux", "lujo", "elegan", "vip", "alta gama"].some((value) => searchText.includes(value))
+  ) {
+    budgetKey = "high";
+  }
+
+  const durationHours = parseEventDurationHours(
+    `${title} ${description} ${locationName} ${locationAddress} ${source.event_type || ""}`,
+    preset,
+    momentKey
+  );
 
   const eventTypeLabel =
     toCatalogLabel("experience_type", source.event_type, language) ||
@@ -417,9 +466,13 @@ function buildEventPlannerContext(eventItem, language, t) {
     preset,
     momentKey,
     toneKey,
+    budgetKey,
+    durationHours,
     hour,
     searchText,
-    summary: `${eventTypeLabel} · ${t(`event_planner_moment_${momentKey}`)} · ${t(`event_planner_tone_${toneKey}`)}`
+    summary: `${eventTypeLabel} · ${t(`event_planner_moment_${momentKey}`)} · ${t(`event_planner_tone_${toneKey}`)} · ${t(
+      `event_planner_budget_${budgetKey}`
+    )} · ${interpolateText(t("event_planner_duration_hours"), { count: durationHours })}`
   };
 }
 
@@ -428,10 +481,14 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
     preset: "social",
     momentKey: "evening",
     toneKey: "casual",
+    budgetKey: "medium",
+    durationHours: 4,
     searchText: "",
     summary: ""
   };
   const guestCount = Math.max(1, Number(eventInsights?.consideredGuestsCount || 0));
+  const durationHours = Math.max(2, Math.min(12, Number(context.durationHours || 4)));
+  const budgetKey = ["low", "medium", "high"].includes(context.budgetKey) ? context.budgetKey : "medium";
   const foodBase = uniqueValues(
     Array.isArray(eventInsights?.foodSuggestions) ? eventInsights.foodSuggestions : []
   );
@@ -490,10 +547,27 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
   const menuItems = rankedFood.length > 0 ? rankedFood : fallbackFood;
   const drinkItems = rankedDrink.length > 0 ? rankedDrink : fallbackDrink;
 
-  const starterCount = context.preset === "celebration" || context.preset === "bbq" ? 3 : 2;
-  const mainCount = context.preset === "bbq" ? 3 : 2;
-  const dessertCount = context.preset === "romantic" ? 3 : 2;
-  const drinkCount = context.preset === "celebration" || context.preset === "bbq" ? 3 : 2;
+  const isLongEvent = durationHours >= 5;
+  const isLargeGroup = guestCount >= 16;
+  const starterCount = Math.min(
+    4,
+    (context.preset === "celebration" || context.preset === "bbq" ? 3 : 2) + (isLongEvent || isLargeGroup ? 1 : 0)
+  );
+  const mainCount = Math.min(4, (context.preset === "bbq" ? 3 : 2) + (isLargeGroup ? 1 : 0));
+  const dessertCount = Math.min(
+    4,
+    (context.preset === "romantic" || context.preset === "celebration" ? 3 : 2) + (isLongEvent ? 1 : 0)
+  );
+  const drinkCount = Math.min(
+    4,
+    (context.preset === "celebration" || context.preset === "bbq" ? 3 : 2) +
+      (isLongEvent ? 1 : 0) +
+      (context.momentKey === "night" ? 1 : 0)
+  );
+
+  const durationFactor = durationHours >= 6 ? 1.26 : durationHours >= 5 ? 1.16 : durationHours <= 3 ? 0.9 : 1;
+  const guestLoadFactor = guestCount >= 30 ? 1.18 : guestCount >= 16 ? 1.08 : guestCount <= 6 ? 0.92 : 1;
+  const quantityFactor = durationFactor * guestLoadFactor;
 
   const menuSections = [
     {
@@ -555,12 +629,12 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
         {
           id: `vegetables-seasonal-${rotationSeed}`,
           name: t("event_planner_item_seasonal_vegetables"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * 0.3))} kg`
+          quantity: `${Math.max(2, Math.ceil(guestCount * 0.3 * quantityFactor))} kg`
         },
         {
           id: `vegetables-leaves-${rotationSeed}`,
           name: t("event_planner_item_leafy_mix"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * 0.2))} uds`
+          quantity: `${Math.max(2, Math.ceil(guestCount * 0.2 * quantityFactor))} uds`
         }
       ]
     },
@@ -571,12 +645,18 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
         {
           id: `protein-main-${rotationSeed}`,
           name: menuSections[1].items[0] || t("event_planner_fallback_main_2"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * (context.preset === "bbq" ? 0.44 : 0.35)))} ${t("event_planner_quantity_portions")}`
+          quantity: `${Math.max(
+            2,
+            Math.ceil(guestCount * (context.preset === "bbq" ? 0.44 : 0.35) * quantityFactor)
+          )} ${t("event_planner_quantity_portions")}`
         },
         {
           id: `protein-secondary-${rotationSeed}`,
           name: menuSections[1].items[1] || menuSections[0].items[0] || t("event_menu_fallback_food_2"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * (context.preset === "bbq" ? 0.3 : 0.25)))} ${t("event_planner_quantity_portions")}`
+          quantity: `${Math.max(
+            2,
+            Math.ceil(guestCount * (context.preset === "bbq" ? 0.3 : 0.25) * quantityFactor)
+          )} ${t("event_planner_quantity_portions")}`
         }
       ]
     },
@@ -587,7 +667,7 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
         {
           id: `dairy-dessert-${rotationSeed}`,
           name: menuSections[2].items[0] || t("event_planner_fallback_dessert_1"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * 0.22))} ${t("event_planner_quantity_portions")}`,
+          quantity: `${Math.max(2, Math.ceil(guestCount * 0.22 * quantityFactor))} ${t("event_planner_quantity_portions")}`,
           warning: hasLactoseRestriction ? t("event_planner_warning_lactose") : ""
         }
       ]
@@ -598,7 +678,10 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
       items: rotateValues(drinkItems, rotationSeed).slice(0, 3).map((item, index) => ({
         id: `drinks-${index + 1}-${rotationSeed}`,
         name: item,
-        quantity: `${Math.max(2, Math.ceil(guestCount * (context.momentKey === "night" ? 0.8 : 0.62)))} ${t("event_planner_quantity_units")}`
+        quantity: `${Math.max(
+          2,
+          Math.ceil(guestCount * (context.momentKey === "night" ? 0.8 : 0.62) * quantityFactor)
+        )} ${t("event_planner_quantity_units")}`
       }))
     }
   ];
@@ -646,14 +729,29 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
       : context.preset === "brunch"
       ? 7.2
       : 8.4;
-  const estimatedCost = Math.max(28, Math.round(guestCount * contextCostFactor + avoidBase.length * 1.8));
+  const budgetFactor = budgetKey === "low" ? 0.86 : budgetKey === "high" ? 1.22 : 1;
+  const toneFactor = context.toneKey === "formal" ? 1.08 : 1;
+  const durationCostFactor = durationHours >= 6 ? 1.22 : durationHours >= 5 ? 1.14 : durationHours <= 3 ? 0.9 : 1;
+  const estimatedCost = Math.max(
+    28,
+    Math.round(guestCount * contextCostFactor * budgetFactor * toneFactor * durationCostFactor + avoidBase.length * 1.8)
+  );
+
+  const contextSummary = interpolateText(t("event_planner_context_summary_template"), {
+    style: t(`event_planner_style_${context.preset}`),
+    moment: t(`event_planner_moment_${context.momentKey}`),
+    tone: t(`event_planner_tone_${context.toneKey}`),
+    budget: t(`event_planner_budget_${budgetKey}`),
+    duration: interpolateText(t("event_planner_duration_hours"), { count: durationHours }),
+    guests: interpolateText(t("event_planner_guests_count"), { count: guestCount })
+  });
 
   return {
     menuSections,
     shoppingGroups,
     estimatedCost,
     restrictions: avoidBase.slice(0, 8),
-    contextSummary: context.summary,
+    contextSummary,
     recipeCards,
     shoppingChecklist
   };
