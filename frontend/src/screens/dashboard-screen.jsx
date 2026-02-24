@@ -426,6 +426,7 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20];
 const IMPORT_PREVIEW_PAGE_SIZE_DEFAULT = 20;
 const IMPORT_PREVIEW_PAGE_SIZE_OPTIONS = [10, 20, 50];
 const IMPORT_CONTACTS_SORT_OPTIONS = ["priority", "score_desc", "score_asc", "name_asc", "name_desc"];
+const IMPORT_WIZARD_STEP_TOTAL = 4;
 const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
 const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
 const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
@@ -1447,6 +1448,20 @@ function DashboardScreen({
   const [guestLastSavedAt, setGuestLastSavedAt] = useState("");
   const [importContactsDraft, setImportContactsDraft] = useState("");
   const [importContactsPreview, setImportContactsPreview] = useState([]);
+  const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
+  const [importWizardStep, setImportWizardStep] = useState(1);
+  const [importWizardSource, setImportWizardSource] = useState("csv");
+  const [importWizardUploadedFileName, setImportWizardUploadedFileName] = useState("");
+  const [importWizardShareEmail, setImportWizardShareEmail] = useState("");
+  const [importWizardShareMessage, setImportWizardShareMessage] = useState("");
+  const [importWizardResult, setImportWizardResult] = useState({
+    imported: 0,
+    updated: 0,
+    failed: 0,
+    skipped: 0,
+    selected: 0,
+    partial: false
+  });
   const [importContactsSearch, setImportContactsSearch] = useState("");
   const [importContactsGroupFilter, setImportContactsGroupFilter] = useState("all");
   const [importContactsPotentialFilter, setImportContactsPotentialFilter] = useState("all");
@@ -1864,6 +1879,78 @@ function DashboardScreen({
       ),
     [importContactsAnalysis]
   );
+  const importContactsDuplicateCount = useMemo(
+    () => importContactsAnalysis.filter((item) => item.duplicateExisting || item.duplicateInPreview).length,
+    [importContactsAnalysis]
+  );
+  const importWizardMobileLink = useMemo(() => buildAppUrl("/app/guests?import=mobile"), []);
+  const importWizardStepLabel = useMemo(
+    () =>
+      interpolateText(t("import_wizard_step_indicator"), {
+        step: importWizardStep,
+        total: IMPORT_WIZARD_STEP_TOTAL
+      }),
+    [importWizardStep, t]
+  );
+  const importWizardStepTitle = useMemo(() => {
+    if (importWizardStep === 1) {
+      return t("import_wizard_step_1_title");
+    }
+    if (importWizardStep === 2) {
+      if (importWizardSource === "gmail") {
+        return t("import_wizard_step_2_gmail_title");
+      }
+      if (importWizardSource === "mobile") {
+        return t("import_wizard_step_2_mobile_title");
+      }
+      return t("import_wizard_step_2_csv_title");
+    }
+    if (importWizardStep === 3) {
+      return t("import_wizard_step_3_title");
+    }
+    return importWizardResult.partial ? t("import_wizard_step_4_error_title") : t("import_wizard_step_4_success_title");
+  }, [importWizardResult.partial, importWizardSource, importWizardStep, t]);
+  const importWizardStepHint = useMemo(() => {
+    if (importWizardStep === 1) {
+      return t("import_wizard_step_1_hint");
+    }
+    if (importWizardStep === 2) {
+      if (importWizardSource === "gmail") {
+        return t("import_wizard_step_2_gmail_hint");
+      }
+      if (importWizardSource === "mobile") {
+        return t("import_wizard_step_2_mobile_hint");
+      }
+      return t("import_wizard_step_2_csv_hint");
+    }
+    if (importWizardStep === 3) {
+      return t("import_wizard_step_3_hint");
+    }
+    return importWizardResult.partial ? t("import_wizard_step_4_error_hint") : t("import_wizard_step_4_success_hint");
+  }, [importWizardResult.partial, importWizardSource, importWizardStep, t]);
+  const importWizardContinueLabel = useMemo(() => {
+    if (importWizardStep === 3) {
+      return isImportingContacts
+        ? t("contact_import_importing")
+        : interpolateText(t("import_wizard_import_selected"), { count: importContactsSelectedReady.length });
+    }
+    if (importWizardStep === 4) {
+      return t("import_wizard_finish");
+    }
+    return t("pagination_next");
+  }, [importContactsSelectedReady.length, importWizardStep, isImportingContacts, t]);
+  const importWizardCanContinue = useMemo(() => {
+    if (importWizardStep === 1) {
+      return Boolean(importWizardSource);
+    }
+    if (importWizardStep === 2) {
+      return importContactsAnalysis.length > 0;
+    }
+    if (importWizardStep === 3) {
+      return !isImportingContacts && importContactsSelectedReady.length > 0;
+    }
+    return true;
+  }, [importWizardSource, importWizardStep, importContactsAnalysis.length, importContactsSelectedReady.length, isImportingContacts]);
   const importContactsTotalPages = useMemo(
     () => Math.max(1, Math.ceil(importContactsFiltered.length / importContactsPageSize)),
     [importContactsFiltered.length, importContactsPageSize]
@@ -1894,6 +1981,23 @@ function DashboardScreen({
       setImportContactsPage(importContactsTotalPages);
     }
   }, [importContactsPage, importContactsTotalPages]);
+  useEffect(() => {
+    if (!isImportWizardOpen) {
+      return undefined;
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsImportWizardOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isImportWizardOpen]);
+  useEffect(() => {
+    if (activeView !== "guests" || guestsWorkspace !== "latest") {
+      setIsImportWizardOpen(false);
+    }
+  }, [activeView, guestsWorkspace]);
   const hostPotentialGuestsCount = useMemo(
     () => guests.filter((guestItem) => guestItem.email || guestItem.phone).length,
     [guests]
@@ -5526,15 +5630,23 @@ function DashboardScreen({
     previewImportedContacts(importContactsDraft, "paste");
   };
 
-  const handleImportContactsFile = async (event) => {
-    const selectedFile = event.target.files?.[0];
+  const handleImportContactsSelectedFile = async (selectedFile) => {
     if (!selectedFile) {
       return;
     }
     const fileText = await selectedFile.text();
     const lowerName = String(selectedFile.name || "").toLowerCase();
     const sourceType = lowerName.endsWith(".vcf") || lowerName.endsWith(".vcard") ? "vcf" : "text";
+    setImportWizardUploadedFileName(selectedFile.name || "");
     previewImportedContacts(fileText, sourceType);
+  };
+
+  const handleImportContactsFile = async (event) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) {
+      return;
+    }
+    await handleImportContactsSelectedFile(selectedFile);
     event.target.value = "";
   };
 
@@ -5893,6 +6005,7 @@ function DashboardScreen({
   const handleClearImportContacts = () => {
     setImportContactsDraft("");
     setImportContactsPreview([]);
+    setImportWizardUploadedFileName("");
     setImportContactsSearch("");
     setImportContactsGroupFilter("all");
     setImportContactsPotentialFilter("all");
@@ -5903,6 +6016,82 @@ function DashboardScreen({
     setImportContactsPage(1);
     setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
+  };
+
+  const handleOpenImportWizard = () => {
+    handleClearImportContacts();
+    setImportWizardStep(1);
+    setImportWizardSource("csv");
+    setImportWizardShareEmail("");
+    setImportWizardShareMessage("");
+    setImportWizardResult({
+      imported: 0,
+      updated: 0,
+      failed: 0,
+      skipped: 0,
+      selected: 0,
+      partial: false
+    });
+    setIsImportWizardOpen(true);
+  };
+
+  const handleCloseImportWizard = () => {
+    setIsImportWizardOpen(false);
+    setImportWizardShareMessage("");
+  };
+
+  const handleImportWizardBack = () => {
+    if (importWizardStep <= 1) {
+      handleCloseImportWizard();
+      return;
+    }
+    if (importWizardStep === 4) {
+      handleCloseImportWizard();
+      return;
+    }
+    setImportWizardStep((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleImportWizardContinue = async () => {
+    if (importWizardStep === 1) {
+      setImportContactsMessage("");
+      setImportWizardStep(2);
+      return;
+    }
+    if (importWizardStep === 2) {
+      if (importContactsAnalysis.length === 0) {
+        setImportContactsMessage(t("contact_import_no_matches"));
+        return;
+      }
+      setImportWizardStep(3);
+      return;
+    }
+    if (importWizardStep === 3) {
+      await handleImportContacts({ fromWizard: true });
+      return;
+    }
+    handleCloseImportWizard();
+  };
+
+  const handleImportWizardDrop = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const selectedFile = event.dataTransfer?.files?.[0];
+    if (!selectedFile) {
+      return;
+    }
+    await handleImportContactsSelectedFile(selectedFile);
+  };
+
+  const handleImportWizardEmailLink = () => {
+    const nextEmail = String(importWizardShareEmail || "").trim();
+    const subject = encodeURIComponent(t("import_wizard_mobile_email_subject"));
+    const body = encodeURIComponent(
+      `${t("import_wizard_mobile_email_body")}\n${importWizardMobileLink}`
+    );
+    const mailToEmail = nextEmail ? nextEmail : "";
+    window.open(`mailto:${mailToEmail}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
+    setImportWizardShareMessage(t("import_wizard_mobile_email_sent"));
   };
 
   const handleSelectAllReadyImportContacts = () => {
@@ -5955,15 +6144,15 @@ function DashboardScreen({
     );
   };
 
-  const handleImportContacts = async () => {
+  const handleImportContacts = async ({ fromWizard = false } = {}) => {
     if (!supabase || !session?.user?.id) {
-      return;
+      return null;
     }
     if (importContactsSelectedReady.length === 0) {
       setImportContactsMessage(
         importContactsReady.length === 0 ? t("contact_import_no_ready") : t("contact_import_no_selected")
       );
-      return;
+      return null;
     }
     setIsImportingContacts(true);
     setImportContactsMessage("");
@@ -5974,6 +6163,7 @@ function DashboardScreen({
     let mergedCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
+    const selectedCount = importContactsSelectedReady.length;
 
     for (const contactItem of importContactsSelectedReady) {
       const fallbackFirstName = deriveGuestNameFromContact(contactItem) || t("field_guest");
@@ -6113,9 +6303,22 @@ function DashboardScreen({
         failedCount > 0 ? `${t("contact_import_failed")} ${failedCount}.` : ""
       }`.trim()
     );
+    const summary = {
+      imported: importedCount,
+      updated: mergedCount,
+      failed: failedCount,
+      skipped: skippedCount,
+      selected: selectedCount,
+      partial: failedCount > 0
+    };
+    setImportWizardResult(summary);
+    if (fromWizard) {
+      setImportWizardStep(4);
+    }
     if (importedCount > 0 || mergedCount > 0) {
       await loadDashboardData();
     }
+    return summary;
   };
 
   const handleShareHostSignupLink = async (guestItem, channel = "copy") => {
@@ -7473,6 +7676,12 @@ function DashboardScreen({
           icon: "message",
           label: t("invitation_bulk_title"),
           onClick: openInvitationBulkWorkspace
+        }
+      : activeView === "guests" && guestsWorkspace === "latest"
+      ? {
+          icon: "link",
+          label: t("contact_import_title"),
+          onClick: handleOpenImportWizard
         }
       : null;
   const hideDashboardHeader =
@@ -12184,6 +12393,340 @@ function DashboardScreen({
           </div>
         )}
       </section>
+        ) : null}
+
+        {isImportWizardOpen ? (
+          <div className="import-wizard-overlay" onClick={handleCloseImportWizard}>
+            <section
+              className={`import-wizard-modal ${importWizardStep === 3 ? "is-wide" : ""}`}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="import-wizard-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="import-wizard-header">
+                <div>
+                  <p className="item-meta">{importWizardStepLabel}</p>
+                  <h3 id="import-wizard-title" className="item-title">
+                    {importWizardStepTitle}
+                  </h3>
+                  <p className="hint">{importWizardStepHint}</p>
+                </div>
+                <button
+                  className="btn btn-ghost btn-sm btn-icon-only"
+                  type="button"
+                  onClick={handleCloseImportWizard}
+                  aria-label={t("close_modal")}
+                  title={t("close_modal")}
+                >
+                  <Icon name="x" className="icon icon-sm" />
+                </button>
+              </header>
+
+              <div className="import-wizard-steps" role="list" aria-label={importWizardStepLabel}>
+                {Array.from({ length: IMPORT_WIZARD_STEP_TOTAL }).map((_, index) => {
+                  const stepNumber = index + 1;
+                  const isActive = importWizardStep === stepNumber;
+                  const isDone = importWizardStep > stepNumber;
+                  return (
+                    <span
+                      key={`wizard-step-${stepNumber}`}
+                      role="listitem"
+                      className={`import-wizard-step-pill ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}
+                    >
+                      {stepNumber}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <div className="import-wizard-body">
+                {importWizardStep === 1 ? (
+                  <div className="import-source-grid">
+                    {[
+                      { key: "csv", icon: "folder", title: t("import_wizard_source_csv_title"), hint: t("import_wizard_source_csv_hint") },
+                      { key: "gmail", icon: "mail", title: t("import_wizard_source_gmail_title"), hint: t("import_wizard_source_gmail_hint") },
+                      { key: "mobile", icon: "phone", title: t("import_wizard_source_mobile_title"), hint: t("import_wizard_source_mobile_hint") }
+                    ].map((sourceItem) => (
+                      <button
+                        key={sourceItem.key}
+                        type="button"
+                        className={`import-source-card ${importWizardSource === sourceItem.key ? "active" : ""}`}
+                        onClick={() => setImportWizardSource(sourceItem.key)}
+                        aria-pressed={importWizardSource === sourceItem.key}
+                      >
+                        <span className="import-source-icon">
+                          <Icon name={sourceItem.icon} className="icon icon-sm" />
+                        </span>
+                        <span className="item-title">{sourceItem.title}</span>
+                        <span className="item-meta">{sourceItem.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {importWizardStep === 2 && importWizardSource === "csv" ? (
+                  <div className="import-step-stack">
+                    <div
+                      className="import-drop-zone"
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "copy";
+                      }}
+                      onDrop={handleImportWizardDrop}
+                    >
+                      <Icon name="folder" className="icon" />
+                      <p className="item-title">{t("import_wizard_csv_drop_title")}</p>
+                      <p className="item-meta">{t("import_wizard_csv_drop_hint")}</p>
+                      <label className="btn btn-ghost btn-sm">
+                        {t("contact_import_open_file_button")}
+                        <input
+                          type="file"
+                          accept=".csv,.vcf,.vcard,text/csv,text/vcard"
+                          onChange={handleImportContactsFile}
+                          hidden
+                        />
+                      </label>
+                    </div>
+                    {importWizardUploadedFileName ? (
+                      <p className="field-success">
+                        <Icon name="check" className="icon icon-xs" /> {importWizardUploadedFileName}
+                      </p>
+                    ) : null}
+                    <label>
+                      <span className="label-title">{t("contact_import_paste_label")}</span>
+                      <textarea
+                        rows={3}
+                        value={importContactsDraft}
+                        onChange={(event) => setImportContactsDraft(event.target.value)}
+                        placeholder={t("contact_import_paste_placeholder")}
+                      />
+                    </label>
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handlePreviewContactsFromDraft}>
+                        {t("contact_import_preview_button")}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearImportContacts}>
+                        {t("contact_import_clear_button")}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {importWizardStep === 2 && importWizardSource === "gmail" ? (
+                  <div className="import-step-stack">
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={handleImportGoogleContacts}
+                      disabled={isImportingGoogleContacts || !canUseGoogleContacts}
+                    >
+                      <Icon name="mail" className="icon icon-sm" />
+                      {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
+                    </button>
+                    <p className="hint">{t("import_wizard_gmail_privacy_note")}</p>
+                    {!canUseGoogleContacts ? <p className="hint">{t("contact_import_google_unconfigured")}</p> : null}
+                    {importContactsAnalysis.length > 0 ? (
+                      <p className="field-success">
+                        {t("contact_import_preview_total")} {importContactsAnalysis.length}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {importWizardStep === 2 && importWizardSource === "mobile" ? (
+                  <div className="import-step-stack">
+                    <div className="import-mobile-qr-box">
+                      <img
+                        src={`https://chart.googleapis.com/chart?cht=qr&chs=180x180&chl=${encodeURIComponent(importWizardMobileLink)}`}
+                        alt={t("import_wizard_mobile_qr_alt")}
+                      />
+                    </div>
+                    <p className="item-meta">{t("import_wizard_mobile_qr_hint")}</p>
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handlePickDeviceContacts}>
+                        <Icon name="phone" className="icon icon-sm" />
+                        {t("contact_import_device_button")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(importWizardMobileLink);
+                            setImportWizardShareMessage(t("copy_ok"));
+                          } catch {
+                            setImportWizardShareMessage(t("copy_fail"));
+                          }
+                        }}
+                      >
+                        <Icon name="link" className="icon icon-sm" />
+                        {t("copy_link")}
+                      </button>
+                    </div>
+                    <label>
+                      <span className="label-title">{t("email")}</span>
+                      <input
+                        type="email"
+                        value={importWizardShareEmail}
+                        onChange={(event) => setImportWizardShareEmail(event.target.value)}
+                        placeholder={t("placeholder_email")}
+                      />
+                    </label>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardEmailLink}>
+                      <Icon name="mail" className="icon icon-sm" />
+                      {t("import_wizard_mobile_email_action")}
+                    </button>
+                  </div>
+                ) : null}
+
+                {importWizardStep === 3 ? (
+                  <div className="import-step-stack">
+                    <div className="list-tools">
+                      <label>
+                        <span className="label-title">{t("search")}</span>
+                        <input
+                          type="search"
+                          value={importContactsSearch}
+                          onChange={(event) => setImportContactsSearch(event.target.value)}
+                          placeholder={t("contact_import_filter_placeholder")}
+                        />
+                      </label>
+                      <label>
+                        <span className="label-title">{t("pagination_items_per_page")}</span>
+                        <select
+                          value={importContactsPageSize}
+                          onChange={(event) => setImportContactsPageSize(Number(event.target.value) || IMPORT_PREVIEW_PAGE_SIZE_DEFAULT)}
+                        >
+                          {IMPORT_PREVIEW_PAGE_SIZE_OPTIONS.map((optionValue) => (
+                            <option key={optionValue} value={optionValue}>
+                              {optionValue}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    {importContactsDuplicateCount > 0 ? (
+                      <div className="recommendation-card warning import-wizard-alert">
+                        <p className="item-title">{t("import_wizard_duplicates_title")}</p>
+                        <p className="item-meta">
+                          {interpolateText(t("import_wizard_duplicates_hint"), { count: importContactsDuplicateCount })}
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="button-row">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectSuggestedImportContacts}>
+                        {t("contact_import_select_suggested")}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
+                        {t("contact_import_select_all_ready")}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearReadyImportContactsSelection}>
+                        {t("contact_import_clear_selection")}
+                      </button>
+                    </div>
+                    <ul className="list import-preview-list import-preview-list-modal">
+                      {pagedImportContacts.map((contactItem) => (
+                        <li key={contactItem.previewId}>
+                          <label className="bulk-guest-option import-contact-option">
+                            <input
+                              type="checkbox"
+                              checked={selectedImportContactIds.includes(contactItem.previewId)}
+                              disabled={!contactItem.canImport}
+                              onChange={() => toggleImportContactSelection(contactItem.previewId)}
+                            />
+                            <span>
+                              <strong>
+                                {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
+                              </strong>
+                              <small>{contactItem.email || contactItem.phone || "-"}</small>
+                              <small>
+                                {contactItem.duplicateExisting
+                                  ? t("contact_import_status_duplicate_existing")
+                                  : contactItem.duplicateInPreview
+                                  ? t("contact_import_status_duplicate_file")
+                                  : t("contact_import_status_ready")}
+                              </small>
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    {importContactsFiltered.length > 0 ? (
+                      <div className="pagination-row import-preview-pagination">
+                        <p className="hint">
+                          {t("pagination_page")} {Math.min(importContactsPage, importContactsTotalPages)}/{importContactsTotalPages}
+                        </p>
+                        <div className="button-row">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            type="button"
+                            onClick={() => setImportContactsPage((prev) => Math.max(1, prev - 1))}
+                            disabled={importContactsPage <= 1}
+                          >
+                            {t("pagination_prev")}
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            type="button"
+                            onClick={() => setImportContactsPage((prev) => Math.min(importContactsTotalPages, prev + 1))}
+                            disabled={importContactsPage >= importContactsTotalPages}
+                          >
+                            {t("pagination_next")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {importWizardStep === 4 ? (
+                  <div className="import-step-stack import-result-stack">
+                    <div className={`import-result-icon ${importWizardResult.partial ? "is-error" : "is-success"}`}>
+                      <Icon name={importWizardResult.partial ? "x" : "check"} className="icon" />
+                    </div>
+                    <div className="import-result-stats">
+                      <article>
+                        <p className="item-meta">{t("contact_import_done")}</p>
+                        <p className="item-title">{importWizardResult.imported}</p>
+                      </article>
+                      <article>
+                        <p className="item-meta">{t("contact_import_merged")}</p>
+                        <p className="item-title">{importWizardResult.updated}</p>
+                      </article>
+                      <article>
+                        <p className="item-meta">{t("contact_import_failed")}</p>
+                        <p className="item-title">{importWizardResult.failed}</p>
+                      </article>
+                    </div>
+                    <div className="progress-bar" aria-hidden="true">
+                      <span style={{ width: "100%" }} />
+                    </div>
+                    <p className="item-meta">{t("import_wizard_result_progress_complete")}</p>
+                    {importWizardResult.partial ? (
+                      <div className="recommendation-card warning import-wizard-alert">
+                        <p className="item-title">{t("import_wizard_result_partial_title")}</p>
+                        <p className="item-meta">
+                          {interpolateText(t("import_wizard_result_partial_hint"), { count: importWizardResult.failed })}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              <InlineMessage text={importWizardShareMessage || importContactsMessage} />
+
+              <footer className="import-wizard-footer">
+                <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardBack} disabled={isImportingContacts}>
+                  {importWizardStep === 1 || importWizardStep === 4 ? t("cancel_action") : t("pagination_prev")}
+                </button>
+                <button className="btn btn-sm" type="button" onClick={handleImportWizardContinue} disabled={!importWizardCanContinue}>
+                  {importWizardContinueLabel}
+                </button>
+              </footer>
+            </section>
+          </div>
         ) : null}
 
         {pendingGlobalShareSave ? (
