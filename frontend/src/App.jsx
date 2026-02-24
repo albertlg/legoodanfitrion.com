@@ -18,6 +18,7 @@ const I18N = { es, ca, en, fr, it };
 const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
+const EVENT_PLANNER_TABS = new Set(["menu", "shopping"]);
 
 function normalizePathname(pathname) {
   const normalized = String(pathname || "/").trim() || "/";
@@ -64,7 +65,9 @@ function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
       return { view: "events", workspace: "latest" };
     }
     if (segments[1]) {
-      return { view: "events", workspace: "detail", eventId: decodePathSegment(segments[1]) };
+      const plannerSegment = decodePathSegment(segments[2] || "").toLowerCase();
+      const eventPlannerTab = EVENT_PLANNER_TABS.has(plannerSegment) ? plannerSegment : "menu";
+      return { view: "events", workspace: "detail", eventId: decodePathSegment(segments[1]), eventPlannerTab };
     }
     return { view: "events", workspace: "latest" };
   }
@@ -137,7 +140,9 @@ function buildCanonicalAppPath(appRoute) {
       return "/app/events/insights";
     }
     if (workspace === "detail" && appRoute?.eventId) {
-      return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}`;
+      const eventPlannerTab = String(appRoute?.eventPlannerTab || "menu").trim().toLowerCase();
+      const safeEventPlannerTab = EVENT_PLANNER_TABS.has(eventPlannerTab) ? eventPlannerTab : "menu";
+      return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}/${encodeURIComponent(safeEventPlannerTab)}`;
     }
     return "/app/events";
   }

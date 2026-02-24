@@ -318,7 +318,119 @@ function buildHostingPlaybookActions(eventInsights, t) {
   return actions.slice(0, 6);
 }
 
-function buildEventMealPlan(eventInsights, t) {
+function rotateValues(values, shift = 0) {
+  const source = Array.isArray(values) ? values.filter(Boolean) : [];
+  if (source.length === 0) {
+    return [];
+  }
+  const normalizedShift = ((Math.trunc(shift) % source.length) + source.length) % source.length;
+  if (normalizedShift === 0) {
+    return source;
+  }
+  return [...source.slice(normalizedShift), ...source.slice(0, normalizedShift)];
+}
+
+function isAlcoholicDrink(value) {
+  const normalized = normalizeLookupValue(value);
+  return ["wine", "vino", "beer", "cerveza", "whisky", "whiskey", "gin", "vodka", "rum", "cocktail", "cava"].some((term) =>
+    normalized.includes(term)
+  );
+}
+
+function rankItemsWithKeywords(items, keywords = [], contextText = "") {
+  const normalizedKeywords = uniqueValues(keywords).map((item) => normalizeLookupValue(item)).filter(Boolean);
+  const normalizedContext = normalizeLookupValue(contextText);
+  return [...items].sort((a, b) => {
+    const aNormalized = normalizeLookupValue(a);
+    const bNormalized = normalizeLookupValue(b);
+    const scoreItem = (normalizedItem) => {
+      let score = 0;
+      for (const keyword of normalizedKeywords) {
+        if (normalizedItem.includes(keyword)) {
+          score += 3;
+        }
+      }
+      if (normalizedContext && normalizedItem && normalizedContext.includes(normalizedItem)) {
+        score += 2;
+      }
+      return score;
+    };
+    return scoreItem(bNormalized) - scoreItem(aNormalized);
+  });
+}
+
+function buildEventPlannerContext(eventItem, language, t) {
+  const source = eventItem || {};
+  const title = String(source.title || "").trim();
+  const description = String(source.description || "").trim();
+  const locationName = String(source.location_name || "").trim();
+  const locationAddress = String(source.location_address || "").trim();
+  const eventTypeCode = normalizeLookupValue(source.event_type);
+  const searchText = normalizeLookupValue(`${title} ${description} ${locationName} ${locationAddress}`);
+  const parsedStart = source.start_at ? new Date(source.start_at) : null;
+  const hour = parsedStart && !Number.isNaN(parsedStart.getTime()) ? parsedStart.getHours() : 19;
+  const momentKey = hour < 12 ? "morning" : hour < 18 ? "afternoon" : hour < 22 ? "evening" : "night";
+  const toneKey = ["formal", "elegant"].includes(normalizeLookupValue(source.dress_code)) ? "formal" : "casual";
+
+  let preset = "social";
+  if (
+    ["bbq", "barbecue", "barbacoa"].some((value) => eventTypeCode.includes(value)) ||
+    ["calçot", "calcot", "barbac", "brasa", "parrill", "asado"].some((value) => searchText.includes(value))
+  ) {
+    preset = "bbq";
+  } else if (
+    ["brunch", "desayuno", "esmorzar", "breakfast"].some((value) => searchText.includes(value)) ||
+    eventTypeCode.includes("brunch") ||
+    (momentKey === "morning" && !eventTypeCode.includes("movie"))
+  ) {
+    preset = "brunch";
+  } else if (
+    ["romantic", "pareja", "valentin", "anniversary", "aniversari", "aniversario", "date"].some((value) =>
+      searchText.includes(value)
+    ) ||
+    eventTypeCode.includes("romantic")
+  ) {
+    preset = "romantic";
+  } else if (
+    ["party", "celebration", "cumple", "festa", "fiesta", "birthday"].some((value) => searchText.includes(value)) ||
+    eventTypeCode.includes("celebration") ||
+    eventTypeCode.includes("party")
+  ) {
+    preset = "celebration";
+  } else if (
+    ["movie", "cinema", "cine", "serie", "film"].some((value) => searchText.includes(value)) ||
+    eventTypeCode.includes("movie")
+  ) {
+    preset = "movie";
+  } else if (
+    ["book club", "club de lectura", "lectura", "llibre", "book"].some((value) => searchText.includes(value))
+  ) {
+    preset = "bookclub";
+  }
+
+  const eventTypeLabel =
+    toCatalogLabel("experience_type", source.event_type, language) ||
+    title ||
+    t(`event_planner_style_${preset}`);
+
+  return {
+    preset,
+    momentKey,
+    toneKey,
+    hour,
+    searchText,
+    summary: `${eventTypeLabel} · ${t(`event_planner_moment_${momentKey}`)} · ${t(`event_planner_tone_${toneKey}`)}`
+  };
+}
+
+function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
+  const context = eventContext || {
+    preset: "social",
+    momentKey: "evening",
+    toneKey: "casual",
+    searchText: "",
+    summary: ""
+  };
   const guestCount = Math.max(1, Number(eventInsights?.consideredGuestsCount || 0));
   const foodBase = uniqueValues(
     Array.isArray(eventInsights?.foodSuggestions) ? eventInsights.foodSuggestions : []
@@ -329,39 +441,186 @@ function buildEventMealPlan(eventInsights, t) {
   const avoidBase = uniqueValues(
     Array.isArray(eventInsights?.avoidItems) ? eventInsights.avoidItems : []
   );
+  const rotationSeed = Math.max(0, Number(variantSeed || 0));
 
-  const menuItems = (foodBase.length > 0 ? foodBase : [t("event_menu_fallback_food_1"), t("event_menu_fallback_food_2")]).slice(
-    0,
-    4
-  );
-  const drinkItems = (drinkBase.length > 0 ? drinkBase : [t("event_menu_fallback_drink_1"), t("event_menu_fallback_drink_2")]).slice(
-    0,
-    3
-  );
+  const contextKeywords = {
+    bbq: ["bbq", "barbac", "brasa", "grill", "smoked", "asado", "parrill"],
+    brunch: ["brunch", "toast", "huev", "egg", "croissant", "pancake", "avocado"],
+    romantic: ["romantic", "trufa", "truffle", "candle", "gourmet", "chocolate"],
+    celebration: ["celebr", "party", "fest", "cake", "sharing", "tapas"],
+    movie: ["movie", "snack", "nacho", "pizza", "popcorn", "dip"],
+    bookclub: ["book", "tea", "quiche", "salad", "light", "tart"],
+    social: ["sharing", "seasonal", "mix", "table"]
+  };
+  const presetKeywords = contextKeywords[context.preset] || contextKeywords.social;
+  const rankedFood = rankItemsWithKeywords(foodBase, presetKeywords, context.searchText);
+  const rankedDrink = rankItemsWithKeywords(drinkBase, presetKeywords, context.searchText).sort((a, b) => {
+    if (context.momentKey === "morning" || context.momentKey === "afternoon") {
+      return Number(isAlcoholicDrink(a)) - Number(isAlcoholicDrink(b));
+    }
+    if (context.momentKey === "night") {
+      return Number(isAlcoholicDrink(b)) - Number(isAlcoholicDrink(a));
+    }
+    return 0;
+  });
 
-  const recipeCards = menuItems.slice(0, 3).map((item, index) => ({
-    id: `${index + 1}-${item}`,
-    title: interpolateText(t("event_menu_recipe_card_title"), { index: index + 1 }),
-    subtitle: item,
+  const contextualizePrimary = (item) => {
+    const base = String(item || "").trim();
+    if (!base) {
+      return base;
+    }
+    if (context.preset === "social") {
+      return base;
+    }
+    return interpolateText(t("event_planner_context_item_template"), {
+      style: t(`event_planner_style_${context.preset}`),
+      item: base
+    });
+  };
+
+  const pickSectionItems = ({ primaryItem, pool, fallback, count, seedOffset = 0 }) => {
+    const rotatedPool = rotateValues(pool, rotationSeed + seedOffset);
+    return uniqueValues([primaryItem, ...rotatedPool, ...fallback]).slice(0, count).filter(Boolean);
+  };
+
+  const fallbackFood = [t("event_menu_fallback_food_1"), t("event_menu_fallback_food_2")];
+  const fallbackDessert = [t("event_planner_fallback_dessert_1"), t("event_planner_fallback_dessert_2")];
+  const fallbackDrink = [t("event_menu_fallback_drink_1"), t("event_menu_fallback_drink_2")];
+
+  const menuItems = rankedFood.length > 0 ? rankedFood : fallbackFood;
+  const drinkItems = rankedDrink.length > 0 ? rankedDrink : fallbackDrink;
+
+  const starterCount = context.preset === "celebration" || context.preset === "bbq" ? 3 : 2;
+  const mainCount = context.preset === "bbq" ? 3 : 2;
+  const dessertCount = context.preset === "romantic" ? 3 : 2;
+  const drinkCount = context.preset === "celebration" || context.preset === "bbq" ? 3 : 2;
+
+  const menuSections = [
+    {
+      id: "starters",
+      title: t("event_planner_section_starters"),
+      items: pickSectionItems({
+        primaryItem: contextualizePrimary(menuItems[0] || t("event_menu_fallback_food_1")),
+        pool: menuItems,
+        fallback: [t("event_planner_fallback_starter_2"), ...fallbackFood],
+        count: starterCount,
+        seedOffset: 0
+      })
+    },
+    {
+      id: "main",
+      title: t("event_planner_section_main"),
+      items: pickSectionItems({
+        primaryItem: contextualizePrimary(menuItems[1] || menuItems[0] || t("event_menu_fallback_food_2")),
+        pool: menuItems,
+        fallback: [t("event_planner_fallback_main_2"), ...fallbackFood],
+        count: mainCount,
+        seedOffset: 2
+      })
+    },
+    {
+      id: "desserts",
+      title: t("event_planner_section_desserts"),
+      items: pickSectionItems({
+        primaryItem: contextualizePrimary(menuItems[2] || t("event_planner_fallback_dessert_1")),
+        pool: menuItems,
+        fallback: fallbackDessert,
+        count: dessertCount,
+        seedOffset: 4
+      })
+    },
+    {
+      id: "drinks",
+      title: t("event_planner_section_drinks"),
+      items: pickSectionItems({
+        primaryItem: contextualizePrimary(drinkItems[0] || t("event_menu_fallback_drink_1")),
+        pool: drinkItems,
+        fallback: fallbackDrink,
+        count: drinkCount,
+        seedOffset: 1
+      })
+    }
+  ];
+
+  const hasLactoseRestriction = avoidBase.some((item) => {
+    const normalized = normalizeLookupValue(item);
+    return normalized.includes("lact") || normalized.includes("dairy") || normalized.includes("lactic");
+  });
+
+  const shoppingGroups = [
+    {
+      id: "vegetables",
+      title: t("event_planner_group_vegetables"),
+      items: [
+        {
+          id: `vegetables-seasonal-${rotationSeed}`,
+          name: t("event_planner_item_seasonal_vegetables"),
+          quantity: `${Math.max(2, Math.ceil(guestCount * 0.3))} kg`
+        },
+        {
+          id: `vegetables-leaves-${rotationSeed}`,
+          name: t("event_planner_item_leafy_mix"),
+          quantity: `${Math.max(2, Math.ceil(guestCount * 0.2))} uds`
+        }
+      ]
+    },
+    {
+      id: "protein",
+      title: t("event_planner_group_protein"),
+      items: [
+        {
+          id: `protein-main-${rotationSeed}`,
+          name: menuSections[1].items[0] || t("event_planner_fallback_main_2"),
+          quantity: `${Math.max(2, Math.ceil(guestCount * (context.preset === "bbq" ? 0.44 : 0.35)))} ${t("event_planner_quantity_portions")}`
+        },
+        {
+          id: `protein-secondary-${rotationSeed}`,
+          name: menuSections[1].items[1] || menuSections[0].items[0] || t("event_menu_fallback_food_2"),
+          quantity: `${Math.max(2, Math.ceil(guestCount * (context.preset === "bbq" ? 0.3 : 0.25)))} ${t("event_planner_quantity_portions")}`
+        }
+      ]
+    },
+    {
+      id: "dairy",
+      title: t("event_planner_group_dairy"),
+      items: [
+        {
+          id: `dairy-dessert-${rotationSeed}`,
+          name: menuSections[2].items[0] || t("event_planner_fallback_dessert_1"),
+          quantity: `${Math.max(2, Math.ceil(guestCount * 0.22))} ${t("event_planner_quantity_portions")}`,
+          warning: hasLactoseRestriction ? t("event_planner_warning_lactose") : ""
+        }
+      ]
+    },
+    {
+      id: "drinks",
+      title: t("event_planner_group_drinks"),
+      items: rotateValues(drinkItems, rotationSeed).slice(0, 3).map((item, index) => ({
+        id: `drinks-${index + 1}-${rotationSeed}`,
+        name: item,
+        quantity: `${Math.max(2, Math.ceil(guestCount * (context.momentKey === "night" ? 0.8 : 0.62)))} ${t("event_planner_quantity_units")}`
+      }))
+    }
+  ];
+
+  const recipeCards = menuSections.map((sectionItem, index) => ({
+    id: `${sectionItem.id}-${index + 1}`,
+    title: sectionItem.title,
+    subtitle: sectionItem.items[0] || t("smart_hosting_no_data"),
     note: interpolateText(t("event_menu_recipe_card_note"), {
       portions: Math.max(4, Math.ceil(guestCount * 0.9))
     })
   }));
 
-  const shoppingChecklist = [
-    ...menuItems.map((item) =>
-      interpolateText(t("event_menu_shopping_food_item"), {
-        item,
-        amount: Math.max(2, Math.ceil(guestCount * 0.35))
-      })
-    ),
-    ...drinkItems.map((item) =>
-      interpolateText(t("event_menu_shopping_drink_item"), {
-        item,
-        amount: Math.max(2, Math.ceil(guestCount * 0.65))
+  const shoppingChecklist = shoppingGroups.flatMap((groupItem) =>
+    groupItem.items.map((item) =>
+      interpolateText(t("event_planner_shopping_line"), {
+        group: groupItem.title,
+        item: item.name,
+        quantity: item.quantity
       })
     )
-  ];
+  );
 
   if (avoidBase.length > 0) {
     shoppingChecklist.push(
@@ -377,7 +636,24 @@ function buildEventMealPlan(eventInsights, t) {
       : t("event_menu_shopping_timing_on_time")
   );
 
+  const contextCostFactor =
+    context.preset === "romantic"
+      ? 11.6
+      : context.preset === "celebration"
+      ? 10.1
+      : context.preset === "bbq"
+      ? 9.2
+      : context.preset === "brunch"
+      ? 7.2
+      : 8.4;
+  const estimatedCost = Math.max(28, Math.round(guestCount * contextCostFactor + avoidBase.length * 1.8));
+
   return {
+    menuSections,
+    shoppingGroups,
+    estimatedCost,
+    restrictions: avoidBase.slice(0, 8),
+    contextSummary: context.summary,
     recipeCards,
     shoppingChecklist
   };
@@ -431,6 +707,8 @@ const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
 const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
 const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
 const GUEST_ADVANCED_EDIT_TABS = ["identity", "food", "lifestyle", "conversation", "health"];
+const EVENT_PLANNER_VIEW_TABS = ["menu", "shopping"];
+const EVENT_PLANNER_SHOPPING_FILTERS = ["all", "pending", "done"];
 const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
   diet: "food",
   menu: "food",
@@ -1282,6 +1560,7 @@ function normalizeDashboardRouteState(appRoute) {
     guestsWorkspace: "latest",
     invitationsWorkspace: "latest",
     selectedEventDetailId: "",
+    eventPlannerTab: "menu",
     selectedGuestDetailId: "",
     guestProfileViewTab: "general",
     guestAdvancedEditTab: "identity",
@@ -1303,6 +1582,10 @@ function normalizeDashboardRouteState(appRoute) {
       next.eventsWorkspace = workspace;
     }
     next.selectedEventDetailId = String(appRoute.eventId || "").trim();
+    const nextEventPlannerTab = String(appRoute.eventPlannerTab || "").trim().toLowerCase();
+    if (EVENT_PLANNER_VIEW_TABS.includes(nextEventPlannerTab)) {
+      next.eventPlannerTab = nextEventPlannerTab;
+    }
   }
   if (view === "guests") {
     if (["latest", "create", "detail"].includes(workspace)) {
@@ -1342,11 +1625,13 @@ function buildDashboardPathFromState({
   guestsWorkspace,
   invitationsWorkspace,
   selectedEventDetailId,
+  eventPlannerTab,
   selectedGuestDetailId,
   guestProfileViewTab,
   guestAdvancedEditTab,
   editingGuestId,
   routeEventDetailId,
+  routeEventPlannerTab,
   routeGuestDetailId
 }) {
   if (activeView === "overview") {
@@ -1357,6 +1642,11 @@ function buildDashboardPathFromState({
   }
   if (activeView === "events") {
     const effectiveEventDetailId = String(selectedEventDetailId || routeEventDetailId || "").trim();
+    const effectiveEventPlannerTab = EVENT_PLANNER_VIEW_TABS.includes(String(eventPlannerTab || "").trim().toLowerCase())
+      ? String(eventPlannerTab || "").trim().toLowerCase()
+      : EVENT_PLANNER_VIEW_TABS.includes(String(routeEventPlannerTab || "").trim().toLowerCase())
+      ? String(routeEventPlannerTab || "").trim().toLowerCase()
+      : "menu";
     if (eventsWorkspace === "create") {
       return "/app/events/new";
     }
@@ -1364,7 +1654,7 @@ function buildDashboardPathFromState({
       return "/app/events/insights";
     }
     if (eventsWorkspace === "detail" && effectiveEventDetailId) {
-      return `/app/events/${encodePathSegment(effectiveEventDetailId)}`;
+      return `/app/events/${encodePathSegment(effectiveEventDetailId)}/${encodePathSegment(effectiveEventPlannerTab)}`;
     }
     return "/app/events";
   }
@@ -1398,7 +1688,7 @@ function buildDashboardPathFromState({
 }
 
 function isSpecificEventDetailPath(pathname) {
-  return /^\/app\/events\/[^/]+$/.test(String(pathname || "").trim());
+  return /^\/app\/events\/[^/]+(?:\/(?:menu|shopping))?$/.test(String(pathname || "").trim());
 }
 
 function isSpecificGuestDetailPath(pathname) {
@@ -1470,6 +1760,10 @@ function DashboardScreen({
   const [invitationsWorkspace, setInvitationsWorkspace] = useState(initialRouteState.invitationsWorkspace);
   const [selectedEventDetailId, setSelectedEventDetailId] = useState(initialRouteState.selectedEventDetailId);
   const [selectedGuestDetailId, setSelectedGuestDetailId] = useState(initialRouteState.selectedGuestDetailId);
+  const [eventDetailPlannerTab, setEventDetailPlannerTab] = useState(initialRouteState.eventPlannerTab || "menu");
+  const [eventPlannerShoppingFilter, setEventPlannerShoppingFilter] = useState("all");
+  const [eventPlannerRegenerationByEventId, setEventPlannerRegenerationByEventId] = useState({});
+  const [eventDetailShoppingCheckedByEventId, setEventDetailShoppingCheckedByEventId] = useState({});
   const [guestProfileViewTab, setGuestProfileViewTab] = useState(initialRouteState.guestProfileViewTab || "general");
 
   const [eventTitle, setEventTitle] = useState("");
@@ -3229,7 +3523,27 @@ function DashboardScreen({
     () => getSuggestedEventSettingsFromInsights(eventBuilderInsights),
     [eventBuilderInsights]
   );
-  const eventBuilderMealPlan = useMemo(() => buildEventMealPlan(eventBuilderInsights, t), [eventBuilderInsights, t]);
+  const eventBuilderContext = useMemo(
+    () =>
+      buildEventPlannerContext(
+        {
+          title: eventTitle,
+          description: eventDescription,
+          event_type: toCatalogCode("experience_type", eventType) || eventType,
+          start_at: toIsoDateTime(eventStartAt),
+          location_name: eventLocationName,
+          location_address: eventLocationAddress,
+          dress_code: eventDressCode
+        },
+        language,
+        t
+      ),
+    [eventTitle, eventDescription, eventType, eventStartAt, eventLocationName, eventLocationAddress, eventDressCode, language, t]
+  );
+  const eventBuilderMealPlan = useMemo(
+    () => buildEventMealPlan(eventBuilderInsights, eventBuilderContext, t, 0),
+    [eventBuilderInsights, eventBuilderContext, t]
+  );
   const eventBuilderShoppingChecklistText = useMemo(() => {
     if (!eventBuilderMealPlan.shoppingChecklist.length) {
       return "";
@@ -3595,6 +3909,152 @@ function DashboardScreen({
     () => normalizeEventSettings(selectedEventDetail || {}),
     [selectedEventDetail]
   );
+  const selectedEventPlannerContext = useMemo(
+    () =>
+      buildEventPlannerContext(
+        {
+          ...(selectedEventDetail || {}),
+          dress_code: selectedEventSettings.dress_code
+        },
+        language,
+        t
+      ),
+    [selectedEventDetail, selectedEventSettings.dress_code, language, t]
+  );
+  const selectedEventPlannerVariantSeed = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return 0;
+    }
+    return Math.max(0, Number(eventPlannerRegenerationByEventId[selectedEventDetail.id] || 0));
+  }, [eventPlannerRegenerationByEventId, selectedEventDetail?.id]);
+  const selectedEventInsights = useMemo(
+    () =>
+      buildHostingSuggestions({
+        eventId: selectedEventDetail?.id || "",
+        events,
+        guests,
+        invitations,
+        guestPreferencesById,
+        guestSensitiveById,
+        language
+      }),
+    [selectedEventDetail?.id, events, guests, invitations, guestPreferencesById, guestSensitiveById, language]
+  );
+  const selectedEventMealPlan = useMemo(
+    () => buildEventMealPlan(selectedEventInsights, selectedEventPlannerContext, t, selectedEventPlannerVariantSeed),
+    [selectedEventInsights, selectedEventPlannerContext, selectedEventPlannerVariantSeed, t]
+  );
+  const selectedEventConfirmedGuestRows = useMemo(
+    () => selectedEventDetailGuests.filter((row) => String(row.invitation?.status || "").toLowerCase() === "yes"),
+    [selectedEventDetailGuests]
+  );
+  const selectedEventDietTypesCount = useMemo(() => {
+    const uniqueDietCodes = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const preference = guestPreferencesById[row.guest?.id || row.invitation?.guest_id] || {};
+      const dietCode = String(preference?.diet_type || "").trim();
+      if (dietCode) {
+        uniqueDietCodes.add(dietCode);
+      }
+    }
+    return uniqueDietCodes.size;
+  }, [selectedEventConfirmedGuestRows, guestPreferencesById]);
+  const selectedEventAllergiesCount = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
+      for (const item of toCatalogLabels("allergy", sensitiveItem.allergies || [], language)) {
+        collected.add(item);
+      }
+    }
+    return collected.size;
+  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventIntolerancesCount = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
+      for (const item of toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)) {
+        collected.add(item);
+      }
+    }
+    return collected.size;
+  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventRestrictionsCount = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
+      for (const item of toCatalogLabels("allergy", sensitiveItem.allergies || [], language)) {
+        collected.add(item);
+      }
+      for (const item of toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)) {
+        collected.add(item);
+      }
+    }
+    return collected.size;
+  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventCriticalRestrictions = useMemo(
+    () => uniqueValues(selectedEventMealPlan.restrictions || []).slice(0, 4),
+    [selectedEventMealPlan.restrictions]
+  );
+  const selectedEventShoppingItems = useMemo(
+    () => (selectedEventMealPlan.shoppingGroups || []).flatMap((groupItem) => groupItem.items || []),
+    [selectedEventMealPlan.shoppingGroups]
+  );
+  const selectedEventShoppingTotalIngredients = selectedEventShoppingItems.length;
+  const selectedEventEstimatedCostRange = useMemo(() => {
+    const estimate = Number(selectedEventMealPlan.estimatedCost || 0);
+    const min = Math.max(0, Math.round(estimate * 0.82));
+    const max = Math.max(min, Math.round(estimate * 1.18));
+    return { min, max };
+  }, [selectedEventMealPlan.estimatedCost]);
+  const selectedEventShoppingCheckedSet = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return new Set();
+    }
+    return new Set(eventDetailShoppingCheckedByEventId[selectedEventDetail.id] || []);
+  }, [eventDetailShoppingCheckedByEventId, selectedEventDetail?.id]);
+  const selectedEventShoppingProgress = useMemo(() => {
+    const total = Math.max(0, Number(selectedEventShoppingItems.length || 0));
+    const checked = Math.max(0, Number(selectedEventShoppingCheckedSet.size || 0));
+    if (total === 0) {
+      return 0;
+    }
+    return Math.min(100, Math.max(0, Math.round((checked / total) * 100)));
+  }, [selectedEventShoppingItems.length, selectedEventShoppingCheckedSet.size]);
+  const selectedEventShoppingCounts = useMemo(() => {
+    const total = selectedEventShoppingItems.length;
+    const done = selectedEventShoppingItems.filter((item) => selectedEventShoppingCheckedSet.has(item.id)).length;
+    return {
+      total,
+      done,
+      pending: Math.max(0, total - done)
+    };
+  }, [selectedEventShoppingItems, selectedEventShoppingCheckedSet]);
+  const selectedEventShoppingGroupsFiltered = useMemo(() => {
+    const safeFilter = EVENT_PLANNER_SHOPPING_FILTERS.includes(eventPlannerShoppingFilter)
+      ? eventPlannerShoppingFilter
+      : "all";
+    return (selectedEventMealPlan.shoppingGroups || [])
+      .map((groupItem) => {
+        const items = (groupItem.items || []).filter((shoppingItem) => {
+          if (safeFilter === "done") {
+            return selectedEventShoppingCheckedSet.has(shoppingItem.id);
+          }
+          if (safeFilter === "pending") {
+            return !selectedEventShoppingCheckedSet.has(shoppingItem.id);
+          }
+          return true;
+        });
+        return { ...groupItem, items };
+      })
+      .filter((groupItem) => groupItem.items.length > 0);
+  }, [selectedEventMealPlan.shoppingGroups, selectedEventShoppingCheckedSet, eventPlannerShoppingFilter]);
+  const selectedEventShoppingChecklistText = useMemo(() => {
+    if (!selectedEventMealPlan.shoppingChecklist?.length) {
+      return "";
+    }
+    return [t("event_planner_tab_shopping"), ...selectedEventMealPlan.shoppingChecklist.map((item) => `- ${item}`)].join("\n");
+  }, [selectedEventMealPlan.shoppingChecklist, t]);
   const selectedEventChecklist = useMemo(() => {
     const hasDate = Boolean(selectedEventDetail?.start_at);
     const hasLocation = Boolean(selectedEventDetail?.location_name || selectedEventDetail?.location_address);
@@ -4523,6 +4983,21 @@ function DashboardScreen({
       setSelectedEventDetailId(events[0]?.id || "");
     }
   }, [events, selectedEventDetailId]);
+  useEffect(() => {
+    const routeEventId =
+      appRoute?.view === "events" && appRoute?.workspace === "detail" ? String(appRoute?.eventId || "").trim() : "";
+    const routePlannerTab = EVENT_PLANNER_VIEW_TABS.includes(String(appRoute?.eventPlannerTab || "").trim().toLowerCase())
+      ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
+      : "menu";
+    if (selectedEventDetail?.id && routeEventId && selectedEventDetail.id === routeEventId) {
+      setEventDetailPlannerTab(routePlannerTab);
+      return;
+    }
+    setEventDetailPlannerTab("menu");
+  }, [selectedEventDetail?.id, appRoute?.eventId, appRoute?.eventPlannerTab, appRoute?.view, appRoute?.workspace]);
+  useEffect(() => {
+    setEventPlannerShoppingFilter("all");
+  }, [selectedEventDetail?.id]);
 
   useEffect(() => {
     if (editingEventId) {
@@ -4664,6 +5139,7 @@ function DashboardScreen({
     setMobileExpandedView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
     if (nextRoute.activeView === "events") {
       setEventsWorkspace((prev) => (prev === nextRoute.eventsWorkspace ? prev : nextRoute.eventsWorkspace));
+      setEventDetailPlannerTab((prev) => (prev === nextRoute.eventPlannerTab ? prev : nextRoute.eventPlannerTab));
       if (nextRoute.selectedEventDetailId) {
         setSelectedEventDetailId((prev) => (prev === nextRoute.selectedEventDetailId ? prev : nextRoute.selectedEventDetailId));
       }
@@ -4705,6 +5181,7 @@ function DashboardScreen({
         guestsWorkspace,
         invitationsWorkspace,
         selectedEventDetailId,
+        eventDetailPlannerTab,
         selectedGuestDetailId,
         guestProfileViewTab,
         guestAdvancedEditTab,
@@ -4712,6 +5189,10 @@ function DashboardScreen({
         routeEventDetailId:
           appRoute?.view === "events" && appRoute?.workspace === "detail"
             ? String(appRoute?.eventId || "").trim()
+            : "",
+        routeEventPlannerTab:
+          appRoute?.view === "events" && appRoute?.workspace === "detail"
+            ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
             : "",
         routeGuestDetailId:
           appRoute?.view === "guests" && ["detail", "create"].includes(String(appRoute?.workspace || "").trim())
@@ -4724,6 +5205,7 @@ function DashboardScreen({
       guestsWorkspace,
       invitationsWorkspace,
       selectedEventDetailId,
+      eventDetailPlannerTab,
       selectedGuestDetailId,
       guestProfileViewTab,
       guestAdvancedEditTab,
@@ -5423,6 +5905,7 @@ function DashboardScreen({
     }
     setEventsMapFocusId(fallbackEventId);
     setSelectedEventDetailId(fallbackEventId);
+    setEventDetailPlannerTab("menu");
     setActiveView("events");
     setEventsWorkspace("detail");
     setMobileExpandedView("events");
@@ -5612,6 +6095,116 @@ function DashboardScreen({
     } catch {
       setEventMessage(t("copy_fail"));
     }
+  };
+  const handleToggleEventPlannerShoppingItem = (itemId) => {
+    if (!selectedEventDetail?.id || !itemId) {
+      return;
+    }
+    setEventDetailShoppingCheckedByEventId((prev) => {
+      const eventId = selectedEventDetail.id;
+      const current = new Set(prev[eventId] || []);
+      if (current.has(itemId)) {
+        current.delete(itemId);
+      } else {
+        current.add(itemId);
+      }
+      return {
+        ...prev,
+        [eventId]: Array.from(current)
+      };
+    });
+  };
+  const handleMarkAllEventPlannerShoppingItems = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    setEventDetailShoppingCheckedByEventId((prev) => ({
+      ...prev,
+      [selectedEventDetail.id]: selectedEventShoppingItems.map((item) => item.id)
+    }));
+  };
+  const handleClearEventPlannerShoppingCheckedItems = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    setEventDetailShoppingCheckedByEventId((prev) => ({
+      ...prev,
+      [selectedEventDetail.id]: []
+    }));
+  };
+  const handleRegenerateEventPlanner = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const nextRound = Math.max(1, selectedEventPlannerVariantSeed + 1);
+    setEventPlannerRegenerationByEventId((prev) => ({
+      ...prev,
+      [selectedEventDetail.id]: nextRound
+    }));
+    setEventDetailShoppingCheckedByEventId((prev) => ({
+      ...prev,
+      [selectedEventDetail.id]: []
+    }));
+    setEventPlannerShoppingFilter("all");
+    setInvitationMessage(
+      `${interpolateText(t("event_planner_regenerated_message"), { count: nextRound })} ${interpolateText(
+        t("event_planner_context_applied"),
+        { value: selectedEventPlannerContext.summary }
+      )}`
+    );
+  };
+  const handleExportEventPlannerShoppingList = () => {
+    const exportLines = [
+      t("event_planner_title"),
+      `${selectedEventDetail?.title || t("field_event")}`,
+      ""
+    ];
+    for (const groupItem of selectedEventMealPlan.shoppingGroups || []) {
+      exportLines.push(groupItem.title);
+      for (const shoppingItem of groupItem.items || []) {
+        exportLines.push(`- ${shoppingItem.name} (${shoppingItem.quantity})`);
+      }
+      exportLines.push("");
+    }
+    const payload = exportLines.join("\n").trim();
+    if (!payload) {
+      setInvitationMessage(t("event_menu_shopping_empty"));
+      return;
+    }
+    const filenameBase = String(selectedEventDetail?.title || "event")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-_]/g, "");
+    const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filenameBase || "event"}-shopping-list.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    setInvitationMessage(t("event_planner_export_done"));
+  };
+  const handleCopySelectedEventShoppingChecklist = async () => {
+    if (!selectedEventShoppingChecklistText) {
+      setInvitationMessage(t("event_menu_shopping_empty"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(selectedEventShoppingChecklistText);
+      setInvitationMessage(t("event_menu_shopping_copied"));
+    } catch {
+      setInvitationMessage(t("copy_fail"));
+    }
+  };
+  const handleEventPlannerTabChange = (nextTab) => {
+    const normalizedTab = EVENT_PLANNER_VIEW_TABS.includes(String(nextTab || "").trim().toLowerCase())
+      ? String(nextTab || "").trim().toLowerCase()
+      : "menu";
+    markUserNavigationIntent();
+    setEventDetailPlannerTab(normalizedTab);
   };
 
   const resolveCreatedGuestId = useCallback(
@@ -10347,6 +10940,22 @@ function DashboardScreen({
                 </div>
                 {selectedEventDetail ? (
                   <div className="button-row detail-head-actions">
+                    <button
+                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "menu" ? "is-selected" : ""}`}
+                      type="button"
+                      onClick={() => handleEventPlannerTabChange("menu")}
+                    >
+                      <Icon name="sparkle" className="icon icon-sm" />
+                      {t("event_planner_tab_menu")}
+                    </button>
+                    <button
+                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "shopping" ? "is-selected" : ""}`}
+                      type="button"
+                      onClick={() => handleEventPlannerTabChange("shopping")}
+                    >
+                      <Icon name="check" className="icon icon-sm" />
+                      {t("event_planner_tab_shopping")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
                       <Icon name="edit" className="icon icon-sm" />
                       {t("event_detail_edit_action")}
@@ -10510,6 +11119,203 @@ function DashboardScreen({
                       </div>
                     ) : (
                       <p className="hint">{t("event_detail_alerts_empty")}</p>
+                    )}
+                  </article>
+                  <article className="detail-card detail-card-wide detail-card-event-planner">
+                    <div className="event-planner-head">
+                      <div className="event-planner-head-title-block">
+                        <div className="event-planner-head-title-row">
+                          <p className="item-title">{t("event_planner_title")}</p>
+                          <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
+                        </div>
+                        <p className="field-help">{t("event_planner_hint")}</p>
+                        <p className="hint">{interpolateText(t("event_planner_context_applied"), { value: selectedEventMealPlan.contextSummary || selectedEventPlannerContext.summary })}</p>
+                      </div>
+                      <div className="button-row">
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleRegenerateEventPlanner}>
+                          <Icon name="sparkle" className="icon icon-sm" />
+                          {t("event_planner_action_regenerate")}
+                        </button>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleExportEventPlannerShoppingList}>
+                          <Icon name="mail" className="icon icon-sm" />
+                          {t("event_planner_action_export")}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="event-planner-stats">
+                      <article className="detail-kpi-card">
+                        <p className="item-meta">{t("event_planner_stat_confirmed")}</p>
+                        <p className="item-title">{selectedEventDetailStatusCounts.yes}</p>
+                        <p className="hint">{interpolateText(t("event_planner_stat_hint_confirmed"), { count: selectedEventDetailStatusCounts.pending })}</p>
+                      </article>
+                      <article className="detail-kpi-card">
+                        <p className="item-meta">{t("event_planner_stat_diets")}</p>
+                        <p className="item-title">{selectedEventDietTypesCount}</p>
+                        <p className="hint">{interpolateText(t("event_planner_stat_hint_diets"), { count: selectedEventDietTypesCount })}</p>
+                      </article>
+                      <article className="detail-kpi-card">
+                        <p className="item-meta">{t("event_planner_stat_allergies")}</p>
+                        <p className="item-title">{selectedEventAllergiesCount}</p>
+                        <p className="hint">{interpolateText(t("event_planner_stat_hint_allergies"), { count: selectedEventAllergiesCount })}</p>
+                      </article>
+                    </div>
+                    {selectedEventCriticalRestrictions.length > 0 ? (
+                      <div className="recommendation-card warning event-planner-alert">
+                        <p className="item-title">{t("event_planner_alert_title")}</p>
+                        <p className="item-meta">
+                          {interpolateText(t("event_planner_alert_hint"), {
+                            count: selectedEventRestrictionsCount,
+                            items: selectedEventCriticalRestrictions.join(", ")
+                          })}
+                        </p>
+                        {selectedEventIntolerancesCount > 0 ? (
+                          <p className="hint">{interpolateText(t("event_planner_alert_intolerances"), { count: selectedEventIntolerancesCount })}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="list-filter-tabs list-filter-tabs-segmented event-planner-tabs" role="tablist" aria-label={t("event_planner_title")}>
+                      <button
+                        className={`list-filter-tab ${eventDetailPlannerTab === "menu" ? "active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={eventDetailPlannerTab === "menu"}
+                        onClick={() => handleEventPlannerTabChange("menu")}
+                      >
+                        {t("event_planner_tab_menu")}
+                      </button>
+                      <button
+                        className={`list-filter-tab ${eventDetailPlannerTab === "shopping" ? "active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={eventDetailPlannerTab === "shopping"}
+                        onClick={() => handleEventPlannerTabChange("shopping")}
+                      >
+                        {t("event_planner_tab_shopping")}
+                      </button>
+                    </div>
+                    {eventDetailPlannerTab === "menu" ? (
+                      <div className="event-planner-menu-grid">
+                        {selectedEventMealPlan.menuSections.map((sectionItem) => (
+                          <article key={sectionItem.id} className="event-planner-menu-card">
+                            <div className="event-planner-menu-card-head">
+                              <p className="item-title">{sectionItem.title}</p>
+                              <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
+                            </div>
+                            <ul className="list recommendation-list">
+                              {(sectionItem.items || []).map((item) => (
+                                <li key={`${sectionItem.id}-${item}`}>{item}</li>
+                              ))}
+                            </ul>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="event-planner-shopping-stack">
+                        <div className="event-planner-shopping-summary">
+                          <div className="event-planner-shopping-summary-main">
+                            <p className="item-meta">
+                              {interpolateText(t("event_planner_summary_line"), {
+                                ingredients: selectedEventShoppingTotalIngredients,
+                                min: selectedEventEstimatedCostRange.min,
+                                max: selectedEventEstimatedCostRange.max
+                              })}
+                            </p>
+                            <div
+                              className={`list-progress-track ${
+                                selectedEventShoppingProgress >= 70
+                                  ? "progress-high"
+                                  : selectedEventShoppingProgress >= 35
+                                  ? "progress-medium"
+                                  : ""
+                              }`}
+                              aria-label={t("event_planner_shopping_progress_label")}
+                            >
+                              <span style={{ width: `${selectedEventShoppingProgress}%` }} />
+                            </div>
+                          </div>
+                          <div className="event-planner-shopping-actions">
+                            <span className="status-pill status-host-conversion-source-default">
+                              {interpolateText(t("event_planner_shopping_items"), {
+                                count: selectedEventShoppingItems.length,
+                                checked: selectedEventShoppingCheckedSet.size
+                              })}
+                            </span>
+                            <button className="btn btn-ghost btn-sm" type="button" onClick={handleCopySelectedEventShoppingChecklist}>
+                              {t("event_menu_shopping_copy_action")}
+                            </button>
+                            <button className="btn btn-ghost btn-sm" type="button" onClick={handleMarkAllEventPlannerShoppingItems}>
+                              {t("event_planner_shopping_select_all")}
+                            </button>
+                            <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearEventPlannerShoppingCheckedItems}>
+                              {t("event_planner_shopping_clear_done")}
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          className="list-filter-tabs list-filter-tabs-segmented event-planner-shopping-filters"
+                          role="group"
+                          aria-label={t("event_planner_shopping_filter_label")}
+                        >
+                          <button
+                            className={`list-filter-tab ${eventPlannerShoppingFilter === "all" ? "active" : ""}`}
+                            type="button"
+                            onClick={() => setEventPlannerShoppingFilter("all")}
+                          >
+                            {interpolateText(t("event_planner_shopping_filter_all"), { count: selectedEventShoppingCounts.total })}
+                          </button>
+                          <button
+                            className={`list-filter-tab ${eventPlannerShoppingFilter === "pending" ? "active" : ""}`}
+                            type="button"
+                            onClick={() => setEventPlannerShoppingFilter("pending")}
+                          >
+                            {interpolateText(t("event_planner_shopping_filter_pending"), {
+                              count: selectedEventShoppingCounts.pending
+                            })}
+                          </button>
+                          <button
+                            className={`list-filter-tab ${eventPlannerShoppingFilter === "done" ? "active" : ""}`}
+                            type="button"
+                            onClick={() => setEventPlannerShoppingFilter("done")}
+                          >
+                            {interpolateText(t("event_planner_shopping_filter_done"), { count: selectedEventShoppingCounts.done })}
+                          </button>
+                        </div>
+                        {selectedEventShoppingGroupsFiltered.length > 0 ? (
+                          <ul className="list event-planner-shopping-table">
+                            {selectedEventShoppingGroupsFiltered.map((groupItem) => (
+                              <li key={groupItem.id} className="event-planner-shopping-table-group">
+                                <p className="event-planner-shopping-table-group-title">{groupItem.title}</p>
+                                {(groupItem.items || []).length > 0 ? (
+                                  <ul className="list event-planner-shopping-table-rows">
+                                    {groupItem.items.map((shoppingItem) => (
+                                      <li key={shoppingItem.id} className="event-planner-shopping-table-row">
+                                        <label className="event-planner-shopping-label">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedEventShoppingCheckedSet.has(shoppingItem.id)}
+                                            onChange={() => handleToggleEventPlannerShoppingItem(shoppingItem.id)}
+                                          />
+                                          <span>{shoppingItem.name}</span>
+                                        </label>
+                                        <div className="event-planner-shopping-meta">
+                                          <span className="status-pill status-maybe">{shoppingItem.quantity}</span>
+                                          {shoppingItem.warning ? (
+                                            <span className="status-pill status-no">{shoppingItem.warning}</span>
+                                          ) : null}
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="hint">{t("event_planner_shopping_empty")}</p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="hint">{t("event_planner_shopping_empty_filtered")}</p>
+                        )}
+                      </div>
                     )}
                   </article>
                   {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
