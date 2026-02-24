@@ -5064,6 +5064,22 @@ textarea {
   object-fit: cover;
 }
 
+.import-mobile-qr-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.import-mobile-qr-fallback .icon {
+  font-size: 1.1rem;
+}
+
 .import-preview-list-modal {
   max-height: 310px;
 }

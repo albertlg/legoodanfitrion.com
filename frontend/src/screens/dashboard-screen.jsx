@@ -1215,7 +1215,8 @@ function normalizeDashboardRouteState(appRoute) {
     selectedEventDetailId: "",
     selectedGuestDetailId: "",
     guestProfileViewTab: "general",
-    guestAdvancedEditTab: "identity"
+    guestAdvancedEditTab: "identity",
+    importWizardSource: ""
   };
   if (!appRoute || typeof appRoute !== "object") {
     return next;
@@ -1246,6 +1247,12 @@ function normalizeDashboardRouteState(appRoute) {
     const nextGuestAdvancedTab = String(appRoute.guestAdvancedTab || "").trim().toLowerCase();
     if (GUEST_ADVANCED_EDIT_TABS.includes(nextGuestAdvancedTab)) {
       next.guestAdvancedEditTab = nextGuestAdvancedTab;
+    }
+    const nextImportWizardSource = String(appRoute.importWizardSource || "")
+      .trim()
+      .toLowerCase();
+    if (["csv", "gmail", "mobile"].includes(nextImportWizardSource)) {
+      next.importWizardSource = nextImportWizardSource;
     }
   }
   if (view === "invitations") {
@@ -1381,6 +1388,10 @@ function DashboardScreen({
 }) {
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Madrid", []);
   const initialRouteState = useMemo(() => normalizeDashboardRouteState(appRoute), [appRoute]);
+  const routeImportWizardSource = useMemo(
+    () => normalizeDashboardRouteState(appRoute).importWizardSource || "",
+    [appRoute]
+  );
   const [activeView, setActiveView] = useState(initialRouteState.activeView);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mobileExpandedView, setMobileExpandedView] = useState(initialRouteState.activeView);
@@ -1428,6 +1439,7 @@ function DashboardScreen({
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
   const userNavigationIntentRef = useRef(false);
+  const importWizardAutoloadHandledRef = useRef(false);
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
@@ -1454,6 +1466,7 @@ function DashboardScreen({
   const [importWizardUploadedFileName, setImportWizardUploadedFileName] = useState("");
   const [importWizardShareEmail, setImportWizardShareEmail] = useState("");
   const [importWizardShareMessage, setImportWizardShareMessage] = useState("");
+  const [importWizardQrDataUrl, setImportWizardQrDataUrl] = useState("");
   const [importWizardResult, setImportWizardResult] = useState({
     imported: 0,
     updated: 0,
@@ -1883,7 +1896,34 @@ function DashboardScreen({
     () => importContactsAnalysis.filter((item) => item.duplicateExisting || item.duplicateInPreview).length,
     [importContactsAnalysis]
   );
-  const importWizardMobileLink = useMemo(() => buildAppUrl("/app/guests?import=mobile"), []);
+  const importWizardMobileLink = useMemo(() => buildAppUrl("/app/guests?import=mobile&wizard=1"), []);
+  useEffect(() => {
+    let isDisposed = false;
+    const generateQrDataUrl = async () => {
+      try {
+        const qrcodeModule = await import("qrcode");
+        const qrDataUrl = await qrcodeModule.toDataURL(importWizardMobileLink, {
+          width: 180,
+          margin: 1,
+          color: {
+            dark: "#1a2332",
+            light: "#ffffff"
+          }
+        });
+        if (!isDisposed) {
+          setImportWizardQrDataUrl(qrDataUrl);
+        }
+      } catch {
+        if (!isDisposed) {
+          setImportWizardQrDataUrl("");
+        }
+      }
+    };
+    generateQrDataUrl();
+    return () => {
+      isDisposed = true;
+    };
+  }, [importWizardMobileLink]);
   const importWizardStepLabel = useMemo(
     () =>
       interpolateText(t("import_wizard_step_indicator"), {
@@ -1998,6 +2038,55 @@ function DashboardScreen({
       setIsImportWizardOpen(false);
     }
   }, [activeView, guestsWorkspace]);
+  useEffect(() => {
+    if (activeView !== "guests" || guestsWorkspace !== "latest" || isImportWizardOpen) {
+      return;
+    }
+    if (!routeImportWizardSource) {
+      importWizardAutoloadHandledRef.current = false;
+      return;
+    }
+    if (importWizardAutoloadHandledRef.current) {
+      return;
+    }
+
+    importWizardAutoloadHandledRef.current = true;
+    setImportContactsDraft("");
+    setImportContactsPreview([]);
+    setImportWizardUploadedFileName("");
+    setImportContactsSearch("");
+    setImportContactsGroupFilter("all");
+    setImportContactsPotentialFilter("all");
+    setImportContactsSourceFilter("all");
+    setImportContactsSort("priority");
+    setImportDuplicateMode("skip");
+    setSelectedImportContactIds([]);
+    setImportContactsPage(1);
+    setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
+    setImportContactsMessage("");
+    setImportWizardShareEmail("");
+    setImportWizardShareMessage("");
+    setImportWizardResult({
+      imported: 0,
+      updated: 0,
+      failed: 0,
+      skipped: 0,
+      selected: 0,
+      partial: false
+    });
+    setImportWizardSource(routeImportWizardSource);
+    setImportWizardStep(2);
+    setIsImportWizardOpen(true);
+
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search || "");
+      searchParams.delete("import");
+      searchParams.delete("wizard");
+      const nextSearch = searchParams.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash || ""}`;
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [activeView, guestsWorkspace, isImportWizardOpen, routeImportWizardSource]);
   const hostPotentialGuestsCount = useMemo(
     () => guests.filter((guestItem) => guestItem.email || guestItem.phone).length,
     [guests]
@@ -5599,6 +5688,39 @@ function DashboardScreen({
     await loadDashboardData();
   };
 
+  const applyImportedContactsPreview = ({
+    contacts,
+    source,
+    loadedMessagePrefix,
+    emptyMessage,
+    fromWizard = false,
+    keepDraft = false
+  }) => {
+    const parsedContacts = Array.isArray(contacts) ? contacts : [];
+    setImportContactsPreview(tagImportedContacts(parsedContacts, source));
+    setImportDuplicateMode("skip");
+    if (!keepDraft) {
+      setImportContactsDraft("");
+    }
+    setImportContactsSearch("");
+    setImportContactsGroupFilter("all");
+    setImportContactsPotentialFilter("all");
+    setImportContactsSourceFilter("all");
+    setImportContactsSort("priority");
+    setImportContactsPage(1);
+
+    if (parsedContacts.length === 0) {
+      setImportContactsMessage(emptyMessage);
+      return false;
+    }
+
+    setImportContactsMessage(`${loadedMessagePrefix} ${parsedContacts.length}.`);
+    if (fromWizard) {
+      setImportWizardStep(3);
+    }
+    return true;
+  };
+
   const previewImportedContacts = (sourceText, sourceType = "paste") => {
     const rawText = String(sourceText || "");
     let parsedContacts = [];
@@ -5610,20 +5732,13 @@ function DashboardScreen({
         parsedContacts = parseContactsFromText(rawText);
       }
     }
-    const taggedContacts = tagImportedContacts(parsedContacts, sourceType === "paste" ? "paste" : "file");
-    setImportContactsPreview(taggedContacts);
-    setImportDuplicateMode("skip");
-    if (parsedContacts.length === 0) {
-      setImportContactsMessage(t("contact_import_no_matches"));
-      return;
-    }
-    setImportContactsMessage(`${t("contact_import_preview_ready")} ${parsedContacts.length}.`);
-    setImportContactsSearch("");
-    setImportContactsGroupFilter("all");
-    setImportContactsPotentialFilter("all");
-    setImportContactsSourceFilter("all");
-    setImportContactsSort("priority");
-    setImportContactsPage(1);
+    applyImportedContactsPreview({
+      contacts: parsedContacts,
+      source: sourceType === "paste" ? "paste" : "file",
+      loadedMessagePrefix: t("contact_import_preview_ready"),
+      emptyMessage: t("contact_import_no_matches"),
+      keepDraft: sourceType === "paste"
+    });
   };
 
   const handlePreviewContactsFromDraft = () => {
@@ -5650,7 +5765,7 @@ function DashboardScreen({
     event.target.value = "";
   };
 
-  const handleImportGoogleContacts = async () => {
+  const handleImportGoogleContacts = async ({ fromWizard = false } = {}) => {
     if (!canUseGoogleContacts) {
       setImportContactsMessage(t("contact_import_google_unconfigured"));
       return;
@@ -5659,21 +5774,14 @@ function DashboardScreen({
     setImportContactsMessage("");
     try {
       const googleContacts = await importContactsFromGoogle();
-      setImportContactsPreview(tagImportedContacts(googleContacts, "google"));
-      setImportDuplicateMode("skip");
-      setImportContactsDraft("");
-      setImportContactsSearch("");
-      setImportContactsGroupFilter("all");
-      setImportContactsPotentialFilter("all");
-      setImportContactsSourceFilter("all");
-      setImportContactsSort("priority");
-      setImportContactsPage(1);
-      if (googleContacts.length > 0) {
-        setImportContactsMessage(`${t("contact_import_google_loaded")} ${googleContacts.length}.`);
-      } else {
-        setImportContactsMessage(t("contact_import_google_empty"));
-      }
-      if (contactImportDetailsRef.current) {
+      applyImportedContactsPreview({
+        contacts: googleContacts,
+        source: "google",
+        loadedMessagePrefix: t("contact_import_google_loaded"),
+        emptyMessage: t("contact_import_google_empty"),
+        fromWizard
+      });
+      if (!fromWizard && contactImportDetailsRef.current) {
         contactImportDetailsRef.current.open = true;
       }
     } catch (error) {
@@ -5690,10 +5798,12 @@ function DashboardScreen({
     contactImportFileInputRef.current?.click();
   };
 
-  const handlePickDeviceContacts = async () => {
+  const handlePickDeviceContacts = async ({ fromWizard = false } = {}) => {
     if (!canUseDeviceContacts) {
       setImportContactsMessage(contactPickerUnsupportedReason || t("contact_import_device_not_supported"));
-      openFileImportFallback();
+      if (!fromWizard) {
+        openFileImportFallback();
+      }
       return;
     }
     try {
@@ -5701,15 +5811,13 @@ function DashboardScreen({
       const parsedContacts = (selectedContacts || [])
         .map((item) => normalizeDeviceContact(item))
         .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);
-      setImportContactsPreview(tagImportedContacts(parsedContacts, "device"));
-      setImportDuplicateMode("skip");
-      setImportContactsSearch("");
-      setImportContactsGroupFilter("all");
-      setImportContactsPotentialFilter("all");
-      setImportContactsSourceFilter("all");
-      setImportContactsSort("priority");
-      setImportContactsPage(1);
-      setImportContactsMessage(`${t("contact_import_device_loaded")} ${parsedContacts.length}.`);
+      applyImportedContactsPreview({
+        contacts: parsedContacts,
+        source: "device",
+        loadedMessagePrefix: t("contact_import_device_loaded"),
+        emptyMessage: t("contact_import_device_empty"),
+        fromWizard
+      });
     } catch (error) {
       if (error?.name === "AbortError") {
         setImportContactsMessage(t("contact_import_device_empty"));
@@ -12518,7 +12626,7 @@ function DashboardScreen({
                     <button
                       className="btn btn-sm"
                       type="button"
-                      onClick={handleImportGoogleContacts}
+                      onClick={() => handleImportGoogleContacts({ fromWizard: true })}
                       disabled={isImportingGoogleContacts || !canUseGoogleContacts}
                     >
                       <Icon name="mail" className="icon icon-sm" />
@@ -12537,17 +12645,39 @@ function DashboardScreen({
                 {importWizardStep === 2 && importWizardSource === "mobile" ? (
                   <div className="import-step-stack">
                     <div className="import-mobile-qr-box">
-                      <img
-                        src={`https://chart.googleapis.com/chart?cht=qr&chs=180x180&chl=${encodeURIComponent(importWizardMobileLink)}`}
-                        alt={t("import_wizard_mobile_qr_alt")}
-                      />
+                      {importWizardQrDataUrl ? (
+                        <img src={importWizardQrDataUrl} alt={t("import_wizard_mobile_qr_alt")} />
+                      ) : (
+                        <div className="import-mobile-qr-fallback">
+                          <Icon name="phone" className="icon" />
+                          <span>{t("import_wizard_mobile_qr_hint")}</span>
+                        </div>
+                      )}
                     </div>
                     <p className="item-meta">{t("import_wizard_mobile_qr_hint")}</p>
+                    <p className="hint">
+                      {canUseDeviceContacts ? t("contact_import_device_supported") : t("contact_import_device_not_supported")}
+                    </p>
+                    {!canUseDeviceContacts ? <p className="hint">{contactPickerUnsupportedReason}</p> : null}
                     <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handlePickDeviceContacts}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => handlePickDeviceContacts({ fromWizard: true })}
+                      >
                         <Icon name="phone" className="icon icon-sm" />
                         {t("contact_import_device_button")}
                       </button>
+                      <label className="btn btn-ghost btn-sm">
+                        <Icon name="folder" className="icon icon-sm" />
+                        {t("contact_import_open_file_button")}
+                        <input
+                          type="file"
+                          accept=".csv,.vcf,.vcard,text/csv,text/vcard"
+                          onChange={handleImportContactsFile}
+                          hidden
+                        />
+                      </label>
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"

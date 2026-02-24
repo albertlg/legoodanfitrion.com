@@ -35,11 +35,19 @@ function decodePathSegment(segment) {
   }
 }
 
-function parseAppRoute(pathname) {
+function getImportWizardSource(searchParams) {
+  const next = String(searchParams?.get?.("import") || "")
+    .trim()
+    .toLowerCase();
+  return ["csv", "gmail", "mobile"].includes(next) ? next : "";
+}
+
+function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
   const normalized = normalizePathname(pathname);
   const segments = normalized.split("/").filter(Boolean).slice(1);
   const section = segments[0] || "overview";
   const normalizedSegment = String(segments[1] || "").trim().toLowerCase();
+  const importWizardSource = getImportWizardSource(searchParams);
 
   if (section === "profile") {
     return { view: "profile" };
@@ -83,14 +91,18 @@ function parseAppRoute(pathname) {
       };
     }
     if (normalizedSegment === "latest" || normalizedSegment === "list" || normalizedSegment === "hub") {
-      return { view: "guests", workspace: "latest" };
+      return importWizardSource
+        ? { view: "guests", workspace: "latest", importWizardSource }
+        : { view: "guests", workspace: "latest" };
     }
     if (segments[1]) {
       const tabSegment = decodePathSegment(segments[2] || "").toLowerCase();
       const guestProfileTab = GUEST_PROFILE_TABS.has(tabSegment) ? tabSegment : "general";
       return { view: "guests", workspace: "detail", guestId: decodePathSegment(segments[1]), guestProfileTab };
     }
-    return { view: "guests", workspace: "latest" };
+    return importWizardSource
+      ? { view: "guests", workspace: "latest", importWizardSource }
+      : { view: "guests", workspace: "latest" };
   }
 
   if (section === "invitations") {
@@ -194,7 +206,7 @@ function getRouteFromLocation() {
     return { kind: "app", path: "/profile", appRoute: { view: "profile" } };
   }
   if (pathname === "/app" || pathname.startsWith("/app/")) {
-    return { kind: "app", path: pathname, appRoute: parseAppRoute(pathname) };
+    return { kind: "app", path: pathname, appRoute: parseAppRoute(pathname, search) };
   }
   if (LANDING_PATHS.has(pathname)) {
     return { kind: "landing", path: pathname };
