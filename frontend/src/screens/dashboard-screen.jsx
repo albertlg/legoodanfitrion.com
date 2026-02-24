@@ -425,6 +425,7 @@ const GUESTS_PAGE_SIZE_DEFAULT = 10;
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 const IMPORT_PREVIEW_PAGE_SIZE_DEFAULT = 20;
 const IMPORT_PREVIEW_PAGE_SIZE_OPTIONS = [10, 20, 50];
+const IMPORT_CONTACTS_SORT_OPTIONS = ["priority", "score_desc", "score_asc", "name_asc", "name_desc"];
 const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
 const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
 const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
@@ -1449,6 +1450,8 @@ function DashboardScreen({
   const [importContactsSearch, setImportContactsSearch] = useState("");
   const [importContactsGroupFilter, setImportContactsGroupFilter] = useState("all");
   const [importContactsPotentialFilter, setImportContactsPotentialFilter] = useState("all");
+  const [importContactsSourceFilter, setImportContactsSourceFilter] = useState("all");
+  const [importContactsSort, setImportContactsSort] = useState("priority");
   const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
   const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
   const [importContactsPage, setImportContactsPage] = useState(1);
@@ -1747,12 +1750,34 @@ function DashboardScreen({
     const term = String(importContactsSearch || "").trim().toLowerCase();
     const groupFilter = String(importContactsGroupFilter || "all");
     const potentialFilter = String(importContactsPotentialFilter || "all");
+    const sourceFilter = String(importContactsSourceFilter || "all");
+    const sortBy = String(importContactsSort || "priority");
     const potentialWeight = { high: 3, medium: 2, low: 1 };
+    const collator = new Intl.Collator(language, { sensitivity: "base", numeric: true });
+    const compareByPriority = (a, b) => {
+      if (a.canImport !== b.canImport) {
+        return a.canImport ? -1 : 1;
+      }
+      if ((potentialWeight[b.potentialLevel] || 0) !== (potentialWeight[a.potentialLevel] || 0)) {
+        return (potentialWeight[b.potentialLevel] || 0) - (potentialWeight[a.potentialLevel] || 0);
+      }
+      if (b.captureScore !== a.captureScore) {
+        return b.captureScore - a.captureScore;
+      }
+      if (a.duplicateExisting !== b.duplicateExisting) {
+        return a.duplicateExisting ? 1 : -1;
+      }
+      const nameA = `${a.firstName} ${a.lastName}`.trim();
+      const nameB = `${b.firstName} ${b.lastName}`.trim();
+      return collator.compare(nameA, nameB);
+    };
+
     return importContactsAnalysis
       .filter((item) => {
         const matchesGroup = groupFilter === "all" || (Array.isArray(item.groups) && item.groups.includes(groupFilter));
         const matchesPotential = potentialFilter === "all" || item.potentialLevel === potentialFilter;
-        if (!matchesGroup || !matchesPotential) {
+        const matchesSource = sourceFilter === "all" || item.importSource === sourceFilter;
+        if (!matchesGroup || !matchesPotential || !matchesSource) {
           return false;
         }
         if (!term) {
@@ -1763,25 +1788,49 @@ function DashboardScreen({
         return haystack.includes(term);
       })
       .sort((a, b) => {
-        if (a.canImport !== b.canImport) {
-          return a.canImport ? -1 : 1;
-        }
-        if ((potentialWeight[b.potentialLevel] || 0) !== (potentialWeight[a.potentialLevel] || 0)) {
-          return (potentialWeight[b.potentialLevel] || 0) - (potentialWeight[a.potentialLevel] || 0);
-        }
-        if (b.captureScore !== a.captureScore) {
-          return b.captureScore - a.captureScore;
-        }
-        if (a.duplicateExisting !== b.duplicateExisting) {
-          return a.duplicateExisting ? 1 : -1;
-        }
         const nameA = `${a.firstName} ${a.lastName}`.trim();
         const nameB = `${b.firstName} ${b.lastName}`.trim();
-        return nameA.localeCompare(nameB, language);
+        if (sortBy === "score_desc") {
+          if (b.captureScore !== a.captureScore) {
+            return b.captureScore - a.captureScore;
+          }
+          return collator.compare(nameA, nameB);
+        }
+        if (sortBy === "score_asc") {
+          if (a.captureScore !== b.captureScore) {
+            return a.captureScore - b.captureScore;
+          }
+          return collator.compare(nameA, nameB);
+        }
+        if (sortBy === "name_desc") {
+          return collator.compare(nameB, nameA);
+        }
+        if (sortBy === "name_asc") {
+          return collator.compare(nameA, nameB);
+        }
+        return compareByPriority(a, b);
       });
-  }, [importContactsAnalysis, importContactsGroupFilter, importContactsPotentialFilter, importContactsSearch, language]);
+  }, [
+    importContactsAnalysis,
+    importContactsGroupFilter,
+    importContactsPotentialFilter,
+    importContactsSourceFilter,
+    importContactsSort,
+    importContactsSearch,
+    language
+  ]);
   const importContactsFilteredReady = useMemo(
     () => importContactsFiltered.filter((item) => item.canImport),
+    [importContactsFiltered]
+  );
+  const importContactsSuggested = useMemo(
+    () =>
+      importContactsFiltered.filter(
+        (item) =>
+          item.canImport &&
+          !item.duplicateInPreview &&
+          (item.potentialLevel === "high" || (item.potentialLevel === "medium" && item.hasDualChannel))
+      ),
     [importContactsFiltered]
   );
   const importContactsReady = useMemo(() => importContactsAnalysis.filter((item) => item.canImport), [importContactsAnalysis]);
@@ -1830,7 +1879,16 @@ function DashboardScreen({
   }, [importContactsReady]);
   useEffect(() => {
     setImportContactsPage(1);
-  }, [importContactsSearch, importContactsGroupFilter, importContactsPotentialFilter, importDuplicateMode, importContactsPageSize, importContactsPreview.length]);
+  }, [
+    importContactsSearch,
+    importContactsGroupFilter,
+    importContactsPotentialFilter,
+    importContactsSourceFilter,
+    importContactsSort,
+    importDuplicateMode,
+    importContactsPageSize,
+    importContactsPreview.length
+  ]);
   useEffect(() => {
     if (importContactsPage > importContactsTotalPages) {
       setImportContactsPage(importContactsTotalPages);
@@ -2557,6 +2615,111 @@ function DashboardScreen({
   const guestAdvancedFirstPendingLabel = guestAdvancedFirstPendingTab
     ? guestAdvancedSignalsBySection[guestAdvancedFirstPendingTab]?.label || ""
     : "";
+  const guestAdvancedNextPendingTab = useMemo(() => {
+    if (!guestAdvancedSignalsBySection || GUEST_ADVANCED_EDIT_TABS.length === 0) {
+      return "";
+    }
+    const currentIndex = Math.max(0, guestAdvancedCurrentTabIndex);
+    const orderedTabs = [
+      ...GUEST_ADVANCED_EDIT_TABS.slice(currentIndex + 1),
+      ...GUEST_ADVANCED_EDIT_TABS.slice(0, currentIndex + 1)
+    ];
+    return (
+      orderedTabs.find(
+        (tabKey) => tabKey !== guestAdvancedEditTab && !guestAdvancedSignalsBySection[tabKey]?.done
+      ) || ""
+    );
+  }, [guestAdvancedCurrentTabIndex, guestAdvancedEditTab, guestAdvancedSignalsBySection]);
+  const guestAdvancedNextPendingLabel = guestAdvancedNextPendingTab
+    ? guestAdvancedSignalsBySection[guestAdvancedNextPendingTab]?.label || ""
+    : "";
+  const guestAdvancedCurrentChecklist = useMemo(() => {
+    if (guestAdvancedEditTab === "identity") {
+      return [
+        {
+          key: "identity_contact",
+          label: t("hint_contact_required"),
+          done: Boolean(guestFirstName.trim() && (guestEmail.trim() || guestPhone.trim()))
+        },
+        {
+          key: "identity_location",
+          label: t("field_address"),
+          done: Boolean(guestAdvanced.address.trim() || guestCity.trim() || guestCountry.trim())
+        },
+        {
+          key: "identity_social",
+          label: t("field_instagram"),
+          done: Boolean(guestAdvanced.instagram.trim() || guestAdvanced.linkedIn.trim() || guestAdvanced.twitter.trim())
+        }
+      ];
+    }
+    if (guestAdvancedEditTab === "food") {
+      return [
+        { key: "food_diet", label: t("field_diet_type"), done: Boolean(guestAdvanced.dietType.trim()) },
+        { key: "food_likes", label: t("field_food_likes"), done: Boolean(splitListInput(guestAdvanced.foodLikes).length) },
+        { key: "food_drinks", label: t("field_drink_likes"), done: Boolean(splitListInput(guestAdvanced.drinkLikes).length) }
+      ];
+    }
+    if (guestAdvancedEditTab === "lifestyle") {
+      return [
+        {
+          key: "lifestyle_music",
+          label: t("field_music_genres"),
+          done: Boolean(splitListInput(guestAdvanced.musicGenres).length)
+        },
+        { key: "lifestyle_sports", label: t("field_sport"), done: Boolean(splitListInput(guestAdvanced.sports).length) },
+        {
+          key: "lifestyle_day_moment",
+          label: t("field_day_moment"),
+          done: Boolean(splitListInput(guestAdvanced.preferredDayMoments).length)
+        }
+      ];
+    }
+    if (guestAdvancedEditTab === "conversation") {
+      return [
+        {
+          key: "conversation_last_topic",
+          label: t("field_last_talk_topic"),
+          done: Boolean(guestAdvanced.lastTalkTopic.trim())
+        },
+        {
+          key: "conversation_taboo",
+          label: t("field_taboo_topics"),
+          done: Boolean(splitListInput(guestAdvanced.tabooTopics).length)
+        },
+        {
+          key: "conversation_relationship",
+          label: t("field_relationship"),
+          done: Boolean(guestRelationship.trim() || splitListInput(guestAdvanced.preferredGuestRelationships).length)
+        }
+      ];
+    }
+    return [
+      {
+        key: "health_allergies",
+        label: t("field_allergies"),
+        done: Boolean(splitListInput(guestAdvanced.allergies).length)
+      },
+      {
+        key: "health_intolerances",
+        label: t("field_intolerances"),
+        done: Boolean(splitListInput(guestAdvanced.intolerances).length)
+      },
+      {
+        key: "health_sensitive_consent",
+        label: t("field_sensitive_consent"),
+        done: !(
+          splitListInput(guestAdvanced.allergies).length ||
+          splitListInput(guestAdvanced.intolerances).length ||
+          splitListInput(guestAdvanced.petAllergies).length
+        )
+          ? true
+          : Boolean(guestAdvanced.sensitiveConsent)
+      }
+    ];
+  }, [guestAdvanced, guestAdvancedEditTab, guestCity, guestCountry, guestEmail, guestFirstName, guestPhone, guestRelationship, t]);
+  const guestAdvancedCurrentChecklistDone = guestAdvancedCurrentChecklist.filter((item) => item.done).length;
+  const guestAdvancedCurrentChecklistTotal = Math.max(1, guestAdvancedCurrentChecklist.length);
   const guestNextBirthday = useMemo(
     () => getNextBirthdaySummary(guestAdvanced.birthday, language),
     [guestAdvanced.birthday, language]
@@ -5354,6 +5517,8 @@ function DashboardScreen({
     setImportContactsSearch("");
     setImportContactsGroupFilter("all");
     setImportContactsPotentialFilter("all");
+    setImportContactsSourceFilter("all");
+    setImportContactsSort("priority");
     setImportContactsPage(1);
   };
 
@@ -5388,6 +5553,8 @@ function DashboardScreen({
       setImportContactsSearch("");
       setImportContactsGroupFilter("all");
       setImportContactsPotentialFilter("all");
+      setImportContactsSourceFilter("all");
+      setImportContactsSort("priority");
       setImportContactsPage(1);
       if (googleContacts.length > 0) {
         setImportContactsMessage(`${t("contact_import_google_loaded")} ${googleContacts.length}.`);
@@ -5427,6 +5594,8 @@ function DashboardScreen({
       setImportContactsSearch("");
       setImportContactsGroupFilter("all");
       setImportContactsPotentialFilter("all");
+      setImportContactsSourceFilter("all");
+      setImportContactsSort("priority");
       setImportContactsPage(1);
       setImportContactsMessage(`${t("contact_import_device_loaded")} ${parsedContacts.length}.`);
     } catch (error) {
@@ -5700,6 +5869,20 @@ function DashboardScreen({
     await persistGuest({ refreshAfterSave: false, successMessageMode: "draft" });
   };
 
+  const handleSaveAndGoNextPendingGuestAdvancedSection = async () => {
+    if (isSavingGuest || !guestAdvancedNextPendingTab) {
+      return;
+    }
+    if (!validateGuestAdvancedStep(guestAdvancedEditTab)) {
+      return;
+    }
+    const saveResult = await persistGuest({ refreshAfterSave: false, successMessageMode: "draft" });
+    if (!saveResult?.ok) {
+      return;
+    }
+    scrollToGuestAdvancedSection(guestAdvancedNextPendingTab);
+  };
+
   const handleGoToFirstPendingGuestAdvancedSection = () => {
     if (!guestAdvancedFirstPendingTab) {
       return;
@@ -5713,6 +5896,8 @@ function DashboardScreen({
     setImportContactsSearch("");
     setImportContactsGroupFilter("all");
     setImportContactsPotentialFilter("all");
+    setImportContactsSourceFilter("all");
+    setImportContactsSort("priority");
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
     setImportContactsPage(1);
@@ -5722,6 +5907,10 @@ function DashboardScreen({
 
   const handleSelectAllReadyImportContacts = () => {
     setSelectedImportContactIds(importContactsReady.map((item) => item.previewId));
+  };
+
+  const handleSelectSuggestedImportContacts = () => {
+    setSelectedImportContactIds(importContactsSuggested.map((item) => item.previewId));
   };
 
   const handleClearReadyImportContactsSelection = () => {
@@ -9844,6 +10033,36 @@ function DashboardScreen({
                       </select>
                     </label>
                     <label>
+                      <span className="label-title">{t("contact_import_source_label")}</span>
+                      <select
+                        value={importContactsSourceFilter}
+                        onChange={(event) => setImportContactsSourceFilter(event.target.value)}
+                      >
+                        <option value="all">{t("contact_import_source_all")}</option>
+                        <option value="google">{t("contact_import_source_google")}</option>
+                        <option value="device">{t("contact_import_source_device")}</option>
+                        <option value="file">{t("contact_import_source_file")}</option>
+                        <option value="paste">{t("contact_import_source_paste")}</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span className="label-title">{t("contact_import_sort_label")}</span>
+                      <select
+                        value={importContactsSort}
+                        onChange={(event) =>
+                          setImportContactsSort(
+                            IMPORT_CONTACTS_SORT_OPTIONS.includes(event.target.value) ? event.target.value : "priority"
+                          )
+                        }
+                      >
+                        <option value="priority">{t("contact_import_sort_priority")}</option>
+                        <option value="score_desc">{t("contact_import_sort_score_desc")}</option>
+                        <option value="score_asc">{t("contact_import_sort_score_asc")}</option>
+                        <option value="name_asc">{t("contact_import_sort_name_asc")}</option>
+                        <option value="name_desc">{t("contact_import_sort_name_desc")}</option>
+                      </select>
+                    </label>
+                    <label>
                       <span className="label-title">{t("pagination_items_per_page")}</span>
                       <select
                         value={importContactsPageSize}
@@ -9860,6 +10079,9 @@ function DashboardScreen({
                 ) : null}
                 {importContactsAnalysis.length > 0 ? (
                   <div className="button-row">
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectSuggestedImportContacts}>
+                      {t("contact_import_select_suggested")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
                       {t("contact_import_select_all_ready")}
                     </button>
@@ -9882,6 +10104,13 @@ function DashboardScreen({
                       {t("contact_import_clear_selection")}
                     </button>
                   </div>
+                ) : null}
+                {importContactsAnalysis.length > 0 ? (
+                  <p className="hint">
+                    {interpolateText(t("contact_import_suggested_count"), {
+                      count: importContactsSuggested.length
+                    })}
+                  </p>
                 ) : null}
                 {importContactsAnalysis.length > 0 ? (
                   <ul className="list import-preview-list">
@@ -10191,6 +10420,25 @@ function DashboardScreen({
                     </span>
                     <span className="advanced-current-step-label">{guestAdvancedCurrentTabLabel}</span>
                   </p>
+                  <div className="advanced-checklist">
+                    <p className="item-meta">
+                      {interpolateText(t("guest_wizard_checklist_progress"), {
+                        done: guestAdvancedCurrentChecklistDone,
+                        total: guestAdvancedCurrentChecklistTotal
+                      })}
+                    </p>
+                    <div className="advanced-checklist-pills">
+                      {guestAdvancedCurrentChecklist.map((item) => (
+                        <span
+                          key={item.key}
+                          className={`advanced-checklist-pill ${item.done ? "is-done" : "is-pending"}`}
+                        >
+                          <Icon name={item.done ? "check" : "clock"} className="icon icon-xs" />
+                          {item.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                   <div className="advanced-nav-row">
                     <p className="item-meta">
                       {interpolateText(t("guest_profile_capture_progress"), {
@@ -10216,6 +10464,20 @@ function DashboardScreen({
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSaveGuestDraft} disabled={isSavingGuest}>
                         <Icon name="check" className="icon icon-sm" />
                         {isSavingGuest ? t("guest_saving_draft") : t("guest_save_draft")}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={handleSaveAndGoNextPendingGuestAdvancedSection}
+                        disabled={!guestAdvancedNextPendingTab || isSavingGuest}
+                        title={
+                          guestAdvancedNextPendingLabel
+                            ? `${t("guest_wizard_save_next_pending")} · ${guestAdvancedNextPendingLabel}`
+                            : t("guest_wizard_save_next_pending")
+                        }
+                      >
+                        <Icon name="sparkle" className="icon icon-sm" />
+                        {t("guest_wizard_save_next_pending")}
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"

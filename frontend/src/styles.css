@@ -3802,6 +3802,47 @@ h2 {
   font-weight: 600;
 }
 
+.advanced-checklist {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.advanced-checklist .item-meta {
+  margin: 0;
+}
+
+.advanced-checklist-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.advanced-checklist-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.24rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 80%, transparent 20%);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.advanced-checklist-pill.is-done {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border) 55%);
+  background: color-mix(in srgb, var(--success) 16%, var(--surface) 84%);
+  color: color-mix(in srgb, var(--success) 74%, var(--title) 26%);
+}
+
+.advanced-checklist-pill.is-pending {
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--border) 58%);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface) 88%);
+  color: color-mix(in srgb, var(--warning) 72%, var(--title) 28%);
+}
+
 .advanced-nav-row .item-meta {
   margin: 0;
 }
