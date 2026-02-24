@@ -644,7 +644,9 @@ function writeGuestGeoCache(userId, nextCache) {
 function normalizeLookupValue(value) {
   return String(value || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function normalizeEmailKey(value) {
@@ -692,6 +694,73 @@ function buildGuestFingerprint({ firstName, lastName, email, phone }) {
     return `name:${firstKey}|${lastKey}`;
   }
   return "";
+}
+
+function buildGuestNameKey(firstName, lastName) {
+  const firstKey = normalizeLookupValue(firstName);
+  const lastKey = normalizeLookupValue(lastName);
+  if (!firstKey && !lastKey) {
+    return "";
+  }
+  return `${firstKey}|${lastKey}`;
+}
+
+function buildGuestMatchingKeys({ firstName, lastName, email, phone }) {
+  const keys = [];
+  const emailKey = normalizeEmailKey(email);
+  const phoneKey = normalizePhoneKey(phone);
+  const nameKey = buildGuestNameKey(firstName, lastName);
+  if (emailKey) {
+    keys.push(`email:${emailKey}`);
+  }
+  if (phoneKey) {
+    keys.push(`phone:${phoneKey}`);
+  }
+  if (nameKey) {
+    keys.push(`name:${nameKey}`);
+  }
+  if (emailKey || phoneKey) {
+    keys.push(`contact:${emailKey}|${phoneKey}`);
+  }
+  return uniqueValues(keys);
+}
+
+function buildGuestDuplicateMatchScore(sourceGuest, targetGuest) {
+  if (!sourceGuest?.id || !targetGuest?.id || sourceGuest.id === targetGuest.id) {
+    return -1;
+  }
+  let score = 0;
+  const sourceEmail = normalizeEmailKey(sourceGuest.email || "");
+  const targetEmail = normalizeEmailKey(targetGuest.email || "");
+  const sourcePhone = normalizePhoneKey(sourceGuest.phone || "");
+  const targetPhone = normalizePhoneKey(targetGuest.phone || "");
+  const sourceNameKey = buildGuestNameKey(sourceGuest.first_name, sourceGuest.last_name);
+  const targetNameKey = buildGuestNameKey(targetGuest.first_name, targetGuest.last_name);
+
+  if (sourceEmail && targetEmail && sourceEmail === targetEmail) {
+    score += 8;
+  }
+  if (sourcePhone && targetPhone && sourcePhone === targetPhone) {
+    score += 8;
+  }
+  if (sourceNameKey && targetNameKey && sourceNameKey === targetNameKey) {
+    score += 4;
+  }
+  if (sourceGuest.city && targetGuest.city && normalizeLookupValue(sourceGuest.city) === normalizeLookupValue(targetGuest.city)) {
+    score += 2;
+  }
+  if (
+    sourceGuest.country &&
+    targetGuest.country &&
+    normalizeLookupValue(sourceGuest.country) === normalizeLookupValue(targetGuest.country)
+  ) {
+    score += 2;
+  }
+  return score;
+}
+
+function mergeUniqueListValues(primaryValues, secondaryValues) {
+  return uniqueValues([...(Array.isArray(primaryValues) ? primaryValues : []), ...(Array.isArray(secondaryValues) ? secondaryValues : [])]);
 }
 
 function normalizeImportSource(value) {
@@ -1561,6 +1630,10 @@ function DashboardScreen({
   const [guestGeocodeById, setGuestGeocodeById] = useState({});
   const [insightsEventId, setInsightsEventId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [guestMergeSourceId, setGuestMergeSourceId] = useState("");
+  const [guestMergeTargetId, setGuestMergeTargetId] = useState("");
+  const [guestMergeSearch, setGuestMergeSearch] = useState("");
+  const [isMergingGuest, setIsMergingGuest] = useState(false);
   const [prefsReady, setPrefsReady] = useState(false);
 
   const pendingInvites = invitations.filter((item) => item.status === "pending").length;
@@ -1640,7 +1713,125 @@ function DashboardScreen({
     [events]
   );
   const guestsById = useMemo(() => Object.fromEntries(guests.map((guestItem) => [guestItem.id, guestItem])), [guests]);
+  const existingGuestByEmail = useMemo(() => {
+    const map = {};
+    for (const guestItem of guests) {
+      const emailKey = normalizeEmailKey(guestItem.email || "");
+      if (emailKey && !map[emailKey]) {
+        map[emailKey] = guestItem;
+      }
+    }
+    return map;
+  }, [guests]);
+  const existingGuestByPhone = useMemo(() => {
+    const map = {};
+    for (const guestItem of guests) {
+      const phoneKey = normalizePhoneKey(guestItem.phone || "");
+      if (phoneKey && !map[phoneKey]) {
+        map[phoneKey] = guestItem;
+      }
+    }
+    return map;
+  }, [guests]);
+  const existingGuestByName = useMemo(() => {
+    const map = {};
+    for (const guestItem of guests) {
+      const nameKey = buildGuestNameKey(guestItem.first_name, guestItem.last_name);
+      if (nameKey && !map[nameKey]) {
+        map[nameKey] = guestItem;
+      }
+    }
+    return map;
+  }, [guests]);
+  const ownerEmailKey = normalizeEmailKey(session?.user?.email || "");
+  const ownerPhoneKey = normalizePhoneKey(hostProfilePhone || "");
+  const ownerNameKey = useMemo(() => {
+    const fallbackName = ownerEmailKey ? ownerEmailKey.split("@")[0] : "";
+    const { firstName, lastName } = splitFullName(hostProfileName || fallbackName);
+    return buildGuestNameKey(firstName, lastName);
+  }, [hostProfileName, ownerEmailKey]);
+  const ownerGuestCandidate = useMemo(() => {
+    if (ownerEmailKey && existingGuestByEmail[ownerEmailKey]) {
+      return existingGuestByEmail[ownerEmailKey];
+    }
+    if (ownerPhoneKey && existingGuestByPhone[ownerPhoneKey]) {
+      return existingGuestByPhone[ownerPhoneKey];
+    }
+    return null;
+  }, [existingGuestByEmail, existingGuestByPhone, ownerEmailKey, ownerPhoneKey]);
+  const findExistingGuestForContact = useCallback(
+    ({ firstName, lastName, email, phone }) => {
+      const emailKey = normalizeEmailKey(email);
+      const phoneKey = normalizePhoneKey(phone);
+      const nameKey = buildGuestNameKey(firstName, lastName);
+
+      if (ownerGuestCandidate) {
+        const isOwnerByEmail = Boolean(emailKey && ownerEmailKey && emailKey === ownerEmailKey);
+        const isOwnerByPhone = Boolean(phoneKey && ownerPhoneKey && phoneKey === ownerPhoneKey);
+        const isOwnerByNameOnly = Boolean(!emailKey && !phoneKey && nameKey && ownerNameKey && nameKey === ownerNameKey);
+        if (isOwnerByEmail || isOwnerByPhone || isOwnerByNameOnly) {
+          return ownerGuestCandidate;
+        }
+      }
+
+      if (emailKey && existingGuestByEmail[emailKey]) {
+        return existingGuestByEmail[emailKey];
+      }
+      if (phoneKey && existingGuestByPhone[phoneKey]) {
+        return existingGuestByPhone[phoneKey];
+      }
+      if (nameKey && existingGuestByName[nameKey]) {
+        return existingGuestByName[nameKey];
+      }
+      return null;
+    },
+    [
+      existingGuestByEmail,
+      existingGuestByName,
+      existingGuestByPhone,
+      ownerEmailKey,
+      ownerGuestCandidate,
+      ownerNameKey,
+      ownerPhoneKey
+    ]
+  );
   const eventsById = useMemo(() => Object.fromEntries(events.map((eventItem) => [eventItem.id, eventItem])), [events]);
+  const guestMergeSource = useMemo(
+    () => (guestMergeSourceId ? guestsById[guestMergeSourceId] || null : null),
+    [guestMergeSourceId, guestsById]
+  );
+  const guestMergeCandidates = useMemo(() => {
+    if (!guestMergeSource) {
+      return [];
+    }
+    const searchTerm = String(guestMergeSearch || "").trim().toLowerCase();
+    const withScore = guests
+      .filter((guestItem) => guestItem.id !== guestMergeSource.id)
+      .map((guestItem) => ({
+        ...guestItem,
+        mergeScore: buildGuestDuplicateMatchScore(guestMergeSource, guestItem)
+      }));
+
+    const filtered = withScore.filter((guestItem) => {
+      if (searchTerm) {
+        const name = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim().toLowerCase();
+        const email = String(guestItem.email || "").toLowerCase();
+        const phone = String(guestItem.phone || "").toLowerCase();
+        return name.includes(searchTerm) || email.includes(searchTerm) || phone.includes(searchTerm);
+      }
+      return guestItem.mergeScore > 0;
+    });
+
+    if (filtered.length > 0) {
+      return filtered.sort((a, b) => b.mergeScore - a.mergeScore || String(a.first_name || "").localeCompare(String(b.first_name || "")));
+    }
+    if (searchTerm) {
+      return [];
+    }
+    return withScore
+      .sort((a, b) => b.mergeScore - a.mergeScore || String(a.first_name || "").localeCompare(String(b.first_name || "")))
+      .slice(0, 8);
+  }, [guestMergeSearch, guestMergeSource, guests]);
   const eventInvitationSummaryByEventId = useMemo(() => {
     const summary = {};
     for (const invitationItem of invitations) {
@@ -1685,26 +1876,6 @@ function DashboardScreen({
     }
     return counts;
   }, [invitations]);
-  const existingGuestByFingerprint = useMemo(() => {
-    const map = {};
-    for (const guestItem of guests) {
-      const fingerprint = buildGuestFingerprint({
-        firstName: guestItem.first_name,
-        lastName: guestItem.last_name,
-        email: guestItem.email,
-        phone: guestItem.phone
-      });
-      if (!fingerprint || map[fingerprint]) {
-        continue;
-      }
-      map[fingerprint] = guestItem;
-    }
-    return map;
-  }, [guests]);
-  const existingGuestFingerprints = useMemo(
-    () => new Set(Object.keys(existingGuestByFingerprint)),
-    [existingGuestByFingerprint]
-  );
   const importContactsAnalysis = useMemo(() => {
     const seenInPreview = new Set();
     return importContactsPreview.map((contactItem, index) => {
@@ -1716,11 +1887,10 @@ function DashboardScreen({
       const groups = toContactGroupsList(contactItem);
       const importSource = normalizeImportSource(contactItem?.importSource);
       const fingerprint = buildGuestFingerprint({ firstName, lastName, email, phone });
-      const duplicateInPreview = Boolean(fingerprint && seenInPreview.has(fingerprint));
-      if (fingerprint) {
-        seenInPreview.add(fingerprint);
-      }
-      const existingGuest = fingerprint ? existingGuestByFingerprint[fingerprint] || null : null;
+      const matchingKeys = buildGuestMatchingKeys({ firstName, lastName, email, phone });
+      const duplicateInPreview = matchingKeys.some((matchingKey) => seenInPreview.has(matchingKey));
+      matchingKeys.forEach((matchingKey) => seenInPreview.add(matchingKey));
+      const existingGuest = findExistingGuestForContact({ firstName, lastName, email, phone });
       const duplicateExisting = Boolean(existingGuest);
       const willMerge = duplicateExisting && importDuplicateMode === "merge";
       const canImport = Boolean((firstName || email || phone) && !duplicateInPreview && (!duplicateExisting || willMerge));
@@ -1742,6 +1912,7 @@ function DashboardScreen({
       return {
         previewId,
         fingerprint,
+        matchingKeys,
         existingGuestId: existingGuest?.id || "",
         firstName,
         lastName,
@@ -1766,7 +1937,7 @@ function DashboardScreen({
         canImport
       };
     });
-  }, [existingGuestByFingerprint, importContactsPreview, importDuplicateMode]);
+  }, [findExistingGuestForContact, importContactsPreview, importDuplicateMode]);
   const importContactsGroupOptions = useMemo(
     () =>
       uniqueValues(
@@ -2034,6 +2205,16 @@ function DashboardScreen({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isImportWizardOpen]);
   useEffect(() => {
+    if (typeof document === "undefined" || !isImportWizardOpen) {
+      return undefined;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isImportWizardOpen]);
+  useEffect(() => {
     if (activeView !== "guests" || guestsWorkspace !== "latest") {
       setIsImportWizardOpen(false);
     }
@@ -2091,17 +2272,7 @@ function DashboardScreen({
     () => guests.filter((guestItem) => guestItem.email || guestItem.phone).length,
     [guests]
   );
-  const selfGuestCandidate = useMemo(() => {
-    const emailKey = normalizeEmailKey(session?.user?.email || "");
-    const phoneKey = normalizePhoneKey(hostProfilePhone);
-    return (
-      guests.find((guestItem) => {
-        const guestEmailKey = normalizeEmailKey(guestItem.email || "");
-        const guestPhoneKey = normalizePhoneKey(guestItem.phone || "");
-        return Boolean((emailKey && guestEmailKey === emailKey) || (phoneKey && guestPhoneKey === phoneKey));
-      }) || null
-    );
-  }, [guests, session?.user?.email, hostProfilePhone]);
+  const selfGuestCandidate = useMemo(() => ownerGuestCandidate || null, [ownerGuestCandidate]);
   const selfGuestPreference = useMemo(
     () => (selfGuestCandidate ? guestPreferencesById[selfGuestCandidate.id] || {} : {}),
     [selfGuestCandidate, guestPreferencesById]
@@ -4426,6 +4597,15 @@ function DashboardScreen({
     syncHostGuestProfileForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView]);
+  useEffect(() => {
+    if (!guestMergeSource) {
+      setGuestMergeTargetId("");
+      return;
+    }
+    if (!guestMergeCandidates.find((guestItem) => guestItem.id === guestMergeTargetId)) {
+      setGuestMergeTargetId(guestMergeCandidates[0]?.id || "");
+    }
+  }, [guestMergeCandidates, guestMergeSource, guestMergeTargetId]);
 
   useEffect(() => {
     if (!editingEventId) {
@@ -6266,7 +6446,7 @@ function DashboardScreen({
     setImportContactsMessage("");
 
     const duplicateMode = importDuplicateMode === "merge" ? "merge" : "skip";
-    const insertedFingerprints = new Set();
+    const insertedMatchingKeys = new Set();
     let importedCount = 0;
     let mergedCount = 0;
     let skippedCount = 0;
@@ -6276,14 +6456,19 @@ function DashboardScreen({
     for (const contactItem of importContactsSelectedReady) {
       const fallbackFirstName = deriveGuestNameFromContact(contactItem) || t("field_guest");
       const relationshipCode = deriveRelationshipCodeFromContact(contactItem);
-      const fingerprint = buildGuestFingerprint({
+      const matchingKeys = buildGuestMatchingKeys({
         firstName: fallbackFirstName,
         lastName: contactItem.lastName,
         email: contactItem.email,
         phone: contactItem.phone
       });
-      const existingGuest = fingerprint ? existingGuestByFingerprint[fingerprint] || null : null;
-      const hasExisting = Boolean(existingGuest || (fingerprint && existingGuestFingerprints.has(fingerprint)));
+      const existingGuest = findExistingGuestForContact({
+        firstName: fallbackFirstName,
+        lastName: contactItem.lastName,
+        email: contactItem.email,
+        phone: contactItem.phone
+      });
+      const hasExisting = Boolean(existingGuest);
 
       if (hasExisting && duplicateMode !== "merge") {
         skippedCount += 1;
@@ -6384,7 +6569,7 @@ function DashboardScreen({
         company: toNullable(contactItem.company)
       };
 
-      if (fingerprint && insertedFingerprints.has(fingerprint)) {
+      if (matchingKeys.some((matchingKey) => insertedMatchingKeys.has(matchingKey))) {
         skippedCount += 1;
         continue;
       }
@@ -6398,9 +6583,7 @@ function DashboardScreen({
         failedCount += 1;
         continue;
       }
-      if (fingerprint) {
-        insertedFingerprints.add(fingerprint);
-      }
+      matchingKeys.forEach((matchingKey) => insertedMatchingKeys.add(matchingKey));
       importedCount += 1;
     }
 
@@ -7267,6 +7450,386 @@ function DashboardScreen({
       type: "guest",
       item: guestItem
     });
+  };
+
+  const handleOpenMergeGuest = (guestItem) => {
+    if (!guestItem?.id) {
+      return;
+    }
+    setGuestMergeSourceId(guestItem.id);
+    setGuestMergeSearch("");
+    setGuestMergeTargetId("");
+  };
+
+  const handleCloseMergeGuest = () => {
+    if (isMergingGuest) {
+      return;
+    }
+    setGuestMergeSourceId("");
+    setGuestMergeTargetId("");
+    setGuestMergeSearch("");
+  };
+
+  const handleConfirmMergeGuest = async () => {
+    if (!supabase || !session?.user?.id || !guestMergeSourceId || !guestMergeTargetId) {
+      return;
+    }
+    if (guestMergeSourceId === guestMergeTargetId) {
+      setGuestMessage(t("merge_guest_error_same"));
+      return;
+    }
+
+    const sourceGuest = guestsById[guestMergeSourceId];
+    const targetGuest = guestsById[guestMergeTargetId];
+    if (!sourceGuest || !targetGuest) {
+      setGuestMessage(t("merge_guest_error_missing"));
+      return;
+    }
+
+    setIsMergingGuest(true);
+    setGuestMessage("");
+
+    try {
+      const mergeGuestPayload = {};
+      const fillGuestField = (field, targetValue, sourceValue) => {
+        const mergedValue = getMergedFieldValue(targetValue, sourceValue);
+        if (typeof mergedValue !== "undefined") {
+          mergeGuestPayload[field] = toNullable(mergedValue);
+        }
+      };
+
+      fillGuestField("first_name", targetGuest.first_name, sourceGuest.first_name);
+      fillGuestField("last_name", targetGuest.last_name, sourceGuest.last_name);
+      fillGuestField("email", targetGuest.email, sourceGuest.email);
+      fillGuestField("phone", targetGuest.phone, sourceGuest.phone);
+      fillGuestField("relationship", targetGuest.relationship, sourceGuest.relationship);
+      fillGuestField("city", targetGuest.city, sourceGuest.city);
+      fillGuestField("country", targetGuest.country, sourceGuest.country);
+      fillGuestField("address", targetGuest.address, sourceGuest.address);
+      fillGuestField("postal_code", targetGuest.postal_code, sourceGuest.postal_code);
+      fillGuestField("state_region", targetGuest.state_region, sourceGuest.state_region);
+      fillGuestField("company", targetGuest.company, sourceGuest.company);
+      fillGuestField("birthday", targetGuest.birthday, sourceGuest.birthday);
+      fillGuestField("twitter", targetGuest.twitter, sourceGuest.twitter);
+      fillGuestField("instagram", targetGuest.instagram, sourceGuest.instagram);
+      fillGuestField("linkedin", targetGuest.linkedin, sourceGuest.linkedin);
+
+      const sourceLastMeet = String(sourceGuest.last_meet_at || "").trim();
+      const targetLastMeet = String(targetGuest.last_meet_at || "").trim();
+      const sourceLastMeetAt = sourceLastMeet ? new Date(sourceLastMeet).getTime() : 0;
+      const targetLastMeetAt = targetLastMeet ? new Date(targetLastMeet).getTime() : 0;
+      if (sourceLastMeetAt && (!targetLastMeetAt || sourceLastMeetAt > targetLastMeetAt)) {
+        mergeGuestPayload.last_meet_at = sourceLastMeet;
+      }
+
+      if (Object.keys(mergeGuestPayload).length > 0) {
+        let { error: mergeGuestError } = await supabase
+          .from("guests")
+          .update(mergeGuestPayload)
+          .eq("id", targetGuest.id)
+          .eq("host_user_id", session.user.id);
+
+        if (
+          mergeGuestError &&
+          isCompatibilityError(mergeGuestError, [
+            "postal_code",
+            "state_region",
+            "birthday",
+            "twitter",
+            "instagram",
+            "linkedin",
+            "last_meet_at"
+          ])
+        ) {
+          const fallbackGuestPayload = { ...mergeGuestPayload };
+          delete fallbackGuestPayload.postal_code;
+          delete fallbackGuestPayload.state_region;
+          delete fallbackGuestPayload.birthday;
+          delete fallbackGuestPayload.twitter;
+          delete fallbackGuestPayload.instagram;
+          delete fallbackGuestPayload.linkedin;
+          delete fallbackGuestPayload.last_meet_at;
+          if (Object.keys(fallbackGuestPayload).length > 0) {
+            ({ error: mergeGuestError } = await supabase
+              .from("guests")
+              .update(fallbackGuestPayload)
+              .eq("id", targetGuest.id)
+              .eq("host_user_id", session.user.id));
+          } else {
+            mergeGuestError = null;
+          }
+        }
+
+        if (mergeGuestError) {
+          throw mergeGuestError;
+        }
+      }
+
+      const sourcePreference = guestPreferencesById[sourceGuest.id] || null;
+      const targetPreference = guestPreferencesById[targetGuest.id] || null;
+      if (sourcePreference || targetPreference) {
+        const mergedPreference = {
+          guest_id: targetGuest.id,
+          diet_type: toNullable(targetPreference?.diet_type || sourcePreference?.diet_type || ""),
+          tasting_preferences: mergeUniqueListValues(toList(targetPreference?.tasting_preferences), toList(sourcePreference?.tasting_preferences)),
+          food_likes: mergeUniqueListValues(toList(targetPreference?.food_likes), toList(sourcePreference?.food_likes)),
+          food_dislikes: mergeUniqueListValues(toList(targetPreference?.food_dislikes), toList(sourcePreference?.food_dislikes)),
+          drink_likes: mergeUniqueListValues(toList(targetPreference?.drink_likes), toList(sourcePreference?.drink_likes)),
+          drink_dislikes: mergeUniqueListValues(toList(targetPreference?.drink_dislikes), toList(sourcePreference?.drink_dislikes)),
+          music_genres: mergeUniqueListValues(toList(targetPreference?.music_genres), toList(sourcePreference?.music_genres)),
+          favorite_color: toNullable(targetPreference?.favorite_color || sourcePreference?.favorite_color || ""),
+          books: mergeUniqueListValues(toList(targetPreference?.books), toList(sourcePreference?.books)),
+          movies: mergeUniqueListValues(toList(targetPreference?.movies), toList(sourcePreference?.movies)),
+          series: mergeUniqueListValues(toList(targetPreference?.series), toList(sourcePreference?.series)),
+          sports: mergeUniqueListValues(toList(targetPreference?.sports), toList(sourcePreference?.sports)),
+          team_fan: toNullable(targetPreference?.team_fan || sourcePreference?.team_fan || ""),
+          punctuality: toNullable(targetPreference?.punctuality || sourcePreference?.punctuality || ""),
+          last_talk_topic: toNullable(targetPreference?.last_talk_topic || sourcePreference?.last_talk_topic || ""),
+          taboo_topics: mergeUniqueListValues(toList(targetPreference?.taboo_topics), toList(sourcePreference?.taboo_topics)),
+          experience_types: mergeUniqueListValues(toList(targetPreference?.experience_types), toList(sourcePreference?.experience_types)),
+          preferred_guest_relationships: mergeUniqueListValues(
+            toList(targetPreference?.preferred_guest_relationships),
+            toList(sourcePreference?.preferred_guest_relationships)
+          ),
+          preferred_day_moments: mergeUniqueListValues(
+            toList(targetPreference?.preferred_day_moments),
+            toList(sourcePreference?.preferred_day_moments)
+          ),
+          periodicity: toNullable(targetPreference?.periodicity || sourcePreference?.periodicity || ""),
+          cuisine_types: mergeUniqueListValues(toList(targetPreference?.cuisine_types), toList(sourcePreference?.cuisine_types)),
+          pets: mergeUniqueListValues(toList(targetPreference?.pets), toList(sourcePreference?.pets))
+        };
+
+        let { error: preferencesError } = await supabase.from("guest_preferences").upsert(mergedPreference, {
+          onConflict: "guest_id"
+        });
+        if (
+          preferencesError &&
+          isCompatibilityError(preferencesError, [
+            "experience_types",
+            "preferred_guest_relationships",
+            "preferred_day_moments",
+            "periodicity",
+            "cuisine_types",
+            "pets"
+          ])
+        ) {
+          const fallbackPreference = { ...mergedPreference };
+          delete fallbackPreference.experience_types;
+          delete fallbackPreference.preferred_guest_relationships;
+          delete fallbackPreference.preferred_day_moments;
+          delete fallbackPreference.periodicity;
+          delete fallbackPreference.cuisine_types;
+          delete fallbackPreference.pets;
+          ({ error: preferencesError } = await supabase.from("guest_preferences").upsert(fallbackPreference, {
+            onConflict: "guest_id"
+          }));
+        }
+        if (preferencesError && !isMissingRelationError(preferencesError, "guest_preferences")) {
+          throw preferencesError;
+        }
+      }
+
+      const sourceSensitive = guestSensitiveById[sourceGuest.id] || null;
+      const targetSensitive = guestSensitiveById[targetGuest.id] || null;
+      if (sourceSensitive || targetSensitive) {
+        const allergies = mergeUniqueListValues(toList(targetSensitive?.allergies), toList(sourceSensitive?.allergies));
+        const intolerances = mergeUniqueListValues(toList(targetSensitive?.intolerances), toList(sourceSensitive?.intolerances));
+        const petAllergies = mergeUniqueListValues(toList(targetSensitive?.pet_allergies), toList(sourceSensitive?.pet_allergies));
+        const hasSensitiveValues = allergies.length > 0 || intolerances.length > 0 || petAllergies.length > 0;
+        const consentGranted = Boolean(targetSensitive?.consent_granted || sourceSensitive?.consent_granted || hasSensitiveValues);
+        const mergedSensitive = {
+          guest_id: targetGuest.id,
+          allergies,
+          intolerances,
+          pet_allergies: petAllergies,
+          consent_granted: consentGranted,
+          consent_version: consentGranted
+            ? targetSensitive?.consent_version || sourceSensitive?.consent_version || "v1"
+            : null,
+          consent_granted_at: consentGranted
+            ? targetSensitive?.consent_granted_at || sourceSensitive?.consent_granted_at || new Date().toISOString()
+            : null
+        };
+        const { error: sensitiveError } = await supabase.from("guest_sensitive_preferences").upsert(mergedSensitive, {
+          onConflict: "guest_id"
+        });
+        if (sensitiveError && !isMissingRelationError(sensitiveError, "guest_sensitive_preferences")) {
+          throw sensitiveError;
+        }
+      }
+
+      const targetGuestName = `${targetGuest.first_name || ""} ${targetGuest.last_name || ""}`.trim() || null;
+      const sourceInvitations = invitations.filter((item) => item.guest_id === sourceGuest.id);
+      const targetInvitationsByEventId = Object.fromEntries(
+        invitations.filter((item) => item.guest_id === targetGuest.id).map((item) => [item.event_id, item])
+      );
+      const statusRank = { pending: 0, maybe: 1, no: 1, yes: 2 };
+      for (const invitationItem of sourceInvitations) {
+        const targetInvitation = targetInvitationsByEventId[invitationItem.event_id] || null;
+        if (targetInvitation) {
+          const sourceRank = statusRank[String(invitationItem.status || "pending").toLowerCase()] ?? 0;
+          const targetRank = statusRank[String(targetInvitation.status || "pending").toLowerCase()] ?? 0;
+          const shouldImproveTarget = sourceRank > targetRank;
+          if (shouldImproveTarget) {
+            await supabase
+              .from("invitations")
+              .update({
+                status: invitationItem.status,
+                responded_at: invitationItem.responded_at,
+                guest_display_name: targetGuestName || targetInvitation.guest_display_name
+              })
+              .eq("id", targetInvitation.id)
+              .eq("host_user_id", session.user.id);
+          }
+          await supabase
+            .from("invitations")
+            .delete()
+            .eq("id", invitationItem.id)
+            .eq("host_user_id", session.user.id);
+        } else {
+          const { error: moveInvitationError } = await supabase
+            .from("invitations")
+            .update({ guest_id: targetGuest.id, guest_display_name: targetGuestName })
+            .eq("id", invitationItem.id)
+            .eq("host_user_id", session.user.id);
+          if (moveInvitationError) {
+            throw moveInvitationError;
+          }
+        }
+      }
+
+      const expenseSharesResult = await supabase
+        .from("expense_shares")
+        .select("id, expense_id, guest_id, share_amount, status, payment_link, paid_at")
+        .eq("host_user_id", session.user.id)
+        .in("guest_id", [sourceGuest.id, targetGuest.id]);
+      if (!expenseSharesResult.error) {
+        const sourceShares = (expenseSharesResult.data || []).filter((item) => item.guest_id === sourceGuest.id);
+        const targetSharesByExpenseId = Object.fromEntries(
+          (expenseSharesResult.data || [])
+            .filter((item) => item.guest_id === targetGuest.id)
+            .map((item) => [item.expense_id, item])
+        );
+        for (const sourceShare of sourceShares) {
+          const targetShare = targetSharesByExpenseId[sourceShare.expense_id] || null;
+          if (targetShare) {
+            const sourceStatus = String(sourceShare.status || "pending").toLowerCase();
+            const targetStatus = String(targetShare.status || "pending").toLowerCase();
+            if (targetStatus !== "paid" && sourceStatus === "paid") {
+              await supabase
+                .from("expense_shares")
+                .update({
+                  status: sourceShare.status,
+                  paid_at: sourceShare.paid_at || targetShare.paid_at,
+                  payment_link: targetShare.payment_link || sourceShare.payment_link,
+                  share_amount: Number(targetShare.share_amount || 0) >= Number(sourceShare.share_amount || 0)
+                    ? targetShare.share_amount
+                    : sourceShare.share_amount
+                })
+                .eq("id", targetShare.id)
+                .eq("host_user_id", session.user.id);
+            }
+            await supabase.from("expense_shares").delete().eq("id", sourceShare.id).eq("host_user_id", session.user.id);
+          } else {
+            await supabase
+              .from("expense_shares")
+              .update({ guest_id: targetGuest.id })
+              .eq("id", sourceShare.id)
+              .eq("host_user_id", session.user.id);
+          }
+        }
+      } else if (!isMissingRelationError(expenseSharesResult.error, "expense_shares")) {
+        throw expenseSharesResult.error;
+      }
+
+      const consentsMoveResult = await supabase
+        .from("consents")
+        .update({ guest_id: targetGuest.id })
+        .eq("guest_id", sourceGuest.id)
+        .eq("host_user_id", session.user.id);
+      if (consentsMoveResult.error && !isMissingRelationError(consentsMoveResult.error, "consents")) {
+        throw consentsMoveResult.error;
+      }
+
+      const notesResult = await supabase
+        .from("host_guest_private_notes")
+        .select("guest_id, host_user_id, notes, seating_notes, decor_notes, playlist_notes, gift_notes")
+        .in("guest_id", [sourceGuest.id, targetGuest.id])
+        .eq("host_user_id", session.user.id);
+      if (!notesResult.error) {
+        const sourceNotes = (notesResult.data || []).find((item) => item.guest_id === sourceGuest.id) || null;
+        const targetNotes = (notesResult.data || []).find((item) => item.guest_id === targetGuest.id) || null;
+        if (sourceNotes && targetNotes) {
+          await supabase
+            .from("host_guest_private_notes")
+            .update({
+              notes: toNullable(targetNotes.notes || sourceNotes.notes),
+              seating_notes: toNullable(targetNotes.seating_notes || sourceNotes.seating_notes),
+              decor_notes: toNullable(targetNotes.decor_notes || sourceNotes.decor_notes),
+              playlist_notes: toNullable(targetNotes.playlist_notes || sourceNotes.playlist_notes),
+              gift_notes: toNullable(targetNotes.gift_notes || sourceNotes.gift_notes)
+            })
+            .eq("guest_id", targetGuest.id)
+            .eq("host_user_id", session.user.id);
+          await supabase.from("host_guest_private_notes").delete().eq("guest_id", sourceGuest.id).eq("host_user_id", session.user.id);
+        } else if (sourceNotes && !targetNotes) {
+          await supabase
+            .from("host_guest_private_notes")
+            .update({ guest_id: targetGuest.id })
+            .eq("guest_id", sourceGuest.id)
+            .eq("host_user_id", session.user.id);
+        }
+      } else if (!isMissingRelationError(notesResult.error, "host_guest_private_notes")) {
+        throw notesResult.error;
+      }
+
+      const linksResult = await supabase
+        .from("host_guest_profile_links")
+        .select("guest_id")
+        .in("guest_id", [sourceGuest.id, targetGuest.id]);
+      if (!linksResult.error) {
+        const hasSourceLink = Boolean((linksResult.data || []).find((item) => item.guest_id === sourceGuest.id));
+        const hasTargetLink = Boolean((linksResult.data || []).find((item) => item.guest_id === targetGuest.id));
+        if (hasSourceLink && hasTargetLink) {
+          await supabase.from("host_guest_profile_links").delete().eq("guest_id", sourceGuest.id);
+        } else if (hasSourceLink && !hasTargetLink) {
+          await supabase.from("host_guest_profile_links").update({ guest_id: targetGuest.id }).eq("guest_id", sourceGuest.id);
+        }
+      } else if (!isMissingRelationError(linksResult.error, "host_guest_profile_links")) {
+        throw linksResult.error;
+      }
+
+      const { error: deleteSourceGuestError } = await supabase
+        .from("guests")
+        .delete()
+        .eq("id", sourceGuest.id)
+        .eq("host_user_id", session.user.id);
+      if (deleteSourceGuestError) {
+        throw deleteSourceGuestError;
+      }
+
+      if (editingGuestId === sourceGuest.id) {
+        setEditingGuestId(targetGuest.id);
+      }
+      if (selectedGuestDetailId === sourceGuest.id) {
+        setSelectedGuestDetailId(targetGuest.id);
+      }
+      setGuestMessage(
+        interpolateText(t("merge_guest_success"), {
+          source: `${sourceGuest.first_name || ""} ${sourceGuest.last_name || ""}`.trim() || t("field_guest"),
+          target: `${targetGuest.first_name || ""} ${targetGuest.last_name || ""}`.trim() || t("field_guest")
+        })
+      );
+      setGuestMergeSourceId("");
+      setGuestMergeTargetId("");
+      setGuestMergeSearch("");
+      await loadDashboardData();
+    } catch (error) {
+      setGuestMessage(`${t("merge_guest_error")} ${String(error?.message || "")}`);
+    } finally {
+      setIsMergingGuest(false);
+    }
   };
 
   const handleDeleteEvent = async (eventItem) => {
@@ -11488,6 +12051,15 @@ function DashboardScreen({
                               <Icon name="edit" className="icon icon-sm" />
                             </button>
                             <button
+                              className="btn btn-ghost btn-sm btn-icon-only"
+                              type="button"
+                              onClick={() => handleOpenMergeGuest(guestItem)}
+                              aria-label={t("merge_guest_action")}
+                              title={t("merge_guest_action")}
+                            >
+                              <Icon name="link" className="icon icon-sm" />
+                            </button>
+                            <button
                               className="btn btn-danger btn-sm btn-icon-only"
                               type="button"
                               onClick={() => handleRequestDeleteGuest(guestItem)}
@@ -11634,6 +12206,10 @@ function DashboardScreen({
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(selectedGuestDetail)}>
                       <Icon name="edit" className="icon icon-sm" />
                       {t("guest_detail_edit_action")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenMergeGuest(selectedGuestDetail)}>
+                      <Icon name="link" className="icon icon-sm" />
+                      {t("merge_guest_action")}
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
@@ -12736,6 +13312,17 @@ function DashboardScreen({
                         </select>
                       </label>
                     </div>
+                    <div className="import-status-pills">
+                      <span className="status-pill status-event-published">
+                        {t("contact_import_preview_total")} {importContactsAnalysis.length}
+                      </span>
+                      <span className="status-pill status-yes">
+                        {t("contact_import_selected_ready")} {importContactsSelectedReady.length}
+                      </span>
+                      <span className="status-pill status-event-draft">
+                        {t("contact_import_preview_ready")} {importContactsReady.length}
+                      </span>
+                    </div>
                     {importContactsDuplicateCount > 0 ? (
                       <div className="recommendation-card warning import-wizard-alert">
                         <p className="item-title">{t("import_wizard_duplicates_title")}</p>
@@ -12748,6 +13335,9 @@ function DashboardScreen({
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectSuggestedImportContacts}>
                         {t("contact_import_select_suggested")}
                       </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
+                        {t("contact_import_select_page_ready")}
+                      </button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
                         {t("contact_import_select_all_ready")}
                       </button>
@@ -12755,33 +13345,61 @@ function DashboardScreen({
                         {t("contact_import_clear_selection")}
                       </button>
                     </div>
-                    <ul className="list import-preview-list import-preview-list-modal">
-                      {pagedImportContacts.map((contactItem) => (
-                        <li key={contactItem.previewId}>
-                          <label className="bulk-guest-option import-contact-option">
-                            <input
-                              type="checkbox"
-                              checked={selectedImportContactIds.includes(contactItem.previewId)}
-                              disabled={!contactItem.canImport}
-                              onChange={() => toggleImportContactSelection(contactItem.previewId)}
-                            />
-                            <span>
-                              <strong>
+                    <div className="import-preview-table">
+                      <div className="import-preview-head">
+                        <span />
+                        <span>{t("field_full_name")}</span>
+                        <span>{t("email")}</span>
+                        <span>{t("field_phone")}</span>
+                        <span>{t("field_city")}</span>
+                        <span>{t("status")}</span>
+                      </div>
+                      <ul className="list import-preview-list import-preview-list-modal">
+                        {pagedImportContacts.map((contactItem) => {
+                          const statusText = contactItem.duplicateExisting
+                            ? t("contact_import_status_duplicate_existing")
+                            : contactItem.duplicateInPreview
+                            ? t("contact_import_status_duplicate_file")
+                            : contactItem.potentialLevel === "high"
+                            ? t("contact_import_status_high_potential")
+                            : contactItem.potentialLevel === "medium"
+                            ? t("contact_import_status_medium_potential")
+                            : t("contact_import_status_ready");
+                          const statusClass = contactItem.duplicateExisting
+                            ? "status-invitation-pending"
+                            : contactItem.duplicateInPreview
+                            ? "status-event-draft"
+                            : contactItem.potentialLevel === "high"
+                            ? "status-yes"
+                            : contactItem.potentialLevel === "medium"
+                            ? "status-maybe"
+                            : "status-event-published";
+                          return (
+                            <li key={contactItem.previewId} className="import-preview-row">
+                              <span className="import-preview-cell import-preview-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedImportContactIds.includes(contactItem.previewId)}
+                                  disabled={!contactItem.canImport}
+                                  onChange={() => toggleImportContactSelection(contactItem.previewId)}
+                                />
+                              </span>
+                              <span className="import-preview-cell import-preview-name">
                                 {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
-                              </strong>
-                              <small>{contactItem.email || contactItem.phone || "-"}</small>
-                              <small>
-                                {contactItem.duplicateExisting
-                                  ? t("contact_import_status_duplicate_existing")
-                                  : contactItem.duplicateInPreview
-                                  ? t("contact_import_status_duplicate_file")
-                                  : t("contact_import_status_ready")}
-                              </small>
-                            </span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
+                              </span>
+                              <span className="import-preview-cell">{contactItem.email || "-"}</span>
+                              <span className="import-preview-cell">{contactItem.phone || "-"}</span>
+                              <span className="import-preview-cell">
+                                {[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}
+                              </span>
+                              <span className="import-preview-cell">
+                                <span className={`status-pill ${statusClass}`}>{statusText}</span>
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                     {importContactsFiltered.length > 0 ? (
                       <div className="pagination-row import-preview-pagination">
                         <p className="hint">
@@ -12828,6 +13446,10 @@ function DashboardScreen({
                         <p className="item-meta">{t("contact_import_failed")}</p>
                         <p className="item-title">{importWizardResult.failed}</p>
                       </article>
+                      <article>
+                        <p className="item-meta">{t("contact_import_skipped")}</p>
+                        <p className="item-title">{importWizardResult.skipped}</p>
+                      </article>
                     </div>
                     <div className="progress-bar" aria-hidden="true">
                       <span style={{ width: "100%" }} />
@@ -12855,6 +13477,88 @@ function DashboardScreen({
                   {importWizardContinueLabel}
                 </button>
               </footer>
+            </section>
+          </div>
+        ) : null}
+
+        {guestMergeSource ? (
+          <div className="confirm-overlay" onClick={handleCloseMergeGuest}>
+            <section
+              className="confirm-dialog merge-guest-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="merge-guest-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="merge-guest-title" className="item-title">
+                {t("merge_guest_title")}
+              </h3>
+              <p className="item-meta">{t("merge_guest_hint")}</p>
+              <p className="hint">
+                {t("merge_guest_source_label")}:{" "}
+                {`${guestMergeSource.first_name || ""} ${guestMergeSource.last_name || ""}`.trim() || t("field_guest")}
+              </p>
+              <label className="field">
+                <span>{t("search")}</span>
+                <input
+                  type="search"
+                  value={guestMergeSearch}
+                  onChange={(event) => setGuestMergeSearch(event.target.value)}
+                  placeholder={t("merge_guest_search_placeholder")}
+                />
+              </label>
+              <label className="field">
+                <span>{t("merge_guest_target_label")}</span>
+                <select
+                  value={guestMergeTargetId}
+                  onChange={(event) => setGuestMergeTargetId(event.target.value)}
+                  disabled={guestMergeCandidates.length === 0}
+                >
+                  {guestMergeCandidates.length === 0 ? (
+                    <option value="">{t("merge_guest_no_candidates")}</option>
+                  ) : null}
+                  {guestMergeCandidates.map((guestItem) => (
+                    <option key={guestItem.id} value={guestItem.id}>
+                      {`${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {guestMergeCandidates.length > 0 ? (
+                <div className="merge-guest-candidate-list" role="list">
+                  {guestMergeCandidates.slice(0, 8).map((guestItem) => {
+                    const guestName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
+                    const isActive = guestMergeTargetId === guestItem.id;
+                    return (
+                      <button
+                        key={`merge-candidate-${guestItem.id}`}
+                        className={`merge-guest-candidate ${isActive ? "active" : ""}`}
+                        type="button"
+                        onClick={() => setGuestMergeTargetId(guestItem.id)}
+                        aria-pressed={isActive}
+                      >
+                        <span className="item-title">{guestName}</span>
+                        <span className="item-meta">
+                          {[guestItem.email, guestItem.phone].filter(Boolean).join(" · ") || "—"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div className="button-row">
+                <button className="btn btn-ghost" type="button" onClick={handleCloseMergeGuest} disabled={isMergingGuest}>
+                  {t("cancel_action")}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={handleConfirmMergeGuest}
+                  disabled={isMergingGuest || !guestMergeTargetId}
+                >
+                  {isMergingGuest ? t("guest_merging") : t("merge_guest_confirm")}
+                </button>
+              </div>
             </section>
           </div>
         ) : null}
