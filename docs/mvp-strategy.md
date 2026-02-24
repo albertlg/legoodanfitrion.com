@@ -72,3 +72,8 @@ Keep only high impact fields first:
 
 Add long-tail fields later only if they influence outcomes.
 
+## Known technical issue (temporary)
+
+- Canonical URL persistence on browser reload is not fully stable yet on detail pages (`/app/events/:id`, `/app/guests/:id`, `/app/guests/:id/edit/advanced/:step`).
+- Impact: in some reload scenarios the UI can fallback to list/create views.
+- Decision: keep current state and prioritize product iteration; revisit routing stabilization in a dedicated hardening pass.

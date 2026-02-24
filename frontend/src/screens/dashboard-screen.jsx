@@ -1267,7 +1267,9 @@ function buildDashboardPathFromState({
   selectedGuestDetailId,
   guestProfileViewTab,
   guestAdvancedEditTab,
-  editingGuestId
+  editingGuestId,
+  routeEventDetailId,
+  routeGuestDetailId
 }) {
   if (activeView === "overview") {
     return "/app";
@@ -1276,32 +1278,35 @@ function buildDashboardPathFromState({
     return "/profile";
   }
   if (activeView === "events") {
+    const effectiveEventDetailId = String(selectedEventDetailId || routeEventDetailId || "").trim();
     if (eventsWorkspace === "create") {
       return "/app/events/new";
     }
     if (eventsWorkspace === "insights") {
       return "/app/events/insights";
     }
-    if (eventsWorkspace === "detail" && selectedEventDetailId) {
-      return `/app/events/${encodePathSegment(selectedEventDetailId)}`;
+    if (eventsWorkspace === "detail" && effectiveEventDetailId) {
+      return `/app/events/${encodePathSegment(effectiveEventDetailId)}`;
     }
     return "/app/events";
   }
   if (activeView === "guests") {
+    const effectiveGuestDetailId = String(selectedGuestDetailId || routeGuestDetailId || "").trim();
     if (guestsWorkspace === "create") {
       const tab = String(guestAdvancedEditTab || "identity").trim().toLowerCase();
       const safeTab = GUEST_ADVANCED_EDIT_TABS.includes(tab) ? tab : "identity";
-      if (editingGuestId) {
-        return `/app/guests/${encodePathSegment(editingGuestId)}/edit/advanced/${encodePathSegment(safeTab)}`;
+      const editableGuestId = String(editingGuestId || routeGuestDetailId || "").trim();
+      if (editableGuestId) {
+        return `/app/guests/${encodePathSegment(editableGuestId)}/edit/advanced/${encodePathSegment(safeTab)}`;
       }
       return `/app/guests/new/advanced/${encodePathSegment(safeTab)}`;
     }
-    if (guestsWorkspace === "detail" && selectedGuestDetailId) {
+    if (guestsWorkspace === "detail" && effectiveGuestDetailId) {
       const tab = String(guestProfileViewTab || "general").trim().toLowerCase();
       if (tab && tab !== "general" && GUEST_PROFILE_VIEW_TABS.includes(tab)) {
-        return `/app/guests/${encodePathSegment(selectedGuestDetailId)}/${encodePathSegment(tab)}`;
+        return `/app/guests/${encodePathSegment(effectiveGuestDetailId)}/${encodePathSegment(tab)}`;
       }
-      return `/app/guests/${encodePathSegment(selectedGuestDetailId)}`;
+      return `/app/guests/${encodePathSegment(effectiveGuestDetailId)}`;
     }
     return "/app/guests";
   }
@@ -1312,6 +1317,51 @@ function buildDashboardPathFromState({
     return "/app/invitations";
   }
   return "/app";
+}
+
+function isSpecificEventDetailPath(pathname) {
+  return /^\/app\/events\/[^/]+$/.test(String(pathname || "").trim());
+}
+
+function isSpecificGuestDetailPath(pathname) {
+  return /^\/app\/guests\/[^/]+(?:\/(?:general|food|lifestyle|conversation|health|history))?$/.test(
+    String(pathname || "").trim()
+  );
+}
+
+function isSpecificGuestAdvancedEditPath(pathname) {
+  return /^\/app\/guests\/[^/]+\/edit\/advanced\/[^/]+$/.test(String(pathname || "").trim());
+}
+
+function isGenericEventPath(pathname) {
+  return String(pathname || "").trim() === "/app/events";
+}
+
+function isGenericGuestPath(pathname) {
+  return String(pathname || "").trim() === "/app/guests";
+}
+
+function isNewGuestAdvancedPath(pathname) {
+  return /^\/app\/guests\/new\/advanced\/[^/]+$/.test(String(pathname || "").trim());
+}
+
+function shouldPreserveSpecificPath(currentPath, nextPath) {
+  const current = String(currentPath || "").trim();
+  const next = String(nextPath || "").trim();
+  if (!current || !next || current === next) {
+    return false;
+  }
+
+  if (isSpecificEventDetailPath(current) && isGenericEventPath(next)) {
+    return true;
+  }
+  if (isSpecificGuestDetailPath(current) && isGenericGuestPath(next)) {
+    return true;
+  }
+  if (isSpecificGuestAdvancedEditPath(current) && (isGenericGuestPath(next) || isNewGuestAdvancedPath(next))) {
+    return true;
+  }
+  return false;
 }
 
 function DashboardScreen({
@@ -1375,7 +1425,7 @@ function DashboardScreen({
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
-  const applyingExternalRouteRef = useRef(false);
+  const userNavigationIntentRef = useRef(false);
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
@@ -1387,7 +1437,11 @@ function DashboardScreen({
   const [guestAdvanced, setGuestAdvanced] = useState(GUEST_ADVANCED_INITIAL_STATE);
   const [guestMessage, setGuestMessage] = useState("");
   const [guestErrors, setGuestErrors] = useState({});
-  const [editingGuestId, setEditingGuestId] = useState("");
+  const [editingGuestId, setEditingGuestId] = useState(
+    initialRouteState.activeView === "guests" && initialRouteState.guestsWorkspace === "create"
+      ? String(initialRouteState.selectedGuestDetailId || "").trim()
+      : ""
+  );
   const [isSavingGuest, setIsSavingGuest] = useState(false);
   const [guestLastSavedAt, setGuestLastSavedAt] = useState("");
   const [importContactsDraft, setImportContactsDraft] = useState("");
@@ -1506,7 +1560,7 @@ function DashboardScreen({
     () =>
       VIEW_CONFIG.map((item) => ({
         ...item,
-        workspaceItems: []
+        workspaceItems: getWorkspaceItemsByView(item.key, true)
       })),
     []
   );
@@ -3615,11 +3669,21 @@ function DashboardScreen({
     setDashboardError("");
     onPreferencesSynced?.();
 
+    const routeEventDetailId =
+      appRoute?.view === "events" && appRoute?.workspace === "detail"
+        ? String(appRoute?.eventId || "").trim()
+        : "";
+    const routeGuestDetailId =
+      appRoute?.view === "guests" && ["detail", "create"].includes(String(appRoute?.workspace || "").trim())
+        ? String(appRoute?.guestId || "").trim()
+        : "";
+
     const guestsPromise = supabase
       .from("guests")
       .select(
         "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, created_at"
       )
+      .eq("host_user_id", session.user.id)
       .order("created_at", { ascending: false })
       .limit(100);
     const hostProfilePromise = supabase
@@ -3640,6 +3704,7 @@ function DashboardScreen({
       .select(
         "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
+      .eq("host_user_id", session.user.id)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -3659,6 +3724,7 @@ function DashboardScreen({
       const fallback = await supabase
         .from("events")
         .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
+        .eq("host_user_id", session.user.id)
         .order("created_at", { ascending: false })
         .limit(50);
       eventsData = fallback.data || [];
@@ -3687,10 +3753,87 @@ function DashboardScreen({
       const fallbackGuests = await supabase
         .from("guests")
         .select("id, first_name, last_name, email, phone, relationship, city, country, created_at")
+        .eq("host_user_id", session.user.id)
         .order("created_at", { ascending: false })
         .limit(100);
       guestsData = fallbackGuests.data || [];
       guestsError = fallbackGuests.error;
+    }
+
+    if (!eventsError && routeEventDetailId && !(eventsData || []).some((eventItem) => eventItem.id === routeEventDetailId)) {
+      let routeEventResult = await supabase
+        .from("events")
+        .select(
+          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        )
+        .eq("host_user_id", session.user.id)
+        .eq("id", routeEventDetailId)
+        .maybeSingle();
+
+      if (
+        routeEventResult.error &&
+        isCompatibilityError(routeEventResult.error, [
+          "location_place_id",
+          "location_lat",
+          "location_lng",
+          "description",
+          "allow_plus_one",
+          "auto_reminders",
+          "dress_code",
+          "playlist_mode"
+        ])
+      ) {
+        routeEventResult = await supabase
+          .from("events")
+          .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
+          .eq("host_user_id", session.user.id)
+          .eq("id", routeEventDetailId)
+          .maybeSingle();
+      }
+
+      if (routeEventResult.error) {
+        eventsError = routeEventResult.error;
+      } else if (routeEventResult.data) {
+        eventsData = [routeEventResult.data, ...(eventsData || [])];
+      }
+    }
+
+    if (!guestsError && routeGuestDetailId && !(guestsData || []).some((guestItem) => guestItem.id === routeGuestDetailId)) {
+      let routeGuestResult = await supabase
+        .from("guests")
+        .select(
+          "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, created_at"
+        )
+        .eq("host_user_id", session.user.id)
+        .eq("id", routeGuestDetailId)
+        .maybeSingle();
+
+      if (
+        routeGuestResult.error &&
+        isCompatibilityError(routeGuestResult.error, [
+          "postal_code",
+          "state_region",
+          "address",
+          "company",
+          "twitter",
+          "instagram",
+          "linkedin",
+          "last_meet_at"
+        ])
+      ) {
+        routeGuestResult = await supabase
+          .from("guests")
+          .select("id, first_name, last_name, email, phone, relationship, city, country, created_at")
+          .eq("host_user_id", session.user.id)
+          .eq("id", routeGuestDetailId)
+          .maybeSingle();
+      }
+
+      if (routeGuestResult.error) {
+        guestsError = routeGuestResult.error;
+      } else if (routeGuestResult.data) {
+        guestsData = [routeGuestResult.data, ...(guestsData || [])];
+      }
     }
 
     if (eventsError || guestsError || invitationsError || hostProfileError) {
@@ -3825,7 +3968,7 @@ function DashboardScreen({
     setHostProfileRelationship(toCatalogLabel("relationship", selfGuest?.relationship, language));
     setHostProfileCreatedAt(String(hostProfileData?.created_at || "").trim());
     await refreshSharedProfileData();
-  }, [session?.user?.id, session?.user?.email, language, t, onPreferencesSynced, refreshSharedProfileData]);
+  }, [session?.user?.id, session?.user?.email, language, t, onPreferencesSynced, refreshSharedProfileData, appRoute]);
 
   useEffect(() => {
     loadDashboardData();
@@ -3842,6 +3985,9 @@ function DashboardScreen({
   }, [events, selectedEventId]);
 
   useEffect(() => {
+    if (events.length === 0) {
+      return;
+    }
     if (!selectedEventDetailId && events.length > 0) {
       setSelectedEventDetailId(events[0].id);
       return;
@@ -3896,6 +4042,15 @@ function DashboardScreen({
   }, [bulkInvitationGuestIds, availableGuestsForSelectedEvent]);
 
   useEffect(() => {
+    if (guests.length === 0) {
+      return;
+    }
+    const shouldMaintainGuestSelection =
+      (activeView === "guests" && guestsWorkspace === "detail") ||
+      (activeView === "guests" && guestsWorkspace === "create" && Boolean(editingGuestId));
+    if (!shouldMaintainGuestSelection) {
+      return;
+    }
     if (!selectedGuestDetailId && guests.length > 0) {
       setSelectedGuestDetailId(guests[0].id);
       return;
@@ -3903,7 +4058,7 @@ function DashboardScreen({
     if (selectedGuestDetailId && !guests.find((guestItem) => guestItem.id === selectedGuestDetailId)) {
       setSelectedGuestDetailId(guests[0]?.id || "");
     }
-  }, [guests, selectedGuestDetailId]);
+  }, [activeView, guestsWorkspace, editingGuestId, guests, selectedGuestDetailId]);
 
   useEffect(() => {
     if (activeView !== "profile") {
@@ -3969,7 +4124,6 @@ function DashboardScreen({
 
   useEffect(() => {
     const nextRoute = normalizeDashboardRouteState(appRoute);
-    applyingExternalRouteRef.current = true;
     setActiveView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
     setMobileExpandedView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
     if (nextRoute.activeView === "events") {
@@ -3982,6 +4136,13 @@ function DashboardScreen({
       setGuestsWorkspace((prev) => (prev === nextRoute.guestsWorkspace ? prev : nextRoute.guestsWorkspace));
       if (nextRoute.selectedGuestDetailId) {
         setSelectedGuestDetailId((prev) => (prev === nextRoute.selectedGuestDetailId ? prev : nextRoute.selectedGuestDetailId));
+      }
+      if (nextRoute.guestsWorkspace === "create") {
+        const nextEditingGuestId = String(nextRoute.selectedGuestDetailId || "").trim();
+        setEditingGuestId((prev) => (prev === nextEditingGuestId ? prev : nextEditingGuestId));
+        if (!nextEditingGuestId) {
+          setSelectedGuestDetailId((prev) => (prev ? "" : prev));
+        }
       }
       setGuestProfileViewTab((prev) =>
         prev === (nextRoute.guestProfileViewTab || "general") ? prev : nextRoute.guestProfileViewTab || "general"
@@ -4011,7 +4172,15 @@ function DashboardScreen({
         selectedGuestDetailId,
         guestProfileViewTab,
         guestAdvancedEditTab,
-        editingGuestId
+        editingGuestId,
+        routeEventDetailId:
+          appRoute?.view === "events" && appRoute?.workspace === "detail"
+            ? String(appRoute?.eventId || "").trim()
+            : "",
+        routeGuestDetailId:
+          appRoute?.view === "guests" && ["detail", "create"].includes(String(appRoute?.workspace || "").trim())
+            ? String(appRoute?.guestId || "").trim()
+            : ""
       }),
     [
       activeView,
@@ -4022,7 +4191,8 @@ function DashboardScreen({
       selectedGuestDetailId,
       guestProfileViewTab,
       guestAdvancedEditTab,
-      editingGuestId
+      editingGuestId,
+      appRoute
     ]
   );
 
@@ -4078,15 +4248,25 @@ function DashboardScreen({
   }, [guestPreferencesById, guestSensitiveById, language]);
 
   useEffect(() => {
-    if (applyingExternalRouteRef.current) {
-      applyingExternalRouteRef.current = false;
-      return;
-    }
     if (typeof onNavigateApp !== "function") {
       return;
     }
-    onNavigateApp(dashboardPath);
-  }, [dashboardPath, onNavigateApp]);
+    const currentPath = String(appPath || "").trim();
+    const nextPath = String(dashboardPath || "").trim();
+    if (nextPath === currentPath) {
+      userNavigationIntentRef.current = false;
+      return;
+    }
+    const isCurrentSpecificPath =
+      isSpecificEventDetailPath(currentPath) ||
+      isSpecificGuestDetailPath(currentPath) ||
+      isSpecificGuestAdvancedEditPath(currentPath);
+    if (!userNavigationIntentRef.current && (isCurrentSpecificPath || shouldPreserveSpecificPath(currentPath, nextPath))) {
+      return;
+    }
+    onNavigateApp(nextPath);
+    userNavigationIntentRef.current = false;
+  }, [dashboardPath, onNavigateApp, appPath]);
 
   useEffect(() => {
     if (!openGuestAdvancedOnCreate || activeView !== "guests" || guestsWorkspace !== "create") {
@@ -4614,7 +4794,12 @@ function DashboardScreen({
     });
   };
 
+  const markUserNavigationIntent = () => {
+    userNavigationIntentRef.current = true;
+  };
+
   const openWorkspace = (viewKey, workspaceKey) => {
+    markUserNavigationIntent();
     if (viewKey === "events" && workspaceKey === "create") {
       handleCancelEditEvent();
     }
@@ -4629,6 +4814,7 @@ function DashboardScreen({
   };
 
   const openInvitationBulkWorkspace = () => {
+    markUserNavigationIntent();
     openWorkspace("invitations", "create");
     window.setTimeout(() => {
       const bulkPanel = document.getElementById("invitation-bulk-panel");
@@ -4685,6 +4871,7 @@ function DashboardScreen({
   };
 
   const openHostProfile = () => {
+    markUserNavigationIntent();
     syncHostGuestProfileForm();
     setActiveView("profile");
     setMobileExpandedView("overview");
@@ -4693,6 +4880,7 @@ function DashboardScreen({
   };
 
   const openEventDetail = (eventId) => {
+    markUserNavigationIntent();
     const fallbackEventId = eventId || events[0]?.id || "";
     if (!fallbackEventId) {
       return;
@@ -4707,6 +4895,7 @@ function DashboardScreen({
   };
 
   const openGuestDetail = (guestId) => {
+    markUserNavigationIntent();
     const fallbackGuestId = guestId || guests[0]?.id || "";
     if (!fallbackGuestId) {
       return;
@@ -4722,6 +4911,7 @@ function DashboardScreen({
   };
 
   const openInvitationCreate = ({ eventId = "", guestId = "", messageKey = "" } = {}) => {
+    markUserNavigationIntent();
     let nextEventId = eventId || selectedEventId || events[0]?.id || "";
     let nextGuestId = guestId || selectedGuestId || "";
 
@@ -4771,6 +4961,7 @@ function DashboardScreen({
   };
 
   const changeView = (nextView) => {
+    markUserNavigationIntent();
     setActiveView(nextView);
     setMobileExpandedView(nextView);
     if (nextView === "events" || nextView === "guests" || nextView === "invitations") {
@@ -4781,6 +4972,7 @@ function DashboardScreen({
   };
 
   const handleOpenMobileSectionPanel = (viewKey, hasChildren) => {
+    markUserNavigationIntent();
     if (!hasChildren) {
       changeView(viewKey);
       return;
@@ -4928,6 +5120,7 @@ function DashboardScreen({
   );
 
   const handleStartEditEvent = (eventItem) => {
+    markUserNavigationIntent();
     if (!eventItem) {
       return;
     }
@@ -5302,6 +5495,7 @@ function DashboardScreen({
   };
 
   const handleCreateBirthdayEventFromGuest = () => {
+    markUserNavigationIntent();
     const nextDateTime = getBirthdayEventDateTime(guestAdvanced.birthday, 20);
     if (!nextDateTime) {
       setGuestMessage(t("birthday_event_missing"));
@@ -6121,6 +6315,7 @@ function DashboardScreen({
   };
 
   const handleStartEditGuest = (guestItem, { openAdvanced = false, preferredAdvancedTab = "identity" } = {}) => {
+    markUserNavigationIntent();
     if (!guestItem) {
       return;
     }
@@ -6176,6 +6371,7 @@ function DashboardScreen({
   };
 
   const openGuestAdvancedEditor = (guestId) => {
+    markUserNavigationIntent();
     const fallbackGuestId = String(guestId || "").trim();
     if (!fallbackGuestId) {
       return;
@@ -8419,7 +8615,11 @@ function DashboardScreen({
                       <h3>{t(workspaceItem.labelKey)}</h3>
                       <p>{t(workspaceItem.descriptionKey)}</p>
                     </div>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => setEventsWorkspace(workspaceItem.key)}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={() => openWorkspace("events", workspaceItem.key)}
+                    >
                       {t("workspace_open")}
                     </button>
                   </article>
@@ -9045,7 +9245,7 @@ function DashboardScreen({
             {eventsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
               <p className="detail-breadcrumb">
-                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => setEventsWorkspace("latest")}>
+                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("events", "latest")}>
                   {t("latest_events_title")}
                 </button>
                 <span>/</span>
@@ -9471,7 +9671,11 @@ function DashboardScreen({
                       <h3>{t(workspaceItem.labelKey)}</h3>
                       <p>{t(workspaceItem.descriptionKey)}</p>
                     </div>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => setGuestsWorkspace(workspaceItem.key)}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={() => openWorkspace("guests", workspaceItem.key)}
+                    >
                       {t("workspace_open")}
                     </button>
                   </article>
@@ -10799,7 +11003,7 @@ function DashboardScreen({
             {guestsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel">
               <p className="detail-breadcrumb">
-                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => setGuestsWorkspace("latest")}>
+                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("guests", "latest")}>
                   {t("latest_guests_title")}
                 </button>
                 <span>/</span>
@@ -11231,7 +11435,7 @@ function DashboardScreen({
                     <button
                       className="btn btn-ghost btn-sm"
                       type="button"
-                      onClick={() => setInvitationsWorkspace(workspaceItem.key)}
+                      onClick={() => openWorkspace("invitations", workspaceItem.key)}
                     >
                       {t("workspace_open")}
                     </button>
