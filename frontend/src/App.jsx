@@ -18,7 +18,7 @@ const I18N = { es, ca, en, fr, it };
 const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
-const EVENT_PLANNER_TABS = new Set(["menu", "shopping"]);
+const EVENT_PLANNER_TABS = new Set(["menu", "shopping", "ambience", "timings", "communication", "risks"]);
 
 function normalizePathname(pathname) {
   const normalized = String(pathname || "/").trim() || "/";

@@ -3104,7 +3104,8 @@ h2 {
 
 .event-planner-tabs {
   margin-top: 0.16rem;
-  max-width: 420px;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .event-planner-menu-grid {
@@ -3133,6 +3134,51 @@ h2 {
 .event-planner-shopping-stack {
   display: grid;
   gap: 0.55rem;
+}
+
+.event-planner-host-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.event-planner-host-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.event-planner-host-card-wide {
+  grid-column: 1 / -1;
+}
+
+.event-planner-host-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.event-planner-host-messages {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.event-planner-host-message-item {
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent 32%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-soft) 55%, var(--panel-bg) 45%);
+  padding: 0.5rem 0.58rem;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.event-planner-host-message-item p {
+  margin: 0;
 }
 
 .event-planner-shopping-summary {
@@ -5136,6 +5182,64 @@ textarea {
   width: min(100%, 620px);
 }
 
+.planner-context-dialog {
+  width: min(100%, 680px);
+  max-height: min(92vh, 900px);
+  overflow: auto;
+}
+
+.planner-context-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.planner-context-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  padding: 0.55rem 0.65rem;
+}
+
+.planner-context-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--title);
+  margin-bottom: 0.45rem;
+}
+
+.planner-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.planner-context-prompt-toggle {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.planner-context-prompt-preview {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-soft) 64%, var(--panel-bg) 36%);
+  padding: 0.62rem;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.planner-context-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .merge-guest-candidate-list {
   max-height: 240px;
   overflow: auto;
@@ -6238,7 +6342,12 @@ code {
   }
 
   .event-planner-stats,
-  .event-planner-menu-grid {
+  .event-planner-menu-grid,
+  .event-planner-host-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-context-grid {
     grid-template-columns: 1fr;
   }
 

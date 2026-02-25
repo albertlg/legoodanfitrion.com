@@ -757,6 +757,289 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
   };
 }
 
+function applyPlannerOverrides(baseContext, baseInsights, overrides = {}) {
+  const parseListValue = (value) =>
+    uniqueValues(
+      String(value || "")
+        .split(/[\n,;]+/)
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    );
+  const context = {
+    ...(baseContext || {}),
+    ...(overrides.preset ? { preset: String(overrides.preset).trim() } : {}),
+    ...(overrides.momentKey ? { momentKey: String(overrides.momentKey).trim() } : {}),
+    ...(overrides.toneKey ? { toneKey: String(overrides.toneKey).trim() } : {}),
+    ...(overrides.budgetKey ? { budgetKey: String(overrides.budgetKey).trim() } : {})
+  };
+  if (overrides.durationHours != null && String(overrides.durationHours).trim() !== "") {
+    const parsedDuration = Number(overrides.durationHours);
+    if (Number.isFinite(parsedDuration)) {
+      context.durationHours = Math.max(2, Math.min(12, Math.round(parsedDuration)));
+    }
+  }
+
+  const listKeys = ["foodSuggestions", "drinkSuggestions", "avoidItems", "musicGenres", "decorColors", "icebreakers", "tabooTopics"];
+  const insights = { ...(baseInsights || {}) };
+  for (const key of listKeys) {
+    if (Object.prototype.hasOwnProperty.call(overrides, key)) {
+      insights[key] = parseListValue(overrides[key]);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, "additionalInstructions")) {
+    insights.additionalInstructions = String(overrides.additionalInstructions || "").trim();
+  }
+
+  return { context, insights };
+}
+
+function buildEventPlannerPromptBundle({
+  eventDetail,
+  eventContext,
+  eventInsights,
+  statusCounts,
+  criticalRestrictions,
+  healthAlerts,
+  t
+}) {
+  const eventItem = eventDetail || {};
+  const attendance = statusCounts || { yes: 0, no: 0, maybe: 0, pending: 0 };
+  const totalInvitations = Math.max(
+    0,
+    Number(attendance.yes || 0) + Number(attendance.no || 0) + Number(attendance.maybe || 0) + Number(attendance.pending || 0)
+  );
+  const normalizedContext = eventContext || {};
+  const payload = {
+    event: {
+      id: String(eventItem.id || ""),
+      title: String(eventItem.title || ""),
+      status: String(eventItem.status || ""),
+      eventType: String(eventItem.event_type || ""),
+      description: String(eventItem.description || ""),
+      startAtIso: String(eventItem.start_at || ""),
+      locationName: String(eventItem.location_name || ""),
+      locationAddress: String(eventItem.location_address || ""),
+      settings: {
+        allowPlusOne: Boolean(eventItem.allow_plus_one),
+        autoReminders: Boolean(eventItem.auto_reminders),
+        dressCode: String(eventItem.dress_code || "none"),
+        playlistMode: String(eventItem.playlist_mode || "host_only")
+      }
+    },
+    context: {
+      stylePreset: String(normalizedContext.preset || "social"),
+      moment: String(normalizedContext.momentKey || "evening"),
+      tone: String(normalizedContext.toneKey || "casual"),
+      budget: String(normalizedContext.budgetKey || "medium"),
+      durationHours: Number(normalizedContext.durationHours || 4)
+    },
+    attendance: {
+      totalInvitations,
+      confirmed: Number(attendance.yes || 0),
+      pending: Number(attendance.pending || 0),
+      maybe: Number(attendance.maybe || 0),
+      declined: Number(attendance.no || 0),
+      acceptanceRate: totalInvitations > 0 ? Math.round((Number(attendance.yes || 0) / totalInvitations) * 100) : 0
+    },
+    preferenceSignals: {
+      guestCountAnalyzed: Number(eventInsights?.consideredGuestsCount || 0),
+      relationships: uniqueValues(eventInsights?.relationshipMix || []).slice(0, 6),
+      preferredExperiences: uniqueValues(eventInsights?.experienceTypes || []).slice(0, 6),
+      preferredMoments: uniqueValues(eventInsights?.dayMoments || []).slice(0, 4),
+      foodSuggestions: uniqueValues(eventInsights?.foodSuggestions || []).slice(0, 10),
+      drinkSuggestions: uniqueValues(eventInsights?.drinkSuggestions || []).slice(0, 10),
+      musicGenres: uniqueValues(eventInsights?.musicGenres || []).slice(0, 8),
+      decorColors: uniqueValues(eventInsights?.decorColors || []).slice(0, 8),
+      icebreakers: uniqueValues(eventInsights?.icebreakers || []).slice(0, 10),
+      tabooTopics: uniqueValues(eventInsights?.tabooTopics || []).slice(0, 8),
+      avoidItems: uniqueValues(eventInsights?.avoidItems || []).slice(0, 12)
+    },
+    health: {
+      criticalRestrictions: uniqueValues(criticalRestrictions || []).slice(0, 10),
+      alerts: (healthAlerts || []).slice(0, 8).map((item) => ({
+        guestName: String(item?.guestName || ""),
+        avoid: uniqueValues(item?.avoid || []).slice(0, 6)
+      }))
+    },
+    hostInstructions: String(eventInsights?.additionalInstructions || "").trim()
+  };
+
+  const prompt = [
+    t("event_planner_prompt_intro"),
+    "",
+    "INPUT_JSON",
+    JSON.stringify(payload, null, 2),
+    "",
+    t("event_planner_prompt_output_contract")
+  ].join("\n");
+
+  return { payload, prompt };
+}
+
+function buildEventHostPlaybook({
+  eventDetail,
+  eventContext,
+  eventInsights,
+  statusCounts,
+  criticalRestrictions,
+  healthAlerts,
+  variantSeed = 0,
+  language,
+  t
+}) {
+  const eventItem = eventDetail || {};
+  const context = eventContext || {};
+  const attendance = statusCounts || { yes: 0, no: 0, maybe: 0, pending: 0 };
+  const title = String(eventItem.title || t("field_event"));
+  const confirmed = Number(attendance.yes || 0);
+  const pending = Number(attendance.pending || 0);
+  const maybe = Number(attendance.maybe || 0);
+  const declined = Number(attendance.no || 0);
+  const total = Math.max(0, confirmed + pending + maybe + declined);
+  const acceptanceRate = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+  const pendingRate = total > 0 ? pending / total : 0;
+  const startLabel = formatLongDate(eventItem.start_at, language, t("no_date"));
+  const startTime = formatTimeLabel(eventItem.start_at, language, t("no_date"));
+  const drinkHighlights = rotateValues(uniqueValues(eventInsights?.drinkSuggestions || []), variantSeed).slice(0, 4);
+  const menuHighlights = rotateValues(uniqueValues(eventInsights?.foodSuggestions || []), variantSeed + 1).slice(0, 4);
+  const musicHighlights = rotateValues(uniqueValues(eventInsights?.musicGenres || []), variantSeed + 2).slice(0, 4);
+  const decorHighlights = rotateValues(uniqueValues(eventInsights?.decorColors || []), variantSeed + 3).slice(0, 4);
+  const icebreakers = rotateValues(uniqueValues(eventInsights?.icebreakers || []), variantSeed + 4).slice(0, 5);
+  const tabooTopics = rotateValues(uniqueValues(eventInsights?.tabooTopics || []), variantSeed + 5).slice(0, 4);
+  const actionableItems = rotateValues(buildHostingPlaybookActions(eventInsights, t), variantSeed).slice(0, 6);
+
+  const timeline = [
+    {
+      id: "phase-prep",
+      title: t("event_planner_host_timeline_pre_title"),
+      detail: interpolateText(t("event_planner_host_timeline_pre_detail"), {
+        pending,
+        date: startLabel
+      })
+    },
+    {
+      id: "phase-final",
+      title: t("event_planner_host_timeline_final_title"),
+      detail: interpolateText(t("event_planner_host_timeline_final_detail"), {
+        menu: menuHighlights.slice(0, 2).join(", ") || t("smart_hosting_no_data")
+      })
+    },
+    {
+      id: "phase-live",
+      title: t("event_planner_host_timeline_live_title"),
+      detail: interpolateText(t("event_planner_host_timeline_live_detail"), {
+        time: startTime,
+        style: t(`event_planner_style_${context.preset || "social"}`)
+      })
+    },
+    {
+      id: "phase-followup",
+      title: t("event_planner_host_timeline_followup_title"),
+      detail: t("event_planner_host_timeline_followup_detail")
+    }
+  ];
+
+  const ambience = uniqueValues([
+    musicHighlights.length
+      ? interpolateText(t("event_planner_host_ambience_music"), { items: musicHighlights.join(", ") })
+      : "",
+    decorHighlights.length
+      ? interpolateText(t("event_planner_host_ambience_decor"), { items: decorHighlights.join(", ") })
+      : "",
+    drinkHighlights.length
+      ? interpolateText(t("event_planner_host_ambience_drinks"), { items: drinkHighlights.slice(0, 3).join(", ") })
+      : "",
+    interpolateText(t("event_planner_host_ambience_tone"), { value: t(`event_planner_tone_${context.toneKey || "casual"}`) })
+  ]).filter(Boolean);
+
+  const conversation = uniqueValues([
+    icebreakers.length
+      ? interpolateText(t("event_planner_host_conversation_openers"), { items: icebreakers.slice(0, 3).join(", ") })
+      : "",
+    tabooTopics.length
+      ? interpolateText(t("event_planner_host_conversation_taboo"), { items: tabooTopics.join(", ") })
+      : "",
+    interpolateText(t("event_planner_host_conversation_relationships"), {
+      items: uniqueValues(eventInsights?.relationshipMix || []).slice(0, 3).join(", ") || t("smart_hosting_no_data")
+    })
+  ]).filter(Boolean);
+
+  const messages = [
+    {
+      id: "pending",
+      title: t("event_planner_host_message_pending_title"),
+      text: interpolateText(t("event_planner_host_message_pending_template"), {
+        event: title,
+        date: startLabel,
+        time: startTime
+      })
+    },
+    {
+      id: "confirmed",
+      title: t("event_planner_host_message_confirmed_title"),
+      text: interpolateText(t("event_planner_host_message_confirmed_template"), {
+        event: title
+      })
+    },
+    {
+      id: "followup",
+      title: t("event_planner_host_message_followup_title"),
+      text: interpolateText(t("event_planner_host_message_followup_template"), {
+        event: title
+      })
+    }
+  ];
+
+  const risks = [];
+  if (Array.isArray(criticalRestrictions) && criticalRestrictions.length > 0) {
+    risks.push({
+      id: "risk-health",
+      level: "status-no",
+      label: t("event_planner_host_risk_health_title"),
+      detail: interpolateText(t("event_planner_host_risk_health_detail"), {
+        items: criticalRestrictions.slice(0, 5).join(", ")
+      })
+    });
+  }
+  if (pendingRate >= 0.35) {
+    risks.push({
+      id: "risk-rsvp",
+      level: "status-pending",
+      label: t("event_planner_host_risk_rsvp_title"),
+      detail: interpolateText(t("event_planner_host_risk_rsvp_detail"), {
+        pending,
+        total
+      })
+    });
+  }
+  if (eventInsights?.timingRecommendation === "start_with_buffer") {
+    risks.push({
+      id: "risk-timing",
+      level: "status-maybe",
+      label: t("event_planner_host_risk_timing_title"),
+      detail: t("event_planner_host_risk_timing_detail")
+    });
+  }
+  if (healthAlerts.length === 0 && pendingRate < 0.2) {
+    risks.push({
+      id: "risk-none",
+      level: "status-yes",
+      label: t("event_planner_host_risk_none_title"),
+      detail: t("event_planner_host_risk_none_detail")
+    });
+  }
+
+  return {
+    acceptanceRate,
+    actionableItems,
+    timeline,
+    ambience,
+    conversation,
+    messages,
+    risks
+  };
+}
+
 function buildHostInvitePayload(guestItem, t) {
   const guestLabel = `${guestItem?.first_name || ""} ${guestItem?.last_name || ""}`.trim() || t("field_guest");
   const signupUrl = buildAppUrl(
@@ -805,7 +1088,7 @@ const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
 const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
 const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
 const GUEST_ADVANCED_EDIT_TABS = ["identity", "food", "lifestyle", "conversation", "health"];
-const EVENT_PLANNER_VIEW_TABS = ["menu", "shopping"];
+const EVENT_PLANNER_VIEW_TABS = ["menu", "shopping", "ambience", "timings", "communication", "risks"];
 const EVENT_PLANNER_SHOPPING_FILTERS = ["all", "pending", "done"];
 const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
   diet: "food",
@@ -1861,6 +2144,25 @@ function DashboardScreen({
   const [eventDetailPlannerTab, setEventDetailPlannerTab] = useState(initialRouteState.eventPlannerTab || "menu");
   const [eventPlannerShoppingFilter, setEventPlannerShoppingFilter] = useState("all");
   const [eventPlannerRegenerationByEventId, setEventPlannerRegenerationByEventId] = useState({});
+  const [eventPlannerRegenerationByEventIdByTab, setEventPlannerRegenerationByEventIdByTab] = useState({});
+  const [eventPlannerContextOverridesByEventId, setEventPlannerContextOverridesByEventId] = useState({});
+  const [isEventPlannerContextOpen, setIsEventPlannerContextOpen] = useState(false);
+  const [showEventPlannerTechnicalPrompt, setShowEventPlannerTechnicalPrompt] = useState(false);
+  const [eventPlannerContextDraft, setEventPlannerContextDraft] = useState({
+    preset: "social",
+    momentKey: "evening",
+    toneKey: "casual",
+    budgetKey: "medium",
+    durationHours: "4",
+    foodSuggestions: "",
+    drinkSuggestions: "",
+    avoidItems: "",
+    musicGenres: "",
+    decorColors: "",
+    icebreakers: "",
+    tabooTopics: "",
+    additionalInstructions: ""
+  });
   const [eventDetailShoppingCheckedByEventId, setEventDetailShoppingCheckedByEventId] = useState({});
   const [guestProfileViewTab, setGuestProfileViewTab] = useState(initialRouteState.guestProfileViewTab || "general");
 
@@ -4019,12 +4321,6 @@ function DashboardScreen({
       ),
     [selectedEventDetail, selectedEventSettings.dress_code, language, t]
   );
-  const selectedEventPlannerVariantSeed = useMemo(() => {
-    if (!selectedEventDetail?.id) {
-      return 0;
-    }
-    return Math.max(0, Number(eventPlannerRegenerationByEventId[selectedEventDetail.id] || 0));
-  }, [eventPlannerRegenerationByEventId, selectedEventDetail?.id]);
   const selectedEventInsights = useMemo(
     () =>
       buildHostingSuggestions({
@@ -4038,9 +4334,51 @@ function DashboardScreen({
       }),
     [selectedEventDetail?.id, events, guests, invitations, guestPreferencesById, guestSensitiveById, language]
   );
+  const selectedEventPlannerOverrides = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return {};
+    }
+    return eventPlannerContextOverridesByEventId[selectedEventDetail.id] || {};
+  }, [eventPlannerContextOverridesByEventId, selectedEventDetail?.id]);
+  const selectedEventPlannerEffectiveSignals = useMemo(
+    () => applyPlannerOverrides(selectedEventPlannerContext, selectedEventInsights, selectedEventPlannerOverrides),
+    [selectedEventPlannerContext, selectedEventInsights, selectedEventPlannerOverrides]
+  );
+  const selectedEventPlannerContextEffective = selectedEventPlannerEffectiveSignals.context;
+  const selectedEventInsightsEffective = selectedEventPlannerEffectiveSignals.insights;
+  const selectedEventPlannerVariantSeed = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return 0;
+    }
+    return Math.max(0, Number(eventPlannerRegenerationByEventId[selectedEventDetail.id] || 0));
+  }, [eventPlannerRegenerationByEventId, selectedEventDetail?.id]);
+  const selectedEventPlannerTabSeed = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return {};
+    }
+    return eventPlannerRegenerationByEventIdByTab[selectedEventDetail.id] || {};
+  }, [eventPlannerRegenerationByEventIdByTab, selectedEventDetail?.id]);
+  const selectedEventMealPlanSeed = useMemo(
+    () =>
+      selectedEventPlannerVariantSeed +
+      Math.max(
+        Number(selectedEventPlannerTabSeed.menu || 0),
+        Number(selectedEventPlannerTabSeed.shopping || 0)
+      ),
+    [selectedEventPlannerVariantSeed, selectedEventPlannerTabSeed]
+  );
+  const selectedEventHostPlanSeed = useMemo(
+    () =>
+      selectedEventPlannerVariantSeed +
+      Number(selectedEventPlannerTabSeed.ambience || 0) +
+      Number(selectedEventPlannerTabSeed.timings || 0) +
+      Number(selectedEventPlannerTabSeed.communication || 0) +
+      Number(selectedEventPlannerTabSeed.risks || 0),
+    [selectedEventPlannerVariantSeed, selectedEventPlannerTabSeed]
+  );
   const selectedEventMealPlan = useMemo(
-    () => buildEventMealPlan(selectedEventInsights, selectedEventPlannerContext, t, selectedEventPlannerVariantSeed),
-    [selectedEventInsights, selectedEventPlannerContext, selectedEventPlannerVariantSeed, t]
+    () => buildEventMealPlan(selectedEventInsightsEffective, selectedEventPlannerContextEffective, t, selectedEventMealPlanSeed),
+    [selectedEventInsightsEffective, selectedEventPlannerContextEffective, selectedEventMealPlanSeed, t]
   );
   const selectedEventConfirmedGuestRows = useMemo(
     () => selectedEventDetailGuests.filter((row) => String(row.invitation?.status || "").toLowerCase() === "yes"),
@@ -4153,6 +4491,85 @@ function DashboardScreen({
     }
     return [t("event_planner_tab_shopping"), ...selectedEventMealPlan.shoppingChecklist.map((item) => `- ${item}`)].join("\n");
   }, [selectedEventMealPlan.shoppingChecklist, t]);
+  const selectedEventPlannerPromptBundle = useMemo(
+    () =>
+      buildEventPlannerPromptBundle({
+        eventDetail: selectedEventDetail,
+        eventContext: selectedEventPlannerContextEffective,
+        eventInsights: selectedEventInsightsEffective,
+        statusCounts: selectedEventDetailStatusCounts,
+        criticalRestrictions: selectedEventCriticalRestrictions,
+        healthAlerts: selectedEventHealthAlerts,
+        t
+      }),
+    [
+      selectedEventDetail,
+      selectedEventPlannerContextEffective,
+      selectedEventInsightsEffective,
+      selectedEventDetailStatusCounts,
+      selectedEventCriticalRestrictions,
+      selectedEventHealthAlerts,
+      t
+    ]
+  );
+  const selectedEventHostPlaybook = useMemo(
+    () =>
+      buildEventHostPlaybook({
+        eventDetail: selectedEventDetail,
+        eventContext: selectedEventPlannerContextEffective,
+        eventInsights: selectedEventInsightsEffective,
+        statusCounts: selectedEventDetailStatusCounts,
+        criticalRestrictions: selectedEventCriticalRestrictions,
+        healthAlerts: selectedEventHealthAlerts,
+        variantSeed: selectedEventHostPlanSeed,
+        language,
+        t
+      }),
+    [
+      selectedEventDetail,
+      selectedEventPlannerContextEffective,
+      selectedEventInsightsEffective,
+      selectedEventDetailStatusCounts,
+      selectedEventCriticalRestrictions,
+      selectedEventHealthAlerts,
+      selectedEventHostPlanSeed,
+      language,
+      t
+    ]
+  );
+  const selectedEventHostMessagesText = useMemo(() => {
+    if (!selectedEventHostPlaybook?.messages?.length) {
+      return "";
+    }
+    return [
+      t("event_planner_host_messages_title"),
+      ...selectedEventHostPlaybook.messages.map((item) => `${item.title}\n${item.text}`)
+    ].join("\n\n");
+  }, [selectedEventHostPlaybook, t]);
+  const eventPlannerContextDraftSignals = useMemo(
+    () => applyPlannerOverrides(selectedEventPlannerContext, selectedEventInsights, eventPlannerContextDraft),
+    [selectedEventPlannerContext, selectedEventInsights, eventPlannerContextDraft]
+  );
+  const eventPlannerContextDraftPromptBundle = useMemo(
+    () =>
+      buildEventPlannerPromptBundle({
+        eventDetail: selectedEventDetail,
+        eventContext: eventPlannerContextDraftSignals.context,
+        eventInsights: eventPlannerContextDraftSignals.insights,
+        statusCounts: selectedEventDetailStatusCounts,
+        criticalRestrictions: selectedEventCriticalRestrictions,
+        healthAlerts: selectedEventHealthAlerts,
+        t
+      }),
+    [
+      selectedEventDetail,
+      eventPlannerContextDraftSignals,
+      selectedEventDetailStatusCounts,
+      selectedEventCriticalRestrictions,
+      selectedEventHealthAlerts,
+      t
+    ]
+  );
   const selectedEventChecklist = useMemo(() => {
     const hasDate = Boolean(selectedEventDetail?.start_at);
     const hasLocation = Boolean(selectedEventDetail?.location_name || selectedEventDetail?.location_address);
@@ -5095,6 +5512,10 @@ function DashboardScreen({
   }, [selectedEventDetail?.id, appRoute?.eventId, appRoute?.eventPlannerTab, appRoute?.view, appRoute?.workspace]);
   useEffect(() => {
     setEventPlannerShoppingFilter("all");
+  }, [selectedEventDetail?.id]);
+  useEffect(() => {
+    setIsEventPlannerContextOpen(false);
+    setShowEventPlannerTechnicalPrompt(false);
   }, [selectedEventDetail?.id]);
 
   useEffect(() => {
@@ -6230,26 +6651,100 @@ function DashboardScreen({
       [selectedEventDetail.id]: []
     }));
   };
-  const handleRegenerateEventPlanner = () => {
+  const getPlannerTabLabel = useCallback(
+    (tabKey) => t(`event_planner_tab_${tabKey}`),
+    [t]
+  );
+  const handleRegenerateEventPlanner = (scope = "all") => {
     if (!selectedEventDetail?.id) {
       return;
     }
-    const nextRound = Math.max(1, selectedEventPlannerVariantSeed + 1);
-    setEventPlannerRegenerationByEventId((prev) => ({
+    const eventId = selectedEventDetail.id;
+    const normalizedScope = String(scope || "all").trim().toLowerCase();
+    const isAll = normalizedScope === "all";
+
+    if (isAll) {
+      const nextRound = Math.max(1, selectedEventPlannerVariantSeed + 1);
+      setEventPlannerRegenerationByEventId((prev) => ({
+        ...prev,
+        [eventId]: nextRound
+      }));
+      setEventDetailShoppingCheckedByEventId((prev) => ({
+        ...prev,
+        [eventId]: []
+      }));
+      setEventPlannerShoppingFilter("all");
+      setInvitationMessage(
+        `${interpolateText(t("event_planner_regenerated_message"), { count: nextRound })} ${interpolateText(
+          t("event_planner_context_applied"),
+          { value: selectedEventPlannerContextEffective.summary || selectedEventPlannerContext.summary }
+        )}`
+      );
+      return;
+    }
+
+    const safeTab = EVENT_PLANNER_VIEW_TABS.includes(normalizedScope) ? normalizedScope : "menu";
+    const currentByTab = eventPlannerRegenerationByEventIdByTab[eventId] || {};
+    const nextTabRound = Math.max(1, Number(currentByTab[safeTab] || 0) + 1);
+    setEventPlannerRegenerationByEventIdByTab((prev) => ({
       ...prev,
-      [selectedEventDetail.id]: nextRound
+      [eventId]: {
+        ...(prev[eventId] || {}),
+        [safeTab]: nextTabRound
+      }
     }));
-    setEventDetailShoppingCheckedByEventId((prev) => ({
-      ...prev,
-      [selectedEventDetail.id]: []
-    }));
-    setEventPlannerShoppingFilter("all");
+    if (safeTab === "menu" || safeTab === "shopping") {
+      setEventDetailShoppingCheckedByEventId((prev) => ({
+        ...prev,
+        [eventId]: []
+      }));
+      setEventPlannerShoppingFilter("all");
+    }
     setInvitationMessage(
-      `${interpolateText(t("event_planner_regenerated_message"), { count: nextRound })} ${interpolateText(
-        t("event_planner_context_applied"),
-        { value: selectedEventPlannerContext.summary }
-      )}`
+      interpolateText(t("event_planner_regenerated_tab_message"), {
+        tab: getPlannerTabLabel(safeTab),
+        count: nextTabRound
+      })
     );
+  };
+  const handleOpenEventPlannerContext = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const eventId = selectedEventDetail.id;
+    const existingOverride = eventPlannerContextOverridesByEventId[eventId] || {};
+    const baseSignals = applyPlannerOverrides(selectedEventPlannerContext, selectedEventInsights, existingOverride);
+    setEventPlannerContextDraft({
+      preset: baseSignals.context.preset || "social",
+      momentKey: baseSignals.context.momentKey || "evening",
+      toneKey: baseSignals.context.toneKey || "casual",
+      budgetKey: baseSignals.context.budgetKey || "medium",
+      durationHours: String(baseSignals.context.durationHours || 4),
+      foodSuggestions: uniqueValues(baseSignals.insights.foodSuggestions || []).join(", "),
+      drinkSuggestions: uniqueValues(baseSignals.insights.drinkSuggestions || []).join(", "),
+      avoidItems: uniqueValues(baseSignals.insights.avoidItems || []).join(", "),
+      musicGenres: uniqueValues(baseSignals.insights.musicGenres || []).join(", "),
+      decorColors: uniqueValues(baseSignals.insights.decorColors || []).join(", "),
+      icebreakers: uniqueValues(baseSignals.insights.icebreakers || []).join(", "),
+      tabooTopics: uniqueValues(baseSignals.insights.tabooTopics || []).join(", "),
+      additionalInstructions: String(baseSignals.insights.additionalInstructions || "")
+    });
+    setShowEventPlannerTechnicalPrompt(false);
+    setIsEventPlannerContextOpen(true);
+  };
+  const handleGenerateFullEventPlanFromContext = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const eventId = selectedEventDetail.id;
+    setEventPlannerContextOverridesByEventId((prev) => ({
+      ...prev,
+      [eventId]: {
+        ...eventPlannerContextDraft
+      }
+    }));
+    setIsEventPlannerContextOpen(false);
+    handleRegenerateEventPlanner("all");
   };
   const handleExportEventPlannerShoppingList = () => {
     const exportLines = [
@@ -6293,6 +6788,34 @@ function DashboardScreen({
     try {
       await navigator.clipboard.writeText(selectedEventShoppingChecklistText);
       setInvitationMessage(t("event_menu_shopping_copied"));
+    } catch {
+      setInvitationMessage(t("copy_fail"));
+    }
+  };
+  const handleCopyEventPlannerPrompt = async () => {
+    const promptText = String(
+      (isEventPlannerContextOpen ? eventPlannerContextDraftPromptBundle?.prompt : selectedEventPlannerPromptBundle?.prompt) || ""
+    ).trim();
+    if (!promptText) {
+      setInvitationMessage(t("event_planner_prompt_empty"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setInvitationMessage(t("event_planner_prompt_copied"));
+    } catch {
+      setInvitationMessage(t("copy_fail"));
+    }
+  };
+  const handleCopyEventPlannerMessages = async () => {
+    const payload = String(selectedEventHostMessagesText || "").trim();
+    if (!payload) {
+      setInvitationMessage(t("event_planner_prompt_empty"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(payload);
+      setInvitationMessage(t("event_planner_messages_copied"));
     } catch {
       setInvitationMessage(t("copy_fail"));
     }
@@ -11054,6 +11577,38 @@ function DashboardScreen({
                       <Icon name="check" className="icon icon-sm" />
                       {t("event_planner_tab_shopping")}
                     </button>
+                    <button
+                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "ambience" ? "is-selected" : ""}`}
+                      type="button"
+                      onClick={() => handleEventPlannerTabChange("ambience")}
+                    >
+                      <Icon name="sparkle" className="icon icon-sm" />
+                      {t("event_planner_tab_ambience")}
+                    </button>
+                    <button
+                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "timings" ? "is-selected" : ""}`}
+                      type="button"
+                      onClick={() => handleEventPlannerTabChange("timings")}
+                    >
+                      <Icon name="clock" className="icon icon-sm" />
+                      {t("event_planner_tab_timings")}
+                    </button>
+                    <button
+                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "communication" ? "is-selected" : ""}`}
+                      type="button"
+                      onClick={() => handleEventPlannerTabChange("communication")}
+                    >
+                      <Icon name="mail" className="icon icon-sm" />
+                      {t("event_planner_tab_communication")}
+                    </button>
+                    <button
+                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "risks" ? "is-selected" : ""}`}
+                      type="button"
+                      onClick={() => handleEventPlannerTabChange("risks")}
+                    >
+                      <Icon name="shield" className="icon icon-sm" />
+                      {t("event_planner_tab_risks")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
                       <Icon name="edit" className="icon icon-sm" />
                       {t("event_detail_edit_action")}
@@ -11227,10 +11782,18 @@ function DashboardScreen({
                           <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
                         </div>
                         <p className="field-help">{t("event_planner_hint")}</p>
-                        <p className="hint">{interpolateText(t("event_planner_context_applied"), { value: selectedEventMealPlan.contextSummary || selectedEventPlannerContext.summary })}</p>
+                        <p className="hint">{interpolateText(t("event_planner_context_applied"), { value: selectedEventMealPlan.contextSummary || selectedEventPlannerContextEffective.summary })}</p>
                       </div>
                       <div className="button-row">
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleRegenerateEventPlanner}>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleOpenEventPlannerContext}>
+                          <Icon name="edit" className="icon icon-sm" />
+                          {t("event_planner_action_context")}
+                        </button>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}>
+                          <Icon name="sparkle" className="icon icon-sm" />
+                          {t("event_planner_action_regenerate_tab")}
+                        </button>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")}>
                           <Icon name="sparkle" className="icon icon-sm" />
                           {t("event_planner_action_regenerate")}
                         </button>
@@ -11290,6 +11853,42 @@ function DashboardScreen({
                       >
                         {t("event_planner_tab_shopping")}
                       </button>
+                      <button
+                        className={`list-filter-tab ${eventDetailPlannerTab === "ambience" ? "active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={eventDetailPlannerTab === "ambience"}
+                        onClick={() => handleEventPlannerTabChange("ambience")}
+                      >
+                        {t("event_planner_tab_ambience")}
+                      </button>
+                      <button
+                        className={`list-filter-tab ${eventDetailPlannerTab === "timings" ? "active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={eventDetailPlannerTab === "timings"}
+                        onClick={() => handleEventPlannerTabChange("timings")}
+                      >
+                        {t("event_planner_tab_timings")}
+                      </button>
+                      <button
+                        className={`list-filter-tab ${eventDetailPlannerTab === "communication" ? "active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={eventDetailPlannerTab === "communication"}
+                        onClick={() => handleEventPlannerTabChange("communication")}
+                      >
+                        {t("event_planner_tab_communication")}
+                      </button>
+                      <button
+                        className={`list-filter-tab ${eventDetailPlannerTab === "risks" ? "active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={eventDetailPlannerTab === "risks"}
+                        onClick={() => handleEventPlannerTabChange("risks")}
+                      >
+                        {t("event_planner_tab_risks")}
+                      </button>
                     </div>
                     {eventDetailPlannerTab === "menu" ? (
                       <div className="event-planner-menu-grid">
@@ -11307,7 +11906,7 @@ function DashboardScreen({
                           </article>
                         ))}
                       </div>
-                    ) : (
+                    ) : eventDetailPlannerTab === "shopping" ? (
                       <div className="event-planner-shopping-stack">
                         <div className="event-planner-shopping-summary">
                           <div className="event-planner-shopping-summary-main">
@@ -11414,6 +12013,84 @@ function DashboardScreen({
                           <p className="hint">{t("event_planner_shopping_empty_filtered")}</p>
                         )}
                       </div>
+                    ) : eventDetailPlannerTab === "ambience" ? (
+                      <div className="event-planner-host-grid">
+                        <article className="event-planner-host-card">
+                          <div className="event-planner-menu-card-head">
+                            <p className="item-title">{t("event_planner_host_actions_title")}</p>
+                            <span className="status-pill status-host-conversion-source-default">
+                              {interpolateText(t("event_planner_host_acceptance_rate"), {
+                                value: selectedEventHostPlaybook.acceptanceRate
+                              })}
+                            </span>
+                          </div>
+                          <ul className="list recommendation-list">
+                            {selectedEventHostPlaybook.actionableItems.map((item) => (
+                              <li key={`host-action-${item}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </article>
+                        <article className="event-planner-host-card">
+                          <p className="item-title">{t("event_planner_host_ambience_title")}</p>
+                          <ul className="list recommendation-list">
+                            {selectedEventHostPlaybook.ambience.map((item) => (
+                              <li key={`ambience-${item}`}>{item}</li>
+                            ))}
+                          </ul>
+                          <p className="item-title">{t("event_planner_host_conversation_title")}</p>
+                          <ul className="list recommendation-list">
+                            {selectedEventHostPlaybook.conversation.map((item) => (
+                              <li key={`conversation-${item}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </article>
+                      </div>
+                    ) : eventDetailPlannerTab === "timings" ? (
+                      <article className="event-planner-host-card event-planner-host-card-wide">
+                        <p className="item-title">{t("event_planner_host_timeline_title")}</p>
+                        <ul className="list recommendation-list">
+                          {selectedEventHostPlaybook.timeline.map((item) => (
+                            <li key={item.id}>
+                              <strong>{item.title}</strong> - {item.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </article>
+                    ) : eventDetailPlannerTab === "communication" ? (
+                      <article className="event-planner-host-card event-planner-host-card-wide">
+                        <div className="event-planner-host-card-head">
+                          <p className="item-title">{t("event_planner_host_messages_title")}</p>
+                          <div className="button-row">
+                            <button className="btn btn-ghost btn-sm" type="button" onClick={handleCopyEventPlannerMessages}>
+                              <Icon name="mail" className="icon icon-sm" />
+                              {t("event_planner_host_copy_messages")}
+                            </button>
+                            <button className="btn btn-ghost btn-sm" type="button" onClick={handleCopyEventPlannerPrompt}>
+                              <Icon name="link" className="icon icon-sm" />
+                              {t("event_planner_host_copy_prompt")}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="event-planner-host-messages">
+                          {selectedEventHostPlaybook.messages.map((item) => (
+                            <article key={item.id} className="event-planner-host-message-item">
+                              <p className="item-meta">{item.title}</p>
+                              <p>{item.text}</p>
+                            </article>
+                          ))}
+                        </div>
+                      </article>
+                    ) : (
+                      <article className="event-planner-host-card event-planner-host-card-wide">
+                        <p className="item-title">{t("event_planner_host_risks_title")}</p>
+                        <ul className="list recommendation-list">
+                          {selectedEventHostPlaybook.risks.map((riskItem) => (
+                            <li key={riskItem.id}>
+                              <span className={`status-pill ${riskItem.level}`}>{riskItem.label}</span> {riskItem.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </article>
                     )}
                   </article>
                   {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
@@ -14379,6 +15056,210 @@ function DashboardScreen({
                 </button>
                 <button className="btn btn-sm" type="button" onClick={handleImportWizardContinue} disabled={!importWizardCanContinue}>
                   {importWizardContinueLabel}
+                </button>
+              </footer>
+            </section>
+          </div>
+        ) : null}
+
+        {isEventPlannerContextOpen ? (
+          <div className="confirm-overlay" onClick={() => setIsEventPlannerContextOpen(false)}>
+            <section
+              className="confirm-dialog planner-context-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="planner-context-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="planner-context-head">
+                <div>
+                  <h3 id="planner-context-title" className="item-title">
+                    {t("event_planner_context_modal_title")}
+                  </h3>
+                  <p className="item-meta">{t("event_planner_context_modal_hint")}</p>
+                </div>
+                <button
+                  className="btn btn-ghost btn-sm btn-icon-only"
+                  type="button"
+                  onClick={() => setIsEventPlannerContextOpen(false)}
+                  aria-label={t("close_modal")}
+                  title={t("close_modal")}
+                >
+                  <Icon name="x" className="icon icon-sm" />
+                </button>
+              </header>
+
+              <details className="planner-context-section" open>
+                <summary>{t("event_planner_context_section_event")}</summary>
+                <div className="planner-context-grid">
+                  <label>
+                    <span className="label-title">{t("event_planner_context_field_style")}</span>
+                    <select
+                      value={eventPlannerContextDraft.preset}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, preset: event.target.value }))}
+                    >
+                      <option value="social">{t("event_planner_style_social")}</option>
+                      <option value="bbq">{t("event_planner_style_bbq")}</option>
+                      <option value="brunch">{t("event_planner_style_brunch")}</option>
+                      <option value="romantic">{t("event_planner_style_romantic")}</option>
+                      <option value="celebration">{t("event_planner_style_celebration")}</option>
+                      <option value="movie">{t("event_planner_style_movie")}</option>
+                      <option value="bookclub">{t("event_planner_style_bookclub")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label-title">{t("event_planner_context_field_moment")}</span>
+                    <select
+                      value={eventPlannerContextDraft.momentKey}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, momentKey: event.target.value }))}
+                    >
+                      <option value="morning">{t("event_planner_moment_morning")}</option>
+                      <option value="afternoon">{t("event_planner_moment_afternoon")}</option>
+                      <option value="evening">{t("event_planner_moment_evening")}</option>
+                      <option value="night">{t("event_planner_moment_night")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label-title">{t("event_planner_context_field_tone")}</span>
+                    <select
+                      value={eventPlannerContextDraft.toneKey}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, toneKey: event.target.value }))}
+                    >
+                      <option value="casual">{t("event_planner_tone_casual")}</option>
+                      <option value="formal">{t("event_planner_tone_formal")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label-title">{t("event_planner_context_field_budget")}</span>
+                    <select
+                      value={eventPlannerContextDraft.budgetKey}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, budgetKey: event.target.value }))}
+                    >
+                      <option value="low">{t("event_planner_budget_low")}</option>
+                      <option value="medium">{t("event_planner_budget_medium")}</option>
+                      <option value="high">{t("event_planner_budget_high")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label-title">{t("event_planner_context_field_duration")}</span>
+                    <input
+                      type="number"
+                      min="2"
+                      max="12"
+                      value={eventPlannerContextDraft.durationHours}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, durationHours: event.target.value }))}
+                    />
+                  </label>
+                </div>
+              </details>
+
+              <details className="planner-context-section" open>
+                <summary>{t("event_planner_context_section_guests")}</summary>
+                <div className="planner-context-grid">
+                  <label>
+                    <span className="label-title">{t("smart_hosting_food")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.foodSuggestions}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, foodSuggestions: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span className="label-title">{t("smart_hosting_drink")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.drinkSuggestions}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, drinkSuggestions: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span className="label-title">{t("smart_hosting_avoid")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.avoidItems}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, avoidItems: event.target.value }))}
+                    />
+                  </label>
+                </div>
+              </details>
+
+              <details className="planner-context-section">
+                <summary>{t("event_planner_context_section_host")}</summary>
+                <div className="planner-context-grid">
+                  <label>
+                    <span className="label-title">{t("smart_hosting_music")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.musicGenres}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, musicGenres: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span className="label-title">{t("smart_hosting_decor")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.decorColors}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, decorColors: event.target.value }))}
+                    />
+                  </label>
+                </div>
+              </details>
+
+              <details className="planner-context-section">
+                <summary>{t("event_planner_context_section_style")}</summary>
+                <div className="planner-context-grid">
+                  <label>
+                    <span className="label-title">{t("smart_hosting_icebreakers")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.icebreakers}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, icebreakers: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span className="label-title">{t("smart_hosting_taboo")}</span>
+                    <textarea
+                      rows={2}
+                      value={eventPlannerContextDraft.tabooTopics}
+                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, tabooTopics: event.target.value }))}
+                    />
+                  </label>
+                </div>
+              </details>
+
+              <details className="planner-context-section">
+                <summary>{t("event_planner_context_section_instructions")}</summary>
+                <label>
+                  <span className="label-title">{t("event_planner_context_field_instructions")}</span>
+                  <textarea
+                    rows={3}
+                    value={eventPlannerContextDraft.additionalInstructions}
+                    onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, additionalInstructions: event.target.value }))}
+                  />
+                </label>
+              </details>
+
+              <div className="planner-context-prompt-toggle">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  type="button"
+                  onClick={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
+                >
+                  <Icon name="link" className="icon icon-sm" />
+                  {showEventPlannerTechnicalPrompt ? t("event_planner_context_prompt_hide") : t("event_planner_context_prompt_show")}
+                </button>
+              </div>
+              {showEventPlannerTechnicalPrompt ? (
+                <pre className="planner-context-prompt-preview">{eventPlannerContextDraftPromptBundle.prompt}</pre>
+              ) : null}
+
+              <footer className="planner-context-footer">
+                <button className="btn btn-ghost" type="button" onClick={() => setIsEventPlannerContextOpen(false)}>
+                  {t("cancel_action")}
+                </button>
+                <button className="btn" type="button" onClick={handleGenerateFullEventPlanFromContext}>
+                  <Icon name="sparkle" className="icon icon-sm" />
+                  {t("event_planner_context_generate")}
                 </button>
               </footer>
             </section>
