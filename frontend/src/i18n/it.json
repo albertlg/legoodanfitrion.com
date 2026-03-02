@@ -984,6 +984,7 @@
   "event_planner_summary_line": "{ingredients} ingredienti · stimato ~{min}€-{max}€",
   "event_planner_ai_badge": "AI",
   "event_planner_context_applied": "Contesto IA applicato: {value}",
+  "event_planner_saved_version": "Piano salvato v{version} · {date}",
   "event_planner_context_item_template": "{style}: {item}",
   "event_planner_style_social": "Sociale",
   "event_planner_style_bbq": "BBQ",

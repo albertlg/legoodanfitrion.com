@@ -220,6 +220,26 @@ Nota UX:
 - La caja tecnica de diagnostico solo aparece en frontend si la URL incluye `?debug=1`
   (tambien soporta `?diagnostics=1`).
 
+## Paso 1.14 (persistencia y versionado del Plan de Anfitrion)
+
+Para guardar snapshots del Plan de Anfitrion por evento y recuperarlos tras recarga:
+
+- `/Users/albertlg/Documents/New project/supabase/sql/018_event_host_plans.sql`
+
+Este script crea:
+- tabla `event_host_plans` (snapshot JSON + contexto + version),
+- RLS por `host_user_id`,
+- RPC `upsert_event_host_plan(...)`.
+
+Validacion:
+
+```sql
+select routine_name
+from information_schema.routines
+where routine_schema = 'public'
+  and routine_name = 'upsert_event_host_plan';
+```
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

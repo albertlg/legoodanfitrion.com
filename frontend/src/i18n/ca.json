@@ -1022,6 +1022,7 @@
   "event_planner_summary_line": "{ingredients} ingredients · estimat ~{min}€-{max}€",
   "event_planner_ai_badge": "AI",
   "event_planner_context_applied": "Context IA aplicat: {value}",
+  "event_planner_saved_version": "Pla desat v{version} · {date}",
   "event_planner_context_item_template": "{style}: {item}",
   "event_planner_style_social": "Social",
   "event_planner_style_bbq": "BBQ",

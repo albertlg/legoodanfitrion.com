@@ -16,6 +16,11 @@ import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
 import { isGoogleMapsConfigured, loadGoogleMapsPlaces } from "../lib/google-maps";
+import {
+  buildHostPlanSections,
+  createHostPlanSnapshot,
+  getHostPlanStateFromSnapshot
+} from "../lib/host-plan";
 import { supabase } from "../lib/supabaseClient";
 import { validateEventForm, validateGuestForm, validateInvitationForm } from "../lib/validation";
 
@@ -2152,6 +2157,7 @@ function DashboardScreen({
   const [eventPlannerRegenerationByEventId, setEventPlannerRegenerationByEventId] = useState({});
   const [eventPlannerRegenerationByEventIdByTab, setEventPlannerRegenerationByEventIdByTab] = useState({});
   const [eventPlannerContextOverridesByEventId, setEventPlannerContextOverridesByEventId] = useState({});
+  const [eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId] = useState({});
   const [isEventPlannerContextOpen, setIsEventPlannerContextOpen] = useState(false);
   const [showEventPlannerTechnicalPrompt, setShowEventPlannerTechnicalPrompt] = useState(false);
   const [eventPlannerContextDraft, setEventPlannerContextDraft] = useState({
@@ -4422,6 +4428,29 @@ function DashboardScreen({
     }
     return collected.size;
   }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventDietTypeValues = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const preference = guestPreferencesById[row.guest?.id || row.invitation?.guest_id] || {};
+      const label = toCatalogLabel("diet_type", preference?.diet_type, language);
+      if (label) {
+        collected.add(label);
+      }
+    }
+    return Array.from(collected);
+  }, [selectedEventConfirmedGuestRows, guestPreferencesById, language]);
+  const selectedEventSensitiveIntolerances = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
+      for (const item of toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)) {
+        if (item) {
+          collected.add(item);
+        }
+      }
+    }
+    return Array.from(collected);
+  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
   const selectedEventRestrictionsCount = useMemo(() => {
     const collected = new Set();
     for (const row of selectedEventConfirmedGuestRows) {
@@ -4553,6 +4582,21 @@ function DashboardScreen({
       ...selectedEventHostPlaybook.messages.map((item) => `${item.title}\n${item.text}`)
     ].join("\n\n");
   }, [selectedEventHostPlaybook, t]);
+  const selectedEventPlannerSnapshotState = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return null;
+    }
+    return eventPlannerSnapshotsByEventId[selectedEventDetail.id] || null;
+  }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id]);
+  const selectedEventPlannerSavedLabel = useMemo(() => {
+    if (!selectedEventPlannerSnapshotState?.version) {
+      return "";
+    }
+    return interpolateText(t("event_planner_saved_version"), {
+      version: selectedEventPlannerSnapshotState.version,
+      date: formatDate(selectedEventPlannerSnapshotState.generatedAt, language, t("no_date"))
+    });
+  }, [selectedEventPlannerSnapshotState, language, t]);
   const eventPlannerContextDraftSignals = useMemo(
     () => applyPlannerOverrides(selectedEventPlannerContext, selectedEventInsights, eventPlannerContextDraft),
     [selectedEventPlannerContext, selectedEventInsights, eventPlannerContextDraft]
@@ -5345,9 +5389,34 @@ function DashboardScreen({
       }
     }
 
-    if (eventsError || guestsError || invitationsError || hostProfileError) {
+    let eventPlannerRows = [];
+    let eventPlannerError = null;
+    const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
+    if (eventIdsForPlans.length > 0) {
+      const plannerResult = await supabase
+        .from("event_host_plans")
+        .select("event_id, version, generated_at, source, model_meta, plan_context, plan_snapshot")
+        .eq("host_user_id", session.user.id)
+        .in("event_id", eventIdsForPlans)
+        .order("generated_at", { ascending: false });
+
+      if (plannerResult.error) {
+        if (!isMissingRelationError(plannerResult.error, "event_host_plans")) {
+          eventPlannerError = plannerResult.error;
+        }
+      } else {
+        eventPlannerRows = Array.isArray(plannerResult.data) ? plannerResult.data : [];
+      }
+    }
+
+    if (eventsError || guestsError || invitationsError || hostProfileError || eventPlannerError) {
       setDashboardError(
-        eventsError?.message || guestsError?.message || invitationsError?.message || hostProfileError?.message || t("error_load_data")
+        eventsError?.message ||
+          guestsError?.message ||
+          invitationsError?.message ||
+          hostProfileError?.message ||
+          eventPlannerError?.message ||
+          t("error_load_data")
       );
       return;
     }
@@ -5449,6 +5518,33 @@ function DashboardScreen({
     setEventSettingsCacheById(cachedEventSettingsById);
     setGuests(guestsData || []);
     setInvitations(invitationsData || []);
+    const latestPlannerByEventId = {};
+    for (const row of eventPlannerRows) {
+      const eventId = String(row?.event_id || "").trim();
+      if (!eventId || latestPlannerByEventId[eventId]) {
+        continue;
+      }
+      const snapshotState = getHostPlanStateFromSnapshot(row?.plan_snapshot);
+      if (!snapshotState) {
+        continue;
+      }
+      latestPlannerByEventId[eventId] = snapshotState;
+    }
+    setEventPlannerSnapshotsByEventId(latestPlannerByEventId);
+    const nextPlannerSeedByEventId = {};
+    const nextPlannerSeedByEventIdByTab = {};
+    const nextPlannerContextOverridesByEventId = {};
+    for (const [eventId, snapshotState] of Object.entries(latestPlannerByEventId)) {
+      nextPlannerSeedByEventId[eventId] = Math.max(0, Number(snapshotState.seedAll || 0));
+      nextPlannerSeedByEventIdByTab[eventId] = snapshotState.seedByTab || {};
+      nextPlannerContextOverridesByEventId[eventId] =
+        snapshotState.contextOverrides && typeof snapshotState.contextOverrides === "object"
+          ? snapshotState.contextOverrides
+          : {};
+    }
+    setEventPlannerRegenerationByEventId(nextPlannerSeedByEventId);
+    setEventPlannerRegenerationByEventIdByTab(nextPlannerSeedByEventIdByTab);
+    setEventPlannerContextOverridesByEventId(nextPlannerContextOverridesByEventId);
     setGuestPreferencesById(
       Object.fromEntries((guestPreferencesRows || []).map((preferenceItem) => [preferenceItem.guest_id, preferenceItem]))
     );
@@ -6664,16 +6760,150 @@ function DashboardScreen({
     (tabKey) => t(`event_planner_tab_${tabKey}`),
     [t]
   );
-  const handleRegenerateEventPlanner = (scope = "all") => {
+  const persistEventPlannerSnapshot = useCallback(
+    async ({ eventId, scope = "all", nextSeedAll = 0, nextSeedByTab = {}, nextContextOverrides = {} }) => {
+      if (!supabase || !session?.user?.id || !selectedEventDetail?.id || selectedEventDetail.id !== eventId) {
+        return;
+      }
+
+      const effectiveSignals = applyPlannerOverrides(
+        selectedEventPlannerContext,
+        selectedEventInsights,
+        nextContextOverrides
+      );
+      const effectiveContext = effectiveSignals.context || {};
+      const effectiveInsights = effectiveSignals.insights || {};
+
+      const nextMenuSeed =
+        Math.max(0, Number(nextSeedAll || 0)) +
+        Math.max(Number(nextSeedByTab.menu || 0), Number(nextSeedByTab.shopping || 0));
+      const nextHostSeed =
+        Math.max(0, Number(nextSeedAll || 0)) +
+        Number(nextSeedByTab.ambience || 0) +
+        Number(nextSeedByTab.timings || 0) +
+        Number(nextSeedByTab.communication || 0) +
+        Number(nextSeedByTab.risks || 0);
+
+      const nextMealPlan = buildEventMealPlan(effectiveInsights, effectiveContext, t, nextMenuSeed);
+      const nextCriticalRestrictions = uniqueValues(nextMealPlan.restrictions || []).slice(0, 8);
+      const nextHostPlaybook = buildEventHostPlaybook({
+        eventDetail: selectedEventDetail,
+        eventContext: effectiveContext,
+        eventInsights: effectiveInsights,
+        statusCounts: selectedEventDetailStatusCounts,
+        criticalRestrictions: nextCriticalRestrictions,
+        healthAlerts: selectedEventHealthAlerts,
+        variantSeed: nextHostSeed,
+        language,
+        t
+      });
+      const sections = buildHostPlanSections({
+        mealPlan: nextMealPlan,
+        hostPlaybook: nextHostPlaybook
+      });
+
+      const snapshotContext = {
+        eventId,
+        preset: effectiveContext.preset || "social",
+        momentKey: effectiveContext.momentKey || "evening",
+        toneKey: effectiveContext.toneKey || "casual",
+        budgetKey: effectiveContext.budgetKey || "medium",
+        durationHours: Number(effectiveContext.durationHours || 4),
+        hostPreferences: {
+          cuisine: uniqueValues(effectiveInsights.foodSuggestions || [])[0] || "",
+          avoid: uniqueValues(effectiveInsights.avoidItems || []).slice(0, 8),
+          priorities: [effectiveInsights.timingRecommendation || "start_on_time"]
+        },
+        guestSignals: {
+          confirmed: Number(selectedEventDetailStatusCounts.yes || 0),
+          allergies: uniqueValues(nextCriticalRestrictions.filter((item) => item)).slice(0, 8),
+          intolerances: uniqueValues(toCatalogLabels("intolerance", selectedEventSensitiveIntolerances, language)).slice(0, 8),
+          diets: uniqueValues(toCatalogLabels("diet_type", selectedEventDietTypeValues, language)).slice(0, 8)
+        },
+        extraInstructions: String(effectiveInsights.additionalInstructions || "").trim()
+      };
+
+      const latestVersion = Number(eventPlannerSnapshotsByEventId[eventId]?.version || 0);
+      const snapshot = createHostPlanSnapshot({
+        eventId,
+        version: latestVersion + 1,
+        generatedAt: new Date().toISOString(),
+        context: snapshotContext,
+        contextOverrides: nextContextOverrides,
+        seedAll: nextSeedAll,
+        seedByTab: nextSeedByTab,
+        sections,
+        alerts: {
+          critical: nextCriticalRestrictions,
+          warning: (selectedEventHealthAlerts || []).map((item) =>
+            `${item.guestName || t("field_guest")}: ${(item.avoid || []).join(", ")}`
+          )
+        },
+        source: "local_heuristic",
+        modelMeta: {
+          scope: String(scope || "all"),
+          engine: "local-host-plan-v1"
+        }
+      });
+
+      const persistResult = await supabase.rpc("upsert_event_host_plan", {
+        p_event_id: eventId,
+        p_plan_json: snapshot,
+        p_context_json: snapshot.context,
+        p_scope: String(scope || "all"),
+        p_model_meta: snapshot.model_meta
+      });
+
+      if (persistResult.error) {
+        if (!isMissingDbFeatureError(persistResult.error, ["event_host_plans", "upsert_event_host_plan"])) {
+          setInvitationMessage(`${t("error_save_data")} ${persistResult.error.message}`);
+        }
+        return;
+      }
+
+      const persistedRow = Array.isArray(persistResult.data) ? persistResult.data[0] : persistResult.data;
+      const persistedState = getHostPlanStateFromSnapshot({
+        ...snapshot,
+        version: Number(persistedRow?.version || snapshot.version),
+        generated_at: String(persistedRow?.generated_at || snapshot.generated_at)
+      });
+      if (!persistedState) {
+        return;
+      }
+      setEventPlannerSnapshotsByEventId((prev) => ({
+        ...prev,
+        [eventId]: persistedState
+      }));
+    },
+    [
+      language,
+      selectedEventDetail,
+      selectedEventDetailStatusCounts,
+      selectedEventDietTypeValues,
+      selectedEventHealthAlerts,
+      selectedEventPlannerContext,
+      selectedEventSensitiveIntolerances,
+      selectedEventInsights,
+      session?.user?.id,
+      t,
+      eventPlannerSnapshotsByEventId
+    ]
+  );
+  const handleRegenerateEventPlanner = async (scope = "all", options = {}) => {
     if (!selectedEventDetail?.id) {
       return;
     }
     const eventId = selectedEventDetail.id;
     const normalizedScope = String(scope || "all").trim().toLowerCase();
     const isAll = normalizedScope === "all";
+    const nextContextOverrides =
+      options && typeof options.contextOverrides === "object"
+        ? options.contextOverrides
+        : eventPlannerContextOverridesByEventId[eventId] || {};
 
     if (isAll) {
       const nextRound = Math.max(1, selectedEventPlannerVariantSeed + 1);
+      const nextByTab = eventPlannerRegenerationByEventIdByTab[eventId] || {};
       setEventPlannerRegenerationByEventId((prev) => ({
         ...prev,
         [eventId]: nextRound
@@ -6689,6 +6919,13 @@ function DashboardScreen({
           { value: selectedEventPlannerContextEffective.summary || selectedEventPlannerContext.summary }
         )}`
       );
+      await persistEventPlannerSnapshot({
+        eventId,
+        scope: "all",
+        nextSeedAll: nextRound,
+        nextSeedByTab: nextByTab,
+        nextContextOverrides
+      });
       return;
     }
 
@@ -6715,6 +6952,16 @@ function DashboardScreen({
         count: nextTabRound
       })
     );
+    await persistEventPlannerSnapshot({
+      eventId,
+      scope: safeTab,
+      nextSeedAll: selectedEventPlannerVariantSeed,
+      nextSeedByTab: {
+        ...currentByTab,
+        [safeTab]: nextTabRound
+      },
+      nextContextOverrides
+    });
   };
   const handleOpenEventPlannerContext = () => {
     if (!selectedEventDetail?.id) {
@@ -6741,19 +6988,20 @@ function DashboardScreen({
     setShowEventPlannerTechnicalPrompt(false);
     setIsEventPlannerContextOpen(true);
   };
-  const handleGenerateFullEventPlanFromContext = () => {
+  const handleGenerateFullEventPlanFromContext = async () => {
     if (!selectedEventDetail?.id) {
       return;
     }
     const eventId = selectedEventDetail.id;
+    const nextContextOverrides = {
+      ...eventPlannerContextDraft
+    };
     setEventPlannerContextOverridesByEventId((prev) => ({
       ...prev,
-      [eventId]: {
-        ...eventPlannerContextDraft
-      }
+      [eventId]: nextContextOverrides
     }));
     setIsEventPlannerContextOpen(false);
-    handleRegenerateEventPlanner("all");
+    await handleRegenerateEventPlanner("all", { contextOverrides: nextContextOverrides });
   };
   const handleExportEventPlannerShoppingList = () => {
     const exportLines = [
@@ -11828,6 +12076,7 @@ function DashboardScreen({
                         </div>
                         <p className="field-help">{t("event_planner_hint")}</p>
                         <p className="hint">{interpolateText(t("event_planner_context_applied"), { value: selectedEventMealPlan.contextSummary || selectedEventPlannerContextEffective.summary })}</p>
+                        {selectedEventPlannerSavedLabel ? <p className="hint">{selectedEventPlannerSavedLabel}</p> : null}
                       </div>
                       <div className="button-row event-planner-head-actions">
                         <button
