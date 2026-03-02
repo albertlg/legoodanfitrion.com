@@ -1145,6 +1145,7 @@ const WORKSPACE_ITEMS = {
     { key: "create", icon: "calendar", labelKey: "create_event_title", descriptionKey: "help_event_form" },
     { key: "latest", icon: "calendar", labelKey: "latest_events_title", descriptionKey: "workspace_events_latest_desc" },
     { key: "detail", icon: "eye", labelKey: "event_detail_title", descriptionKey: "workspace_events_detail_desc" },
+    { key: "plan", icon: "sparkle", labelKey: "event_planner_title", descriptionKey: "event_planner_hint" },
     { key: "insights", icon: "sparkle", labelKey: "smart_hosting_title", descriptionKey: "smart_hosting_hint" }
   ],
   guests: [
@@ -1959,7 +1960,7 @@ function normalizeDashboardRouteState(appRoute) {
 
   const workspace = String(appRoute.workspace || "").trim();
   if (view === "events") {
-    if (["latest", "create", "detail", "insights"].includes(workspace)) {
+    if (["latest", "create", "detail", "plan", "insights"].includes(workspace)) {
       next.eventsWorkspace = workspace;
     }
     next.selectedEventDetailId = String(appRoute.eventId || "").trim();
@@ -2034,8 +2035,11 @@ function buildDashboardPathFromState({
     if (eventsWorkspace === "insights") {
       return "/app/events/insights";
     }
+    if (eventsWorkspace === "plan" && effectiveEventDetailId) {
+      return `/app/events/${encodePathSegment(effectiveEventDetailId)}/plan/${encodePathSegment(effectiveEventPlannerTab)}`;
+    }
     if (eventsWorkspace === "detail" && effectiveEventDetailId) {
-      return `/app/events/${encodePathSegment(effectiveEventDetailId)}/${encodePathSegment(effectiveEventPlannerTab)}`;
+      return `/app/events/${encodePathSegment(effectiveEventDetailId)}`;
     }
     return "/app/events";
   }
@@ -2069,7 +2073,9 @@ function buildDashboardPathFromState({
 }
 
 function isSpecificEventDetailPath(pathname) {
-  return /^\/app\/events\/[^/]+(?:\/(?:menu|shopping))?$/.test(String(pathname || "").trim());
+  return /^\/app\/events\/[^/]+(?:\/plan\/(?:menu|shopping|ambience|timings|communication|risks)|\/(?:menu|shopping|ambience|timings|communication|risks))?$/.test(
+    String(pathname || "").trim()
+  );
 }
 
 function isSpecificGuestDetailPath(pathname) {
@@ -2198,6 +2204,7 @@ function DashboardScreen({
   const guestAdvancedDetailsRef = useRef(null);
   const guestAdvancedToolbarRef = useRef(null);
   const guestAdvancedSectionRefs = useRef({});
+  const eventPlannerSectionRef = useRef(null);
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
@@ -5172,7 +5179,7 @@ function DashboardScreen({
     onPreferencesSynced?.();
 
     const routeEventDetailId =
-      appRoute?.view === "events" && appRoute?.workspace === "detail"
+      appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim())
         ? String(appRoute?.eventId || "").trim()
         : "";
     const routeGuestDetailId =
@@ -5499,12 +5506,14 @@ function DashboardScreen({
     }
   }, [events, selectedEventDetailId]);
   useEffect(() => {
-    const routeEventId =
-      appRoute?.view === "events" && appRoute?.workspace === "detail" ? String(appRoute?.eventId || "").trim() : "";
-    const routePlannerTab = EVENT_PLANNER_VIEW_TABS.includes(String(appRoute?.eventPlannerTab || "").trim().toLowerCase())
-      ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
-      : "menu";
-    if (selectedEventDetail?.id && routeEventId && selectedEventDetail.id === routeEventId) {
+    const isEventRoute = appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim());
+    const routeEventId = isEventRoute ? String(appRoute?.eventId || "").trim() : "";
+    const routePlannerTab =
+      appRoute?.workspace === "plan" &&
+      EVENT_PLANNER_VIEW_TABS.includes(String(appRoute?.eventPlannerTab || "").trim().toLowerCase())
+        ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
+        : "menu";
+    if (selectedEventDetail?.id && routeEventId && selectedEventDetail.id === routeEventId && appRoute?.workspace === "plan") {
       setEventDetailPlannerTab(routePlannerTab);
       return;
     }
@@ -5706,11 +5715,11 @@ function DashboardScreen({
         guestAdvancedEditTab,
         editingGuestId,
         routeEventDetailId:
-          appRoute?.view === "events" && appRoute?.workspace === "detail"
+          appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim())
             ? String(appRoute?.eventId || "").trim()
             : "",
         routeEventPlannerTab:
-          appRoute?.view === "events" && appRoute?.workspace === "detail"
+          appRoute?.view === "events" && appRoute?.workspace === "plan"
             ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
             : "",
         routeGuestDetailId:
@@ -6826,6 +6835,34 @@ function DashboardScreen({
       : "menu";
     markUserNavigationIntent();
     setEventDetailPlannerTab(normalizedTab);
+  };
+  const handleOpenEventPlan = (targetTab = "ambience") => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const normalizedTab = EVENT_PLANNER_VIEW_TABS.includes(String(targetTab || "").trim().toLowerCase())
+      ? String(targetTab || "").trim().toLowerCase()
+      : "menu";
+    markUserNavigationIntent();
+    setSelectedEventDetailId(selectedEventDetail.id);
+    setEventDetailPlannerTab(normalizedTab);
+    setActiveView("events");
+    setEventsWorkspace("plan");
+    setMobileExpandedView("events");
+    setIsNotificationMenuOpen(false);
+    closeMobileMenu();
+  };
+  const handleBackToEventDetail = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    markUserNavigationIntent();
+    setSelectedEventDetailId(selectedEventDetail.id);
+    setActiveView("events");
+    setEventsWorkspace("detail");
+    setMobileExpandedView("events");
+    setIsNotificationMenuOpen(false);
+    closeMobileMenu();
   };
 
   const resolveCreatedGuestId = useCallback(
@@ -9464,6 +9501,13 @@ function DashboardScreen({
           subtitle: t("help_event_form")
         };
       }
+      if (eventsWorkspace === "plan") {
+        return {
+          eyebrow: "",
+          title: t("event_planner_title"),
+          subtitle: t("event_planner_hint")
+        };
+      }
       if (eventsWorkspace === "detail") {
         return {
           eyebrow: "",
@@ -9570,7 +9614,7 @@ function DashboardScreen({
         }
       : null;
   const hideDashboardHeader =
-    (activeView === "events" && eventsWorkspace === "detail") ||
+    (activeView === "events" && ["detail", "plan"].includes(eventsWorkspace)) ||
     (activeView === "guests" && guestsWorkspace === "detail");
 
   return (
@@ -10889,7 +10933,9 @@ function DashboardScreen({
           <section className="workspace-shell view-transition">
             {eventsWorkspace === "hub" ? (
               <div className="workspace-card-grid">
-                {WORKSPACE_ITEMS.events.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
+                {WORKSPACE_ITEMS.events
+                  .filter((item) => !["hub", "create", "plan"].includes(item.key))
+                  .map((workspaceItem) => (
                   <article key={workspaceItem.key} className="workspace-card">
                     <div className="workspace-card-icon">
                       <Icon name={workspaceItem.icon} className="icon" />
@@ -11525,14 +11571,26 @@ function DashboardScreen({
             </section>
             ) : null}
 
-            {eventsWorkspace === "detail" ? (
+            {eventsWorkspace === "detail" || eventsWorkspace === "plan" ? (
             <section className="panel panel-wide detail-panel">
               <p className="detail-breadcrumb">
                 <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("events", "latest")}>
                   {t("latest_events_title")}
                 </button>
                 <span>/</span>
-                <span>{selectedEventDetail?.title || t("event_detail_title")}</span>
+                {eventsWorkspace === "plan" ? (
+                  <button className="text-link-btn breadcrumb-link" type="button" onClick={handleBackToEventDetail}>
+                    {selectedEventDetail?.title || t("event_detail_title")}
+                  </button>
+                ) : (
+                  <span>{selectedEventDetail?.title || t("event_detail_title")}</span>
+                )}
+                {eventsWorkspace === "plan" ? (
+                  <>
+                    <span>/</span>
+                    <span>{t("event_planner_title")}</span>
+                  </>
+                ) : null}
               </p>
               <div className="detail-head detail-head-rich">
                   <div className="detail-head-primary">
@@ -11561,54 +11619,17 @@ function DashboardScreen({
                 </div>
                 {selectedEventDetail ? (
                   <div className="button-row detail-head-actions">
-                    <button
-                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "menu" ? "is-selected" : ""}`}
-                      type="button"
-                      onClick={() => handleEventPlannerTabChange("menu")}
-                    >
-                      <Icon name="sparkle" className="icon icon-sm" />
-                      {t("event_planner_tab_menu")}
-                    </button>
-                    <button
-                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "shopping" ? "is-selected" : ""}`}
-                      type="button"
-                      onClick={() => handleEventPlannerTabChange("shopping")}
-                    >
-                      <Icon name="check" className="icon icon-sm" />
-                      {t("event_planner_tab_shopping")}
-                    </button>
-                    <button
-                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "ambience" ? "is-selected" : ""}`}
-                      type="button"
-                      onClick={() => handleEventPlannerTabChange("ambience")}
-                    >
-                      <Icon name="sparkle" className="icon icon-sm" />
-                      {t("event_planner_tab_ambience")}
-                    </button>
-                    <button
-                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "timings" ? "is-selected" : ""}`}
-                      type="button"
-                      onClick={() => handleEventPlannerTabChange("timings")}
-                    >
-                      <Icon name="clock" className="icon icon-sm" />
-                      {t("event_planner_tab_timings")}
-                    </button>
-                    <button
-                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "communication" ? "is-selected" : ""}`}
-                      type="button"
-                      onClick={() => handleEventPlannerTabChange("communication")}
-                    >
-                      <Icon name="mail" className="icon icon-sm" />
-                      {t("event_planner_tab_communication")}
-                    </button>
-                    <button
-                      className={`btn btn-ghost btn-sm ${eventDetailPlannerTab === "risks" ? "is-selected" : ""}`}
-                      type="button"
-                      onClick={() => handleEventPlannerTabChange("risks")}
-                    >
-                      <Icon name="shield" className="icon icon-sm" />
-                      {t("event_planner_tab_risks")}
-                    </button>
+                    {eventsWorkspace === "plan" ? (
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleBackToEventDetail}>
+                        <Icon name="arrow_left" className="icon icon-sm" />
+                        {t("event_detail_title")}
+                      </button>
+                    ) : (
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
+                        <Icon name="sparkle" className="icon icon-sm" />
+                        {t("event_plan_cta_action")}
+                      </button>
+                    )}
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
                       <Icon name="edit" className="icon icon-sm" />
                       {t("event_detail_edit_action")}
@@ -11636,7 +11657,7 @@ function DashboardScreen({
                   </div>
                 ) : null}
               </div>
-              {selectedEventDetail ? (
+              {selectedEventDetail && eventsWorkspace === "detail" ? (
                 <div className="detail-kpi-row">
                   <article className="detail-kpi-card">
                     <p className="item-meta">{t("event_detail_total_invites")}</p>
@@ -11660,7 +11681,8 @@ function DashboardScreen({
               {!selectedEventDetail ? (
                 <p className="hint">{t("event_detail_empty")}</p>
               ) : (
-                <div className="detail-layout detail-layout-event">
+                <div className={`detail-layout detail-layout-event ${eventsWorkspace === "plan" ? "detail-layout-event-plan-only" : ""}`}>
+                  {eventsWorkspace === "detail" ? (
                   <article className="detail-card detail-card-event-overview">
                     <p className="item-title">{selectedEventDetail.title}</p>
                     <p className="item-meta">
@@ -11724,6 +11746,8 @@ function DashboardScreen({
                       ) : null}
                     </div>
                   </article>
+                  ) : null}
+                  {eventsWorkspace === "detail" ? (
                   <article className="detail-card detail-card-event-rsvp">
                     <p className="item-title">{t("event_detail_rsvp_summary")}</p>
                     <div className="detail-badge-row">
@@ -11747,6 +11771,8 @@ function DashboardScreen({
                       <p className="hint">{t("event_detail_no_invites")}</p>
                     ) : null}
                   </article>
+                  ) : null}
+                  {eventsWorkspace === "detail" ? (
                   <article className="detail-card detail-card-event-checklist">
                     <p className="item-title">{t("event_detail_checklist_title")}</p>
                     <ul className="checklist-list">
@@ -11774,7 +11800,26 @@ function DashboardScreen({
                       <p className="hint">{t("event_detail_alerts_empty")}</p>
                     )}
                   </article>
-                  <article className="detail-card detail-card-wide detail-card-event-planner">
+                  ) : null}
+                  {eventsWorkspace === "detail" ? (
+                  <article className="detail-card detail-card-event-plan-cta">
+                    <div className="event-plan-cta">
+                      <div className="event-plan-cta-head">
+                        <span className="event-plan-cta-title">
+                          <Icon name="sparkle" className="icon icon-sm" />
+                          {t("event_plan_cta_title")}
+                        </span>
+                        <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
+                      </div>
+                      <p className="item-meta">{t("event_plan_cta_hint")}</p>
+                      <button className="btn btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
+                        {t("event_plan_cta_action")}
+                      </button>
+                    </div>
+                  </article>
+                  ) : null}
+                  {eventsWorkspace === "plan" ? (
+                  <article ref={eventPlannerSectionRef} className="detail-card detail-card-wide detail-card-event-planner">
                     <div className="event-planner-head">
                       <div className="event-planner-head-title-block">
                         <div className="event-planner-head-title-row">
@@ -11784,20 +11829,36 @@ function DashboardScreen({
                         <p className="field-help">{t("event_planner_hint")}</p>
                         <p className="hint">{interpolateText(t("event_planner_context_applied"), { value: selectedEventMealPlan.contextSummary || selectedEventPlannerContextEffective.summary })}</p>
                       </div>
-                      <div className="button-row">
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleOpenEventPlannerContext}>
+                      <div className="button-row event-planner-head-actions">
+                        <button
+                          className="btn btn-ghost btn-sm event-planner-context-btn"
+                          type="button"
+                          onClick={handleOpenEventPlannerContext}
+                        >
                           <Icon name="edit" className="icon icon-sm" />
                           {t("event_planner_action_context")}
                         </button>
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}>
+                        <button
+                          className="btn btn-ghost btn-sm event-planner-action-tab-only"
+                          type="button"
+                          onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}
+                        >
                           <Icon name="sparkle" className="icon icon-sm" />
                           {t("event_planner_action_regenerate_tab")}
                         </button>
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")}>
+                        <button
+                          className="btn btn-ghost btn-sm event-planner-action-all"
+                          type="button"
+                          onClick={() => handleRegenerateEventPlanner("all")}
+                        >
                           <Icon name="sparkle" className="icon icon-sm" />
                           {t("event_planner_action_regenerate")}
                         </button>
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleExportEventPlannerShoppingList}>
+                        <button
+                          className="btn btn-ghost btn-sm event-planner-action-export"
+                          type="button"
+                          onClick={handleExportEventPlannerShoppingList}
+                        >
                           <Icon name="mail" className="icon icon-sm" />
                           {t("event_planner_action_export")}
                         </button>
@@ -12092,8 +12153,19 @@ function DashboardScreen({
                         </ul>
                       </article>
                     )}
+                    <div className="event-planner-mobile-footer">
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")}>
+                        <Icon name="sparkle" className="icon icon-sm" />
+                        {t("event_planner_action_regenerate")}
+                      </button>
+                      <button className="btn btn-sm" type="button" onClick={handleExportEventPlannerShoppingList}>
+                        <Icon name="mail" className="icon icon-sm" />
+                        {t("event_planner_action_export")}
+                      </button>
+                    </div>
                   </article>
-                  {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
+                  ) : null}
+                  {eventsWorkspace === "detail" && typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
                     <article className="detail-card detail-card-map detail-card-event-map">
                       <p className="item-title">{t("map_preview_title")}</p>
                       <div className="map-preview" aria-label={t("map_preview_title")}>
@@ -12106,6 +12178,7 @@ function DashboardScreen({
                       </div>
                     </article>
                   ) : null}
+                  {eventsWorkspace === "detail" ? (
                   <article className="detail-card detail-card-wide detail-card-event-guests">
                     <p className="item-title">{t("event_detail_guest_list_title")}</p>
                     {selectedEventDetailGuests.length === 0 ? (
@@ -12171,6 +12244,8 @@ function DashboardScreen({
                       </div>
                     )}
                   </article>
+                  ) : null}
+                  {eventsWorkspace === "detail" ? (
                   <article className="detail-card detail-card-wide detail-card-event-activity">
                     <p className="item-title">{t("recent_activity_title")}</p>
                     {selectedEventRsvpTimeline.length === 0 ? (
@@ -12194,6 +12269,7 @@ function DashboardScreen({
                       </ul>
                     )}
                   </article>
+                  ) : null}
                 </div>
               )}
             </section>
@@ -15063,7 +15139,7 @@ function DashboardScreen({
         ) : null}
 
         {isEventPlannerContextOpen ? (
-          <div className="confirm-overlay" onClick={() => setIsEventPlannerContextOpen(false)}>
+          <div className="confirm-overlay planner-context-overlay" onClick={() => setIsEventPlannerContextOpen(false)}>
             <section
               className="confirm-dialog planner-context-dialog"
               role="dialog"
@@ -15239,28 +15315,31 @@ function DashboardScreen({
                 </label>
               </details>
 
-              <div className="planner-context-prompt-toggle">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  type="button"
-                  onClick={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
-                >
-                  <Icon name="link" className="icon icon-sm" />
-                  {showEventPlannerTechnicalPrompt ? t("event_planner_context_prompt_hide") : t("event_planner_context_prompt_show")}
-                </button>
-              </div>
               {showEventPlannerTechnicalPrompt ? (
                 <pre className="planner-context-prompt-preview">{eventPlannerContextDraftPromptBundle.prompt}</pre>
               ) : null}
 
               <footer className="planner-context-footer">
-                <button className="btn btn-ghost" type="button" onClick={() => setIsEventPlannerContextOpen(false)}>
-                  {t("cancel_action")}
+                <button
+                  className="btn btn-ghost btn-sm planner-context-link-btn"
+                  type="button"
+                  onClick={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
+                >
+                  {showEventPlannerTechnicalPrompt ? t("event_planner_context_prompt_hide") : t("event_planner_context_prompt_show")}
                 </button>
-                <button className="btn" type="button" onClick={handleGenerateFullEventPlanFromContext}>
-                  <Icon name="sparkle" className="icon icon-sm" />
-                  {t("event_planner_context_generate")}
-                </button>
+                <div className="planner-context-footer-actions">
+                  <button
+                    className="btn btn-ghost planner-context-cancel-btn"
+                    type="button"
+                    onClick={() => setIsEventPlannerContextOpen(false)}
+                  >
+                    {t("cancel_action")}
+                  </button>
+                  <button className="btn planner-context-generate-btn" type="button" onClick={handleGenerateFullEventPlanFromContext}>
+                    <Icon name="sparkle" className="icon icon-sm" />
+                    {t("event_planner_context_generate")}
+                  </button>
+                </div>
               </footer>
             </section>
           </div>

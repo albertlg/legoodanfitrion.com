@@ -3045,19 +3045,53 @@ h2 {
 
 .detail-layout-event .detail-card-event-activity {
   grid-column: 1;
-  grid-row: 4;
+  grid-row: 5;
 }
 
 .detail-layout-event .detail-card-event-planner {
   grid-column: 1 / -1;
-  grid-row: 3;
+  grid-row: 4;
   padding: 1rem;
   gap: 0.72rem;
 }
 
 .detail-layout-event .detail-card-event-map {
   grid-column: 2;
-  grid-row: 4;
+  grid-row: 5;
+}
+
+.detail-layout-event .detail-card-event-plan-cta {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.detail-layout-event.detail-layout-event-plan-only .detail-card-event-planner {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+
+.event-plan-cta {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.event-plan-cta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.event-plan-cta-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-weight: 700;
+}
+
+.event-plan-cta-mobile {
+  display: none;
 }
 
 .event-planner-head {
@@ -3066,6 +3100,11 @@ h2 {
   justify-content: space-between;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.event-planner-head-actions {
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .event-planner-head-title-block {
@@ -3081,18 +3120,23 @@ h2 {
 }
 
 .event-planner-head .item-title {
-  font-size: 1.08rem;
+  font-size: 1.14rem;
 }
 
 .event-planner-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.9rem;
 }
 
 .event-planner-stats .detail-kpi-card {
-  padding: 0.72rem 0.78rem;
+  padding: 0.95rem 1rem;
   background: var(--panel-bg);
+}
+
+.event-planner-stats .detail-kpi-card .item-title {
+  font-size: 1.85rem;
+  line-height: 1.1;
 }
 
 .event-planner-alert {
@@ -3105,22 +3149,35 @@ h2 {
 .event-planner-tabs {
   margin-top: 0.16rem;
   max-width: 100%;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.event-planner-tabs .list-filter-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.event-planner-mobile-footer {
+  display: none;
 }
 
 .event-planner-menu-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.9rem;
 }
 
 .event-planner-menu-card {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--panel-bg);
-  padding: 0.72rem;
+  padding: 0.95rem;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.55rem;
   min-height: 154px;
 }
 
@@ -3139,16 +3196,16 @@ h2 {
 .event-planner-host-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.9rem;
 }
 
 .event-planner-host-card {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--panel-bg);
-  padding: 0.72rem;
+  padding: 0.95rem;
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 
 .event-planner-host-card-wide {
@@ -5183,9 +5240,13 @@ textarea {
 }
 
 .planner-context-dialog {
-  width: min(100%, 680px);
+  width: min(100%, 640px);
   max-height: min(92vh, 900px);
   overflow: auto;
+}
+
+.planner-context-overlay {
+  align-items: center;
 }
 
 .planner-context-head {
@@ -5215,11 +5276,6 @@ textarea {
   gap: 0.55rem;
 }
 
-.planner-context-prompt-toggle {
-  display: flex;
-  justify-content: flex-start;
-}
-
 .planner-context-prompt-preview {
   margin: 0;
   border: 1px solid var(--border);
@@ -5236,7 +5292,20 @@ textarea {
 
 .planner-context-footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.planner-context-link-btn {
+  border: none;
+  min-height: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.planner-context-footer-actions {
+  display: flex;
   gap: 0.45rem;
 }
 
@@ -6274,6 +6343,7 @@ code {
   .detail-layout-event .detail-card-event-overview,
   .detail-layout-event .detail-card-event-rsvp,
   .detail-layout-event .detail-card-event-checklist,
+  .detail-layout-event .detail-card-event-plan-cta,
   .detail-layout-event .detail-card-event-planner,
   .detail-layout-event .detail-card-event-map,
   .detail-layout-event .detail-card-event-guests,
@@ -6314,6 +6384,20 @@ code {
     justify-content: flex-start;
   }
 
+  .event-plan-cta-mobile {
+    display: grid;
+    width: 100%;
+    margin-top: 0.18rem;
+    padding: 0.6rem 0.64rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+  }
+
+  .detail-card-event-plan-cta {
+    display: none;
+  }
+
   .profile-tabs {
     border-radius: 16px;
     gap: 0.22rem;
@@ -6347,8 +6431,93 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .event-planner-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .event-planner-head-actions .btn {
+    display: none;
+  }
+
+  .event-planner-head-actions .event-planner-context-btn {
+    display: inline-flex;
+  }
+
+  .event-planner-action-tab-only {
+    display: none;
+  }
+
+  .event-planner-mobile-footer {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    padding: 0.5rem 0 0.15rem;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--surface-soft) 0%, transparent 100%) 0%,
+      var(--surface-soft) 28%
+    );
+    z-index: 2;
+  }
+
+  .event-planner-mobile-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .planner-context-grid {
     grid-template-columns: 1fr;
+  }
+
+  .planner-context-overlay {
+    place-items: end center;
+    padding: 0;
+  }
+
+  .planner-context-dialog {
+    width: 100%;
+    max-width: 560px;
+    max-height: min(88vh, 700px);
+    border-radius: 18px 18px 0 0;
+    padding-bottom: calc(0.95rem + env(safe-area-inset-bottom));
+  }
+
+  .planner-context-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .planner-context-footer-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .planner-context-footer-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .planner-context-generate-btn {
+    order: 1;
+  }
+
+  .planner-context-cancel-btn {
+    order: 2;
+  }
+
+  .planner-context-link-btn {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
 
   .event-planner-shopping-table-row {

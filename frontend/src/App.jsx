@@ -65,9 +65,18 @@ function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
       return { view: "events", workspace: "latest" };
     }
     if (segments[1]) {
-      const plannerSegment = decodePathSegment(segments[2] || "").toLowerCase();
-      const eventPlannerTab = EVENT_PLANNER_TABS.has(plannerSegment) ? plannerSegment : "menu";
-      return { view: "events", workspace: "detail", eventId: decodePathSegment(segments[1]), eventPlannerTab };
+      const eventId = decodePathSegment(segments[1]);
+      const thirdSegment = decodePathSegment(segments[2] || "").toLowerCase();
+      if (thirdSegment === "plan") {
+        const plannerSegment = decodePathSegment(segments[3] || "").toLowerCase();
+        const eventPlannerTab = EVENT_PLANNER_TABS.has(plannerSegment) ? plannerSegment : "menu";
+        return { view: "events", workspace: "plan", eventId, eventPlannerTab };
+      }
+      // Backward compatibility for legacy planner URLs: /app/events/:id/:tab
+      if (EVENT_PLANNER_TABS.has(thirdSegment)) {
+        return { view: "events", workspace: "plan", eventId, eventPlannerTab: thirdSegment };
+      }
+      return { view: "events", workspace: "detail", eventId };
     }
     return { view: "events", workspace: "latest" };
   }
@@ -139,10 +148,13 @@ function buildCanonicalAppPath(appRoute) {
     if (workspace === "insights") {
       return "/app/events/insights";
     }
-    if (workspace === "detail" && appRoute?.eventId) {
+    if (workspace === "plan" && appRoute?.eventId) {
       const eventPlannerTab = String(appRoute?.eventPlannerTab || "menu").trim().toLowerCase();
       const safeEventPlannerTab = EVENT_PLANNER_TABS.has(eventPlannerTab) ? eventPlannerTab : "menu";
-      return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}/${encodeURIComponent(safeEventPlannerTab)}`;
+      return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}/plan/${encodeURIComponent(safeEventPlannerTab)}`;
+    }
+    if (workspace === "detail" && appRoute?.eventId) {
+      return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}`;
     }
     return "/app/events";
   }
