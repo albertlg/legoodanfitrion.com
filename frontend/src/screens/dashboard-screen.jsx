@@ -4,6 +4,8 @@ import { Controls } from "../components/controls";
 import { FieldMeta } from "../components/field-meta";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
+import { EventPlannerContextModal } from "./dashboard/components/event-planner-context-modal";
+import { EventsListView } from "./dashboard/components/events-list-view";
 import {
   getCatalogLabels,
   toCatalogCode,
@@ -11606,217 +11608,38 @@ function DashboardScreen({
             ) : null}
 
             {eventsWorkspace === "latest" ? (
-            <section className="panel panel-list panel-events-latest">
-              <div className="list-tools">
-                <label>
-                  <span className="label-title">{t("search")}</span>
-                  <input
-                    type="search"
-                    value={eventSearch}
-                    onChange={(event) => setEventSearch(event.target.value)}
-                    placeholder={t("search_events_placeholder")}
-                  />
-                </label>
-                <label>
-                  <span className="label-title">{t("sort_by")}</span>
-                  <select value={eventSort} onChange={(event) => setEventSort(event.target.value)}>
-                    <option value="created_desc">{t("sort_created_desc")}</option>
-                    <option value="created_asc">{t("sort_created_asc")}</option>
-                    <option value="start_asc">{t("sort_date_asc")}</option>
-                    <option value="start_desc">{t("sort_date_desc")}</option>
-                    <option value="title_asc">{t("sort_title_asc")}</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="label-title">{t("pagination_items_per_page")}</span>
-                  <select value={eventPageSize} onChange={(event) => setEventPageSize(Number(event.target.value) || EVENTS_PAGE_SIZE_DEFAULT)}>
-                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                      <option key={optionValue} value={optionValue}>
-                        {optionValue}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_status")}>
-                {[
-                  { key: "all", label: t("all_status") },
-                  { key: "published", label: t("status_published") },
-                  { key: "draft", label: t("status_draft") },
-                  { key: "completed", label: t("status_completed") },
-                  { key: "cancelled", label: t("status_cancelled") }
-                ].map((statusOption) => (
-                  <button
-                    key={statusOption.key}
-                    className={`list-filter-tab ${eventStatusFilter === statusOption.key ? "active" : ""}`}
-                    type="button"
-                    aria-pressed={eventStatusFilter === statusOption.key}
-                    onClick={() => setEventStatusFilter(statusOption.key)}
-                  >
-                    {statusOption.label}
-                  </button>
-                ))}
-              </div>
-              <p className="hint">
-                {t("results_count")}: {filteredEvents.length}
-              </p>
-              {filteredEvents.length === 0 ? (
-                <p>{t("no_events")}</p>
-              ) : (
-                <>
-                <div className="list-table-shell">
-                  <div className="list-table-head list-table-head-events" aria-hidden="true">
-                    <span>{t("field_event")}</span>
-                    <span>{t("date")}</span>
-                    <span>{t("field_guest")}</span>
-                    <span>{t("status")}</span>
-                    <span>RSVP</span>
-                    <span>{t("actions_label")}</span>
-                  </div>
-                  <ul className="list list-table list-table-events">
-                    {pagedEvents.map((eventItem) => {
-                      const invitationSummary = eventInvitationSummaryByEventId[eventItem.id] || {
-                        total: 0,
-                        pending: 0,
-                        yes: 0,
-                        no: 0,
-                        maybe: 0,
-                        responded: 0,
-                        respondedRate: 0
-                      };
-                      return (
-                      <li key={eventItem.id} className="list-table-row list-row-event">
-                        <div className="cell-main">
-                          <p className="item-title">
-                            <button
-                              className="text-link-btn event-name-link"
-                              type="button"
-                              onClick={() => openEventDetail(eventItem.id)}
-                            >
-                              {eventItem.title}
-                            </button>
-                          </p>
-                          <p className="item-meta">{eventItem.event_type ? toCatalogLabel("experience_type", eventItem.event_type, language) : "—"}</p>
-                          <p className="item-meta">{eventItem.location_name || eventItem.location_address || "—"}</p>
-                        </div>
-                        <p className="item-meta cell-event-date cell-meta">
-                          {formatDate(eventItem.start_at, language, t("no_date"))}
-                        </p>
-                        <div className="cell-event-guests cell-extra">
-                          <p className="item-title">{invitationSummary.total}</p>
-                          <p className="item-meta">
-                            {t("status_pending")}: {invitationSummary.pending}
-                          </p>
-                        </div>
-                        <div className="cell-event-status cell-meta">
-                          <span className={`status-pill ${statusClass(eventItem.status)}`}>{statusText(t, eventItem.status)}</span>
-                        </div>
-                        <div className="cell-event-rsvp cell-extra">
-                          <div
-                            className={`list-progress-track ${
-                              invitationSummary.respondedRate >= 70
-                                ? "progress-high"
-                                : invitationSummary.respondedRate >= 35
-                                ? "progress-medium"
-                                : "progress-low"
-                            }`}
-                            role="progressbar"
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={invitationSummary.respondedRate}
-                          >
-                            <span style={{ width: `${invitationSummary.respondedRate}%` }} />
-                          </div>
-                          <p className="item-meta">
-                            {invitationSummary.respondedRate}% · {invitationSummary.yes}/{invitationSummary.total}
-                          </p>
-                        </div>
-                        <div className="item-actions cell-actions list-actions-compact list-actions-iconic">
-                          <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => openEventDetail(eventItem.id)}
-                            aria-label={t("view_detail")}
-                            title={t("view_detail")}
-                          >
-                            <Icon name="eye" className="icon icon-sm" />
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => handleStartEditEvent(eventItem)}
-                            aria-label={t("edit_event")}
-                            title={t("edit_event")}
-                          >
-                            <Icon name="edit" className="icon icon-sm" />
-                          </button>
-                          {eventItem.location_lat != null && eventItem.location_lng != null ? (
-                            <a
-                              className="btn btn-ghost btn-sm btn-icon-only"
-                              href={`https://www.google.com/maps?q=${eventItem.location_lat},${eventItem.location_lng}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              aria-label={t("map_open_external")}
-                              title={t("map_open_external")}
-                            >
-                              <Icon name="location" className="icon icon-sm" />
-                            </a>
-                          ) : null}
-                          <button
-                            className="btn btn-danger btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => handleRequestDeleteEvent(eventItem)}
-                            disabled={isDeletingEventId === eventItem.id}
-                            aria-label={isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}
-                            title={isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}
-                          >
-                            <Icon name="x" className="icon icon-sm" />
-                          </button>
-                        </div>
-                      </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-                </>
-              )}
-              {filteredEvents.length > 0 ? (
-                <div className="pagination-row">
-                  <p className="hint">
-                    {t("pagination_page")} {eventPage}/{eventTotalPages}
-                  </p>
-                  <div className="button-row">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setEventPage((prev) => Math.max(1, prev - 1))}
-                      disabled={eventPage <= 1}
-                    >
-                      {t("pagination_prev")}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setEventPage((prev) => Math.min(eventTotalPages, prev + 1))}
-                      disabled={eventPage >= eventTotalPages}
-                    >
-                      {t("pagination_next")}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <GeoPointsMapPanel
+              <EventsListView
+                t={t}
+                eventSearch={eventSearch}
+                setEventSearch={setEventSearch}
+                eventSort={eventSort}
+                setEventSort={setEventSort}
+                eventPageSize={eventPageSize}
+                setEventPageSize={setEventPageSize}
+                eventsPageSizeDefault={EVENTS_PAGE_SIZE_DEFAULT}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                eventStatusFilter={eventStatusFilter}
+                setEventStatusFilter={setEventStatusFilter}
+                filteredEvents={filteredEvents}
+                pagedEvents={pagedEvents}
+                eventInvitationSummaryByEventId={eventInvitationSummaryByEventId}
+                openEventDetail={openEventDetail}
+                handleStartEditEvent={handleStartEditEvent}
+                handleRequestDeleteEvent={handleRequestDeleteEvent}
+                isDeletingEventId={isDeletingEventId}
+                toCatalogLabel={toCatalogLabel}
+                formatDate={formatDate}
+                language={language}
+                statusClass={statusClass}
+                statusText={statusText}
+                eventPage={eventPage}
+                eventTotalPages={eventTotalPages}
+                setEventPage={setEventPage}
                 mapsStatus={mapsStatus}
                 mapsError={mapsError}
-                points={orderedEventMapPoints}
-                title={t("events_map_title")}
-                hint={t("events_map_hint")}
-                emptyText={t("events_map_empty")}
-                openActionText={t("events_map_open_detail")}
-                onOpenDetail={(eventId) => openEventDetail(eventId)}
-                t={t}
+                orderedEventMapPoints={orderedEventMapPoints}
+                GeoPointsMapPanel={GeoPointsMapPanel}
               />
-            </section>
             ) : null}
 
             {eventsWorkspace === "detail" || eventsWorkspace === "plan" ? (
@@ -15387,212 +15210,17 @@ function DashboardScreen({
           </div>
         ) : null}
 
-        {isEventPlannerContextOpen ? (
-          <div className="confirm-overlay planner-context-overlay" onClick={() => setIsEventPlannerContextOpen(false)}>
-            <section
-              className="confirm-dialog planner-context-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="planner-context-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header className="planner-context-head">
-                <div>
-                  <h3 id="planner-context-title" className="item-title">
-                    {t("event_planner_context_modal_title")}
-                  </h3>
-                  <p className="item-meta">{t("event_planner_context_modal_hint")}</p>
-                </div>
-                <button
-                  className="btn btn-ghost btn-sm btn-icon-only"
-                  type="button"
-                  onClick={() => setIsEventPlannerContextOpen(false)}
-                  aria-label={t("close_modal")}
-                  title={t("close_modal")}
-                >
-                  <Icon name="x" className="icon icon-sm" />
-                </button>
-              </header>
-
-              <details className="planner-context-section" open>
-                <summary>{t("event_planner_context_section_event")}</summary>
-                <div className="planner-context-grid">
-                  <label>
-                    <span className="label-title">{t("event_planner_context_field_style")}</span>
-                    <select
-                      value={eventPlannerContextDraft.preset}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, preset: event.target.value }))}
-                    >
-                      <option value="social">{t("event_planner_style_social")}</option>
-                      <option value="bbq">{t("event_planner_style_bbq")}</option>
-                      <option value="brunch">{t("event_planner_style_brunch")}</option>
-                      <option value="romantic">{t("event_planner_style_romantic")}</option>
-                      <option value="celebration">{t("event_planner_style_celebration")}</option>
-                      <option value="movie">{t("event_planner_style_movie")}</option>
-                      <option value="bookclub">{t("event_planner_style_bookclub")}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("event_planner_context_field_moment")}</span>
-                    <select
-                      value={eventPlannerContextDraft.momentKey}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, momentKey: event.target.value }))}
-                    >
-                      <option value="morning">{t("event_planner_moment_morning")}</option>
-                      <option value="afternoon">{t("event_planner_moment_afternoon")}</option>
-                      <option value="evening">{t("event_planner_moment_evening")}</option>
-                      <option value="night">{t("event_planner_moment_night")}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("event_planner_context_field_tone")}</span>
-                    <select
-                      value={eventPlannerContextDraft.toneKey}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, toneKey: event.target.value }))}
-                    >
-                      <option value="casual">{t("event_planner_tone_casual")}</option>
-                      <option value="formal">{t("event_planner_tone_formal")}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("event_planner_context_field_budget")}</span>
-                    <select
-                      value={eventPlannerContextDraft.budgetKey}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, budgetKey: event.target.value }))}
-                    >
-                      <option value="low">{t("event_planner_budget_low")}</option>
-                      <option value="medium">{t("event_planner_budget_medium")}</option>
-                      <option value="high">{t("event_planner_budget_high")}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("event_planner_context_field_duration")}</span>
-                    <input
-                      type="number"
-                      min="2"
-                      max="12"
-                      value={eventPlannerContextDraft.durationHours}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, durationHours: event.target.value }))}
-                    />
-                  </label>
-                </div>
-              </details>
-
-              <details className="planner-context-section" open>
-                <summary>{t("event_planner_context_section_guests")}</summary>
-                <div className="planner-context-grid">
-                  <label>
-                    <span className="label-title">{t("smart_hosting_food")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.foodSuggestions}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, foodSuggestions: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("smart_hosting_drink")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.drinkSuggestions}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, drinkSuggestions: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("smart_hosting_avoid")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.avoidItems}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, avoidItems: event.target.value }))}
-                    />
-                  </label>
-                </div>
-              </details>
-
-              <details className="planner-context-section">
-                <summary>{t("event_planner_context_section_host")}</summary>
-                <div className="planner-context-grid">
-                  <label>
-                    <span className="label-title">{t("smart_hosting_music")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.musicGenres}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, musicGenres: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("smart_hosting_decor")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.decorColors}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, decorColors: event.target.value }))}
-                    />
-                  </label>
-                </div>
-              </details>
-
-              <details className="planner-context-section">
-                <summary>{t("event_planner_context_section_style")}</summary>
-                <div className="planner-context-grid">
-                  <label>
-                    <span className="label-title">{t("smart_hosting_icebreakers")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.icebreakers}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, icebreakers: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("smart_hosting_taboo")}</span>
-                    <textarea
-                      rows={2}
-                      value={eventPlannerContextDraft.tabooTopics}
-                      onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, tabooTopics: event.target.value }))}
-                    />
-                  </label>
-                </div>
-              </details>
-
-              <details className="planner-context-section">
-                <summary>{t("event_planner_context_section_instructions")}</summary>
-                <label>
-                  <span className="label-title">{t("event_planner_context_field_instructions")}</span>
-                  <textarea
-                    rows={3}
-                    value={eventPlannerContextDraft.additionalInstructions}
-                    onChange={(event) => setEventPlannerContextDraft((prev) => ({ ...prev, additionalInstructions: event.target.value }))}
-                  />
-                </label>
-              </details>
-
-              {showEventPlannerTechnicalPrompt ? (
-                <pre className="planner-context-prompt-preview">{eventPlannerContextDraftPromptBundle.prompt}</pre>
-              ) : null}
-
-              <footer className="planner-context-footer">
-                <button
-                  className="btn btn-ghost btn-sm planner-context-link-btn"
-                  type="button"
-                  onClick={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
-                >
-                  {showEventPlannerTechnicalPrompt ? t("event_planner_context_prompt_hide") : t("event_planner_context_prompt_show")}
-                </button>
-                <div className="planner-context-footer-actions">
-                  <button
-                    className="btn btn-ghost planner-context-cancel-btn"
-                    type="button"
-                    onClick={() => setIsEventPlannerContextOpen(false)}
-                  >
-                    {t("cancel_action")}
-                  </button>
-                  <button className="btn planner-context-generate-btn" type="button" onClick={handleGenerateFullEventPlanFromContext}>
-                    <Icon name="sparkle" className="icon icon-sm" />
-                    {t("event_planner_context_generate")}
-                  </button>
-                </div>
-              </footer>
-            </section>
-          </div>
-        ) : null}
+        <EventPlannerContextModal
+          isOpen={isEventPlannerContextOpen}
+          onClose={() => setIsEventPlannerContextOpen(false)}
+          t={t}
+          draft={eventPlannerContextDraft}
+          setDraft={setEventPlannerContextDraft}
+          showTechnicalPrompt={showEventPlannerTechnicalPrompt}
+          onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
+          technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
+          onGenerate={handleGenerateFullEventPlanFromContext}
+        />
 
         {guestMergeSource ? (
           <div className="confirm-overlay" onClick={handleCloseMergeGuest}>
