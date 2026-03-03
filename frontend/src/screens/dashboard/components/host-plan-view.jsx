@@ -7,6 +7,7 @@ export function HostPlanView({
   selectedEventMealPlan,
   selectedEventPlannerContextEffective,
   selectedEventPlannerSavedLabel,
+  selectedEventPlannerGenerationState,
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
   eventDetailPlannerTab,
@@ -35,6 +36,11 @@ export function HostPlanView({
   handleCopyEventPlannerMessages,
   handleCopyEventPlannerPrompt
 }) {
+  const isGenerating = Boolean(selectedEventPlannerGenerationState?.isGenerating);
+  const generatingScope = String(selectedEventPlannerGenerationState?.scope || "");
+  const isGeneratingAll = isGenerating && generatingScope === "all";
+  const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
+
   return (
     <article ref={eventPlannerSectionRef} className="detail-card detail-card-wide detail-card-event-planner">
       <div className="event-planner-head">
@@ -52,7 +58,7 @@ export function HostPlanView({
           {selectedEventPlannerSavedLabel ? <p className="hint">{selectedEventPlannerSavedLabel}</p> : null}
         </div>
         <div className="button-row event-planner-head-actions">
-          <button className="btn btn-ghost btn-sm event-planner-context-btn" type="button" onClick={handleOpenEventPlannerContext}>
+          <button className="btn btn-ghost btn-sm event-planner-context-btn" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
             <Icon name="edit" className="icon icon-sm" />
             {t("event_planner_action_context")}
           </button>
@@ -60,15 +66,21 @@ export function HostPlanView({
             className="btn btn-ghost btn-sm event-planner-action-tab-only"
             type="button"
             onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}
+            disabled={isGenerating}
           >
             <Icon name="sparkle" className="icon icon-sm" />
-            {t("event_planner_action_regenerate_tab")}
+            {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
           </button>
-          <button className="btn btn-ghost btn-sm event-planner-action-all" type="button" onClick={() => handleRegenerateEventPlanner("all")}>
+          <button
+            className="btn btn-ghost btn-sm event-planner-action-all"
+            type="button"
+            onClick={() => handleRegenerateEventPlanner("all")}
+            disabled={isGenerating}
+          >
             <Icon name="sparkle" className="icon icon-sm" />
-            {t("event_planner_action_regenerate")}
+            {isGeneratingAll ? t("event_planner_generating_all") : t("event_planner_action_regenerate")}
           </button>
-          <button className="btn btn-ghost btn-sm event-planner-action-export" type="button" onClick={handleExportEventPlannerShoppingList}>
+          <button className="btn btn-ghost btn-sm event-planner-action-export" type="button" onClick={handleExportEventPlannerShoppingList} disabled={isGenerating}>
             <Icon name="mail" className="icon icon-sm" />
             {t("event_planner_action_export")}
           </button>
@@ -348,11 +360,11 @@ export function HostPlanView({
         </article>
       )}
       <div className="event-planner-mobile-footer">
-        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")}>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
           <Icon name="sparkle" className="icon icon-sm" />
-          {t("event_planner_action_regenerate")}
+          {isGeneratingAll ? t("event_planner_generating_all") : t("event_planner_action_regenerate")}
         </button>
-        <button className="btn btn-sm" type="button" onClick={handleExportEventPlannerShoppingList}>
+        <button className="btn btn-sm" type="button" onClick={handleExportEventPlannerShoppingList} disabled={isGenerating}>
           <Icon name="mail" className="icon icon-sm" />
           {t("event_planner_action_export")}
         </button>

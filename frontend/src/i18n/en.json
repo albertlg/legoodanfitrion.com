@@ -999,6 +999,8 @@
   "event_planner_action_context": "AI context",
   "event_planner_action_regenerate": "Regenerate with AI",
   "event_planner_action_regenerate_tab": "Regenerate tab",
+  "event_planner_generating_all": "Regenerating plan...",
+  "event_planner_generating_tab": "Regenerating tab...",
   "event_planner_action_export": "Export list",
   "event_planner_regenerated_message": "Suggestions regenerated with AI (version {count}).",
   "event_planner_regenerated_tab_message": "Tab {tab} regenerated with AI (version {count}).",

@@ -9,7 +9,8 @@ export function EventPlannerContextModal({
   showTechnicalPrompt,
   onToggleTechnicalPrompt,
   technicalPrompt,
-  onGenerate
+  onGenerate,
+  isGenerating
 }) {
   if (!isOpen) {
     return null;
@@ -156,9 +157,9 @@ export function EventPlannerContextModal({
             <button className="btn btn-ghost planner-context-cancel-btn" type="button" onClick={onClose}>
               {t("cancel_action")}
             </button>
-            <button className="btn planner-context-generate-btn" type="button" onClick={onGenerate}>
+            <button className="btn planner-context-generate-btn" type="button" onClick={onGenerate} disabled={isGenerating}>
               <Icon name="sparkle" className="icon icon-sm" />
-              {t("event_planner_context_generate")}
+              {isGenerating ? t("event_planner_generating_all") : t("event_planner_context_generate")}
             </button>
           </div>
         </footer>

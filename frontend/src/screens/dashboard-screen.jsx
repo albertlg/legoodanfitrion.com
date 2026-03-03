@@ -22,7 +22,8 @@ import { isGoogleMapsConfigured, loadGoogleMapsPlaces } from "../lib/google-maps
 import {
   buildHostPlanSections,
   createHostPlanSnapshot,
-  getHostPlanStateFromSnapshot
+  getHostPlanStateFromSnapshot,
+  normalizeHostPlanTab
 } from "../lib/host-plan";
 import { supabase } from "../lib/supabaseClient";
 import { validateEventForm, validateGuestForm, validateInvitationForm } from "../lib/validation";
@@ -2161,6 +2162,7 @@ function DashboardScreen({
   const [eventPlannerRegenerationByEventIdByTab, setEventPlannerRegenerationByEventIdByTab] = useState({});
   const [eventPlannerContextOverridesByEventId, setEventPlannerContextOverridesByEventId] = useState({});
   const [eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId] = useState({});
+  const [eventPlannerGenerationByEventId, setEventPlannerGenerationByEventId] = useState({});
   const [isEventPlannerContextOpen, setIsEventPlannerContextOpen] = useState(false);
   const [showEventPlannerTechnicalPrompt, setShowEventPlannerTechnicalPrompt] = useState(false);
   const [eventPlannerContextDraft, setEventPlannerContextDraft] = useState({
@@ -4591,6 +4593,12 @@ function DashboardScreen({
     }
     return eventPlannerSnapshotsByEventId[selectedEventDetail.id] || null;
   }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id]);
+  const selectedEventPlannerGenerationState = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return null;
+    }
+    return eventPlannerGenerationByEventId[selectedEventDetail.id] || null;
+  }, [eventPlannerGenerationByEventId, selectedEventDetail?.id]);
   const selectedEventPlannerSavedLabel = useMemo(() => {
     if (!selectedEventPlannerSnapshotState?.version) {
       return "";
@@ -6897,74 +6905,96 @@ function DashboardScreen({
       return;
     }
     const eventId = selectedEventDetail.id;
+    const currentGenerationState = eventPlannerGenerationByEventId[eventId];
+    if (currentGenerationState?.isGenerating) {
+      return;
+    }
     const normalizedScope = String(scope || "all").trim().toLowerCase();
-    const isAll = normalizedScope === "all";
+    const safeScope = normalizedScope === "all" ? "all" : normalizeHostPlanTab(normalizedScope);
+    const isAll = safeScope === "all";
     const nextContextOverrides =
       options && typeof options.contextOverrides === "object"
         ? options.contextOverrides
         : eventPlannerContextOverridesByEventId[eventId] || {};
 
-    if (isAll) {
-      const nextRound = Math.max(1, selectedEventPlannerVariantSeed + 1);
-      const nextByTab = eventPlannerRegenerationByEventIdByTab[eventId] || {};
-      setEventPlannerRegenerationByEventId((prev) => ({
+    setEventPlannerGenerationByEventId((prev) => ({
+      ...prev,
+      [eventId]: {
+        isGenerating: true,
+        scope: safeScope
+      }
+    }));
+    try {
+      if (isAll) {
+        const nextRound = Math.max(1, selectedEventPlannerVariantSeed + 1);
+        const nextByTab = eventPlannerRegenerationByEventIdByTab[eventId] || {};
+        setEventPlannerRegenerationByEventId((prev) => ({
+          ...prev,
+          [eventId]: nextRound
+        }));
+        setEventDetailShoppingCheckedByEventId((prev) => ({
+          ...prev,
+          [eventId]: []
+        }));
+        setEventPlannerShoppingFilter("all");
+        setInvitationMessage(
+          `${interpolateText(t("event_planner_regenerated_message"), { count: nextRound })} ${interpolateText(
+            t("event_planner_context_applied"),
+            { value: selectedEventPlannerContextEffective.summary || selectedEventPlannerContext.summary }
+          )}`
+        );
+        await persistEventPlannerSnapshot({
+          eventId,
+          scope: "all",
+          nextSeedAll: nextRound,
+          nextSeedByTab: nextByTab,
+          nextContextOverrides
+        });
+        return;
+      }
+
+      const safeTab = EVENT_PLANNER_VIEW_TABS.includes(safeScope) ? safeScope : "menu";
+      const currentByTab = eventPlannerRegenerationByEventIdByTab[eventId] || {};
+      const nextTabRound = Math.max(1, Number(currentByTab[safeTab] || 0) + 1);
+      setEventPlannerRegenerationByEventIdByTab((prev) => ({
         ...prev,
-        [eventId]: nextRound
+        [eventId]: {
+          ...(prev[eventId] || {}),
+          [safeTab]: nextTabRound
+        }
       }));
-      setEventDetailShoppingCheckedByEventId((prev) => ({
-        ...prev,
-        [eventId]: []
-      }));
-      setEventPlannerShoppingFilter("all");
+      if (safeTab === "menu" || safeTab === "shopping") {
+        setEventDetailShoppingCheckedByEventId((prev) => ({
+          ...prev,
+          [eventId]: []
+        }));
+        setEventPlannerShoppingFilter("all");
+      }
       setInvitationMessage(
-        `${interpolateText(t("event_planner_regenerated_message"), { count: nextRound })} ${interpolateText(
-          t("event_planner_context_applied"),
-          { value: selectedEventPlannerContextEffective.summary || selectedEventPlannerContext.summary }
-        )}`
+        interpolateText(t("event_planner_regenerated_tab_message"), {
+          tab: getPlannerTabLabel(safeTab),
+          count: nextTabRound
+        })
       );
       await persistEventPlannerSnapshot({
         eventId,
-        scope: "all",
-        nextSeedAll: nextRound,
-        nextSeedByTab: nextByTab,
+        scope: safeTab,
+        nextSeedAll: selectedEventPlannerVariantSeed,
+        nextSeedByTab: {
+          ...currentByTab,
+          [safeTab]: nextTabRound
+        },
         nextContextOverrides
       });
-      return;
-    }
-
-    const safeTab = EVENT_PLANNER_VIEW_TABS.includes(normalizedScope) ? normalizedScope : "menu";
-    const currentByTab = eventPlannerRegenerationByEventIdByTab[eventId] || {};
-    const nextTabRound = Math.max(1, Number(currentByTab[safeTab] || 0) + 1);
-    setEventPlannerRegenerationByEventIdByTab((prev) => ({
-      ...prev,
-      [eventId]: {
-        ...(prev[eventId] || {}),
-        [safeTab]: nextTabRound
-      }
-    }));
-    if (safeTab === "menu" || safeTab === "shopping") {
-      setEventDetailShoppingCheckedByEventId((prev) => ({
+    } finally {
+      setEventPlannerGenerationByEventId((prev) => ({
         ...prev,
-        [eventId]: []
+        [eventId]: {
+          isGenerating: false,
+          scope: safeScope
+        }
       }));
-      setEventPlannerShoppingFilter("all");
     }
-    setInvitationMessage(
-      interpolateText(t("event_planner_regenerated_tab_message"), {
-        tab: getPlannerTabLabel(safeTab),
-        count: nextTabRound
-      })
-    );
-    await persistEventPlannerSnapshot({
-      eventId,
-      scope: safeTab,
-      nextSeedAll: selectedEventPlannerVariantSeed,
-      nextSeedByTab: {
-        ...currentByTab,
-        [safeTab]: nextTabRound
-      },
-      nextContextOverrides
-    });
   };
   const handleOpenEventPlannerContext = () => {
     if (!selectedEventDetail?.id) {
@@ -11673,6 +11703,7 @@ function DashboardScreen({
                 selectedEventMealPlan={selectedEventMealPlan}
                 selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
                 selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
+                selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
                 handleOpenEventPlannerContext={handleOpenEventPlannerContext}
                 handleRegenerateEventPlanner={handleRegenerateEventPlanner}
                 eventDetailPlannerTab={eventDetailPlannerTab}
@@ -14581,6 +14612,7 @@ function DashboardScreen({
           onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
           technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
           onGenerate={handleGenerateFullEventPlanFromContext}
+          isGenerating={Boolean(selectedEventPlannerGenerationState?.isGenerating)}
         />
 
         {guestMergeSource ? (

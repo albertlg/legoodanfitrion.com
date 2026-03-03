@@ -999,6 +999,8 @@
   "event_planner_action_context": "Contexte IA",
   "event_planner_action_regenerate": "Regenerer avec IA",
   "event_planner_action_regenerate_tab": "Regenerer l'onglet",
+  "event_planner_generating_all": "Regeneration du plan...",
+  "event_planner_generating_tab": "Regeneration de l'onglet...",
   "event_planner_action_export": "Exporter la liste",
   "event_planner_regenerated_message": "Suggestions regenerees avec IA (version {count}).",
   "event_planner_regenerated_tab_message": "Onglet {tab} regenere avec IA (version {count}).",

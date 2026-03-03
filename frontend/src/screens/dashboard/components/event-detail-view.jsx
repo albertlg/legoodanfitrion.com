@@ -31,6 +31,7 @@ export function EventDetailView({
   selectedEventMealPlan,
   selectedEventPlannerContextEffective,
   selectedEventPlannerSavedLabel,
+  selectedEventPlannerGenerationState,
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
   eventDetailPlannerTab,
@@ -292,6 +293,7 @@ export function EventDetailView({
               selectedEventMealPlan={selectedEventMealPlan}
               selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
               selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
+              selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
               handleOpenEventPlannerContext={handleOpenEventPlannerContext}
               handleRegenerateEventPlanner={handleRegenerateEventPlanner}
               eventDetailPlannerTab={eventDetailPlannerTab}

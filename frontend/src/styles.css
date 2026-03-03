@@ -3100,6 +3100,13 @@ h2 {
   justify-content: space-between;
   gap: 0.6rem;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0.35rem;
+  z-index: 3;
+  padding: 0.35rem 0 0.55rem;
+  background: color-mix(in srgb, var(--surface-soft) 92%, transparent 8%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+  backdrop-filter: blur(6px);
 }
 
 .event-planner-head-actions {

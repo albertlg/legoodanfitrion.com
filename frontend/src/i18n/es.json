@@ -999,6 +999,8 @@
   "event_planner_action_context": "Contexto IA",
   "event_planner_action_regenerate": "Regenerar con IA",
   "event_planner_action_regenerate_tab": "Regenerar pestaña",
+  "event_planner_generating_all": "Regenerando plan...",
+  "event_planner_generating_tab": "Regenerando pestaña...",
   "event_planner_action_export": "Exportar lista",
   "event_planner_regenerated_message": "Sugerencias regeneradas con IA (versión {count}).",
   "event_planner_regenerated_tab_message": "Pestaña {tab} regenerada con IA (versión {count}).",

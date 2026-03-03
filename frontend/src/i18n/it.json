@@ -961,6 +961,8 @@
   "event_planner_action_context": "Contesto IA",
   "event_planner_action_regenerate": "Rigenera con IA",
   "event_planner_action_regenerate_tab": "Rigenera tab",
+  "event_planner_generating_all": "Rigenerazione piano...",
+  "event_planner_generating_tab": "Rigenerazione tab...",
   "event_planner_action_export": "Esporta lista",
   "event_planner_regenerated_message": "Suggerimenti rigenerati con IA (versione {count}).",
   "event_planner_regenerated_tab_message": "Tab {tab} rigenerata con IA (versione {count}).",
