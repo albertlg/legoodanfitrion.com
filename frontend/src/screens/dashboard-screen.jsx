@@ -13972,8 +13972,8 @@ function DashboardScreen({
                   {t("quick_create_invitation")}
                 </button>
               </div>
-              <div className="list-tools">
-                <label>
+              <div className="list-tools list-tools-invitations">
+                <label className="list-tools-search">
                   <span className="label-title">{t("search")}</span>
                   <input
                     type="search"
@@ -13982,7 +13982,33 @@ function DashboardScreen({
                     placeholder={t("search_invitations_placeholder")}
                   />
                 </label>
-                <label>
+                <div className="list-tools-secondary list-tools-secondary-invitations">
+                  <label>
+                    <span className="label-title">{t("sort_by")}</span>
+                    <select value={invitationSort} onChange={(event) => setInvitationSort(event.target.value)}>
+                      <option value="created_desc">{t("sort_created_desc")}</option>
+                      <option value="created_asc">{t("sort_created_asc")}</option>
+                      <option value="responded_desc">{t("sort_responded_desc")}</option>
+                      <option value="responded_asc">{t("sort_responded_asc")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label-title">{t("pagination_items_per_page")}</span>
+                    <select
+                      value={invitationPageSize}
+                      onChange={(event) => setInvitationPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)}
+                    >
+                      {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                        <option key={optionValue} value={optionValue}>
+                          {optionValue}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div className="invitation-filter-row">
+                <label className="invitation-event-filter">
                   <span className="label-title">{t("field_event")}</span>
                   <select
                     value={invitationEventFilter}
@@ -13996,51 +14022,31 @@ function DashboardScreen({
                     ))}
                   </select>
                 </label>
-                <label>
-                  <span className="label-title">{t("sort_by")}</span>
-                  <select value={invitationSort} onChange={(event) => setInvitationSort(event.target.value)}>
-                    <option value="created_desc">{t("sort_created_desc")}</option>
-                    <option value="created_asc">{t("sort_created_asc")}</option>
-                    <option value="responded_desc">{t("sort_responded_desc")}</option>
-                    <option value="responded_asc">{t("sort_responded_asc")}</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="label-title">{t("pagination_items_per_page")}</span>
-                  <select
-                    value={invitationPageSize}
-                    onChange={(event) => setInvitationPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)}
-                  >
-                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                      <option key={optionValue} value={optionValue}>
-                        {optionValue}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="list-filter-tabs list-filter-tabs-segmented invitation-status-tabs" role="group" aria-label={t("filter_status")}>
+                  {[
+                    { key: "all", label: t("all_status") },
+                    { key: "pending", label: t("status_pending") },
+                    { key: "yes", label: t("status_yes") },
+                    { key: "maybe", label: t("status_maybe") },
+                    { key: "no", label: t("status_no") }
+                  ].map((statusOption) => (
+                    <button
+                      key={statusOption.key}
+                      className={`list-filter-tab ${invitationStatusFilter === statusOption.key ? "active" : ""}`}
+                      type="button"
+                      aria-pressed={invitationStatusFilter === statusOption.key}
+                      onClick={() => setInvitationStatusFilter(statusOption.key)}
+                    >
+                      {statusOption.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_status")}>
-                {[
-                  { key: "all", label: t("all_status") },
-                  { key: "pending", label: t("status_pending") },
-                  { key: "yes", label: t("status_yes") },
-                  { key: "maybe", label: t("status_maybe") },
-                  { key: "no", label: t("status_no") }
-                ].map((statusOption) => (
-                  <button
-                    key={statusOption.key}
-                    className={`list-filter-tab ${invitationStatusFilter === statusOption.key ? "active" : ""}`}
-                    type="button"
-                    aria-pressed={invitationStatusFilter === statusOption.key}
-                    onClick={() => setInvitationStatusFilter(statusOption.key)}
-                  >
-                    {statusOption.label}
-                  </button>
-                ))}
+              <div className="invitation-results-row">
+                <p className="hint">
+                  {t("results_count")}: {filteredInvitations.length}
+                </p>
               </div>
-              <p className="hint">
-                {t("results_count")}: {filteredInvitations.length}
-              </p>
               <InlineMessage text={invitationMessage} />
               {filteredInvitations.length === 0 ? (
                 <div className="empty-list-state">
@@ -14058,7 +14064,7 @@ function DashboardScreen({
                   <div className="list-table-head list-table-head-invitations-compact" aria-hidden="true">
                     <span>{t("field_guest")}</span>
                     <span>{t("field_event")}</span>
-                    <span>RSVP</span>
+                    <span>{t("status")}</span>
                     <span>{t("created")}</span>
                     <span>{t("actions_label")}</span>
                   </div>

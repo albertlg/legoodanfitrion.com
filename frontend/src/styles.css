@@ -3687,8 +3687,48 @@ h2 {
 }
 
 .invitation-list-head-actions {
-  margin-top: 0.35rem;
+  margin-top: 0.18rem;
+  margin-bottom: 0.2rem;
+  gap: 0.42rem;
   justify-content: flex-end;
+}
+
+.list-tools-invitations {
+  gap: 0.5rem;
+  margin-top: 0.22rem;
+  margin-bottom: 0.42rem;
+}
+
+.list-tools-secondary-invitations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(170px, max-content));
+  gap: 0.52rem;
+}
+
+.invitation-filter-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.62rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.2rem;
+}
+
+.invitation-event-filter {
+  min-width: 228px;
+  max-width: 320px;
+}
+
+.invitation-status-tabs {
+  margin: 0;
+}
+
+.invitation-results-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
 }
 
 .checklist-list {
@@ -4785,7 +4825,7 @@ textarea {
 
 .list-table-head-invitations-compact,
 .list-table-invitations-compact .list-table-row {
-  grid-template-columns: minmax(180px, 1fr) minmax(188px, 1fr) minmax(105px, 0.7fr) minmax(132px, 0.75fr) minmax(210px, 1.1fr);
+  grid-template-columns: minmax(188px, 1fr) minmax(198px, 1.02fr) minmax(108px, 0.7fr) minmax(124px, 0.7fr) minmax(220px, 1.08fr);
 }
 
 .list-table {
@@ -4936,7 +4976,7 @@ textarea {
 }
 
 .invitation-actions {
-  gap: 0.3rem;
+  gap: 0.34rem;
   flex-wrap: nowrap;
 }
 
@@ -5105,6 +5145,7 @@ textarea {
 .invitation-actions .btn-icon-only {
   width: 2rem;
   height: 2rem;
+  border-radius: 9px;
 }
 
 .invitation-share-chip {
@@ -6345,6 +6386,28 @@ code {
   .invitation-list-head-actions .btn {
     flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .list-tools-secondary-invitations {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .invitation-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .invitation-event-filter {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .invitation-status-tabs {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
   }
 
   .advanced-grid,
