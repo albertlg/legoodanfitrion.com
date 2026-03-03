@@ -3107,12 +3107,12 @@ h2 {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.72rem;
+  gap: 0.8rem;
   flex-wrap: wrap;
   position: sticky;
   top: 0.35rem;
   z-index: 3;
-  padding: 0.2rem 0 0.46rem;
+  padding: 0.24rem 0 0.5rem;
   background: color-mix(in srgb, var(--surface-soft) 92%, transparent 8%);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
   backdrop-filter: blur(6px);
@@ -3122,7 +3122,7 @@ h2 {
   border: none;
   background: transparent;
   padding: 0;
-  gap: 0.68rem;
+  gap: 0.76rem;
 }
 
 .event-planner-screen .event-planner-head {
@@ -3146,11 +3146,11 @@ h2 {
 }
 
 .event-planner-head-actions .event-planner-action-all {
-  min-width: 196px;
+  min-width: 178px;
 }
 
 .event-planner-head-actions .event-planner-action-export {
-  min-width: 132px;
+  min-width: 124px;
 }
 
 .event-planner-head-title-block {
@@ -3162,21 +3162,38 @@ h2 {
 .event-planner-head-title-row {
   display: inline-flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.4rem;
-  flex-wrap: wrap;
+  width: 100%;
+}
+
+.event-planner-head-title-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+}
+
+.event-planner-context-icon-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  padding: 0;
 }
 
 .event-planner-head .item-title {
-  font-size: 1.22rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.012em;
 }
 
 .event-planner-event-title {
   margin: 0;
   font-family: var(--font-ui);
-  font-weight: 650;
+  font-weight: 640;
   color: var(--title);
-  font-size: clamp(0.98rem, 1.3vw, 1.18rem);
-  line-height: 1.28;
+  font-size: clamp(1rem, 1.3vw, 1.16rem);
+  line-height: 1.26;
 }
 
 .event-planner-meta-inline {
@@ -3189,22 +3206,22 @@ h2 {
 }
 
 .event-planner-saved-hint {
-  margin-top: 0.1rem;
-  font-size: 0.76rem;
+  margin-top: 0.08rem;
+  font-size: 0.74rem;
   color: color-mix(in srgb, var(--text-muted) 78%, var(--primary) 22%);
 }
 
 .event-planner-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.72rem;
+  gap: 0.64rem;
 }
 
 .event-planner-stats .detail-kpi-card {
-  padding: 0.9rem 0.95rem;
+  padding: 0.84rem 0.88rem;
   background: var(--panel-bg);
-  gap: 0.2rem;
-  min-height: 124px;
+  gap: 0.18rem;
+  min-height: 116px;
 }
 
 .event-planner-stat-head {
@@ -3224,7 +3241,7 @@ h2 {
 }
 
 .event-planner-stats .detail-kpi-card .item-title {
-  font-size: 1.72rem;
+  font-size: 1.66rem;
   line-height: 1.1;
 }
 
@@ -3233,10 +3250,12 @@ h2 {
   border-style: dashed;
   border-color: color-mix(in srgb, #f59e0b 36%, var(--border) 64%);
   background: color-mix(in srgb, #f59e0b 12%, var(--panel-bg) 88%);
+  border-radius: 12px;
+  padding: 0.74rem 0.82rem;
 }
 
 .event-planner-tabs {
-  margin-top: 0.2rem;
+  margin-top: 0.16rem;
   margin-bottom: 0;
   max-width: 100%;
   flex-wrap: nowrap;
@@ -3249,16 +3268,17 @@ h2 {
 .event-planner-tabs .list-filter-tab {
   flex: 0 0 auto;
   white-space: nowrap;
-  min-height: 40px;
-  padding: 0.4rem 0.98rem;
-  font-size: 0.84rem;
+  min-height: 38px;
+  padding: 0.34rem 0.94rem;
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .event-planner-tabs-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.46rem;
+  gap: 0.38rem;
   flex-wrap: nowrap;
 }
 
@@ -3269,7 +3289,7 @@ h2 {
 
 .event-planner-tab-regen-btn {
   flex: 0 0 auto;
-  min-height: 40px;
+  min-height: 38px;
 }
 
 .event-planner-mobile-footer {
@@ -3279,17 +3299,17 @@ h2 {
 .event-planner-menu-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.78rem;
+  gap: 0.72rem;
 }
 
 .event-planner-menu-card {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--panel-bg);
-  padding: 0.9rem;
+  padding: 0.84rem;
   display: grid;
-  gap: 0.5rem;
-  min-height: 186px;
+  gap: 0.46rem;
+  min-height: 180px;
 }
 
 .event-planner-menu-card-head {
@@ -3301,23 +3321,27 @@ h2 {
 
 .event-planner-shopping-stack {
   display: grid;
-  gap: 0.68rem;
+  gap: 0.62rem;
 }
 
 .event-planner-host-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.78rem;
+  gap: 0.72rem;
+}
+
+.event-planner-host-grid-ambience .event-planner-host-card {
+  min-height: 188px;
 }
 
 .event-planner-host-card {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--panel-bg);
-  padding: 0.9rem;
+  padding: 0.84rem;
   display: grid;
-  gap: 0.5rem;
-  min-height: 170px;
+  gap: 0.44rem;
+  min-height: 164px;
 }
 
 .event-planner-host-card-wide {
@@ -3334,16 +3358,16 @@ h2 {
 
 .event-planner-host-messages {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 
 .event-planner-host-message-item {
   border: 1px solid color-mix(in srgb, var(--border) 68%, transparent 32%);
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface-soft) 55%, var(--panel-bg) 45%);
-  padding: 0.56rem 0.62rem;
+  padding: 0.52rem 0.58rem;
   display: grid;
-  gap: 0.22rem;
+  gap: 0.2rem;
 }
 
 .event-planner-host-message-item p {
@@ -6633,18 +6657,72 @@ code {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .event-planner-stats,
   .event-planner-menu-grid,
   .event-planner-host-grid {
     grid-template-columns: 1fr;
+  }
+
+  .event-planner-stats {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(168px, 1fr);
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.5rem;
+    padding-bottom: 0.14rem;
+    margin-bottom: 0.04rem;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .event-planner-stats .detail-kpi-card {
+    min-height: 104px;
   }
 
   .detail-panel.detail-panel-plan {
     gap: 0.48rem;
   }
 
-  .event-planner-event-title {
-    font-size: 1.08rem;
+  .detail-panel-plan .event-planner-head {
+    top: 0;
+    gap: 0.36rem;
+    padding: 0.3rem 0 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 86%, transparent 14%);
+    background: color-mix(in srgb, var(--surface-soft) 94%, transparent 6%);
+    backdrop-filter: blur(4px);
+  }
+
+  .detail-panel-plan .event-planner-head-title-block {
+    gap: 0.16rem;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .detail-panel-plan .event-planner-head .item-title {
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  .detail-panel-plan .event-planner-head-title-tools .status-pill {
+    font-size: 0.64rem;
+    padding: 0.14rem 0.44rem;
+  }
+
+  .detail-panel-plan .event-planner-context-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .detail-panel-plan .event-planner-event-title {
+    font-size: 0.93rem;
+    font-weight: 620;
+    line-height: 1.28;
+  }
+
+  .detail-panel-plan .event-planner-meta-inline,
+  .detail-panel-plan .event-planner-head-title-block > .field-help {
+    display: none;
   }
 
   .event-planner-stats .detail-kpi-card .item-title {
@@ -6652,40 +6730,24 @@ code {
   }
 
   .event-planner-tabs .list-filter-tab {
-    min-height: 36px;
-    padding: 0.34rem 0.78rem;
-    font-size: 0.8rem;
+    min-height: 34px;
+    padding: 0.3rem 0.74rem;
+    font-size: 0.78rem;
   }
 
   .event-planner-head-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .event-planner-head-actions .btn {
     display: none;
   }
 
-  .event-planner-head-actions .event-planner-context-btn,
-  .event-planner-head-actions .event-planner-action-all {
-    display: inline-flex;
-  }
-
-  .event-planner-head-actions .event-planner-context-btn,
-  .event-planner-head-actions .event-planner-action-all {
-    flex: 1 1 calc(50% - 0.25rem);
-    justify-content: center;
-    min-width: 0;
-  }
-
-  .event-planner-head-actions .event-planner-action-all {
-    min-width: 0;
-  }
-
   .event-planner-tabs-row {
-    flex-direction: column;
+    flex-direction: row;
     align-items: stretch;
-    gap: 0.42rem;
+    gap: 0.25rem;
+  }
+
+  .detail-panel-plan .event-planner-tabs {
+    margin-top: 0;
+    margin-bottom: 0.04rem;
   }
 
   .event-planner-tab-regen-btn {
@@ -6698,8 +6760,9 @@ code {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
-    margin-top: 0.35rem;
+    margin-top: 0.3rem;
     padding: 0.5rem 0 0.15rem;
+    border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent 22%);
     background: linear-gradient(
       to bottom,
       color-mix(in srgb, var(--surface-soft) 0%, transparent 100%) 0%,

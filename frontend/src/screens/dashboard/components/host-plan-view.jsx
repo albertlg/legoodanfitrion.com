@@ -45,6 +45,7 @@ export function HostPlanView({
   const generatingScope = String(selectedEventPlannerGenerationState?.scope || "");
   const isGeneratingAll = isGenerating && generatingScope === "all";
   const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
+  const ambienceTimelineHighlights = (selectedEventHostPlaybook?.timeline || []).slice(0, 3);
 
   return (
     <article
@@ -55,7 +56,19 @@ export function HostPlanView({
         <div className="event-planner-head-title-block">
           <div className="event-planner-head-title-row">
             <p className="item-title">{t("event_planner_title")}</p>
-            <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
+            <div className="event-planner-head-title-tools">
+              <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
+              <button
+                className="btn btn-ghost btn-sm btn-icon-only event-planner-context-icon-btn"
+                type="button"
+                onClick={handleOpenEventPlannerContext}
+                disabled={isGenerating}
+                aria-label={t("event_planner_action_context")}
+                title={t("event_planner_action_context")}
+              >
+                <Icon name="edit" className="icon icon-sm" />
+              </button>
+            </div>
           </div>
           {standalone ? <p className="event-planner-event-title">{selectedEventTitle}</p> : <p className="field-help">{t("event_planner_hint")}</p>}
           <div className="detail-meta-inline event-planner-meta-inline">
@@ -318,7 +331,7 @@ export function HostPlanView({
           )}
         </div>
       ) : eventDetailPlannerTab === "ambience" ? (
-        <div className="event-planner-host-grid">
+        <div className="event-planner-host-grid event-planner-host-grid-ambience">
           <article className="event-planner-host-card">
             <div className="event-planner-menu-card-head">
               <p className="item-title">{t("event_planner_host_actions_title")}</p>
@@ -341,10 +354,22 @@ export function HostPlanView({
                 <li key={`ambience-${item}`}>{item}</li>
               ))}
             </ul>
+          </article>
+          <article className="event-planner-host-card">
             <p className="item-title">{t("event_planner_host_conversation_title")}</p>
             <ul className="list recommendation-list">
               {selectedEventHostPlaybook.conversation.map((item) => (
                 <li key={`conversation-${item}`}>{item}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="event-planner-host-card">
+            <p className="item-title">{t("event_planner_host_timeline_title")}</p>
+            <ul className="list recommendation-list">
+              {ambienceTimelineHighlights.map((item) => (
+                <li key={`ambience-timeline-${item.id}`}>
+                  <strong>{item.title}</strong> - {item.detail}
+                </li>
               ))}
             </ul>
           </article>
