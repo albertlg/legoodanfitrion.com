@@ -3755,6 +3755,18 @@ h2 {
   margin-bottom: 0.15rem;
 }
 
+.invitation-mobile-quick-actions {
+  display: none;
+  align-items: center;
+  gap: 0.38rem;
+  margin-top: 0.4rem;
+}
+
+.invitation-mobile-quick-actions .btn {
+  min-height: 2.08rem;
+  padding-inline: 0.64rem;
+}
+
 .checklist-list {
   list-style: none;
   margin: 0;
@@ -6402,6 +6414,17 @@ code {
 
   .list-row-invitation .cell-invitation-event {
     margin-top: -0.28rem;
+  }
+
+  .invitation-mobile-quick-actions {
+    display: inline-flex;
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .invitation-mobile-quick-actions .btn {
+    flex: 0 0 auto;
   }
 
   .list-title-with-avatar {

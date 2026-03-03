@@ -14114,6 +14114,34 @@ function DashboardScreen({
                         <p className="item-meta cell-invitation-created cell-extra">
                           {formatDate(invitation.created_at, language, t("no_date"))}
                         </p>
+                        <div className="button-row invitation-mobile-quick-actions">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            type="button"
+                            onClick={() => {
+                              const prepared = handlePrepareInvitationShare(invitation);
+                              if (prepared?.whatsappUrl) {
+                                window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                              }
+                            }}
+                            aria-label={t("invitation_open_whatsapp")}
+                            title={t("invitation_open_whatsapp")}
+                          >
+                            <Icon name="message" className="icon icon-sm" />
+                            <span>WhatsApp</span>
+                          </button>
+                          <a
+                            className="btn btn-sm"
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={t("open_rsvp")}
+                            title={t("open_rsvp")}
+                          >
+                            <Icon name="eye" className="icon icon-sm" />
+                            <span>{t("open_rsvp")}</span>
+                          </a>
+                        </div>
                         <div className="button-row cell-actions invitation-actions">
                           <div className="invitation-actions-share">
                             <button
