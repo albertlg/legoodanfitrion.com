@@ -65,8 +65,13 @@ export function EventDetailView({
   handleRequestDeleteInvitation,
   selectedEventRsvpTimeline
 }) {
+  const isPlanWorkspace = eventsWorkspace === "plan";
+  const eventDateLabel = formatLongDate(selectedEventDetail?.start_at, language, t("no_date"));
+  const eventTimeLabel = formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"));
+  const eventPlaceLabel = selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-";
+
   return (
-    <section className="panel panel-wide detail-panel">
+    <section className={`panel panel-wide detail-panel ${isPlanWorkspace ? "detail-panel-plan" : ""}`}>
       <p className="detail-breadcrumb">
         <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("events", "latest")}>
           {t("latest_events_title")}
@@ -86,69 +91,64 @@ export function EventDetailView({
           </>
         ) : null}
       </p>
-      <div className="detail-head detail-head-rich">
-        <div className="detail-head-primary">
-          <div className="detail-head-title-row">
-            <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
-            {selectedEventDetail ? (
-              <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
-            ) : null}
+      {!isPlanWorkspace ? (
+        <div className="detail-head detail-head-rich">
+          <div className="detail-head-primary">
+            <div className="detail-head-title-row">
+              <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+              {selectedEventDetail ? (
+                <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
+              ) : null}
+            </div>
+            <div className="detail-meta-inline">
+              <span>
+                <Icon name="calendar" className="icon icon-sm" />
+                {eventDateLabel}
+              </span>
+              <span>
+                <Icon name="clock" className="icon icon-sm" />
+                {eventTimeLabel}
+              </span>
+              <span>
+                <Icon name="location" className="icon icon-sm" />
+                {eventPlaceLabel}
+              </span>
+            </div>
           </div>
-          <div className="detail-meta-inline">
-            <span>
-              <Icon name="calendar" className="icon icon-sm" />
-              {formatLongDate(selectedEventDetail?.start_at, language, t("no_date"))}
-            </span>
-            <span>
-              <Icon name="clock" className="icon icon-sm" />
-              {formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"))}
-            </span>
-            <span>
-              <Icon name="location" className="icon icon-sm" />
-              {selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-"}
-            </span>
-          </div>
-        </div>
-        {selectedEventDetail ? (
-          <div className="button-row detail-head-actions">
-            {eventsWorkspace === "plan" ? (
-              <button className="btn btn-ghost btn-sm" type="button" onClick={handleBackToEventDetail}>
-                <Icon name="arrow_left" className="icon icon-sm" />
-                {t("event_detail_title")}
-              </button>
-            ) : (
+          {selectedEventDetail ? (
+            <div className="button-row detail-head-actions">
               <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
                 <Icon name="sparkle" className="icon icon-sm" />
                 {t("event_plan_cta_action")}
               </button>
-            )}
-            <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
-              <Icon name="edit" className="icon icon-sm" />
-              {t("event_detail_edit_action")}
-            </button>
-            {selectedEventDetailPrimaryShare?.url ? (
-              <a className="btn btn-sm" href={selectedEventDetailPrimaryShare.url} target="_blank" rel="noreferrer">
-                <Icon name="mail" className="icon icon-sm" />
-                {t("open_rsvp")}
-              </a>
-            ) : (
-              <button
-                className="btn btn-sm"
-                type="button"
-                onClick={() =>
-                  openInvitationCreate({
-                    eventId: selectedEventDetail.id,
-                    messageKey: "invitation_prefill_event"
-                  })
-                }
-              >
-                <Icon name="mail" className="icon icon-sm" />
-                {t("event_detail_create_invitation_action")}
+              <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
+                <Icon name="edit" className="icon icon-sm" />
+                {t("event_detail_edit_action")}
               </button>
-            )}
-          </div>
-        ) : null}
-      </div>
+              {selectedEventDetailPrimaryShare?.url ? (
+                <a className="btn btn-sm" href={selectedEventDetailPrimaryShare.url} target="_blank" rel="noreferrer">
+                  <Icon name="mail" className="icon icon-sm" />
+                  {t("open_rsvp")}
+                </a>
+              ) : (
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  onClick={() =>
+                    openInvitationCreate({
+                      eventId: selectedEventDetail.id,
+                      messageKey: "invitation_prefill_event"
+                    })
+                  }
+                >
+                  <Icon name="mail" className="icon icon-sm" />
+                  {t("event_detail_create_invitation_action")}
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {selectedEventDetail && eventsWorkspace === "detail" ? (
         <div className="detail-kpi-row">
           <article className="detail-kpi-card">
@@ -287,6 +287,11 @@ export function EventDetailView({
 
           {eventsWorkspace === "plan" ? (
             <HostPlanView
+              standalone
+              selectedEventTitle={selectedEventDetail?.title || t("event_detail_title")}
+              selectedEventDateLabel={eventDateLabel}
+              selectedEventTimeLabel={eventTimeLabel}
+              selectedEventPlaceLabel={eventPlaceLabel}
               eventPlannerSectionRef={eventPlannerSectionRef}
               t={t}
               interpolateText={interpolateText}

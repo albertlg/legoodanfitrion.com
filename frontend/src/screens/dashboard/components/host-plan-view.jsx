@@ -1,6 +1,11 @@
 import { Icon } from "../../../components/icons";
 
 export function HostPlanView({
+  standalone = false,
+  selectedEventTitle,
+  selectedEventDateLabel,
+  selectedEventTimeLabel,
+  selectedEventPlaceLabel,
   eventPlannerSectionRef,
   t,
   interpolateText,
@@ -42,20 +47,41 @@ export function HostPlanView({
   const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
 
   return (
-    <article ref={eventPlannerSectionRef} className="detail-card detail-card-wide detail-card-event-planner">
+    <article
+      ref={eventPlannerSectionRef}
+      className={`detail-card detail-card-wide detail-card-event-planner ${standalone ? "event-planner-screen" : ""}`}
+    >
       <div className="event-planner-head">
         <div className="event-planner-head-title-block">
           <div className="event-planner-head-title-row">
             <p className="item-title">{t("event_planner_title")}</p>
             <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
           </div>
-          <p className="field-help">{t("event_planner_hint")}</p>
-          <p className="hint">
-            {interpolateText(t("event_planner_context_applied"), {
-              value: selectedEventMealPlan.contextSummary || selectedEventPlannerContextEffective.summary
-            })}
-          </p>
-          {selectedEventPlannerSavedLabel ? <p className="hint">{selectedEventPlannerSavedLabel}</p> : null}
+          {standalone ? <p className="event-planner-event-title">{selectedEventTitle}</p> : <p className="field-help">{t("event_planner_hint")}</p>}
+          <div className="detail-meta-inline event-planner-meta-inline">
+            <span>
+              <Icon name="calendar" className="icon icon-sm" />
+              {selectedEventDateLabel}
+            </span>
+            <span>
+              <Icon name="clock" className="icon icon-sm" />
+              {selectedEventTimeLabel}
+            </span>
+            <span>
+              <Icon name="location" className="icon icon-sm" />
+              {selectedEventPlaceLabel}
+            </span>
+          </div>
+          {!standalone ? (
+            <p className="hint">
+              {interpolateText(t("event_planner_context_applied"), {
+                value: selectedEventMealPlan.contextSummary || selectedEventPlannerContextEffective.summary
+              })}
+            </p>
+          ) : null}
+          {selectedEventPlannerSavedLabel ? (
+            <p className={`hint ${standalone ? "event-planner-saved-hint" : ""}`}>{selectedEventPlannerSavedLabel}</p>
+          ) : null}
         </div>
         <div className="button-row event-planner-head-actions">
           <button className="btn btn-ghost btn-sm event-planner-context-btn" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
@@ -63,16 +89,7 @@ export function HostPlanView({
             {t("event_planner_action_context")}
           </button>
           <button
-            className="btn btn-ghost btn-sm event-planner-action-tab-only"
-            type="button"
-            onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}
-            disabled={isGenerating}
-          >
-            <Icon name="sparkle" className="icon icon-sm" />
-            {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
-          </button>
-          <button
-            className="btn btn-ghost btn-sm event-planner-action-all"
+            className="btn btn-sm event-planner-action-all"
             type="button"
             onClick={() => handleRegenerateEventPlanner("all")}
             disabled={isGenerating}
@@ -88,17 +105,26 @@ export function HostPlanView({
       </div>
       <div className="event-planner-stats">
         <article className="detail-kpi-card">
-          <p className="item-meta">{t("event_planner_stat_confirmed")}</p>
+          <div className="event-planner-stat-head">
+            <p className="item-meta">{t("event_planner_stat_confirmed")}</p>
+            <Icon name="check" className="icon icon-sm" />
+          </div>
           <p className="item-title">{selectedEventDetailStatusCounts.yes}</p>
           <p className="hint">{interpolateText(t("event_planner_stat_hint_confirmed"), { count: selectedEventDetailStatusCounts.pending })}</p>
         </article>
         <article className="detail-kpi-card">
-          <p className="item-meta">{t("event_planner_stat_diets")}</p>
+          <div className="event-planner-stat-head">
+            <p className="item-meta">{t("event_planner_stat_diets")}</p>
+            <Icon name="user" className="icon icon-sm" />
+          </div>
           <p className="item-title">{selectedEventDietTypesCount}</p>
           <p className="hint">{interpolateText(t("event_planner_stat_hint_diets"), { count: selectedEventDietTypesCount })}</p>
         </article>
         <article className="detail-kpi-card">
-          <p className="item-meta">{t("event_planner_stat_allergies")}</p>
+          <div className="event-planner-stat-head">
+            <p className="item-meta">{t("event_planner_stat_allergies")}</p>
+            <Icon name="x" className="icon icon-sm" />
+          </div>
           <p className="item-title">{selectedEventAllergiesCount}</p>
           <p className="hint">{interpolateText(t("event_planner_stat_hint_allergies"), { count: selectedEventAllergiesCount })}</p>
         </article>
@@ -117,60 +143,71 @@ export function HostPlanView({
           ) : null}
         </div>
       ) : null}
-      <div className="list-filter-tabs list-filter-tabs-segmented event-planner-tabs" role="tablist" aria-label={t("event_planner_title")}>
+      <div className="event-planner-tabs-row">
+        <div className="list-filter-tabs list-filter-tabs-segmented event-planner-tabs" role="tablist" aria-label={t("event_planner_title")}>
+          <button
+            className={`list-filter-tab ${eventDetailPlannerTab === "menu" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={eventDetailPlannerTab === "menu"}
+            onClick={() => handleEventPlannerTabChange("menu")}
+          >
+            {t("event_planner_tab_menu")}
+          </button>
+          <button
+            className={`list-filter-tab ${eventDetailPlannerTab === "shopping" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={eventDetailPlannerTab === "shopping"}
+            onClick={() => handleEventPlannerTabChange("shopping")}
+          >
+            {t("event_planner_tab_shopping")}
+          </button>
+          <button
+            className={`list-filter-tab ${eventDetailPlannerTab === "ambience" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={eventDetailPlannerTab === "ambience"}
+            onClick={() => handleEventPlannerTabChange("ambience")}
+          >
+            {t("event_planner_tab_ambience")}
+          </button>
+          <button
+            className={`list-filter-tab ${eventDetailPlannerTab === "timings" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={eventDetailPlannerTab === "timings"}
+            onClick={() => handleEventPlannerTabChange("timings")}
+          >
+            {t("event_planner_tab_timings")}
+          </button>
+          <button
+            className={`list-filter-tab ${eventDetailPlannerTab === "communication" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={eventDetailPlannerTab === "communication"}
+            onClick={() => handleEventPlannerTabChange("communication")}
+          >
+            {t("event_planner_tab_communication")}
+          </button>
+          <button
+            className={`list-filter-tab ${eventDetailPlannerTab === "risks" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={eventDetailPlannerTab === "risks"}
+            onClick={() => handleEventPlannerTabChange("risks")}
+          >
+            {t("event_planner_tab_risks")}
+          </button>
+        </div>
         <button
-          className={`list-filter-tab ${eventDetailPlannerTab === "menu" ? "active" : ""}`}
+          className="btn btn-ghost btn-sm event-planner-tab-regen-btn"
           type="button"
-          role="tab"
-          aria-selected={eventDetailPlannerTab === "menu"}
-          onClick={() => handleEventPlannerTabChange("menu")}
+          onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}
+          disabled={isGenerating}
         >
-          {t("event_planner_tab_menu")}
-        </button>
-        <button
-          className={`list-filter-tab ${eventDetailPlannerTab === "shopping" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={eventDetailPlannerTab === "shopping"}
-          onClick={() => handleEventPlannerTabChange("shopping")}
-        >
-          {t("event_planner_tab_shopping")}
-        </button>
-        <button
-          className={`list-filter-tab ${eventDetailPlannerTab === "ambience" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={eventDetailPlannerTab === "ambience"}
-          onClick={() => handleEventPlannerTabChange("ambience")}
-        >
-          {t("event_planner_tab_ambience")}
-        </button>
-        <button
-          className={`list-filter-tab ${eventDetailPlannerTab === "timings" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={eventDetailPlannerTab === "timings"}
-          onClick={() => handleEventPlannerTabChange("timings")}
-        >
-          {t("event_planner_tab_timings")}
-        </button>
-        <button
-          className={`list-filter-tab ${eventDetailPlannerTab === "communication" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={eventDetailPlannerTab === "communication"}
-          onClick={() => handleEventPlannerTabChange("communication")}
-        >
-          {t("event_planner_tab_communication")}
-        </button>
-        <button
-          className={`list-filter-tab ${eventDetailPlannerTab === "risks" ? "active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={eventDetailPlannerTab === "risks"}
-          onClick={() => handleEventPlannerTabChange("risks")}
-        >
-          {t("event_planner_tab_risks")}
+          <Icon name="sparkle" className="icon icon-sm" />
+          {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
         </button>
       </div>
       {eventDetailPlannerTab === "menu" ? (
@@ -360,9 +397,9 @@ export function HostPlanView({
         </article>
       )}
       <div className="event-planner-mobile-footer">
-        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)} disabled={isGenerating}>
           <Icon name="sparkle" className="icon icon-sm" />
-          {isGeneratingAll ? t("event_planner_generating_all") : t("event_planner_action_regenerate")}
+          {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
         </button>
         <button className="btn btn-sm" type="button" onClick={handleExportEventPlannerShoppingList} disabled={isGenerating}>
           <Icon name="mail" className="icon icon-sm" />
