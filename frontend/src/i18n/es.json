@@ -178,6 +178,8 @@
   "invitation_link_label": "Enlace generado",
   "copy_link": "Copiar enlace",
   "open_rsvp": "Abrir RSVP",
+  "invitation_mobile_rsvp_respond_now": "Responder ahora",
+  "invitation_mobile_rsvp_view_response": "Ver respuesta",
   "invitation_share_message_label": "Mensaje sugerido para compartir",
   "invitation_copy_message": "Copiar mensaje",
   "invitation_open_whatsapp": "Enviar por WhatsApp",

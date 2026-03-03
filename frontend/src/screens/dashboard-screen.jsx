@@ -14088,6 +14088,10 @@ function DashboardScreen({
                         ? "is-declined"
                         : "is-neutral"
                     ].join(" ");
+                    const mobileRsvpLabel =
+                      invitationStatus === "pending"
+                        ? t("invitation_mobile_rsvp_respond_now")
+                        : t("invitation_mobile_rsvp_view_response");
                     const mobileShareClassName = [
                       "btn",
                       "btn-ghost",
@@ -14153,11 +14157,11 @@ function DashboardScreen({
                             href={url}
                             target="_blank"
                             rel="noreferrer"
-                            aria-label={t("open_rsvp")}
-                            title={t("open_rsvp")}
+                            aria-label={mobileRsvpLabel}
+                            title={mobileRsvpLabel}
                           >
                             <Icon name="eye" className="icon icon-sm" />
-                            <span>{t("open_rsvp")}</span>
+                            <span>{mobileRsvpLabel}</span>
                           </a>
                         </div>
                         <div className="button-row cell-actions invitation-actions">
