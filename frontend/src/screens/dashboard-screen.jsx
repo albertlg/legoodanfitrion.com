@@ -14115,57 +14115,60 @@ function DashboardScreen({
                           {formatDate(invitation.created_at, language, t("no_date"))}
                         </p>
                         <div className="button-row cell-actions invitation-actions">
-                          <button
-                            className="btn btn-ghost btn-sm invitation-share-chip"
-                            type="button"
-                            onClick={() => {
-                              const prepared = handlePrepareInvitationShare(invitation);
-                              if (prepared?.whatsappUrl) {
-                                window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
-                              }
-                            }}
-                            aria-label={t("invitation_open_whatsapp")}
-                            title={t("invitation_open_whatsapp")}
-                          >
-                            <Icon name="message" className="icon icon-sm" />
-                            <span>WhatsApp</span>
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            type="button"
-                            onClick={() => {
-                              const prepared = handlePrepareInvitationShare(invitation);
-                              if (prepared?.mailtoUrl) {
-                                window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
-                              }
-                            }}
-                            aria-label={t("invitation_open_email")}
-                            title={t("invitation_open_email")}
-                          >
-                            <Icon name="mail" className="icon icon-sm" />
-                          </button>
-                          <button className="btn btn-ghost btn-sm btn-icon-only" type="button" onClick={() => handleCopyInvitationLink(url)} aria-label={t("copy_link")} title={t("copy_link")}>
-                            <Icon name="link" className="icon icon-sm" />
-                          </button>
-                          <a
-                            className="btn btn-ghost btn-sm btn-icon-only"
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={t("open_rsvp")}
-                            title={t("open_rsvp")}
-                          >
-                            <Icon name="eye" className="icon icon-sm" />
-                          </a>
-                          <button
-                            className="btn btn-danger btn-sm btn-icon-only"
-                            type="button"
-                            aria-label={t("delete_invitation")}
-                            title={t("delete_invitation")}
-                            onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
-                          >
-                            <Icon name="x" className="icon icon-sm" />
-                          </button>
+                          <div className="invitation-actions-share">
+                            <button
+                              className="btn btn-ghost btn-sm invitation-share-chip"
+                              type="button"
+                              onClick={() => {
+                                const prepared = handlePrepareInvitationShare(invitation);
+                                if (prepared?.whatsappUrl) {
+                                  window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                                }
+                              }}
+                              aria-label={t("invitation_open_whatsapp")}
+                              title={t("invitation_open_whatsapp")}
+                            >
+                              <span>WhatsApp</span>
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm btn-icon-only"
+                              type="button"
+                              onClick={() => {
+                                const prepared = handlePrepareInvitationShare(invitation);
+                                if (prepared?.mailtoUrl) {
+                                  window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
+                                }
+                              }}
+                              aria-label={t("invitation_open_email")}
+                              title={t("invitation_open_email")}
+                            >
+                              <Icon name="mail" className="icon icon-sm" />
+                            </button>
+                            <button className="btn btn-ghost btn-sm btn-icon-only" type="button" onClick={() => handleCopyInvitationLink(url)} aria-label={t("copy_link")} title={t("copy_link")}>
+                              <Icon name="link" className="icon icon-sm" />
+                            </button>
+                          </div>
+                          <div className="invitation-actions-manage">
+                            <a
+                              className="btn btn-ghost btn-sm btn-icon-only"
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={t("open_rsvp")}
+                              title={t("open_rsvp")}
+                            >
+                              <Icon name="eye" className="icon icon-sm" />
+                            </a>
+                            <button
+                              className="btn btn-danger btn-sm btn-icon-only"
+                              type="button"
+                              aria-label={t("delete_invitation")}
+                              title={t("delete_invitation")}
+                              onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
+                            >
+                              <Icon name="x" className="icon icon-sm" />
+                            </button>
+                          </div>
                         </div>
                       </li>
                     );
