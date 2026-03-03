@@ -14077,6 +14077,24 @@ function DashboardScreen({
                     const sharePayload = buildInvitationSharePayload(invitation);
                     const url = sharePayload?.url || buildAppUrl(`/rsvp/${encodeURIComponent(invitation.public_token)}`);
                     const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
+                    const invitationStatus = String(invitation.status || "pending").toLowerCase();
+                    const mobileRsvpClassName = [
+                      "btn",
+                      "btn-sm",
+                      "invitation-mobile-rsvp-btn",
+                      invitationStatus === "pending"
+                        ? "is-pending"
+                        : invitationStatus === "no"
+                        ? "is-declined"
+                        : "is-neutral"
+                    ].join(" ");
+                    const mobileShareClassName = [
+                      "btn",
+                      "btn-ghost",
+                      "btn-sm",
+                      "invitation-mobile-share-btn",
+                      invitationStatus === "pending" ? "is-supporting" : "is-neutral"
+                    ].join(" ");
                     return (
                       <li key={invitation.id} className="list-table-row list-row-invitation">
                         <div className="cell-main list-title-with-avatar">
@@ -14116,7 +14134,7 @@ function DashboardScreen({
                         </p>
                         <div className="button-row invitation-mobile-quick-actions">
                           <button
-                            className="btn btn-ghost btn-sm"
+                            className={mobileShareClassName}
                             type="button"
                             onClick={() => {
                               const prepared = handlePrepareInvitationShare(invitation);
@@ -14131,7 +14149,7 @@ function DashboardScreen({
                             <span>WhatsApp</span>
                           </button>
                           <a
-                            className="btn btn-sm"
+                            className={mobileRsvpClassName}
                             href={url}
                             target="_blank"
                             rel="noreferrer"

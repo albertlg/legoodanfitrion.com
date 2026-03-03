@@ -3767,6 +3767,34 @@ h2 {
   padding-inline: 0.64rem;
 }
 
+.invitation-mobile-share-btn.is-supporting {
+  border-color: color-mix(in srgb, var(--primary) 46%, var(--ghost-border) 54%);
+  color: color-mix(in srgb, var(--primary) 82%, var(--ghost-text) 18%);
+  background: color-mix(in srgb, var(--ghost-bg) 84%, var(--primary) 16%);
+}
+
+.invitation-mobile-rsvp-btn {
+  border: 1px solid transparent;
+}
+
+.invitation-mobile-rsvp-btn.is-pending {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-color: color-mix(in srgb, var(--primary) 78%, var(--border) 22%);
+}
+
+.invitation-mobile-rsvp-btn.is-neutral {
+  background: color-mix(in srgb, var(--panel-bg) 84%, var(--primary) 16%);
+  color: var(--title);
+  border-color: color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+}
+
+.invitation-mobile-rsvp-btn.is-declined {
+  background: color-mix(in srgb, #ef4444 16%, var(--panel-bg) 84%);
+  color: color-mix(in srgb, #b91c1c 70%, var(--title) 30%);
+  border-color: color-mix(in srgb, #ef4444 40%, var(--border) 60%);
+}
+
 .checklist-list {
   list-style: none;
   margin: 0;
