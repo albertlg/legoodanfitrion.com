@@ -35,8 +35,8 @@ export function EventsListView({
 }) {
   return (
     <section className="panel panel-list panel-events-latest">
-      <div className="list-tools">
-        <label>
+      <div className="list-tools list-tools-events">
+        <label className="list-tools-search">
           <span className="label-title">{t("search")}</span>
           <input
             type="search"
@@ -45,26 +45,28 @@ export function EventsListView({
             placeholder={t("search_events_placeholder")}
           />
         </label>
-        <label>
-          <span className="label-title">{t("sort_by")}</span>
-          <select value={eventSort} onChange={(event) => setEventSort(event.target.value)}>
-            <option value="created_desc">{t("sort_created_desc")}</option>
-            <option value="created_asc">{t("sort_created_asc")}</option>
-            <option value="start_asc">{t("sort_date_asc")}</option>
-            <option value="start_desc">{t("sort_date_desc")}</option>
-            <option value="title_asc">{t("sort_title_asc")}</option>
-          </select>
-        </label>
-        <label>
-          <span className="label-title">{t("pagination_items_per_page")}</span>
-          <select value={eventPageSize} onChange={(event) => setEventPageSize(Number(event.target.value) || eventsPageSizeDefault)}>
-            {pageSizeOptions.map((optionValue) => (
-              <option key={optionValue} value={optionValue}>
-                {optionValue}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="list-tools-secondary">
+          <label>
+            <span className="label-title">{t("sort_by")}</span>
+            <select value={eventSort} onChange={(event) => setEventSort(event.target.value)}>
+              <option value="created_desc">{t("sort_created_desc")}</option>
+              <option value="created_asc">{t("sort_created_asc")}</option>
+              <option value="start_asc">{t("sort_date_asc")}</option>
+              <option value="start_desc">{t("sort_date_desc")}</option>
+              <option value="title_asc">{t("sort_title_asc")}</option>
+            </select>
+          </label>
+          <label>
+            <span className="label-title">{t("pagination_items_per_page")}</span>
+            <select value={eventPageSize} onChange={(event) => setEventPageSize(Number(event.target.value) || eventsPageSizeDefault)}>
+              {pageSizeOptions.map((optionValue) => (
+                <option key={optionValue} value={optionValue}>
+                  {optionValue}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
       <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_status")}>
         {[
