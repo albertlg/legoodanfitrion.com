@@ -6020,6 +6020,30 @@ code {
   }
 }
 
+@media (max-width: 1260px) and (min-width: 961px) {
+  .list-table-head-events,
+  .list-table-events .list-table-row {
+    grid-template-columns: minmax(210px, 1.6fr) minmax(130px, 0.9fr) minmax(88px, 0.58fr) minmax(114px, 0.72fr) minmax(110px, 0.58fr);
+  }
+
+  .list-table-head-events > span:nth-child(5) {
+    display: none;
+  }
+
+  .list-table-events .list-table-row > .cell-event-rsvp {
+    display: none;
+  }
+
+  .list-table-head-events > span:nth-child(6) {
+    text-align: right;
+  }
+
+  .list-table-events .list-table-row > .cell-actions {
+    grid-column: 5;
+    justify-self: end;
+  }
+}
+
 @media (max-width: 960px) {
   .page {
     padding: 1rem;
