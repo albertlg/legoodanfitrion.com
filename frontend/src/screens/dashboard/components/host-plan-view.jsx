@@ -20,7 +20,9 @@ export function HostPlanView({
   selectedEventDetailStatusCounts,
   selectedEventDietTypesCount,
   selectedEventAllergiesCount,
-  selectedEventCriticalRestrictions,
+  selectedEventMedicalConditionsCount,
+  selectedEventDietaryMedicalRestrictionsCount,
+  selectedEventHealthRestrictionHighlights,
   selectedEventRestrictionsCount,
   selectedEventIntolerancesCount,
   handleEventPlannerTabChange,
@@ -141,18 +143,54 @@ export function HostPlanView({
           <p className="item-title">{selectedEventAllergiesCount}</p>
           <p className="hint">{interpolateText(t("event_planner_stat_hint_allergies"), { count: selectedEventAllergiesCount })}</p>
         </article>
+        <article className="detail-kpi-card">
+          <div className="event-planner-stat-head">
+            <p className="item-meta">{t("event_planner_stat_medical_conditions")}</p>
+            <Icon name="shield" className="icon icon-sm" />
+          </div>
+          <p className="item-title">{selectedEventMedicalConditionsCount}</p>
+          <p className="hint">
+            {interpolateText(t("event_planner_stat_hint_medical_conditions"), {
+              count: selectedEventMedicalConditionsCount
+            })}
+          </p>
+        </article>
+        <article className="detail-kpi-card">
+          <div className="event-planner-stat-head">
+            <p className="item-meta">{t("event_planner_stat_dietary_medical_restrictions")}</p>
+            <Icon name="star" className="icon icon-sm" />
+          </div>
+          <p className="item-title">{selectedEventDietaryMedicalRestrictionsCount}</p>
+          <p className="hint">
+            {interpolateText(t("event_planner_stat_hint_dietary_medical_restrictions"), {
+              count: selectedEventDietaryMedicalRestrictionsCount
+            })}
+          </p>
+        </article>
       </div>
-      {selectedEventCriticalRestrictions.length > 0 ? (
+      {selectedEventHealthRestrictionHighlights.length > 0 ? (
         <div className="recommendation-card warning event-planner-alert">
           <p className="item-title">{t("event_planner_alert_title")}</p>
           <p className="item-meta">
             {interpolateText(t("event_planner_alert_hint"), {
               count: selectedEventRestrictionsCount,
-              items: selectedEventCriticalRestrictions.join(", ")
+              items: selectedEventHealthRestrictionHighlights.join(", ")
             })}
           </p>
           {selectedEventIntolerancesCount > 0 ? (
             <p className="hint">{interpolateText(t("event_planner_alert_intolerances"), { count: selectedEventIntolerancesCount })}</p>
+          ) : null}
+          {selectedEventMedicalConditionsCount > 0 ? (
+            <p className="hint">
+              {interpolateText(t("event_planner_alert_medical_conditions"), { count: selectedEventMedicalConditionsCount })}
+            </p>
+          ) : null}
+          {selectedEventDietaryMedicalRestrictionsCount > 0 ? (
+            <p className="hint">
+              {interpolateText(t("event_planner_alert_dietary_medical_restrictions"), {
+                count: selectedEventDietaryMedicalRestrictionsCount
+              })}
+            </p>
           ) : null}
         </div>
       ) : null}

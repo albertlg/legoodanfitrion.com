@@ -108,6 +108,18 @@ export function EventPlannerContextModal({
               <span className="label-title">{t("smart_hosting_avoid")}</span>
               <textarea rows={2} value={draft.avoidItems} onChange={(event) => updateDraftField("avoidItems", event.target.value)} />
             </label>
+            <label>
+              <span className="label-title">{t("field_medical_conditions")}</span>
+              <textarea rows={2} value={draft.medicalConditions} onChange={(event) => updateDraftField("medicalConditions", event.target.value)} />
+            </label>
+            <label>
+              <span className="label-title">{t("field_dietary_medical_restrictions")}</span>
+              <textarea
+                rows={2}
+                value={draft.dietaryMedicalRestrictions}
+                onChange={(event) => updateDraftField("dietaryMedicalRestrictions", event.target.value)}
+              />
+            </label>
           </div>
         </details>
 

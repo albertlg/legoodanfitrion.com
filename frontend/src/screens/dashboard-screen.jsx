@@ -788,13 +788,30 @@ function applyPlannerOverrides(baseContext, baseInsights, overrides = {}) {
     }
   }
 
-  const listKeys = ["foodSuggestions", "drinkSuggestions", "avoidItems", "musicGenres", "decorColors", "icebreakers", "tabooTopics"];
+  const listKeys = [
+    "foodSuggestions",
+    "drinkSuggestions",
+    "avoidItems",
+    "medicalConditions",
+    "dietaryMedicalRestrictions",
+    "musicGenres",
+    "decorColors",
+    "icebreakers",
+    "tabooTopics"
+  ];
   const insights = { ...(baseInsights || {}) };
   for (const key of listKeys) {
     if (Object.prototype.hasOwnProperty.call(overrides, key)) {
       insights[key] = parseListValue(overrides[key]);
     }
   }
+  insights.medicalConditions = uniqueValues(insights.medicalConditions || []);
+  insights.dietaryMedicalRestrictions = uniqueValues(insights.dietaryMedicalRestrictions || []);
+  insights.avoidItems = uniqueValues([
+    ...(insights.avoidItems || []),
+    ...insights.medicalConditions,
+    ...insights.dietaryMedicalRestrictions
+  ]);
   if (Object.prototype.hasOwnProperty.call(overrides, "additionalInstructions")) {
     insights.additionalInstructions = String(overrides.additionalInstructions || "").trim();
   }
@@ -861,7 +878,9 @@ function buildEventPlannerPromptBundle({
       decorColors: uniqueValues(eventInsights?.decorColors || []).slice(0, 8),
       icebreakers: uniqueValues(eventInsights?.icebreakers || []).slice(0, 10),
       tabooTopics: uniqueValues(eventInsights?.tabooTopics || []).slice(0, 8),
-      avoidItems: uniqueValues(eventInsights?.avoidItems || []).slice(0, 12)
+      avoidItems: uniqueValues(eventInsights?.avoidItems || []).slice(0, 12),
+      medicalConditions: uniqueValues(eventInsights?.medicalConditions || []).slice(0, 8),
+      dietaryMedicalRestrictions: uniqueValues(eventInsights?.dietaryMedicalRestrictions || []).slice(0, 8)
     },
     health: {
       criticalRestrictions: uniqueValues(criticalRestrictions || []).slice(0, 10),
@@ -2178,6 +2197,8 @@ function DashboardScreen({
     foodSuggestions: "",
     drinkSuggestions: "",
     avoidItems: "",
+    medicalConditions: "",
+    dietaryMedicalRestrictions: "",
     musicGenres: "",
     decorColors: "",
     icebreakers: "",
@@ -4559,6 +4580,8 @@ function DashboardScreen({
     }
     return Array.from(collected);
   }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventMedicalConditionsCount = selectedEventSensitiveMedicalConditions.length;
+  const selectedEventDietaryMedicalRestrictionsCount = selectedEventDietaryMedicalRestrictions.length;
   const selectedEventRestrictionsCount = useMemo(() => {
     const collected = new Set();
     for (const row of selectedEventConfirmedGuestRows) {
@@ -4585,6 +4608,20 @@ function DashboardScreen({
   const selectedEventCriticalRestrictions = useMemo(
     () => uniqueValues(selectedEventMealPlan.restrictions || []).slice(0, 4),
     [selectedEventMealPlan.restrictions]
+  );
+  const selectedEventHealthRestrictionHighlights = useMemo(
+    () =>
+      uniqueValues([
+        ...selectedEventCriticalRestrictions,
+        ...toCatalogLabels("medical_condition", selectedEventSensitiveMedicalConditions, language),
+        ...toCatalogLabels("dietary_medical_restriction", selectedEventDietaryMedicalRestrictions, language)
+      ]).slice(0, 8),
+    [
+      selectedEventCriticalRestrictions,
+      selectedEventSensitiveMedicalConditions,
+      selectedEventDietaryMedicalRestrictions,
+      language
+    ]
   );
   const selectedEventShoppingItems = useMemo(
     () => (selectedEventMealPlan.shoppingGroups || []).flatMap((groupItem) => groupItem.items || []),
@@ -7215,6 +7252,8 @@ function DashboardScreen({
       foodSuggestions: uniqueValues(baseSignals.insights.foodSuggestions || []).join(", "),
       drinkSuggestions: uniqueValues(baseSignals.insights.drinkSuggestions || []).join(", "),
       avoidItems: uniqueValues(baseSignals.insights.avoidItems || []).join(", "),
+      medicalConditions: uniqueValues(baseSignals.insights.medicalConditions || []).join(", "),
+      dietaryMedicalRestrictions: uniqueValues(baseSignals.insights.dietaryMedicalRestrictions || []).join(", "),
       musicGenres: uniqueValues(baseSignals.insights.musicGenres || []).join(", "),
       decorColors: uniqueValues(baseSignals.insights.decorColors || []).join(", "),
       icebreakers: uniqueValues(baseSignals.insights.icebreakers || []).join(", "),
@@ -11961,7 +12000,10 @@ function DashboardScreen({
                 handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
                 selectedEventDietTypesCount={selectedEventDietTypesCount}
                 selectedEventAllergiesCount={selectedEventAllergiesCount}
+                selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
+                selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
                 selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
+                selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
                 selectedEventRestrictionsCount={selectedEventRestrictionsCount}
                 selectedEventIntolerancesCount={selectedEventIntolerancesCount}
                 handleEventPlannerTabChange={handleEventPlannerTabChange}

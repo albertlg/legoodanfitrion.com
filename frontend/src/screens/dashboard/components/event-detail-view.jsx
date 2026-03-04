@@ -38,7 +38,10 @@ export function EventDetailView({
   handleExportEventPlannerShoppingList,
   selectedEventDietTypesCount,
   selectedEventAllergiesCount,
+  selectedEventMedicalConditionsCount,
+  selectedEventDietaryMedicalRestrictionsCount,
   selectedEventCriticalRestrictions,
+  selectedEventHealthRestrictionHighlights,
   selectedEventRestrictionsCount,
   selectedEventIntolerancesCount,
   handleEventPlannerTabChange,
@@ -306,7 +309,10 @@ export function EventDetailView({
               selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
               selectedEventDietTypesCount={selectedEventDietTypesCount}
               selectedEventAllergiesCount={selectedEventAllergiesCount}
+              selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
+              selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
               selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
+              selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
               selectedEventRestrictionsCount={selectedEventRestrictionsCount}
               selectedEventIntolerancesCount={selectedEventIntolerancesCount}
               handleEventPlannerTabChange={handleEventPlannerTabChange}
