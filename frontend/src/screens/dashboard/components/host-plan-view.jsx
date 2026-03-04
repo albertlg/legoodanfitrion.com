@@ -25,6 +25,8 @@ export function HostPlanView({
   selectedEventHealthRestrictionHighlights,
   selectedEventRestrictionsCount,
   selectedEventIntolerancesCount,
+  selectedEventHealthAlertsConfirmedCount,
+  selectedEventHealthAlertsPendingCount,
   handleEventPlannerTabChange,
   selectedEventShoppingTotalIngredients,
   selectedEventEstimatedCostRange,
@@ -48,13 +50,69 @@ export function HostPlanView({
   const isGeneratingAll = isGenerating && generatingScope === "all";
   const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
   const ambienceTimelineHighlights = (selectedEventHostPlaybook?.timeline || []).slice(0, 3);
+  const plannerDressCodeKey = ["none", "casual", "elegant", "formal", "themed"].includes(
+    String(selectedEventPlannerContextEffective?.dressCode || "")
+  )
+    ? String(selectedEventPlannerContextEffective?.dressCode)
+    : "none";
+  const plannerPlaylistModeKey = ["host_only", "collaborative", "spotify_collaborative"].includes(
+    String(selectedEventPlannerContextEffective?.playlistMode || "")
+  )
+    ? String(selectedEventPlannerContextEffective?.playlistMode)
+    : "host_only";
+  const plannerContextChips = [
+    {
+      key: "moment",
+      icon: "clock",
+      focusField: "momentKey",
+      label: `${t("event_planner_context_chip_moment")}: ${t(
+        `event_planner_moment_${selectedEventPlannerContextEffective?.momentKey || "evening"}`
+      )}`
+    },
+    {
+      key: "budget",
+      icon: "trend",
+      focusField: "budgetKey",
+      label: `${t("event_planner_context_chip_budget")}: ${t(
+        `event_planner_budget_${selectedEventPlannerContextEffective?.budgetKey || "medium"}`
+      )}`
+    },
+    {
+      key: "plusOne",
+      icon: "user",
+      focusField: "allowPlusOne",
+      label: `${t("event_planner_context_chip_plus_one")}: ${
+        selectedEventPlannerContextEffective?.allowPlusOne ? t("status_yes") : t("status_no")
+      }`
+    },
+    {
+      key: "reminders",
+      icon: "clock",
+      focusField: "autoReminders",
+      label: `${t("event_planner_context_chip_reminders")}: ${
+        selectedEventPlannerContextEffective?.autoReminders ? t("status_yes") : t("status_no")
+      }`
+    },
+    {
+      key: "dressCode",
+      icon: "sparkle",
+      focusField: "dressCode",
+      label: `${t("event_planner_context_chip_dress_code")}: ${t(`event_dress_code_${plannerDressCodeKey}`)}`
+    },
+    {
+      key: "playlist",
+      icon: "music",
+      focusField: "playlistMode",
+      label: `${t("event_planner_context_chip_playlist")}: ${t(`event_playlist_mode_${plannerPlaylistModeKey}`)}`
+    }
+  ];
 
   return (
     <article
       ref={eventPlannerSectionRef}
       className={`detail-card detail-card-wide detail-card-event-planner ${standalone ? "event-planner-screen" : ""}`}
     >
-      <div className="event-planner-head">
+      <div className={`event-planner-head ${standalone ? "event-planner-head-standalone" : ""}`}>
         <div className="event-planner-head-title-block">
           <div className="event-planner-head-title-row">
             <p className="item-title">{t("event_planner_title")}</p>
@@ -87,6 +145,20 @@ export function HostPlanView({
               {selectedEventPlaceLabel}
             </span>
           </div>
+          <div className="event-planner-context-chips" aria-label={t("event_settings_title")}>
+            {plannerContextChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className="status-pill status-draft event-planner-context-chip event-planner-context-chip-btn"
+                onClick={() => handleOpenEventPlannerContext(chip.focusField)}
+                disabled={isGenerating}
+              >
+                <Icon name={chip.icon} className="icon icon-sm" />
+                {chip.label}
+              </button>
+            ))}
+          </div>
           {!standalone ? (
             <p className="hint">
               {interpolateText(t("event_planner_context_applied"), {
@@ -95,10 +167,13 @@ export function HostPlanView({
             </p>
           ) : null}
           {selectedEventPlannerSavedLabel ? (
-            <p className={`hint ${standalone ? "event-planner-saved-hint" : ""}`}>{selectedEventPlannerSavedLabel}</p>
+            <p className={`hint ${standalone ? "event-planner-saved-hint" : ""}`}>
+              <Icon name="clock" className="icon icon-sm" />
+              {selectedEventPlannerSavedLabel}
+            </p>
           ) : null}
         </div>
-        <div className="button-row event-planner-head-actions">
+        <div className={`button-row event-planner-head-actions ${standalone ? "event-planner-head-actions-standalone" : ""}`}>
           <button className="btn btn-ghost btn-sm event-planner-context-btn" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
             <Icon name="edit" className="icon icon-sm" />
             {t("event_planner_action_context")}
@@ -118,8 +193,8 @@ export function HostPlanView({
           </button>
         </div>
       </div>
-      <div className="event-planner-stats">
-        <article className="detail-kpi-card">
+      <div className={`event-planner-stats ${standalone ? "event-planner-stats-standalone" : ""}`}>
+        <article className="detail-kpi-card event-planner-stat-card event-planner-stat-card-confirmed">
           <div className="event-planner-stat-head">
             <p className="item-meta">{t("event_planner_stat_confirmed")}</p>
             <Icon name="check" className="icon icon-sm" />
@@ -127,7 +202,7 @@ export function HostPlanView({
           <p className="item-title">{selectedEventDetailStatusCounts.yes}</p>
           <p className="hint">{interpolateText(t("event_planner_stat_hint_confirmed"), { count: selectedEventDetailStatusCounts.pending })}</p>
         </article>
-        <article className="detail-kpi-card">
+        <article className="detail-kpi-card event-planner-stat-card event-planner-stat-card-diets">
           <div className="event-planner-stat-head">
             <p className="item-meta">{t("event_planner_stat_diets")}</p>
             <Icon name="user" className="icon icon-sm" />
@@ -135,7 +210,7 @@ export function HostPlanView({
           <p className="item-title">{selectedEventDietTypesCount}</p>
           <p className="hint">{interpolateText(t("event_planner_stat_hint_diets"), { count: selectedEventDietTypesCount })}</p>
         </article>
-        <article className="detail-kpi-card">
+        <article className="detail-kpi-card event-planner-stat-card event-planner-stat-card-restrictions">
           <div className="event-planner-stat-head">
             <p className="item-meta">{t("event_planner_stat_restrictions")}</p>
             <Icon name="shield" className="icon icon-sm" />
@@ -170,6 +245,12 @@ export function HostPlanView({
               })}
             </p>
           ) : null}
+          <p className="hint">
+            {interpolateText(t("event_planner_alert_scope_breakdown"), {
+              confirmed: selectedEventHealthAlertsConfirmedCount,
+              pending: selectedEventHealthAlertsPendingCount
+            })}
+          </p>
           <div className="event-planner-alert-breakdown">
             <span className="status-pill status-pending">
               {t("event_planner_stat_allergies")}: {selectedEventAllergiesCount}
@@ -186,7 +267,7 @@ export function HostPlanView({
           </div>
         </div>
       ) : null}
-      <div className="event-planner-tabs-row">
+      <div className={`event-planner-tabs-row ${standalone ? "event-planner-tabs-row-standalone" : ""}`}>
         <div className="list-filter-tabs list-filter-tabs-segmented event-planner-tabs" role="tablist" aria-label={t("event_planner_title")}>
           <button
             className={`list-filter-tab ${eventDetailPlannerTab === "menu" ? "active" : ""}`}

@@ -26,6 +26,8 @@ export function EventDetailView({
   normalizeEventPlaylistMode,
   selectedEventChecklist,
   selectedEventHealthAlerts,
+  selectedEventHealthAlertsConfirmedCount,
+  selectedEventHealthAlertsPendingCount,
   eventPlannerSectionRef,
   interpolateText,
   selectedEventMealPlan,
@@ -315,6 +317,8 @@ export function EventDetailView({
               selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
               selectedEventRestrictionsCount={selectedEventRestrictionsCount}
               selectedEventIntolerancesCount={selectedEventIntolerancesCount}
+              selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
+              selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
               handleEventPlannerTabChange={handleEventPlannerTabChange}
               selectedEventShoppingTotalIngredients={selectedEventShoppingTotalIngredients}
               selectedEventEstimatedCostRange={selectedEventEstimatedCostRange}

@@ -3107,22 +3107,27 @@ h2 {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 0.96rem;
   flex-wrap: wrap;
   position: sticky;
   top: 0.35rem;
   z-index: 3;
-  padding: 0.24rem 0 0.5rem;
-  background: color-mix(in srgb, var(--surface-soft) 92%, transparent 8%);
+  padding: 0.34rem 0 0.62rem;
+  background: color-mix(in srgb, var(--surface-soft) 95%, transparent 5%);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
   backdrop-filter: blur(6px);
+}
+
+.event-planner-head-standalone {
+  top: 0;
+  padding-top: 0.2rem;
 }
 
 .event-planner-screen {
   border: none;
   background: transparent;
   padding: 0;
-  gap: 0.76rem;
+  gap: 0.88rem;
 }
 
 .event-planner-screen .event-planner-head {
@@ -3133,24 +3138,30 @@ h2 {
 .event-planner-head-actions {
   align-items: center;
   justify-content: flex-end;
-  gap: 0.42rem;
+  gap: 0.5rem;
 }
 
 .event-planner-head-actions .btn {
-  min-height: 38px;
-  font-size: 0.81rem;
+  min-height: 40px;
+  font-size: 0.82rem;
+  border-radius: 999px;
+}
+
+.event-planner-head-actions-standalone .btn {
+  min-height: 42px;
+  font-weight: 650;
 }
 
 .event-planner-head-actions .event-planner-context-btn {
-  min-width: 142px;
+  min-width: 148px;
 }
 
 .event-planner-head-actions .event-planner-action-all {
-  min-width: 178px;
+  min-width: 194px;
 }
 
 .event-planner-head-actions .event-planner-action-export {
-  min-width: 124px;
+  min-width: 136px;
 }
 
 .event-planner-head-title-block {
@@ -3182,18 +3193,18 @@ h2 {
 }
 
 .event-planner-head .item-title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.012em;
+  font-size: clamp(1.18rem, 1.24vw, 1.4rem);
+  font-weight: 740;
+  letter-spacing: -0.014em;
 }
 
 .event-planner-event-title {
   margin: 0;
   font-family: var(--font-ui);
-  font-weight: 640;
+  font-weight: 620;
   color: var(--title);
-  font-size: clamp(1rem, 1.3vw, 1.16rem);
-  line-height: 1.26;
+  font-size: clamp(0.98rem, 1.12vw, 1.12rem);
+  line-height: 1.3;
 }
 
 .event-planner-meta-inline {
@@ -3205,8 +3216,54 @@ h2 {
   font-size: 0.82rem;
 }
 
+.event-planner-context-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.36rem;
+  margin-top: 0.22rem;
+}
+
+.event-planner-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26rem;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.48rem;
+  border-radius: 999px;
+}
+
+.event-planner-context-chip .icon {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
+.event-planner-context-chip-btn {
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.event-planner-context-chip-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border) 48%);
+  box-shadow: 0 6px 12px color-mix(in srgb, var(--primary) 18%, transparent 82%);
+}
+
+.event-planner-context-chip-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--input-focus) 82%, #fff 18%);
+  outline-offset: 2px;
+}
+
+.event-planner-context-chip-btn:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
 .event-planner-saved-hint {
   margin-top: 0.08rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
   font-size: 0.74rem;
   color: color-mix(in srgb, var(--text-muted) 78%, var(--primary) 22%);
 }
@@ -3214,14 +3271,40 @@ h2 {
 .event-planner-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.64rem;
+  gap: 0.72rem;
 }
 
 .event-planner-stats .detail-kpi-card {
   padding: 0.84rem 0.88rem;
   background: var(--panel-bg);
-  gap: 0.18rem;
+  gap: 0.22rem;
   min-height: 116px;
+}
+
+.event-planner-stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.event-planner-stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 3px;
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent 70%);
+}
+
+.event-planner-stat-card-confirmed::before {
+  background: color-mix(in srgb, #22c55e 62%, var(--primary) 38%);
+}
+
+.event-planner-stat-card-diets::before {
+  background: color-mix(in srgb, #3b82f6 64%, var(--primary) 36%);
+}
+
+.event-planner-stat-card-restrictions::before {
+  background: color-mix(in srgb, #f59e0b 64%, var(--primary) 36%);
 }
 
 .event-planner-stat-head {
@@ -3236,8 +3319,13 @@ h2 {
 }
 
 .event-planner-stat-head .icon {
-  color: var(--text-muted);
-  opacity: 0.92;
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--title) 16%);
+  opacity: 0.96;
+  width: 1.02rem;
+  height: 1.02rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-soft) 68%, transparent 32%);
 }
 
 .event-planner-stats .detail-kpi-card .item-title {
@@ -3290,8 +3378,17 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.38rem;
+  gap: 0.42rem;
   flex-wrap: nowrap;
+}
+
+.event-planner-tabs-row-standalone {
+  position: sticky;
+  top: 5.15rem;
+  z-index: 2;
+  padding: 0.18rem 0 0.24rem;
+  background: color-mix(in srgb, var(--surface-soft) 96%, transparent 4%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent 28%);
 }
 
 .event-planner-tabs-row .event-planner-tabs {
@@ -6955,6 +7052,11 @@ code {
     gap: 0.25rem;
   }
 
+  .event-planner-tabs-row-standalone {
+    top: 3.7rem;
+    padding: 0.12rem 0 0.18rem;
+  }
+
   .detail-panel-plan .event-planner-tabs {
     margin-top: 0;
     margin-bottom: 0.04rem;
@@ -6984,6 +7086,11 @@ code {
   .event-planner-mobile-footer .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .event-planner-context-chip {
+    font-size: 0.69rem;
+    padding: 0.16rem 0.4rem;
   }
 
   .planner-context-grid {

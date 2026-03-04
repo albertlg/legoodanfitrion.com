@@ -8,6 +8,7 @@ import { EventPlannerContextModal } from "./dashboard/components/event-planner-c
 import { EventDetailView } from "./dashboard/components/event-detail-view";
 import { EventsListView } from "./dashboard/components/events-list-view";
 import {
+  CATALOGS,
   getCatalogLabels,
   toCatalogCode,
   toCatalogCodes,
@@ -368,6 +369,52 @@ function rankItemsWithKeywords(items, keywords = [], contextText = "") {
   });
 }
 
+const EVENT_TYPE_TO_PLANNER_PRESET = {
+  bbq: "bbq",
+  calcotada: "bbq",
+  brunch: "brunch",
+  esmorzar_de_forquilla: "brunch",
+  family_lunch: "brunch",
+  book_club: "bookclub",
+  movie_night: "movie",
+  romantic_date: "romantic",
+  celebration: "celebration",
+  party: "celebration",
+  after_school_reunion: "celebration",
+  cocktail: "celebration",
+  tasting_session: "celebration",
+  networking: "social",
+  afterwork: "social",
+  merienda_cena: "social",
+  outdoor_meetup: "social",
+  jam_session: "social",
+  picnic: "social",
+  dinner: "social"
+};
+
+const EVENT_TYPE_TO_DEFAULT_HOUR = {
+  bbq: 14,
+  calcotada: 14,
+  brunch: 12,
+  esmorzar_de_forquilla: 11,
+  family_lunch: 13,
+  book_club: 19,
+  movie_night: 21,
+  romantic_date: 21,
+  celebration: 20,
+  party: 21,
+  after_school_reunion: 19,
+  cocktail: 20,
+  tasting_session: 20,
+  networking: 19,
+  afterwork: 19,
+  merienda_cena: 19,
+  outdoor_meetup: 17,
+  jam_session: 20,
+  picnic: 13,
+  dinner: 21
+};
+
 function parseEventDurationHours(sourceText, preset, momentKey) {
   const normalized = normalizeLookupValue(sourceText);
   const explicitHours = normalized.match(/\b(\d{1,2})\s*(h|hr|hrs|hora|horas)\b/);
@@ -403,47 +450,52 @@ function buildEventPlannerContext(eventItem, language, t) {
   const description = String(source.description || "").trim();
   const locationName = String(source.location_name || "").trim();
   const locationAddress = String(source.location_address || "").trim();
-  const eventTypeCode = normalizeLookupValue(source.event_type);
+  const allowPlusOne = Boolean(source.allow_plus_one ?? source.allowPlusOne);
+  const autoReminders = Boolean(source.auto_reminders ?? source.autoReminders);
+  const dressCode = normalizeEventDressCode(source.dress_code ?? source.dressCode);
+  const playlistMode = normalizeEventPlaylistMode(source.playlist_mode ?? source.playlistMode);
+  const eventTypeCode = toCatalogCode("experience_type", source.event_type) || normalizeLookupValue(source.event_type);
   const searchText = normalizeLookupValue(`${title} ${description} ${locationName} ${locationAddress}`);
   const parsedStart = source.start_at ? new Date(source.start_at) : null;
-  const hour = parsedStart && !Number.isNaN(parsedStart.getTime()) ? parsedStart.getHours() : 19;
+  const defaultHourFromType = EVENT_TYPE_TO_DEFAULT_HOUR[eventTypeCode] ?? 19;
+  const hour = parsedStart && !Number.isNaN(parsedStart.getTime()) ? parsedStart.getHours() : defaultHourFromType;
   const momentKey = hour < 12 ? "morning" : hour < 18 ? "afternoon" : hour < 22 ? "evening" : "night";
   const toneKey = ["formal", "elegant"].includes(normalizeLookupValue(source.dress_code)) ? "formal" : "casual";
 
-  let preset = "social";
-  if (
-    ["bbq", "barbecue", "barbacoa"].some((value) => eventTypeCode.includes(value)) ||
-    ["calçot", "calcot", "barbac", "brasa", "parrill", "asado"].some((value) => searchText.includes(value))
-  ) {
-    preset = "bbq";
-  } else if (
-    ["brunch", "desayuno", "esmorzar", "breakfast"].some((value) => searchText.includes(value)) ||
-    eventTypeCode.includes("brunch") ||
-    (momentKey === "morning" && !eventTypeCode.includes("movie"))
-  ) {
-    preset = "brunch";
-  } else if (
-    ["romantic", "pareja", "valentin", "anniversary", "aniversari", "aniversario", "date"].some((value) =>
-      searchText.includes(value)
-    ) ||
-    eventTypeCode.includes("romantic")
-  ) {
-    preset = "romantic";
-  } else if (
-    ["party", "celebration", "cumple", "festa", "fiesta", "birthday"].some((value) => searchText.includes(value)) ||
-    eventTypeCode.includes("celebration") ||
-    eventTypeCode.includes("party")
-  ) {
-    preset = "celebration";
-  } else if (
-    ["movie", "cinema", "cine", "serie", "film"].some((value) => searchText.includes(value)) ||
-    eventTypeCode.includes("movie")
-  ) {
-    preset = "movie";
-  } else if (
-      ["book club", "club de lectura", "lectura", "llibre", "book"].some((value) => searchText.includes(value))
-  ) {
-    preset = "bookclub";
+  let preset = EVENT_TYPE_TO_PLANNER_PRESET[eventTypeCode] || "social";
+  if (!EVENT_TYPE_TO_PLANNER_PRESET[eventTypeCode]) {
+    if (
+      ["bbq", "barbecue", "barbacoa"].some((value) => eventTypeCode.includes(value)) ||
+      ["calçot", "calcot", "barbac", "brasa", "parrill", "asado"].some((value) => searchText.includes(value))
+    ) {
+      preset = "bbq";
+    } else if (
+      ["brunch", "desayuno", "esmorzar", "breakfast"].some((value) => searchText.includes(value)) ||
+      eventTypeCode.includes("brunch") ||
+      (momentKey === "morning" && !eventTypeCode.includes("movie"))
+    ) {
+      preset = "brunch";
+    } else if (
+      ["romantic", "pareja", "valentin", "anniversary", "aniversari", "aniversario", "date"].some((value) =>
+        searchText.includes(value)
+      ) ||
+      eventTypeCode.includes("romantic")
+    ) {
+      preset = "romantic";
+    } else if (
+      ["party", "celebration", "cumple", "festa", "fiesta", "birthday"].some((value) => searchText.includes(value)) ||
+      eventTypeCode.includes("celebration") ||
+      eventTypeCode.includes("party")
+    ) {
+      preset = "celebration";
+    } else if (
+      ["movie", "cinema", "cine", "serie", "film"].some((value) => searchText.includes(value)) ||
+      eventTypeCode.includes("movie")
+    ) {
+      preset = "movie";
+    } else if (["book club", "club de lectura", "lectura", "llibre", "book"].some((value) => searchText.includes(value))) {
+      preset = "bookclub";
+    }
   }
 
   let budgetKey = "medium";
@@ -477,6 +529,10 @@ function buildEventPlannerContext(eventItem, language, t) {
     toneKey,
     budgetKey,
     durationHours,
+    allowPlusOne,
+    autoReminders,
+    dressCode,
+    playlistMode,
     hour,
     searchText,
     summary: `${eventTypeLabel} · ${t(`event_planner_moment_${momentKey}`)} · ${t(`event_planner_tone_${toneKey}`)} · ${t(
@@ -774,6 +830,19 @@ function applyPlannerOverrides(baseContext, baseInsights, overrides = {}) {
         .map((item) => String(item || "").trim())
         .filter(Boolean)
     );
+  const parseBooleanValue = (value) => {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    const normalized = String(value || "").trim().toLowerCase();
+    if (["true", "1", "yes", "si"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no"].includes(normalized)) {
+      return false;
+    }
+    return null;
+  };
   const context = {
     ...(baseContext || {}),
     ...(overrides.preset ? { preset: String(overrides.preset).trim() } : {}),
@@ -786,6 +855,24 @@ function applyPlannerOverrides(baseContext, baseInsights, overrides = {}) {
     if (Number.isFinite(parsedDuration)) {
       context.durationHours = Math.max(2, Math.min(12, Math.round(parsedDuration)));
     }
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, "allowPlusOne")) {
+    const parsed = parseBooleanValue(overrides.allowPlusOne);
+    if (parsed != null) {
+      context.allowPlusOne = parsed;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, "autoReminders")) {
+    const parsed = parseBooleanValue(overrides.autoReminders);
+    if (parsed != null) {
+      context.autoReminders = parsed;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, "dressCode")) {
+    context.dressCode = normalizeEventDressCode(overrides.dressCode);
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, "playlistMode")) {
+    context.playlistMode = normalizeEventPlaylistMode(overrides.playlistMode);
   }
 
   const listKeys = [
@@ -835,6 +922,16 @@ function buildEventPlannerPromptBundle({
     Number(attendance.yes || 0) + Number(attendance.no || 0) + Number(attendance.maybe || 0) + Number(attendance.pending || 0)
   );
   const normalizedContext = eventContext || {};
+  const effectiveAllowPlusOne =
+    typeof normalizedContext.allowPlusOne === "boolean"
+      ? normalizedContext.allowPlusOne
+      : Boolean(eventItem.allow_plus_one);
+  const effectiveAutoReminders =
+    typeof normalizedContext.autoReminders === "boolean"
+      ? normalizedContext.autoReminders
+      : Boolean(eventItem.auto_reminders);
+  const effectiveDressCode = normalizeEventDressCode(normalizedContext.dressCode ?? eventItem.dress_code);
+  const effectivePlaylistMode = normalizeEventPlaylistMode(normalizedContext.playlistMode ?? eventItem.playlist_mode);
   const payload = {
     event: {
       id: String(eventItem.id || ""),
@@ -846,10 +943,12 @@ function buildEventPlannerPromptBundle({
       locationName: String(eventItem.location_name || ""),
       locationAddress: String(eventItem.location_address || ""),
       settings: {
-        allowPlusOne: Boolean(eventItem.allow_plus_one),
-        autoReminders: Boolean(eventItem.auto_reminders),
-        dressCode: String(eventItem.dress_code || "none"),
-        playlistMode: String(eventItem.playlist_mode || "host_only")
+        allowPlusOne: effectiveAllowPlusOne,
+        autoReminders: effectiveAutoReminders,
+        dressCode: effectiveDressCode,
+        playlistMode: effectivePlaylistMode,
+        dressCodeLabel: t(`event_dress_code_${effectiveDressCode}`),
+        playlistModeLabel: t(`event_playlist_mode_${effectivePlaylistMode}`)
       }
     },
     context: {
@@ -928,6 +1027,14 @@ function buildEventHostPlaybook({
   const pendingRate = total > 0 ? pending / total : 0;
   const startLabel = formatLongDate(eventItem.start_at, language, t("no_date"));
   const startTime = formatTimeLabel(eventItem.start_at, language, t("no_date"));
+  const allowPlusOne = typeof context.allowPlusOne === "boolean" ? context.allowPlusOne : Boolean(eventItem.allow_plus_one);
+  const autoReminders = typeof context.autoReminders === "boolean" ? context.autoReminders : Boolean(eventItem.auto_reminders);
+  const dressCodeKey = normalizeEventDressCode(context.dressCode ?? eventItem.dress_code);
+  const playlistModeKey = normalizeEventPlaylistMode(context.playlistMode ?? eventItem.playlist_mode);
+  const dressCodeLabel = t(`event_dress_code_${dressCodeKey}`);
+  const playlistModeLabel = t(`event_playlist_mode_${playlistModeKey}`);
+  const plusOneEstimated = allowPlusOne ? Math.max(0, Math.round((confirmed + maybe) * 0.35)) : 0;
+  const expectedGuestsWithPlusOne = confirmed + maybe + plusOneEstimated;
   const drinkHighlights = rotateValues(uniqueValues(eventInsights?.drinkSuggestions || []), variantSeed).slice(0, 4);
   const menuHighlights = rotateValues(uniqueValues(eventInsights?.foodSuggestions || []), variantSeed + 1).slice(0, 4);
   const musicHighlights = rotateValues(uniqueValues(eventInsights?.musicGenres || []), variantSeed + 2).slice(0, 4);
@@ -943,14 +1050,19 @@ function buildEventHostPlaybook({
       detail: interpolateText(t("event_planner_host_timeline_pre_detail"), {
         pending,
         date: startLabel
-      })
+      }) + ` ${t("event_setting_auto_reminders")}: ${autoReminders ? t("status_yes") : t("status_no")}.`
     },
     {
       id: "phase-final",
       title: t("event_planner_host_timeline_final_title"),
       detail: interpolateText(t("event_planner_host_timeline_final_detail"), {
         menu: menuHighlights.slice(0, 2).join(", ") || t("smart_hosting_no_data")
-      })
+      }) +
+        (allowPlusOne
+          ? ` ${interpolateText(t("event_planner_host_risk_capacity_detail"), {
+              expected: expectedGuestsWithPlusOne
+            })}`
+          : "")
     },
     {
       id: "phase-live",
@@ -958,7 +1070,7 @@ function buildEventHostPlaybook({
       detail: interpolateText(t("event_planner_host_timeline_live_detail"), {
         time: startTime,
         style: t(`event_planner_style_${context.preset || "social"}`)
-      })
+      }) + ` ${t("event_setting_dress_code")}: ${dressCodeLabel}.`
     },
     {
       id: "phase-followup",
@@ -977,7 +1089,9 @@ function buildEventHostPlaybook({
     drinkHighlights.length
       ? interpolateText(t("event_planner_host_ambience_drinks"), { items: drinkHighlights.slice(0, 3).join(", ") })
       : "",
-    interpolateText(t("event_planner_host_ambience_tone"), { value: t(`event_planner_tone_${context.toneKey || "casual"}`) })
+    interpolateText(t("event_planner_host_ambience_tone"), { value: t(`event_planner_tone_${context.toneKey || "casual"}`) }),
+    `${t("event_setting_playlist_mode")}: ${playlistModeLabel}.`,
+    `${t("event_setting_allow_plus_one")}: ${allowPlusOne ? t("status_yes") : t("status_no")}.`
   ]).filter(Boolean);
 
   const conversation = uniqueValues([
@@ -1000,14 +1114,14 @@ function buildEventHostPlaybook({
         event: title,
         date: startLabel,
         time: startTime
-      })
+      }) + (allowPlusOne ? ` ${t("rsvp_plus_one_question")}` : "")
     },
     {
       id: "confirmed",
       title: t("event_planner_host_message_confirmed_title"),
       text: interpolateText(t("event_planner_host_message_confirmed_template"), {
         event: title
-      })
+      }) + ` ${t("event_setting_dress_code")}: ${dressCodeLabel}. ${t("event_setting_playlist_mode")}: ${playlistModeLabel}.`
     },
     {
       id: "followup",
@@ -1018,14 +1132,19 @@ function buildEventHostPlaybook({
     }
   ];
 
+  const riskHealthItems = uniqueValues([
+    ...(Array.isArray(criticalRestrictions) ? criticalRestrictions : []),
+    ...(Array.isArray(healthAlerts) ? healthAlerts.flatMap((item) => item?.avoid || []) : [])
+  ]).slice(0, 8);
+
   const risks = [];
-  if (Array.isArray(criticalRestrictions) && criticalRestrictions.length > 0) {
+  if (riskHealthItems.length > 0) {
     risks.push({
       id: "risk-health",
       level: "status-no",
       label: t("event_planner_host_risk_health_title"),
       detail: interpolateText(t("event_planner_host_risk_health_detail"), {
-        items: criticalRestrictions.slice(0, 5).join(", ")
+        items: riskHealthItems.slice(0, 5).join(", ")
       })
     });
   }
@@ -1037,6 +1156,26 @@ function buildEventHostPlaybook({
       detail: interpolateText(t("event_planner_host_risk_rsvp_detail"), {
         pending,
         total
+      })
+    });
+  }
+  if (allowPlusOne && plusOneEstimated >= 2) {
+    risks.push({
+      id: "risk-capacity",
+      level: "status-maybe",
+      label: t("event_planner_host_risk_capacity_title"),
+      detail: interpolateText(t("event_planner_host_risk_capacity_detail"), {
+        expected: expectedGuestsWithPlusOne
+      })
+    });
+  }
+  if (playlistModeKey === "host_only" && musicHighlights.length >= 3) {
+    risks.push({
+      id: "risk-playlist",
+      level: "status-pending",
+      label: t("event_planner_host_risk_playlist_title"),
+      detail: interpolateText(t("event_planner_host_risk_playlist_detail"), {
+        count: musicHighlights.length
       })
     });
   }
@@ -1099,6 +1238,88 @@ function hasGuestHealthAlerts(sensitiveItem) {
     toList(sensitiveItem?.medical_conditions).length > 0 ||
     toList(sensitiveItem?.dietary_medical_restrictions).length > 0
   );
+}
+
+function buildCatalogLookupSet(field) {
+  const options = Array.isArray(CATALOGS?.[field]) ? CATALOGS[field] : [];
+  const lookup = new Set();
+  for (const option of options) {
+    lookup.add(normalizeLookupValue(option?.code || ""));
+    for (const label of Object.values(option?.labels || {})) {
+      lookup.add(normalizeLookupValue(label));
+    }
+    for (const alias of option?.aliases || []) {
+      lookup.add(normalizeLookupValue(alias));
+    }
+  }
+  return lookup;
+}
+
+const INTOLERANCE_LOOKUP_SET = buildCatalogLookupSet("intolerance");
+const MEDICAL_CONDITION_LOOKUP_SET = buildCatalogLookupSet("medical_condition");
+const DIETARY_MEDICAL_LOOKUP_SET = buildCatalogLookupSet("dietary_medical_restriction");
+
+function splitLegacyHealthSignalsFromIntolerances(intolerances = []) {
+  const medicalConditions = [];
+  const dietaryMedicalRestrictions = [];
+  const filteredIntolerances = [];
+
+  for (const rawValue of toList(intolerances)) {
+    const normalized = normalizeLookupValue(rawValue);
+    const isKnownIntolerance = INTOLERANCE_LOOKUP_SET.has(normalized);
+    const isKnownMedicalCondition = MEDICAL_CONDITION_LOOKUP_SET.has(normalized);
+    const isKnownDietaryMedical = DIETARY_MEDICAL_LOOKUP_SET.has(normalized);
+
+    if (isKnownMedicalCondition && !isKnownIntolerance) {
+      medicalConditions.push(toCatalogCode("medical_condition", rawValue));
+      continue;
+    }
+    if (isKnownDietaryMedical && !isKnownIntolerance) {
+      dietaryMedicalRestrictions.push(toCatalogCode("dietary_medical_restriction", rawValue));
+      continue;
+    }
+    filteredIntolerances.push(toCatalogCode("intolerance", rawValue));
+  }
+
+  return {
+    intolerances: uniqueValues(filteredIntolerances),
+    medicalConditions: uniqueValues(medicalConditions),
+    dietaryMedicalRestrictions: uniqueValues(dietaryMedicalRestrictions)
+  };
+}
+
+function normalizeSensitiveRecord(rawSensitiveItem) {
+  const source = rawSensitiveItem || {};
+  const allergies = uniqueValues(toList(source.allergies).map((item) => toCatalogCode("allergy", item)));
+  const petAllergies = uniqueValues(toList(source.pet_allergies).map((item) => toCatalogCode("pet", item)));
+  const intolerances = uniqueValues(toList(source.intolerances).map((item) => toCatalogCode("intolerance", item)));
+  const medicalConditions = uniqueValues(
+    toList(source.medical_conditions).map((item) => toCatalogCode("medical_condition", item))
+  );
+  const dietaryMedicalRestrictions = uniqueValues(
+    toList(source.dietary_medical_restrictions).map((item) => toCatalogCode("dietary_medical_restriction", item))
+  );
+
+  if (medicalConditions.length > 0 || dietaryMedicalRestrictions.length > 0) {
+    return {
+      ...source,
+      allergies,
+      intolerances,
+      pet_allergies: petAllergies,
+      medical_conditions: medicalConditions,
+      dietary_medical_restrictions: dietaryMedicalRestrictions
+    };
+  }
+
+  const legacySplit = splitLegacyHealthSignalsFromIntolerances(source.intolerances || []);
+  return {
+    ...source,
+    allergies,
+    intolerances: legacySplit.intolerances,
+    pet_allergies: petAllergies,
+    medical_conditions: legacySplit.medicalConditions,
+    dietary_medical_restrictions: legacySplit.dietaryMedicalRestrictions
+  };
 }
 
 const VIEW_CONFIG = [
@@ -1192,10 +1413,21 @@ const WORKSPACE_ITEMS = {
 };
 
 const EVENT_TEMPLATE_DEFINITIONS = [
-  { key: "bbq", titleKey: "event_template_title_bbq", typeCode: "bbq", defaultHour: 14 },
-  { key: "anniversary", titleKey: "event_template_title_anniversary", typeCode: "celebration", defaultHour: 20 },
-  { key: "book_club", titleKey: "event_template_title_book_club", typeCode: "book_club", defaultHour: 19 },
-  { key: "date_night", titleKey: "event_template_title_date_night", typeCode: "romantic_date", defaultHour: 21 }
+  { key: "bbq", titleKey: "event_template_title_bbq", typeCode: "bbq", defaultHour: 14, dressCode: "casual", playlistMode: "host_only", allowPlusOne: true },
+  { key: "calcotada", titleKey: "event_template_title_calcotada", typeCode: "calcotada", defaultHour: 14, dressCode: "casual", playlistMode: "host_only", allowPlusOne: true },
+  { key: "esmorzar_forquilla", titleKey: "event_template_title_esmorzar_forquilla", typeCode: "esmorzar_de_forquilla", defaultHour: 11, dressCode: "casual", playlistMode: "host_only", allowPlusOne: true },
+  { key: "brunch", titleKey: "event_template_title_brunch", typeCode: "brunch", defaultHour: 12, dressCode: "none", playlistMode: "collaborative", allowPlusOne: true },
+  { key: "family_lunch", titleKey: "event_template_title_family_lunch", typeCode: "family_lunch", defaultHour: 14, dressCode: "none", playlistMode: "host_only", allowPlusOne: true },
+  { key: "cocktail", titleKey: "event_template_title_cocktail", typeCode: "cocktail", defaultHour: 20, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
+  { key: "outdoor_meetup", titleKey: "event_template_title_outdoor_meetup", typeCode: "outdoor_meetup", defaultHour: 17, dressCode: "casual", playlistMode: "collaborative", allowPlusOne: true },
+  { key: "merienda_cena", titleKey: "event_template_title_merienda_cena", typeCode: "merienda_cena", defaultHour: 19, dressCode: "none", playlistMode: "collaborative", allowPlusOne: true },
+  { key: "book_club", titleKey: "event_template_title_book_club", typeCode: "book_club", defaultHour: 19, dressCode: "none", playlistMode: "collaborative", allowPlusOne: true },
+  { key: "after_school_reunion", titleKey: "event_template_title_after_school_reunion", typeCode: "after_school_reunion", defaultHour: 19, dressCode: "casual", playlistMode: "collaborative", allowPlusOne: true },
+  { key: "party", titleKey: "event_template_title_party", typeCode: "party", defaultHour: 21, dressCode: "themed", playlistMode: "spotify_collaborative", allowPlusOne: true },
+  { key: "networking", titleKey: "event_template_title_networking", typeCode: "networking", defaultHour: 19, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
+  { key: "tasting_session", titleKey: "event_template_title_tasting_session", typeCode: "tasting_session", defaultHour: 20, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
+  { key: "anniversary", titleKey: "event_template_title_anniversary", typeCode: "celebration", defaultHour: 20, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
+  { key: "date_night", titleKey: "event_template_title_date_night", typeCode: "romantic_date", defaultHour: 21, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: false }
 ];
 function getWorkspaceItemsByView(viewKey, includeHub = true) {
   const workspaceItems = WORKSPACE_ITEMS[viewKey] || [];
@@ -2187,6 +2419,7 @@ function DashboardScreen({
   const [eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId] = useState({});
   const [eventPlannerGenerationByEventId, setEventPlannerGenerationByEventId] = useState({});
   const [isEventPlannerContextOpen, setIsEventPlannerContextOpen] = useState(false);
+  const [eventPlannerContextFocusField, setEventPlannerContextFocusField] = useState("");
   const [showEventPlannerTechnicalPrompt, setShowEventPlannerTechnicalPrompt] = useState(false);
   const [eventPlannerContextDraft, setEventPlannerContextDraft] = useState({
     preset: "social",
@@ -2194,6 +2427,10 @@ function DashboardScreen({
     toneKey: "casual",
     budgetKey: "medium",
     durationHours: "4",
+    allowPlusOne: false,
+    autoReminders: false,
+    dressCode: "none",
+    playlistMode: "host_only",
     foodSuggestions: "",
     drinkSuggestions: "",
     avoidItems: "",
@@ -4023,12 +4260,28 @@ function DashboardScreen({
           start_at: toIsoDateTime(eventStartAt),
           location_name: eventLocationName,
           location_address: eventLocationAddress,
-          dress_code: eventDressCode
+          allow_plus_one: eventAllowPlusOne,
+          auto_reminders: eventAutoReminders,
+          dress_code: eventDressCode,
+          playlist_mode: eventPlaylistMode
         },
         language,
         t
       ),
-    [eventTitle, eventDescription, eventType, eventStartAt, eventLocationName, eventLocationAddress, eventDressCode, language, t]
+    [
+      eventTitle,
+      eventDescription,
+      eventType,
+      eventStartAt,
+      eventLocationName,
+      eventLocationAddress,
+      eventAllowPlusOne,
+      eventAutoReminders,
+      eventDressCode,
+      eventPlaylistMode,
+      language,
+      t
+    ]
   );
   const eventBuilderMealPlan = useMemo(
     () => buildEventMealPlan(eventBuilderInsights, eventBuilderContext, t, 0),
@@ -4389,9 +4642,18 @@ function DashboardScreen({
         .slice(0, 8),
     [selectedEventDetailGuests]
   );
+  const selectedEventHealthSignalGuestRows = useMemo(
+    () =>
+      selectedEventDetailGuests.filter((row) => {
+        const status = String(row.invitation?.status || "pending").trim().toLowerCase();
+        return status !== "no";
+      }),
+    [selectedEventDetailGuests]
+  );
   const selectedEventHealthAlerts = useMemo(() => {
-    return selectedEventDetailGuests
+    return selectedEventHealthSignalGuestRows
       .map((row) => {
+        const invitationStatus = String(row.invitation?.status || "pending").trim().toLowerCase();
         const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation.guest_id] || {};
         const allergies = toCatalogLabels("allergy", sensitiveItem.allergies || [], language);
         const intolerances = toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language);
@@ -4414,11 +4676,20 @@ function DashboardScreen({
         }
         return {
           guestName: row.name,
+          invitationStatus,
           avoid
         };
       })
       .filter(Boolean);
-  }, [selectedEventDetailGuests, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
+  const selectedEventHealthAlertsConfirmedCount = useMemo(
+    () => selectedEventHealthAlerts.filter((item) => item?.invitationStatus === "yes").length,
+    [selectedEventHealthAlerts]
+  );
+  const selectedEventHealthAlertsPendingCount = useMemo(
+    () => selectedEventHealthAlerts.filter((item) => item?.invitationStatus !== "yes").length,
+    [selectedEventHealthAlerts]
+  );
   const selectedEventSettings = useMemo(
     () => normalizeEventSettings(selectedEventDetail || {}),
     [selectedEventDetail]
@@ -4428,12 +4699,23 @@ function DashboardScreen({
       buildEventPlannerContext(
         {
           ...(selectedEventDetail || {}),
-          dress_code: selectedEventSettings.dress_code
+          allow_plus_one: selectedEventSettings.allow_plus_one,
+          auto_reminders: selectedEventSettings.auto_reminders,
+          dress_code: selectedEventSettings.dress_code,
+          playlist_mode: selectedEventSettings.playlist_mode
         },
         language,
         t
       ),
-    [selectedEventDetail, selectedEventSettings.dress_code, language, t]
+    [
+      selectedEventDetail,
+      selectedEventSettings.allow_plus_one,
+      selectedEventSettings.auto_reminders,
+      selectedEventSettings.dress_code,
+      selectedEventSettings.playlist_mode,
+      language,
+      t
+    ]
   );
   const selectedEventInsights = useMemo(
     () =>
@@ -4511,24 +4793,24 @@ function DashboardScreen({
   }, [selectedEventConfirmedGuestRows, guestPreferencesById]);
   const selectedEventAllergiesCount = useMemo(() => {
     const collected = new Set();
-    for (const row of selectedEventConfirmedGuestRows) {
+    for (const row of selectedEventHealthSignalGuestRows) {
       const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
       for (const item of toCatalogLabels("allergy", sensitiveItem.allergies || [], language)) {
         collected.add(item);
       }
     }
     return collected.size;
-  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
   const selectedEventIntolerancesCount = useMemo(() => {
     const collected = new Set();
-    for (const row of selectedEventConfirmedGuestRows) {
+    for (const row of selectedEventHealthSignalGuestRows) {
       const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
       for (const item of toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)) {
         collected.add(item);
       }
     }
     return collected.size;
-  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
   const selectedEventDietTypeValues = useMemo(() => {
     const collected = new Set();
     for (const row of selectedEventConfirmedGuestRows) {
@@ -4542,7 +4824,7 @@ function DashboardScreen({
   }, [selectedEventConfirmedGuestRows, guestPreferencesById, language]);
   const selectedEventSensitiveIntolerances = useMemo(() => {
     const collected = new Set();
-    for (const row of selectedEventConfirmedGuestRows) {
+    for (const row of selectedEventHealthSignalGuestRows) {
       const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
       for (const item of toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)) {
         if (item) {
@@ -4551,10 +4833,10 @@ function DashboardScreen({
       }
     }
     return Array.from(collected);
-  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
   const selectedEventSensitiveMedicalConditions = useMemo(() => {
     const collected = new Set();
-    for (const row of selectedEventConfirmedGuestRows) {
+    for (const row of selectedEventHealthSignalGuestRows) {
       const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
       for (const item of toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language)) {
         if (item) {
@@ -4563,10 +4845,10 @@ function DashboardScreen({
       }
     }
     return Array.from(collected);
-  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
   const selectedEventDietaryMedicalRestrictions = useMemo(() => {
     const collected = new Set();
-    for (const row of selectedEventConfirmedGuestRows) {
+    for (const row of selectedEventHealthSignalGuestRows) {
       const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
       for (const item of toCatalogLabels(
         "dietary_medical_restriction",
@@ -4579,12 +4861,12 @@ function DashboardScreen({
       }
     }
     return Array.from(collected);
-  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
   const selectedEventMedicalConditionsCount = selectedEventSensitiveMedicalConditions.length;
   const selectedEventDietaryMedicalRestrictionsCount = selectedEventDietaryMedicalRestrictions.length;
   const selectedEventRestrictionsCount = useMemo(() => {
     const collected = new Set();
-    for (const row of selectedEventConfirmedGuestRows) {
+    for (const row of selectedEventHealthSignalGuestRows) {
       const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
       for (const item of toCatalogLabels("allergy", sensitiveItem.allergies || [], language)) {
         collected.add(item);
@@ -4604,19 +4886,32 @@ function DashboardScreen({
       }
     }
     return collected.size;
-  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  }, [selectedEventHealthSignalGuestRows, guestSensitiveById, language]);
   const selectedEventCriticalRestrictions = useMemo(
-    () => uniqueValues(selectedEventMealPlan.restrictions || []).slice(0, 4),
-    [selectedEventMealPlan.restrictions]
+    () =>
+      uniqueValues([
+        ...(selectedEventMealPlan.restrictions || []),
+        ...selectedEventSensitiveIntolerances,
+        ...selectedEventSensitiveMedicalConditions,
+        ...selectedEventDietaryMedicalRestrictions
+      ]).slice(0, 8),
+    [
+      selectedEventMealPlan.restrictions,
+      selectedEventSensitiveIntolerances,
+      selectedEventSensitiveMedicalConditions,
+      selectedEventDietaryMedicalRestrictions
+    ]
   );
   const selectedEventHealthRestrictionHighlights = useMemo(
     () =>
       uniqueValues([
+        ...selectedEventHealthAlerts.flatMap((item) => item.avoid || []),
         ...selectedEventCriticalRestrictions,
         ...toCatalogLabels("medical_condition", selectedEventSensitiveMedicalConditions, language),
         ...toCatalogLabels("dietary_medical_restriction", selectedEventDietaryMedicalRestrictions, language)
       ]).slice(0, 8),
     [
+      selectedEventHealthAlerts,
       selectedEventCriticalRestrictions,
       selectedEventSensitiveMedicalConditions,
       selectedEventDietaryMedicalRestrictions,
@@ -5755,7 +6050,9 @@ function DashboardScreen({
       Object.fromEntries((guestPreferencesRows || []).map((preferenceItem) => [preferenceItem.guest_id, preferenceItem]))
     );
     setGuestSensitiveById(
-      Object.fromEntries((guestSensitiveRows || []).map((sensitiveItem) => [sensitiveItem.guest_id, sensitiveItem]))
+      Object.fromEntries(
+        (guestSensitiveRows || []).map((sensitiveItem) => [sensitiveItem.guest_id, normalizeSensitiveRecord(sensitiveItem)])
+      )
     );
     setGuestHostConversionById(
       Object.fromEntries((guestHostConversionRows || []).map((conversionItem) => [conversionItem.guest_id, conversionItem]))
@@ -5826,6 +6123,7 @@ function DashboardScreen({
   }, [selectedEventDetail?.id]);
   useEffect(() => {
     setIsEventPlannerContextOpen(false);
+    setEventPlannerContextFocusField("");
     setShowEventPlannerTechnicalPrompt(false);
   }, [selectedEventDetail?.id]);
 
@@ -6915,15 +7213,9 @@ function DashboardScreen({
       setEventStartAt(getSuggestedEventDateTime(templateItem.defaultHour));
     }
     setEventAutoReminders(true);
-    setEventAllowPlusOne(templateItem.key !== "date_night");
-    if (templateItem.key === "anniversary" || templateItem.key === "date_night") {
-      setEventDressCode("elegant");
-    } else if (templateItem.key === "bbq") {
-      setEventDressCode("casual");
-    } else {
-      setEventDressCode("none");
-    }
-    setEventPlaylistMode(templateItem.key === "book_club" ? "collaborative" : "host_only");
+    setEventAllowPlusOne(Boolean(templateItem.allowPlusOne));
+    setEventDressCode(templateItem.dressCode || "none");
+    setEventPlaylistMode(templateItem.playlistMode || "host_only");
   };
 
   const handleApplySuggestedEventSettings = () => {
@@ -7052,6 +7344,10 @@ function DashboardScreen({
         toneKey: effectiveContext.toneKey || "casual",
         budgetKey: effectiveContext.budgetKey || "medium",
         durationHours: Number(effectiveContext.durationHours || 4),
+        allowPlusOne: Boolean(effectiveContext.allowPlusOne),
+        autoReminders: Boolean(effectiveContext.autoReminders),
+        dressCode: normalizeEventDressCode(effectiveContext.dressCode),
+        playlistMode: normalizeEventPlaylistMode(effectiveContext.playlistMode),
         hostPreferences: {
           cuisine: uniqueValues(effectiveInsights.foodSuggestions || [])[0] || "",
           avoid: uniqueValues(effectiveInsights.avoidItems || []).slice(0, 8),
@@ -7236,7 +7532,7 @@ function DashboardScreen({
       }));
     }
   };
-  const handleOpenEventPlannerContext = () => {
+  const handleOpenEventPlannerContext = (focusField = "") => {
     if (!selectedEventDetail?.id) {
       return;
     }
@@ -7249,6 +7545,10 @@ function DashboardScreen({
       toneKey: baseSignals.context.toneKey || "casual",
       budgetKey: baseSignals.context.budgetKey || "medium",
       durationHours: String(baseSignals.context.durationHours || 4),
+      allowPlusOne: Boolean(baseSignals.context.allowPlusOne),
+      autoReminders: Boolean(baseSignals.context.autoReminders),
+      dressCode: normalizeEventDressCode(baseSignals.context.dressCode),
+      playlistMode: normalizeEventPlaylistMode(baseSignals.context.playlistMode),
       foodSuggestions: uniqueValues(baseSignals.insights.foodSuggestions || []).join(", "),
       drinkSuggestions: uniqueValues(baseSignals.insights.drinkSuggestions || []).join(", "),
       avoidItems: uniqueValues(baseSignals.insights.avoidItems || []).join(", "),
@@ -7260,6 +7560,8 @@ function DashboardScreen({
       tabooTopics: uniqueValues(baseSignals.insights.tabooTopics || []).join(", "),
       additionalInstructions: String(baseSignals.insights.additionalInstructions || "")
     });
+    const normalizedFocusField = typeof focusField === "string" ? focusField.trim() : "";
+    setEventPlannerContextFocusField(normalizedFocusField);
     setShowEventPlannerTechnicalPrompt(false);
     setIsEventPlannerContextOpen(true);
   };
@@ -7276,6 +7578,7 @@ function DashboardScreen({
       [eventId]: nextContextOverrides
     }));
     setIsEventPlannerContextOpen(false);
+    setEventPlannerContextFocusField("");
     await handleRegenerateEventPlanner("all", { contextOverrides: nextContextOverrides });
   };
   const handleExportEventPlannerShoppingList = () => {
@@ -9098,6 +9401,11 @@ function DashboardScreen({
         isCompatibilityError(sensitiveResult.error, ["medical_conditions", "dietary_medical_restrictions"])
       ) {
         const fallbackSensitivePayload = { ...sensitivePayload };
+        fallbackSensitivePayload.intolerances = uniqueValues([
+          ...toList(fallbackSensitivePayload.intolerances),
+          ...medicalConditionsList,
+          ...dietaryMedicalRestrictionsList
+        ]);
         delete fallbackSensitivePayload.medical_conditions;
         delete fallbackSensitivePayload.dietary_medical_restrictions;
         sensitiveResult = await supabase
@@ -9161,6 +9469,25 @@ function DashboardScreen({
     }
     if (savedGuestId) {
       setGuestsMapFocusId(savedGuestId);
+    }
+
+    if (savedGuestId) {
+      const preferenceState = {
+        guest_id: savedGuestId,
+        ...preferencePayload
+      };
+      const sensitiveState = normalizeSensitiveRecord({
+        guest_id: savedGuestId,
+        ...sensitivePayload
+      });
+      setGuestPreferencesById((prev) => ({
+        ...prev,
+        [savedGuestId]: preferenceState
+      }));
+      setGuestSensitiveById((prev) => ({
+        ...prev,
+        [savedGuestId]: sensitiveState
+      }));
     }
 
     if (isEditingGuest) {
@@ -9469,6 +9796,11 @@ function DashboardScreen({
         });
         if (sensitiveError && isCompatibilityError(sensitiveError, ["medical_conditions", "dietary_medical_restrictions"])) {
           const fallbackSensitive = { ...mergedSensitive };
+          fallbackSensitive.intolerances = uniqueValues([
+            ...toList(fallbackSensitive.intolerances),
+            ...toList(fallbackSensitive.medical_conditions),
+            ...toList(fallbackSensitive.dietary_medical_restrictions)
+          ]);
           delete fallbackSensitive.medical_conditions;
           delete fallbackSensitive.dietary_medical_restrictions;
           ({ error: sensitiveError } = await supabase.from("guest_sensitive_preferences").upsert(fallbackSensitive, {
@@ -11988,6 +12320,8 @@ function DashboardScreen({
                 normalizeEventPlaylistMode={normalizeEventPlaylistMode}
                 selectedEventChecklist={selectedEventChecklist}
                 selectedEventHealthAlerts={selectedEventHealthAlerts}
+                selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
+                selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
                 eventPlannerSectionRef={eventPlannerSectionRef}
                 interpolateText={interpolateText}
                 selectedEventMealPlan={selectedEventMealPlan}
@@ -15056,10 +15390,14 @@ function DashboardScreen({
 
         <EventPlannerContextModal
           isOpen={isEventPlannerContextOpen}
-          onClose={() => setIsEventPlannerContextOpen(false)}
+          onClose={() => {
+            setIsEventPlannerContextOpen(false);
+            setEventPlannerContextFocusField("");
+          }}
           t={t}
           draft={eventPlannerContextDraft}
           setDraft={setEventPlannerContextDraft}
+          focusField={eventPlannerContextFocusField}
           showTechnicalPrompt={showEventPlannerTechnicalPrompt}
           onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
           technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}

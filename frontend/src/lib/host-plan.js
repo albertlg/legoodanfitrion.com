@@ -26,6 +26,10 @@ function sanitizeContext(context = {}) {
     toneKey: normalizeText(context.toneKey, "casual"),
     budgetKey: normalizeText(context.budgetKey, "medium"),
     durationHours: Math.min(12, Math.max(2, normalizeInteger(context.durationHours, 4))),
+    allowPlusOne: Boolean(context.allowPlusOne),
+    autoReminders: Boolean(context.autoReminders),
+    dressCode: normalizeText(context.dressCode, "none"),
+    playlistMode: normalizeText(context.playlistMode, "host_only"),
     hostPreferences: {
       cuisine: normalizeText(context?.hostPreferences?.cuisine),
       avoid: Array.isArray(context?.hostPreferences?.avoid)

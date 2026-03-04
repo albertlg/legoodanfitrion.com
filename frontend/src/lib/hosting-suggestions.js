@@ -118,7 +118,13 @@ function buildHostingSuggestions({
   const invitedIds = selectedEvent
     ? uniqueList(
         invitations
-          .filter((invitation) => invitation.event_id === selectedEvent.id)
+          .filter((invitation) => {
+            if (invitation.event_id !== selectedEvent.id) {
+              return false;
+            }
+            const status = String(invitation.status || "pending").trim().toLowerCase();
+            return status !== "no";
+          })
           .map((invitation) => invitation.guest_id)
       )
     : [];
