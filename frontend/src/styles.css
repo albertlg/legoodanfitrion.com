@@ -5046,20 +5046,42 @@ textarea {
   align-items: center;
 }
 
-.invitation-actions-share,
-.invitation-actions-manage {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
+.invitation-actions-more {
+  position: relative;
 }
 
-.invitation-actions-share {
-  padding-right: 0.3rem;
-  border-right: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+.invitation-actions-more summary {
+  list-style: none;
 }
 
-.invitation-actions-manage {
+.invitation-actions-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.invitation-actions-more[open] > summary {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--ghost-bg) 84%, var(--primary) 16%);
+}
+
+.invitation-actions-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  display: grid;
   gap: 0.28rem;
+  min-width: 188px;
+  padding: 0.42rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent 12%);
+  background: var(--panel-bg);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+  z-index: 8;
+}
+
+.invitation-actions-more-item {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.42rem;
 }
 
 .invitation-open-rsvp-btn.is-pending {
@@ -6524,11 +6546,6 @@ code {
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 0.32rem;
-  }
-
-  .invitation-actions-share {
-    padding-right: 0;
-    border-right: none;
   }
 
   .invitation-actions .btn-icon-only {
