@@ -1026,6 +1026,7 @@
   "event_planner_stat_hint_confirmed": "{count} pending responses",
   "event_planner_stat_hint_diets": "{count} diets to consider",
   "event_planner_stat_hint_allergies": "{count} allergies to review in detail",
+  "event_planner_stat_hint_restrictions": "{count} health and restriction signals to review",
   "event_planner_stat_hint_medical_conditions": "{count} conditions impacting the menu",
   "event_planner_stat_hint_dietary_medical_restrictions": "{count} active medical dietary restrictions",
   "event_planner_stat_restrictions": "Critical restrictions",

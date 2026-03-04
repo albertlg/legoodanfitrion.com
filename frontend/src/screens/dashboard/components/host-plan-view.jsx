@@ -137,34 +137,12 @@ export function HostPlanView({
         </article>
         <article className="detail-kpi-card">
           <div className="event-planner-stat-head">
-            <p className="item-meta">{t("event_planner_stat_allergies")}</p>
-            <Icon name="x" className="icon icon-sm" />
-          </div>
-          <p className="item-title">{selectedEventAllergiesCount}</p>
-          <p className="hint">{interpolateText(t("event_planner_stat_hint_allergies"), { count: selectedEventAllergiesCount })}</p>
-        </article>
-        <article className="detail-kpi-card">
-          <div className="event-planner-stat-head">
-            <p className="item-meta">{t("event_planner_stat_medical_conditions")}</p>
+            <p className="item-meta">{t("event_planner_stat_restrictions")}</p>
             <Icon name="shield" className="icon icon-sm" />
           </div>
-          <p className="item-title">{selectedEventMedicalConditionsCount}</p>
+          <p className="item-title">{selectedEventRestrictionsCount}</p>
           <p className="hint">
-            {interpolateText(t("event_planner_stat_hint_medical_conditions"), {
-              count: selectedEventMedicalConditionsCount
-            })}
-          </p>
-        </article>
-        <article className="detail-kpi-card">
-          <div className="event-planner-stat-head">
-            <p className="item-meta">{t("event_planner_stat_dietary_medical_restrictions")}</p>
-            <Icon name="star" className="icon icon-sm" />
-          </div>
-          <p className="item-title">{selectedEventDietaryMedicalRestrictionsCount}</p>
-          <p className="hint">
-            {interpolateText(t("event_planner_stat_hint_dietary_medical_restrictions"), {
-              count: selectedEventDietaryMedicalRestrictionsCount
-            })}
+            {interpolateText(t("event_planner_stat_hint_restrictions"), { count: selectedEventRestrictionsCount })}
           </p>
         </article>
       </div>
@@ -192,6 +170,20 @@ export function HostPlanView({
               })}
             </p>
           ) : null}
+          <div className="event-planner-alert-breakdown">
+            <span className="status-pill status-pending">
+              {t("event_planner_stat_allergies")}: {selectedEventAllergiesCount}
+            </span>
+            <span className="status-pill status-maybe">
+              {t("field_intolerances")}: {selectedEventIntolerancesCount}
+            </span>
+            <span className="status-pill status-no">
+              {t("field_medical_conditions")}: {selectedEventMedicalConditionsCount}
+            </span>
+            <span className="status-pill status-host-conversion-source-default">
+              {t("field_dietary_medical_restrictions")}: {selectedEventDietaryMedicalRestrictionsCount}
+            </span>
+          </div>
         </div>
       ) : null}
       <div className="event-planner-tabs-row">

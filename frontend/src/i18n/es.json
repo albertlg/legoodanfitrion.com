@@ -1026,6 +1026,7 @@
   "event_planner_stat_hint_confirmed": "{count} respuestas pendientes",
   "event_planner_stat_hint_diets": "{count} dietas a tener en cuenta",
   "event_planner_stat_hint_allergies": "{count} alergias para revisar en detalle",
+  "event_planner_stat_hint_restrictions": "{count} señales de salud y restricciones para revisar",
   "event_planner_stat_hint_medical_conditions": "{count} afecciones que influyen en el menú",
   "event_planner_stat_hint_dietary_medical_restrictions": "{count} restricciones dietéticas médicas activas",
   "event_planner_stat_restrictions": "Restricciones críticas",

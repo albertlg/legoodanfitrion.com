@@ -988,6 +988,7 @@
   "event_planner_stat_hint_confirmed": "{count} risposte in sospeso",
   "event_planner_stat_hint_diets": "{count} diete da considerare",
   "event_planner_stat_hint_allergies": "{count} allergie da rivedere nel dettaglio",
+  "event_planner_stat_hint_restrictions": "{count} segnali sanitari e restrizioni da rivedere",
   "event_planner_stat_hint_medical_conditions": "{count} patologie che influenzano il menu",
   "event_planner_stat_hint_dietary_medical_restrictions": "{count} restrizioni dietetiche mediche attive",
   "event_planner_stat_restrictions": "Restrizioni critiche",

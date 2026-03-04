@@ -3254,6 +3254,18 @@ h2 {
   padding: 0.74rem 0.82rem;
 }
 
+.event-planner-alert-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.54rem;
+}
+
+.event-planner-alert-breakdown .status-pill {
+  font-size: 0.73rem;
+  padding: 0.18rem 0.44rem;
+}
+
 .event-planner-tabs {
   margin-top: 0.16rem;
   margin-bottom: 0;
