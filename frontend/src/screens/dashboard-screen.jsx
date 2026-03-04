@@ -14092,6 +14092,12 @@ function DashboardScreen({
                       invitationStatus === "pending"
                         ? t("invitation_mobile_rsvp_respond_now")
                         : t("invitation_mobile_rsvp_view_response");
+                    const invitationActionHint =
+                      invitationStatus === "pending"
+                        ? t("invitation_action_hint_pending")
+                        : invitationStatus === "no"
+                        ? t("invitation_action_hint_declined")
+                        : t("invitation_action_hint_review");
                     const desktopRsvpLabel = mobileRsvpLabel;
                     const desktopRsvpClassName =
                       invitationStatus === "pending"
@@ -14140,9 +14146,10 @@ function DashboardScreen({
                         <p className="item-meta cell-invitation-status cell-extra">
                           <span className={`status-pill ${statusClass(invitation.status)}`}>{statusText(t, invitation.status)}</span>
                         </p>
-                        <p className="item-meta cell-invitation-created cell-extra">
-                          {formatDate(invitation.created_at, language, t("no_date"))}
-                        </p>
+                        <div className="cell-invitation-created cell-extra invitation-created-stack">
+                          <p className="item-meta">{formatDate(invitation.created_at, language, t("no_date"))}</p>
+                          <p className={`item-meta invitation-action-hint is-${invitationStatus}`}>{invitationActionHint}</p>
+                        </div>
                         <div className="button-row invitation-mobile-quick-actions">
                           <button
                             className={mobileShareClassName}

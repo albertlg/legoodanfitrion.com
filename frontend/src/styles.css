@@ -5126,6 +5126,33 @@ textarea {
   align-self: start;
 }
 
+.invitation-created-stack {
+  display: grid;
+  gap: 0.12rem;
+  align-content: start;
+}
+
+.invitation-action-hint {
+  margin: 0.08rem 0 0;
+  font-size: 0.73rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.invitation-action-hint.is-pending {
+  color: color-mix(in srgb, var(--primary) 74%, var(--text-muted) 26%);
+}
+
+.invitation-action-hint.is-yes,
+.invitation-action-hint.is-maybe {
+  color: color-mix(in srgb, #166534 66%, var(--text-muted) 34%);
+}
+
+.invitation-action-hint.is-no {
+  color: color-mix(in srgb, #b91c1c 64%, var(--text-muted) 36%);
+}
+
 .list-table-events .list-table-row > .cell-event-date {
   grid-column: 2;
   align-self: center;
@@ -6391,7 +6418,6 @@ code {
   .list-table-guests .list-table-row > .cell-guest-phone,
   .list-table-guests .list-table-row > .cell-guest-health,
   .list-table-invitations-compact .list-table-row > .cell-actions,
-  .list-table-invitations-compact .list-table-row > .cell-invitation-created,
   .list-table-invitations .list-table-row > .cell-actions,
   .list-table-invitations .list-table-row > .cell-invitation-created,
   .list-table-invitations .list-table-row > .cell-select,
@@ -6469,6 +6495,10 @@ code {
 
   .list-row-invitation .cell-invitation-event {
     margin-top: -0.28rem;
+  }
+
+  .list-row-invitation .invitation-created-stack {
+    margin-top: -0.1rem;
   }
 
   .invitation-mobile-quick-actions {
