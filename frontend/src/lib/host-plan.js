@@ -43,6 +43,12 @@ function sanitizeContext(context = {}) {
       intolerances: Array.isArray(context?.guestSignals?.intolerances)
         ? context.guestSignals.intolerances.map((item) => normalizeText(item)).filter(Boolean)
         : [],
+      medicalConditions: Array.isArray(context?.guestSignals?.medicalConditions)
+        ? context.guestSignals.medicalConditions.map((item) => normalizeText(item)).filter(Boolean)
+        : [],
+      dietaryMedicalRestrictions: Array.isArray(context?.guestSignals?.dietaryMedicalRestrictions)
+        ? context.guestSignals.dietaryMedicalRestrictions.map((item) => normalizeText(item)).filter(Boolean)
+        : [],
       diets: Array.isArray(context?.guestSignals?.diets)
         ? context.guestSignals.diets.map((item) => normalizeText(item)).filter(Boolean)
         : []

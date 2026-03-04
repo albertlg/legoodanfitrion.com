@@ -23,7 +23,17 @@ const CATALOGS = {
     { code: "dinner", labels: { es: "Cena", ca: "Sopar", en: "Dinner", fr: "Diner" } },
     { code: "romantic_date", labels: { es: "Cita romántica", ca: "Cita romàntica", en: "Romantic date", fr: "Rendez-vous romantique" } },
     { code: "jam_session", labels: { es: "Jam session", ca: "Jam session", en: "Jam session", fr: "Jam session" } },
-    { code: "picnic", labels: { es: "Pícnic", ca: "Pícnic", en: "Picnic", fr: "Pique-nique" } }
+    { code: "picnic", labels: { es: "Pícnic", ca: "Pícnic", en: "Picnic", fr: "Pique-nique" } },
+    { code: "brunch", labels: { es: "Brunch", ca: "Brunch", en: "Brunch", fr: "Brunch", it: "Brunch" } },
+    { code: "calcotada", labels: { es: "Calçotada", ca: "Calçotada", en: "Calçotada", fr: "Calçotada", it: "Calçotada" } },
+    { code: "esmorzar_de_forquilla", labels: { es: "Esmorzar de forquilla", ca: "Esmorzar de forquilla", en: "Hearty brunch", fr: "Brunch salé catalan", it: "Brunch salato catalano" } },
+    { code: "merienda_cena", labels: { es: "Merienda-cena", ca: "Berenar-sopar", en: "Early dinner", fr: "Goûter-dîner", it: "Merenda-cena" } },
+    { code: "cocktail", labels: { es: "Cóctel", ca: "Còctel", en: "Cocktail", fr: "Cocktail", it: "Cocktail" } },
+    { code: "outdoor_meetup", labels: { es: "Quedada al aire libre", ca: "Trobada a l'aire lliure", en: "Outdoor meetup", fr: "Rencontre en plein air", it: "Incontro all'aperto" } },
+    { code: "networking", labels: { es: "Networking", ca: "Networking", en: "Networking", fr: "Networking", it: "Networking" } },
+    { code: "family_lunch", labels: { es: "Comida familiar", ca: "Dinar familiar", en: "Family lunch", fr: "Déjeuner en famille", it: "Pranzo in famiglia" } },
+    { code: "after_school_reunion", labels: { es: "Reencuentro escolar", ca: "Retroba escolar", en: "School reunion", fr: "Retrouvailles scolaires", it: "Rimpatriata scolastica" } },
+    { code: "tasting_session", labels: { es: "Cata", ca: "Tast", en: "Tasting session", fr: "Dégustation", it: "Degustazione" } }
   ],
   relationship: [
     { code: "family", labels: { es: "Familia", ca: "Familia", en: "Family", fr: "Famille" } },
@@ -204,6 +214,26 @@ const CATALOGS = {
     { code: "food_coloring", labels: { es: "Colorantes alimentarios", ca: "Colorants alimentaris", en: "Food colorings", fr: "Colorants" } },
     { code: "yeast", labels: { es: "Levadura", ca: "Llevat", en: "Yeast", fr: "Levure" } },
     { code: "sugar_alcohols", labels: { es: "Alcoholes de azúcar", ca: "Alcohols de sucre", en: "Sugar alcohols", fr: "Polyols" } }
+  ],
+  medical_condition: [
+    { code: "diabetes", labels: { es: "Diabetes", ca: "Diabetis", en: "Diabetes", fr: "Diabete", it: "Diabete" } },
+    { code: "hypertension", labels: { es: "Hipertensión", ca: "Hipertensió", en: "Hypertension", fr: "Hypertension", it: "Ipertensione" } },
+    { code: "hypercholesterolemia", labels: { es: "Colesterol alto", ca: "Colesterol alt", en: "High cholesterol", fr: "Cholesterol eleve", it: "Colesterolo alto" } },
+    { code: "celiac_disease", labels: { es: "Enfermedad celíaca", ca: "Malaltia celíaca", en: "Celiac disease", fr: "Maladie cœliaque", it: "Celiachia" } },
+    { code: "kidney_disease", labels: { es: "Enfermedad renal", ca: "Malaltia renal", en: "Kidney disease", fr: "Maladie renale", it: "Malattia renale" } },
+    { code: "gout", labels: { es: "Gota", ca: "Gota", en: "Gout", fr: "Goutte", it: "Gotta" } },
+    { code: "pregnancy", labels: { es: "Embarazo", ca: "Embaràs", en: "Pregnancy", fr: "Grossesse", it: "Gravidanza" } },
+    { code: "ibs", labels: { es: "Síndrome de intestino irritable", ca: "Síndrome d'intestí irritable", en: "Irritable bowel syndrome", fr: "Syndrome de l'intestin irritable", it: "Sindrome dell'intestino irritabile" } }
+  ],
+  dietary_medical_restriction: [
+    { code: "low_sodium", labels: { es: "Baja en sal", ca: "Baixa en sal", en: "Low sodium", fr: "Faible en sel", it: "Povera di sodio" } },
+    { code: "low_sugar", labels: { es: "Baja en azúcar", ca: "Baixa en sucre", en: "Low sugar", fr: "Faible en sucre", it: "Povera di zuccheri" } },
+    { code: "carb_control", labels: { es: "Control de hidratos", ca: "Control d'hidrats", en: "Carb-controlled", fr: "Controle des glucides", it: "Controllo dei carboidrati" } },
+    { code: "renal_diet", labels: { es: "Dieta renal", ca: "Dieta renal", en: "Renal diet", fr: "Regime renal", it: "Dieta renale" } },
+    { code: "heart_healthy", labels: { es: "Cardiosaludable", ca: "Cardiosaludable", en: "Heart-healthy", fr: "Cardio-protecteur", it: "Salutare per il cuore" } },
+    { code: "low_purine", labels: { es: "Baja en purinas", ca: "Baixa en purines", en: "Low purine", fr: "Faible en purines", it: "Povera di purine" } },
+    { code: "soft_texture", labels: { es: "Textura blanda", ca: "Textura tova", en: "Soft texture", fr: "Texture tendre", it: "Consistenza morbida" } },
+    { code: "alcohol_free", labels: { es: "Sin alcohol", ca: "Sense alcohol", en: "Alcohol-free", fr: "Sans alcool", it: "Senza alcol" } }
   ]
 };
 

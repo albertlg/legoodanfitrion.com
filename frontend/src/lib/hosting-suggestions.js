@@ -66,7 +66,19 @@ function inferAvoidListFromAllergens(allergens) {
     lactose: ["lactose", "dairy"],
     caffeine: ["coffee", "energy drink"],
     sulfites: ["sulfites"],
-    animal_hair: ["pet hair", "animal dander"]
+    animal_hair: ["pet hair", "animal dander"],
+    diabetes: ["high sugar desserts", "sweetened drinks", "refined flour"],
+    hypertension: ["high salt", "processed meats", "salty snacks"],
+    hypercholesterolemia: ["fried foods", "butter-heavy dishes", "fatty meats"],
+    kidney_disease: ["high potassium", "high phosphorus", "high sodium"],
+    gout: ["anchovies", "organ meats", "beer"],
+    low_sodium: ["salted foods", "cured meats", "salty sauces"],
+    low_sugar: ["sugary drinks", "candies", "desserts"],
+    carb_control: ["white bread", "sweets", "sugary sauces"],
+    renal_diet: ["high sodium", "high phosphorus", "processed food"],
+    heart_healthy: ["trans fats", "fried food", "processed meats"],
+    low_purine: ["red meats", "offal", "beer"],
+    alcohol_free: ["wine", "beer", "cocktails"]
   };
 
   const inferred = [];
@@ -131,6 +143,8 @@ function buildHostingSuggestions({
   const relationshipCodes = [];
   const experienceTypeCodes = [];
   const allergiesAndIntolerances = [];
+  const medicalConditions = [];
+  const dietaryMedicalRestrictions = [];
   const petAllergies = [];
   let punctualOnTime = 0;
   let punctualFlexible = 0;
@@ -177,6 +191,14 @@ function buildHostingSuggestions({
     allergiesAndIntolerances.push(
       ...toList(sensitive.intolerances).map((item) => toCatalogLabel("intolerance", item, language))
     );
+    medicalConditions.push(
+      ...toList(sensitive.medical_conditions).map((item) => toCatalogLabel("medical_condition", item, language))
+    );
+    dietaryMedicalRestrictions.push(
+      ...toList(sensitive.dietary_medical_restrictions).map((item) =>
+        toCatalogLabel("dietary_medical_restriction", item, language)
+      )
+    );
     petAllergies.push(...toList(sensitive.pet_allergies).map((item) => toPetAllergyLabel(item, language)));
   }
 
@@ -184,6 +206,8 @@ function buildHostingSuggestions({
     ...explicitFoodDislikes,
     ...drinkDislikes,
     ...petAllergies,
+    ...inferAvoidListFromAllergens(medicalConditions),
+    ...inferAvoidListFromAllergens(dietaryMedicalRestrictions),
     ...inferAvoidListFromAllergens(allergiesAndIntolerances)
   ]);
 
@@ -214,6 +238,8 @@ function buildHostingSuggestions({
     foodSuggestions,
     drinkSuggestions,
     avoidItems: topValues(avoidItems),
+    medicalConditions: topValues(medicalConditions, 8),
+    dietaryMedicalRestrictions: topValues(dietaryMedicalRestrictions, 8),
     decorColors: topValues(colors),
     musicGenres: topValues(genres),
     icebreakers: topValues(icebreakers, 8),

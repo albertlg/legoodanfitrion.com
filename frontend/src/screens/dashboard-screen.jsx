@@ -1076,7 +1076,9 @@ function hasGuestHealthAlerts(sensitiveItem) {
   return (
     toList(sensitiveItem?.allergies).length > 0 ||
     toList(sensitiveItem?.intolerances).length > 0 ||
-    toList(sensitiveItem?.pet_allergies).length > 0
+    toList(sensitiveItem?.pet_allergies).length > 0 ||
+    toList(sensitiveItem?.medical_conditions).length > 0 ||
+    toList(sensitiveItem?.dietary_medical_restrictions).length > 0
   );
 }
 
@@ -1205,6 +1207,8 @@ const GUEST_ADVANCED_INITIAL_STATE = {
   allergies: "",
   intolerances: "",
   petAllergies: "",
+  medicalConditions: "",
+  dietaryMedicalRestrictions: "",
   pets: "",
   musicGenres: "",
   favoriteColor: "",
@@ -3009,7 +3013,9 @@ function DashboardScreen({
         done: Boolean(
           toList(sensitiveItem.allergies).length ||
             toList(sensitiveItem.intolerances).length ||
-            toList(sensitiveItem.pet_allergies).length
+            toList(sensitiveItem.pet_allergies).length ||
+            toList(sensitiveItem.medical_conditions).length ||
+            toList(sensitiveItem.dietary_medical_restrictions).length
         )
       },
       {
@@ -3423,6 +3429,11 @@ function DashboardScreen({
   const petBaseOptions = useMemo(() => getCatalogLabels("pet", language), [language]);
   const allergyBaseOptions = useMemo(() => getCatalogLabels("allergy", language), [language]);
   const intoleranceBaseOptions = useMemo(() => getCatalogLabels("intolerance", language), [language]);
+  const medicalConditionBaseOptions = useMemo(() => getCatalogLabels("medical_condition", language), [language]);
+  const dietaryMedicalRestrictionBaseOptions = useMemo(
+    () => getCatalogLabels("dietary_medical_restriction", language),
+    [language]
+  );
   const cuisineTypeBaseOptions = useMemo(() => getCatalogLabels("cuisine_type", language), [language]);
   const eventTypeOptions = useMemo(
     () =>
@@ -3585,6 +3596,30 @@ function DashboardScreen({
       ]),
     [intoleranceBaseOptions, guestSensitiveById, language]
   );
+  const medicalConditionOptions = useMemo(
+    () =>
+      uniqueValues([
+        ...medicalConditionBaseOptions,
+        ...Object.values(guestSensitiveById).flatMap((sensitiveItem) =>
+          toCatalogLabels("medical_condition", sensitiveItem?.medical_conditions || [], language)
+        )
+      ]),
+    [medicalConditionBaseOptions, guestSensitiveById, language]
+  );
+  const dietaryMedicalRestrictionOptions = useMemo(
+    () =>
+      uniqueValues([
+        ...dietaryMedicalRestrictionBaseOptions,
+        ...Object.values(guestSensitiveById).flatMap((sensitiveItem) =>
+          toCatalogLabels(
+            "dietary_medical_restriction",
+            sensitiveItem?.dietary_medical_restrictions || [],
+            language
+          )
+        )
+      ]),
+    [dietaryMedicalRestrictionBaseOptions, guestSensitiveById, language]
+  );
   const cuisineTypeOptions = useMemo(
     () =>
       uniqueValues([
@@ -3617,7 +3652,9 @@ function DashboardScreen({
         done: Boolean(
           splitListInput(guestAdvanced.allergies).length ||
             splitListInput(guestAdvanced.intolerances).length ||
-            splitListInput(guestAdvanced.petAllergies).length
+            splitListInput(guestAdvanced.petAllergies).length ||
+            splitListInput(guestAdvanced.medicalConditions).length ||
+            splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
         )
       },
       {
@@ -3648,7 +3685,9 @@ function DashboardScreen({
         done: Boolean(
           splitListInput(guestAdvanced.allergies).length ||
             splitListInput(guestAdvanced.intolerances).length ||
-            splitListInput(guestAdvanced.petAllergies).length
+            splitListInput(guestAdvanced.petAllergies).length ||
+            splitListInput(guestAdvanced.medicalConditions).length ||
+            splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
         )
       },
       { key: "menu", label: t("field_food_likes"), done: Boolean(splitListInput(guestAdvanced.foodLikes).length) },
@@ -3782,12 +3821,24 @@ function DashboardScreen({
         done: Boolean(splitListInput(guestAdvanced.intolerances).length)
       },
       {
+        key: "health_conditions",
+        label: t("field_medical_conditions"),
+        done: Boolean(splitListInput(guestAdvanced.medicalConditions).length)
+      },
+      {
+        key: "health_dietary_restrictions",
+        label: t("field_dietary_medical_restrictions"),
+        done: Boolean(splitListInput(guestAdvanced.dietaryMedicalRestrictions).length)
+      },
+      {
         key: "health_sensitive_consent",
         label: t("field_sensitive_consent"),
         done: !(
           splitListInput(guestAdvanced.allergies).length ||
           splitListInput(guestAdvanced.intolerances).length ||
-          splitListInput(guestAdvanced.petAllergies).length
+          splitListInput(guestAdvanced.petAllergies).length ||
+          splitListInput(guestAdvanced.medicalConditions).length ||
+          splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
         )
           ? true
           : Boolean(guestAdvanced.sensitiveConsent)
@@ -4131,6 +4182,12 @@ function DashboardScreen({
     const allergies = toCatalogLabels("allergy", sensitiveItem?.allergies || [], language).slice(0, 5);
     const intolerances = toCatalogLabels("intolerance", sensitiveItem?.intolerances || [], language).slice(0, 5);
     const petAllergies = toPetAllergyLabels(sensitiveItem?.pet_allergies || [], language).slice(0, 4);
+    const medicalConditions = toCatalogLabels("medical_condition", sensitiveItem?.medical_conditions || [], language).slice(0, 4);
+    const dietaryMedicalRestrictions = toCatalogLabels(
+      "dietary_medical_restriction",
+      sensitiveItem?.dietary_medical_restrictions || [],
+      language
+    ).slice(0, 4);
     const foodDislikes = toList(preferenceItem?.food_dislikes || []).slice(0, 5);
     const drinkDislikes = toCatalogLabels("drink", preferenceItem?.drink_dislikes || [], language).slice(0, 4);
     const preferredCuisine = toCatalogLabels("cuisine_type", preferenceItem?.cuisine_types || [], language).slice(0, 4);
@@ -4145,6 +4202,12 @@ function DashboardScreen({
     }
     if (petAllergies.length > 0) {
       warnings.push(`${t("field_pet_allergies")}: ${petAllergies.join(", ")}`);
+    }
+    if (medicalConditions.length > 0) {
+      warnings.push(`${t("field_medical_conditions")}: ${medicalConditions.join(", ")}`);
+    }
+    if (dietaryMedicalRestrictions.length > 0) {
+      warnings.push(`${t("field_dietary_medical_restrictions")}: ${dietaryMedicalRestrictions.join(", ")}`);
     }
     if (foodDislikes.length > 0) {
       warnings.push(`${t("field_food_dislikes")}: ${foodDislikes.join(", ")}`);
@@ -4312,7 +4375,19 @@ function DashboardScreen({
         const allergies = toCatalogLabels("allergy", sensitiveItem.allergies || [], language);
         const intolerances = toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language);
         const petAllergies = toPetAllergyLabels(sensitiveItem.pet_allergies || [], language);
-        const avoid = uniqueValues([...allergies, ...intolerances, ...petAllergies]).slice(0, 6);
+        const medicalConditions = toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language);
+        const dietaryMedicalRestrictions = toCatalogLabels(
+          "dietary_medical_restriction",
+          sensitiveItem.dietary_medical_restrictions || [],
+          language
+        );
+        const avoid = uniqueValues([
+          ...allergies,
+          ...intolerances,
+          ...petAllergies,
+          ...medicalConditions,
+          ...dietaryMedicalRestrictions
+        ]).slice(0, 6);
         if (avoid.length === 0) {
           return null;
         }
@@ -4456,6 +4531,34 @@ function DashboardScreen({
     }
     return Array.from(collected);
   }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventSensitiveMedicalConditions = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
+      for (const item of toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language)) {
+        if (item) {
+          collected.add(item);
+        }
+      }
+    }
+    return Array.from(collected);
+  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
+  const selectedEventDietaryMedicalRestrictions = useMemo(() => {
+    const collected = new Set();
+    for (const row of selectedEventConfirmedGuestRows) {
+      const sensitiveItem = guestSensitiveById[row.guest?.id || row.invitation?.guest_id] || {};
+      for (const item of toCatalogLabels(
+        "dietary_medical_restriction",
+        sensitiveItem.dietary_medical_restrictions || [],
+        language
+      )) {
+        if (item) {
+          collected.add(item);
+        }
+      }
+    }
+    return Array.from(collected);
+  }, [selectedEventConfirmedGuestRows, guestSensitiveById, language]);
   const selectedEventRestrictionsCount = useMemo(() => {
     const collected = new Set();
     for (const row of selectedEventConfirmedGuestRows) {
@@ -4464,6 +4567,16 @@ function DashboardScreen({
         collected.add(item);
       }
       for (const item of toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)) {
+        collected.add(item);
+      }
+      for (const item of toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language)) {
+        collected.add(item);
+      }
+      for (const item of toCatalogLabels(
+        "dietary_medical_restriction",
+        sensitiveItem.dietary_medical_restrictions || [],
+        language
+      )) {
         collected.add(item);
       }
     }
@@ -4738,6 +4851,12 @@ function DashboardScreen({
           ...toCatalogLabels("allergy", sensitiveItem.allergies || [], language),
           ...toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language),
           ...toPetAllergyLabels(sensitiveItem.pet_allergies || [], language),
+          ...toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language),
+          ...toCatalogLabels(
+            "dietary_medical_restriction",
+            sensitiveItem.dietary_medical_restrictions || [],
+            language
+          ),
           ...toList(preferenceItem.food_dislikes || []),
           ...toCatalogLabels("drink", preferenceItem.drink_dislikes || [], language)
         ]
@@ -4773,7 +4892,9 @@ function DashboardScreen({
     }
     const alerts = uniqueValues([
       ...toCatalogLabels("allergy", sensitiveItem.allergies || [], language),
-      ...toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)
+      ...toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language),
+      ...toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language),
+      ...toCatalogLabels("dietary_medical_restriction", sensitiveItem.dietary_medical_restrictions || [], language)
     ]);
     if (alerts.length > 0) {
       notes.push(`${t("event_detail_alerts_title")}: ${alerts.slice(0, 3).join(", ")}`);
@@ -4804,6 +4925,12 @@ function DashboardScreen({
       ...toCatalogLabels("allergy", sensitiveItem.allergies || [], language),
       ...toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language),
       ...toPetAllergyLabels(sensitiveItem.pet_allergies || [], language),
+      ...toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language),
+      ...toCatalogLabels(
+        "dietary_medical_restriction",
+        sensitiveItem.dietary_medical_restrictions || [],
+        language
+      ),
       ...toList(preferenceItem.food_dislikes || []),
       ...toCatalogLabels("drink", preferenceItem.drink_dislikes || [], language),
       ...toList(preferenceItem.taboo_topics || [])
@@ -4826,7 +4953,13 @@ function DashboardScreen({
     const healthAlerts = uniqueValues([
       ...toCatalogLabels("allergy", selectedGuestDetailSensitive?.allergies || [], language),
       ...toCatalogLabels("intolerance", selectedGuestDetailSensitive?.intolerances || [], language),
-      ...toPetAllergyLabels(selectedGuestDetailSensitive?.pet_allergies || [], language)
+      ...toPetAllergyLabels(selectedGuestDetailSensitive?.pet_allergies || [], language),
+      ...toCatalogLabels("medical_condition", selectedGuestDetailSensitive?.medical_conditions || [], language),
+      ...toCatalogLabels(
+        "dietary_medical_restriction",
+        selectedGuestDetailSensitive?.dietary_medical_restrictions || [],
+        language
+      )
     ]).slice(0, 8);
     return {
       food: {
@@ -4892,6 +5025,19 @@ function DashboardScreen({
   );
   const selectedGuestPetAllergyLabels = useMemo(
     () => toPetAllergyLabels(selectedGuestDetailSensitive?.pet_allergies || [], language),
+    [selectedGuestDetailSensitive, language]
+  );
+  const selectedGuestMedicalConditionLabels = useMemo(
+    () => toCatalogLabels("medical_condition", selectedGuestDetailSensitive?.medical_conditions || [], language),
+    [selectedGuestDetailSensitive, language]
+  );
+  const selectedGuestDietaryMedicalRestrictionLabels = useMemo(
+    () =>
+      toCatalogLabels(
+        "dietary_medical_restriction",
+        selectedGuestDetailSensitive?.dietary_medical_restrictions || [],
+        language
+      ),
     [selectedGuestDetailSensitive, language]
   );
   const selectedGuestFoodGroups = useMemo(
@@ -5482,10 +5628,22 @@ function DashboardScreen({
 
       guestPreferencesRows = preferencesResult.data || [];
 
-      const sensitiveResult = await supabase
+      let sensitiveResult = await supabase
         .from("guest_sensitive_preferences")
-        .select("guest_id, allergies, intolerances, pet_allergies, consent_granted, consent_version, consent_granted_at")
+        .select(
+          "guest_id, allergies, intolerances, pet_allergies, medical_conditions, dietary_medical_restrictions, consent_granted, consent_version, consent_granted_at"
+        )
         .in("guest_id", guestIds);
+
+      if (
+        sensitiveResult.error &&
+        isCompatibilityError(sensitiveResult.error, ["medical_conditions", "dietary_medical_restrictions"])
+      ) {
+        sensitiveResult = await supabase
+          .from("guest_sensitive_preferences")
+          .select("guest_id, allergies, intolerances, pet_allergies, consent_granted, consent_version, consent_granted_at")
+          .in("guest_id", guestIds);
+      }
 
       if (sensitiveResult.error && !isMissingRelationError(sensitiveResult.error, "guest_sensitive_preferences")) {
         setDashboardError(sensitiveResult.error.message || t("error_load_data"));
@@ -5748,6 +5906,12 @@ function DashboardScreen({
       allergies: translateCatalogInputList("allergy", prev.allergies, language),
       intolerances: translateCatalogInputList("intolerance", prev.intolerances, language),
       petAllergies: listToInput(toPetAllergyLabels(splitListInput(prev.petAllergies), language)),
+      medicalConditions: translateCatalogInputList("medical_condition", prev.medicalConditions, language),
+      dietaryMedicalRestrictions: translateCatalogInputList(
+        "dietary_medical_restriction",
+        prev.dietaryMedicalRestrictions,
+        language
+      ),
       pets: translateCatalogInputList("pet", prev.pets, language),
       musicGenres: translateCatalogInputList("music_genre", prev.musicGenres, language),
       favoriteColor: toCatalogLabel("color", prev.favoriteColor, language),
@@ -5855,7 +6019,9 @@ function DashboardScreen({
     const hasSensitiveValues =
       toList(sensitiveItem.allergies).length > 0 ||
       toList(sensitiveItem.intolerances).length > 0 ||
-      toList(sensitiveItem.pet_allergies).length > 0;
+      toList(sensitiveItem.pet_allergies).length > 0 ||
+      toList(sensitiveItem.medical_conditions).length > 0 ||
+      toList(sensitiveItem.dietary_medical_restrictions).length > 0;
 
     return {
       address: guestItem?.address || "",
@@ -5885,6 +6051,16 @@ function DashboardScreen({
       allergies: listToInput(toCatalogLabels("allergy", sensitiveItem.allergies || [], language)),
       intolerances: listToInput(toCatalogLabels("intolerance", sensitiveItem.intolerances || [], language)),
       petAllergies: listToInput(toPetAllergyLabels(sensitiveItem.pet_allergies || [], language)),
+      medicalConditions: listToInput(
+        toCatalogLabels("medical_condition", sensitiveItem.medical_conditions || [], language)
+      ),
+      dietaryMedicalRestrictions: listToInput(
+        toCatalogLabels(
+          "dietary_medical_restriction",
+          sensitiveItem.dietary_medical_restrictions || [],
+          language
+        )
+      ),
       pets: listToInput(toCatalogLabels("pet", preferenceItem.pets || [], language)),
       musicGenres: listToInput(toCatalogLabels("music_genre", preferenceItem.music_genres || [], language)),
       favoriteColor: toCatalogLabel("color", preferenceItem.favorite_color, language),
@@ -6848,6 +7024,12 @@ function DashboardScreen({
           confirmed: Number(selectedEventDetailStatusCounts.yes || 0),
           allergies: uniqueValues(nextCriticalRestrictions.filter((item) => item)).slice(0, 8),
           intolerances: uniqueValues(toCatalogLabels("intolerance", selectedEventSensitiveIntolerances, language)).slice(0, 8),
+          medicalConditions: uniqueValues(
+            toCatalogLabels("medical_condition", selectedEventSensitiveMedicalConditions, language)
+          ).slice(0, 8),
+          dietaryMedicalRestrictions: uniqueValues(
+            toCatalogLabels("dietary_medical_restriction", selectedEventDietaryMedicalRestrictions, language)
+          ).slice(0, 8),
           diets: uniqueValues(toCatalogLabels("diet_type", selectedEventDietTypeValues, language)).slice(0, 8)
         },
         extraInstructions: String(effectiveInsights.additionalInstructions || "").trim()
@@ -6913,6 +7095,8 @@ function DashboardScreen({
       selectedEventHealthAlerts,
       selectedEventPlannerContext,
       selectedEventSensitiveIntolerances,
+      selectedEventSensitiveMedicalConditions,
+      selectedEventDietaryMedicalRestrictions,
       selectedEventInsights,
       session?.user?.id,
       t,
@@ -7734,6 +7918,14 @@ function DashboardScreen({
       if (normalizedTab === "health") {
         const allergiesList = toCatalogCodes("allergy", splitListInput(guestAdvanced.allergies));
         const intolerancesList = toCatalogCodes("intolerance", splitListInput(guestAdvanced.intolerances));
+        const medicalConditionsList = toCatalogCodes(
+          "medical_condition",
+          splitListInput(guestAdvanced.medicalConditions)
+        );
+        const dietaryMedicalRestrictionsList = toCatalogCodes(
+          "dietary_medical_restriction",
+          splitListInput(guestAdvanced.dietaryMedicalRestrictions)
+        );
         const petAllergiesList = uniqueValues(
           splitListInput(guestAdvanced.petAllergies).map((value) => {
             const raw = String(value || "").trim();
@@ -7749,7 +7941,12 @@ function DashboardScreen({
             return toCatalogCode("allergy", raw);
           })
         );
-        const hasSensitiveData = allergiesList.length > 0 || intolerancesList.length > 0 || petAllergiesList.length > 0;
+        const hasSensitiveData =
+          allergiesList.length > 0 ||
+          intolerancesList.length > 0 ||
+          petAllergiesList.length > 0 ||
+          medicalConditionsList.length > 0 ||
+          dietaryMedicalRestrictionsList.length > 0;
         if (hasSensitiveData && !guestAdvanced.sensitiveConsent) {
           mergeTabErrors({ sensitiveConsent: "guest_sensitive_consent_required" });
           setGuestMessage(t("guest_sensitive_consent_required"));
@@ -8640,6 +8837,11 @@ function DashboardScreen({
 
     const allergiesList = toCatalogCodes("allergy", splitListInput(guestAdvanced.allergies));
     const intolerancesList = toCatalogCodes("intolerance", splitListInput(guestAdvanced.intolerances));
+    const medicalConditionsList = toCatalogCodes("medical_condition", splitListInput(guestAdvanced.medicalConditions));
+    const dietaryMedicalRestrictionsList = toCatalogCodes(
+      "dietary_medical_restriction",
+      splitListInput(guestAdvanced.dietaryMedicalRestrictions)
+    );
     const petAllergiesList = uniqueValues(
       splitListInput(guestAdvanced.petAllergies).map((value) => {
         const raw = String(value || "").trim();
@@ -8655,7 +8857,12 @@ function DashboardScreen({
         return toCatalogCode("allergy", raw);
       })
     );
-    const hasSensitiveData = allergiesList.length > 0 || intolerancesList.length > 0 || petAllergiesList.length > 0;
+    const hasSensitiveData =
+      allergiesList.length > 0 ||
+      intolerancesList.length > 0 ||
+      petAllergiesList.length > 0 ||
+      medicalConditionsList.length > 0 ||
+      dietaryMedicalRestrictionsList.length > 0;
     if (hasSensitiveData && !guestAdvanced.sensitiveConsent) {
       setGuestErrors((prev) => ({ ...prev, sensitiveConsent: "guest_sensitive_consent_required" }));
       setGuestMessage(t("guest_sensitive_consent_required"));
@@ -8810,6 +9017,8 @@ function DashboardScreen({
       allergies: allergiesList,
       intolerances: intolerancesList,
       pet_allergies: petAllergiesList,
+      medical_conditions: medicalConditionsList,
+      dietary_medical_restrictions: dietaryMedicalRestrictionsList,
       consent_granted: hasSensitiveData ? Boolean(guestAdvanced.sensitiveConsent) : false,
       consent_version: hasSensitiveData ? "guest-sensitive-v1-2026-02" : null,
       consent_granted_at: hasSensitiveData ? nowIso : null
@@ -8841,9 +9050,21 @@ function DashboardScreen({
         relatedDataError = preferencesResult.error;
       }
 
-      const sensitiveResult = await supabase
+      let sensitiveResult = await supabase
         .from("guest_sensitive_preferences")
         .upsert(sensitivePayload, { onConflict: "guest_id" });
+
+      if (
+        sensitiveResult.error &&
+        isCompatibilityError(sensitiveResult.error, ["medical_conditions", "dietary_medical_restrictions"])
+      ) {
+        const fallbackSensitivePayload = { ...sensitivePayload };
+        delete fallbackSensitivePayload.medical_conditions;
+        delete fallbackSensitivePayload.dietary_medical_restrictions;
+        sensitiveResult = await supabase
+          .from("guest_sensitive_preferences")
+          .upsert(fallbackSensitivePayload, { onConflict: "guest_id" });
+      }
 
       if (!relatedDataError && sensitiveResult.error && !isMissingRelationError(sensitiveResult.error, "guest_sensitive_preferences")) {
         relatedDataError = sensitiveResult.error;
@@ -9174,13 +9395,28 @@ function DashboardScreen({
         const allergies = mergeUniqueListValues(toList(targetSensitive?.allergies), toList(sourceSensitive?.allergies));
         const intolerances = mergeUniqueListValues(toList(targetSensitive?.intolerances), toList(sourceSensitive?.intolerances));
         const petAllergies = mergeUniqueListValues(toList(targetSensitive?.pet_allergies), toList(sourceSensitive?.pet_allergies));
-        const hasSensitiveValues = allergies.length > 0 || intolerances.length > 0 || petAllergies.length > 0;
+        const medicalConditions = mergeUniqueListValues(
+          toList(targetSensitive?.medical_conditions),
+          toList(sourceSensitive?.medical_conditions)
+        );
+        const dietaryMedicalRestrictions = mergeUniqueListValues(
+          toList(targetSensitive?.dietary_medical_restrictions),
+          toList(sourceSensitive?.dietary_medical_restrictions)
+        );
+        const hasSensitiveValues =
+          allergies.length > 0 ||
+          intolerances.length > 0 ||
+          petAllergies.length > 0 ||
+          medicalConditions.length > 0 ||
+          dietaryMedicalRestrictions.length > 0;
         const consentGranted = Boolean(targetSensitive?.consent_granted || sourceSensitive?.consent_granted || hasSensitiveValues);
         const mergedSensitive = {
           guest_id: targetGuest.id,
           allergies,
           intolerances,
           pet_allergies: petAllergies,
+          medical_conditions: medicalConditions,
+          dietary_medical_restrictions: dietaryMedicalRestrictions,
           consent_granted: consentGranted,
           consent_version: consentGranted
             ? targetSensitive?.consent_version || sourceSensitive?.consent_version || "v1"
@@ -9189,9 +9425,17 @@ function DashboardScreen({
             ? targetSensitive?.consent_granted_at || sourceSensitive?.consent_granted_at || new Date().toISOString()
             : null
         };
-        const { error: sensitiveError } = await supabase.from("guest_sensitive_preferences").upsert(mergedSensitive, {
+        let { error: sensitiveError } = await supabase.from("guest_sensitive_preferences").upsert(mergedSensitive, {
           onConflict: "guest_id"
         });
+        if (sensitiveError && isCompatibilityError(sensitiveError, ["medical_conditions", "dietary_medical_restrictions"])) {
+          const fallbackSensitive = { ...mergedSensitive };
+          delete fallbackSensitive.medical_conditions;
+          delete fallbackSensitive.dietary_medical_restrictions;
+          ({ error: sensitiveError } = await supabase.from("guest_sensitive_preferences").upsert(fallbackSensitive, {
+            onConflict: "guest_id"
+          }));
+        }
         if (sensitiveError && !isMissingRelationError(sensitiveError, "guest_sensitive_preferences")) {
           throw sensitiveError;
         }
@@ -12961,6 +13205,24 @@ function DashboardScreen({
                     helpText={t("multi_select_hint")}
                   t={t}
                   />
+                  <MultiSelectField
+                    id="guest-medical-conditions"
+                    label={t("field_medical_conditions")}
+                    value={guestAdvanced.medicalConditions}
+                    options={medicalConditionOptions}
+                    onChange={(nextValue) => handleAdvancedMultiSelectChange("medicalConditions", nextValue)}
+                    helpText={t("multi_select_hint")}
+                  t={t}
+                  />
+                  <MultiSelectField
+                    id="guest-dietary-medical-restrictions"
+                    label={t("field_dietary_medical_restrictions")}
+                    value={guestAdvanced.dietaryMedicalRestrictions}
+                    options={dietaryMedicalRestrictionOptions}
+                    onChange={(nextValue) => handleAdvancedMultiSelectChange("dietaryMedicalRestrictions", nextValue)}
+                    helpText={t("multi_select_hint")}
+                  t={t}
+                  />
                   <label className="checkbox-field">
                     <input
                       type="checkbox"
@@ -13094,7 +13356,22 @@ function DashboardScreen({
                       const sensitiveData = guestSensitiveById[guestItem.id] || {};
                       const allergyPreview = toCatalogLabels("allergy", sensitiveData.allergies || [], language).slice(0, 2);
                       const intolerancePreview = toCatalogLabels("intolerance", sensitiveData.intolerances || [], language).slice(0, 2);
-                      const healthPreview = uniqueValues([...allergyPreview, ...intolerancePreview]).slice(0, 3);
+                      const medicalConditionPreview = toCatalogLabels(
+                        "medical_condition",
+                        sensitiveData.medical_conditions || [],
+                        language
+                      ).slice(0, 1);
+                      const dietaryMedicalRestrictionPreview = toCatalogLabels(
+                        "dietary_medical_restriction",
+                        sensitiveData.dietary_medical_restrictions || [],
+                        language
+                      ).slice(0, 1);
+                      const healthPreview = uniqueValues([
+                        ...allergyPreview,
+                        ...intolerancePreview,
+                        ...medicalConditionPreview,
+                        ...dietaryMedicalRestrictionPreview
+                      ]).slice(0, 4);
                       return (
                       <li key={guestItem.id} className="list-table-row list-row-guest">
                         <div className="cell-main list-title-with-avatar">
@@ -13649,6 +13926,34 @@ function DashboardScreen({
                             {selectedGuestPetAllergyLabels.length > 0 ? (
                               selectedGuestPetAllergyLabels.map((item) => (
                                 <span key={`pet-allergy-${item}`} className="multi-chip readonly">
+                                  {item}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="multi-chip readonly">-</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="detail-chip-group">
+                          <p className="item-meta">{t("field_medical_conditions")}</p>
+                          <div className="multi-chip-group">
+                            {selectedGuestMedicalConditionLabels.length > 0 ? (
+                              selectedGuestMedicalConditionLabels.map((item) => (
+                                <span key={`medical-condition-${item}`} className="multi-chip readonly">
+                                  {item}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="multi-chip readonly">-</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="detail-chip-group">
+                          <p className="item-meta">{t("field_dietary_medical_restrictions")}</p>
+                          <div className="multi-chip-group">
+                            {selectedGuestDietaryMedicalRestrictionLabels.length > 0 ? (
+                              selectedGuestDietaryMedicalRestrictionLabels.map((item) => (
+                                <span key={`dietary-medical-restriction-${item}`} className="multi-chip readonly">
                                   {item}
                                 </span>
                               ))
