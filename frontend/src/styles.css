@@ -5140,6 +5140,17 @@ textarea {
   color: var(--text-muted);
 }
 
+.invitation-action-hint-btn {
+  font: inherit;
+  text-align: left;
+  font-weight: 600;
+  text-underline-offset: 1px;
+}
+
+.invitation-action-hint-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
 .invitation-action-hint.is-pending {
   color: color-mix(in srgb, var(--primary) 74%, var(--text-muted) 26%);
 }

@@ -14098,6 +14098,16 @@ function DashboardScreen({
                         : invitationStatus === "no"
                         ? t("invitation_action_hint_declined")
                         : t("invitation_action_hint_review");
+                    const handleInvitationActionHintClick = () => {
+                      if (invitationStatus === "pending") {
+                        const prepared = handlePrepareInvitationShare(invitation);
+                        if (prepared?.whatsappUrl) {
+                          window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                          return;
+                        }
+                      }
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    };
                     const desktopRsvpLabel = mobileRsvpLabel;
                     const desktopRsvpClassName =
                       invitationStatus === "pending"
@@ -14148,7 +14158,15 @@ function DashboardScreen({
                         </p>
                         <div className="cell-invitation-created cell-extra invitation-created-stack">
                           <p className="item-meta">{formatDate(invitation.created_at, language, t("no_date"))}</p>
-                          <p className={`item-meta invitation-action-hint is-${invitationStatus}`}>{invitationActionHint}</p>
+                          <button
+                            type="button"
+                            className={`text-link-btn item-meta invitation-action-hint invitation-action-hint-btn is-${invitationStatus}`}
+                            onClick={handleInvitationActionHintClick}
+                            title={invitationActionHint}
+                            aria-label={invitationActionHint}
+                          >
+                            {invitationActionHint}
+                          </button>
                         </div>
                         <div className="button-row invitation-mobile-quick-actions">
                           <button
