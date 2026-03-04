@@ -14150,7 +14150,7 @@ function DashboardScreen({
                           <p className="item-meta">{formatDate(invitation.created_at, language, t("no_date"))}</p>
                           <p className={`item-meta invitation-action-hint is-${invitationStatus}`}>{invitationActionHint}</p>
                         </div>
-                        <div className="button-row invitation-mobile-quick-actions">
+                        <div className="invitation-mobile-quick-actions">
                           <button
                             className={mobileShareClassName}
                             type="button"
