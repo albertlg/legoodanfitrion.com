@@ -13151,8 +13151,18 @@ function DashboardScreen({
                         <div className="cell-guest-events cell-extra">
                           <p className="item-title">{guestEventsCount}</p>
                         </div>
-                        <div className="item-actions cell-actions list-actions-compact list-actions-iconic">
-                          <div className="button-row list-actions-primary">
+                        <div className="list-mobile-quick-actions">
+                          <button className="btn btn-sm" type="button" onClick={() => openGuestDetail(guestItem.id)}>
+                            <Icon name="eye" className="icon icon-sm" />
+                            <span>{t("view_detail")}</span>
+                          </button>
+                          <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(guestItem)}>
+                            <Icon name="edit" className="icon icon-sm" />
+                            <span>{t("edit_guest")}</span>
+                          </button>
+                        </div>
+                        <div className="button-row item-actions cell-actions list-row-actions list-row-actions-guest">
+                          <div className="list-row-actions-main">
                             <button
                               className="btn btn-ghost btn-sm btn-icon-only"
                               type="button"
@@ -13162,69 +13172,72 @@ function DashboardScreen({
                             >
                               <Icon name="eye" className="icon icon-sm" />
                             </button>
-                            <button
-                              className="btn btn-ghost btn-sm btn-icon-only"
-                              type="button"
-                              onClick={() => handleStartEditGuest(guestItem)}
-                              aria-label={t("edit_guest")}
-                              title={t("edit_guest")}
-                            >
-                              <Icon name="edit" className="icon icon-sm" />
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm btn-icon-only"
-                              type="button"
-                              onClick={() => handleOpenMergeGuest(guestItem)}
-                              aria-label={t("merge_guest_action")}
-                              title={t("merge_guest_action")}
-                            >
-                              <Icon name="link" className="icon icon-sm" />
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm btn-icon-only"
-                              type="button"
-                              onClick={() => handleRequestDeleteGuest(guestItem)}
-                              disabled={isDeletingGuestId === guestItem.id}
-                              aria-label={isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}
-                              title={isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}
-                            >
-                              <Icon name="x" className="icon icon-sm" />
-                            </button>
                           </div>
-                          {guestItem.email || guestItem.phone ? (
-                            <div className="button-row list-actions-secondary">
-                              <button
-                                className="btn btn-ghost btn-sm btn-icon-only"
-                                type="button"
-                                onClick={() => handleCopyHostSignupLink(guestItem)}
-                                disabled={Boolean(conversion)}
-                                aria-label={conversion ? t("host_already_registered_action") : t("host_invite_action")}
-                                title={conversion ? t("host_already_registered_action") : t("host_invite_action")}
-                              >
-                                <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
+                          <details className="list-actions-more">
+                            <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                              <Icon name="more_horizontal" className="icon icon-sm" />
+                            </summary>
+                            <div className="list-actions-more-menu" role="menu">
+                              <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleStartEditGuest(guestItem)}>
+                                <Icon name="edit" className="icon icon-sm" />
+                                <span>{t("edit_guest")}</span>
                               </button>
                               <button
-                                className="btn btn-ghost btn-sm btn-icon-only"
+                                className="btn btn-ghost btn-sm list-actions-more-item"
                                 type="button"
-                                onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
-                                disabled={Boolean(conversion)}
-                                aria-label={t("host_invite_whatsapp_action")}
-                                title={t("host_invite_whatsapp_action")}
+                                onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
                               >
-                                <Icon name="message" className="icon icon-sm" />
+                                <Icon name="sparkle" className="icon icon-sm" />
+                                <span>{t("guest_advanced_title")}</span>
                               </button>
+                              <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(guestItem)}>
+                                <Icon name="link" className="icon icon-sm" />
+                                <span>{t("merge_guest_action")}</span>
+                              </button>
+                              {guestItem.email || guestItem.phone ? (
+                                <button
+                                  className="btn btn-ghost btn-sm list-actions-more-item"
+                                  type="button"
+                                  onClick={() => handleCopyHostSignupLink(guestItem)}
+                                  disabled={Boolean(conversion)}
+                                >
+                                  <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
+                                  <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
+                                </button>
+                              ) : null}
+                              {guestItem.email || guestItem.phone ? (
+                                <button
+                                  className="btn btn-ghost btn-sm list-actions-more-item"
+                                  type="button"
+                                  onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
+                                  disabled={Boolean(conversion)}
+                                >
+                                  <Icon name="message" className="icon icon-sm" />
+                                  <span>{t("host_invite_whatsapp_action")}</span>
+                                </button>
+                              ) : null}
+                              {guestItem.email || guestItem.phone ? (
+                                <button
+                                  className="btn btn-ghost btn-sm list-actions-more-item"
+                                  type="button"
+                                  onClick={() => handleShareHostSignupLink(guestItem, "email")}
+                                  disabled={Boolean(conversion)}
+                                >
+                                  <Icon name="mail" className="icon icon-sm" />
+                                  <span>{t("host_invite_email_action")}</span>
+                                </button>
+                              ) : null}
                               <button
-                                className="btn btn-ghost btn-sm btn-icon-only"
+                                className="btn btn-danger btn-sm list-actions-more-item"
                                 type="button"
-                                onClick={() => handleShareHostSignupLink(guestItem, "email")}
-                                disabled={Boolean(conversion)}
-                                aria-label={t("host_invite_email_action")}
-                                title={t("host_invite_email_action")}
+                                onClick={() => handleRequestDeleteGuest(guestItem)}
+                                disabled={isDeletingGuestId === guestItem.id}
                               >
-                                <Icon name="mail" className="icon icon-sm" />
+                                <Icon name="x" className="icon icon-sm" />
+                                <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
                               </button>
                             </div>
-                          ) : null}
+                          </details>
                         </div>
                       </li>
                       );
@@ -14178,7 +14191,7 @@ function DashboardScreen({
                             <span>{mobileRsvpLabel}</span>
                           </a>
                         </div>
-                        <div className={`button-row cell-actions invitation-actions invitation-actions--${invitationStatus}`}>
+                        <div className={`button-row cell-actions list-row-actions invitation-actions invitation-actions--${invitationStatus}`}>
                           <button
                             className={`btn btn-ghost btn-sm invitation-share-chip ${
                               invitationStatus === "pending" ? "is-pending-focus" : ""
@@ -14205,7 +14218,7 @@ function DashboardScreen({
                           >
                             <Icon name="eye" className="icon icon-sm" />
                           </a>
-                          <details className="invitation-actions-more">
+                          <details className="list-actions-more invitation-actions-more">
                             <summary
                               className="btn btn-ghost btn-sm btn-icon-only"
                               aria-label={t("open_menu")}
@@ -14213,9 +14226,9 @@ function DashboardScreen({
                             >
                               <Icon name="more_horizontal" className="icon icon-sm" />
                             </summary>
-                            <div className="invitation-actions-more-menu" role="menu">
+                            <div className="list-actions-more-menu invitation-actions-more-menu" role="menu">
                               <button
-                                className="btn btn-ghost btn-sm invitation-actions-more-item"
+                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
                                 type="button"
                                 onClick={() => {
                                   const prepared = handlePrepareInvitationShare(invitation);
@@ -14228,7 +14241,7 @@ function DashboardScreen({
                                 <span>{t("invitation_open_email")}</span>
                               </button>
                               <button
-                                className="btn btn-ghost btn-sm invitation-actions-more-item"
+                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
                                 type="button"
                                 onClick={() => handleCopyInvitationLink(url)}
                               >
@@ -14236,7 +14249,7 @@ function DashboardScreen({
                                 <span>{t("copy_link")}</span>
                               </button>
                               <button
-                                className="btn btn-danger btn-sm invitation-actions-more-item"
+                                className="btn btn-danger btn-sm list-actions-more-item invitation-actions-more-item"
                                 type="button"
                                 onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
                               >

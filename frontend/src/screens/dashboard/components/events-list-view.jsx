@@ -113,6 +113,10 @@ export function EventsListView({
                 responded: 0,
                 respondedRate: 0
               };
+              const eventMapsUrl =
+                eventItem.location_lat != null && eventItem.location_lng != null
+                  ? `https://www.google.com/maps?q=${eventItem.location_lat},${eventItem.location_lng}`
+                  : "";
               return (
                 <li key={eventItem.id} className="list-table-row list-row-event">
                   <div className="cell-main">
@@ -156,47 +160,59 @@ export function EventsListView({
                       {invitationSummary.respondedRate}% · {invitationSummary.yes}/{invitationSummary.total}
                     </p>
                   </div>
-                  <div className="item-actions cell-actions list-actions-compact list-actions-iconic">
-                    <button
-                      className="btn btn-ghost btn-sm btn-icon-only"
-                      type="button"
-                      onClick={() => openEventDetail(eventItem.id)}
-                      aria-label={t("view_detail")}
-                      title={t("view_detail")}
-                    >
+                  <div className="list-mobile-quick-actions">
+                    <button className="btn btn-sm" type="button" onClick={() => openEventDetail(eventItem.id)}>
                       <Icon name="eye" className="icon icon-sm" />
+                      <span>{t("view_detail")}</span>
                     </button>
-                    <button
-                      className="btn btn-ghost btn-sm btn-icon-only"
-                      type="button"
-                      onClick={() => handleStartEditEvent(eventItem)}
-                      aria-label={t("edit_event")}
-                      title={t("edit_event")}
-                    >
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(eventItem)}>
                       <Icon name="edit" className="icon icon-sm" />
+                      <span>{t("edit_event")}</span>
                     </button>
-                    {eventItem.location_lat != null && eventItem.location_lng != null ? (
-                      <a
+                  </div>
+                  <div className="button-row cell-actions list-row-actions list-row-actions-event">
+                    <div className="list-row-actions-main">
+                      <button
                         className="btn btn-ghost btn-sm btn-icon-only"
-                        href={`https://www.google.com/maps?q=${eventItem.location_lat},${eventItem.location_lng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={t("map_open_external")}
-                        title={t("map_open_external")}
+                        type="button"
+                        onClick={() => openEventDetail(eventItem.id)}
+                        aria-label={t("view_detail")}
+                        title={t("view_detail")}
                       >
-                        <Icon name="location" className="icon icon-sm" />
-                      </a>
-                    ) : null}
-                    <button
-                      className="btn btn-danger btn-sm btn-icon-only"
-                      type="button"
-                      onClick={() => handleRequestDeleteEvent(eventItem)}
-                      disabled={isDeletingEventId === eventItem.id}
-                      aria-label={isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}
-                      title={isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}
-                    >
-                      <Icon name="x" className="icon icon-sm" />
-                    </button>
+                        <Icon name="eye" className="icon icon-sm" />
+                      </button>
+                    </div>
+                    <details className="list-actions-more">
+                      <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                        <Icon name="more_horizontal" className="icon icon-sm" />
+                      </summary>
+                      <div className="list-actions-more-menu" role="menu">
+                        <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleStartEditEvent(eventItem)}>
+                          <Icon name="edit" className="icon icon-sm" />
+                          <span>{t("edit_event")}</span>
+                        </button>
+                        {eventMapsUrl ? (
+                          <a
+                            className="btn btn-ghost btn-sm list-actions-more-item"
+                            href={eventMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Icon name="location" className="icon icon-sm" />
+                            <span>{t("map_open_external")}</span>
+                          </a>
+                        ) : null}
+                        <button
+                          className="btn btn-danger btn-sm list-actions-more-item"
+                          type="button"
+                          onClick={() => handleRequestDeleteEvent(eventItem)}
+                          disabled={isDeletingEventId === eventItem.id}
+                        >
+                          <Icon name="x" className="icon icon-sm" />
+                          <span>{isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}</span>
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 </li>
               );

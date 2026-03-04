@@ -5024,6 +5024,23 @@ textarea {
   gap: 0.32rem;
 }
 
+.list-row-actions {
+  gap: 0.42rem;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.list-row-actions-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.list-mobile-quick-actions {
+  display: none;
+}
+
 .guest-name-link,
 .event-name-link {
   font-size: inherit;
@@ -5041,28 +5058,30 @@ textarea {
 
 .invitation-actions {
   gap: 0.42rem;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  align-items: center;
 }
 
+.list-actions-more,
 .invitation-actions-more {
   position: relative;
 }
 
+.list-actions-more summary,
 .invitation-actions-more summary {
   list-style: none;
 }
 
+.list-actions-more summary::-webkit-details-marker,
 .invitation-actions-more summary::-webkit-details-marker {
   display: none;
 }
 
+.list-actions-more[open] > summary,
 .invitation-actions-more[open] > summary {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--ghost-bg) 84%, var(--primary) 16%);
 }
 
+.list-actions-more-menu,
 .invitation-actions-more-menu {
   position: absolute;
   right: 0;
@@ -5078,6 +5097,7 @@ textarea {
   z-index: 8;
 }
 
+.list-actions-more-item,
 .invitation-actions-more-item {
   width: 100%;
   justify-content: flex-start;
@@ -6439,6 +6459,7 @@ code {
   .list-table-events .list-table-row > .cell-actions,
   .list-table-guests .list-table-row > .cell-guest-phone,
   .list-table-guests .list-table-row > .cell-guest-health,
+  .list-table-guests .list-table-row > .cell-actions,
   .list-table-invitations-compact .list-table-row > .cell-actions,
   .list-table-invitations .list-table-row > .cell-actions,
   .list-table-invitations .list-table-row > .cell-invitation-created,
@@ -6490,20 +6511,6 @@ code {
     color: var(--text-muted);
   }
 
-  .list-table-guests .list-table-row > .cell-actions {
-    display: grid;
-    margin-top: 0.32rem;
-  }
-
-  .list-row-guest .list-actions-iconic {
-    justify-items: start;
-  }
-
-  .list-row-guest .list-actions-primary,
-  .list-row-guest .list-actions-secondary {
-    justify-content: flex-start;
-  }
-
   .list-row-invitation {
     position: relative;
     padding-right: 6.8rem !important;
@@ -6521,6 +6528,19 @@ code {
 
   .list-row-invitation .invitation-created-stack {
     margin-top: -0.1rem;
+  }
+
+  .list-mobile-quick-actions {
+    display: inline-flex;
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+  }
+
+  .list-mobile-quick-actions .btn {
+    flex: 0 0 auto;
   }
 
   .invitation-mobile-quick-actions {
