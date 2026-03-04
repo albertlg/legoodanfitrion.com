@@ -14092,6 +14092,13 @@ function DashboardScreen({
                       invitationStatus === "pending"
                         ? t("invitation_mobile_rsvp_respond_now")
                         : t("invitation_mobile_rsvp_view_response");
+                    const desktopRsvpLabel = mobileRsvpLabel;
+                    const desktopRsvpClassName =
+                      invitationStatus === "pending"
+                        ? "btn btn-sm btn-icon-only invitation-open-rsvp-btn is-pending"
+                        : invitationStatus === "no"
+                        ? "btn btn-sm btn-icon-only invitation-open-rsvp-btn is-declined"
+                        : "btn btn-ghost btn-sm btn-icon-only invitation-open-rsvp-btn is-neutral";
                     const mobileShareClassName = [
                       "btn",
                       "btn-ghost",
@@ -14164,10 +14171,12 @@ function DashboardScreen({
                             <span>{mobileRsvpLabel}</span>
                           </a>
                         </div>
-                        <div className="button-row cell-actions invitation-actions">
+                        <div className={`button-row cell-actions invitation-actions invitation-actions--${invitationStatus}`}>
                           <div className="invitation-actions-share">
                             <button
-                              className="btn btn-ghost btn-sm invitation-share-chip"
+                              className={`btn btn-ghost btn-sm invitation-share-chip ${
+                                invitationStatus === "pending" ? "is-pending-focus" : ""
+                              }`}
                               type="button"
                               onClick={() => {
                                 const prepared = handlePrepareInvitationShare(invitation);
@@ -14200,12 +14209,12 @@ function DashboardScreen({
                           </div>
                           <div className="invitation-actions-manage">
                             <a
-                              className="btn btn-ghost btn-sm btn-icon-only"
+                              className={desktopRsvpClassName}
                               href={url}
                               target="_blank"
                               rel="noreferrer"
-                              aria-label={t("open_rsvp")}
-                              title={t("open_rsvp")}
+                              aria-label={desktopRsvpLabel}
+                              title={desktopRsvpLabel}
                             >
                               <Icon name="eye" className="icon icon-sm" />
                             </a>

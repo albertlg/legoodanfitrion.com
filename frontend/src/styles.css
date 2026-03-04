@@ -5062,6 +5062,22 @@ textarea {
   gap: 0.28rem;
 }
 
+.invitation-open-rsvp-btn.is-pending {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border: 1px solid color-mix(in srgb, var(--primary) 78%, var(--border) 22%);
+}
+
+.invitation-open-rsvp-btn.is-neutral {
+  border-color: color-mix(in srgb, var(--border) 76%, var(--primary) 24%);
+}
+
+.invitation-open-rsvp-btn.is-declined {
+  background: color-mix(in srgb, #ef4444 14%, var(--panel-bg) 86%);
+  color: color-mix(in srgb, #b91c1c 68%, var(--title) 32%);
+  border: 1px solid color-mix(in srgb, #ef4444 36%, var(--border) 64%);
+}
+
 .invitation-row-links {
   display: inline-flex;
   align-items: center;
@@ -5242,6 +5258,11 @@ textarea {
   border-color: #86efac;
 }
 
+.invitation-share-chip.is-pending-focus {
+  border-color: color-mix(in srgb, var(--primary) 40%, #86efac 60%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent 82%);
+}
+
 .invitation-share-chip .icon {
   width: 0.88rem;
   height: 0.88rem;
@@ -5251,6 +5272,12 @@ textarea {
   color: #bbf7d0;
   background: rgba(34, 197, 94, 0.2);
   border-color: rgba(74, 222, 128, 0.42);
+}
+
+:root[data-theme="dark"] .invitation-open-rsvp-btn.is-declined {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.42);
 }
 
 .invitation-linked-name {
