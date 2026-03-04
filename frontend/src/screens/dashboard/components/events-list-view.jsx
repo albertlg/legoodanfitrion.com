@@ -17,6 +17,7 @@ export function EventsListView({
   pagedEvents,
   eventInvitationSummaryByEventId,
   openEventDetail,
+  openEventPlanById,
   handleStartEditEvent,
   handleRequestDeleteEvent,
   isDeletingEventId,
@@ -187,6 +188,14 @@ export function EventsListView({
                         <Icon name="more_horizontal" className="icon icon-sm" />
                       </summary>
                       <div className="list-actions-more-menu" role="menu">
+                        <button
+                          className="btn btn-ghost btn-sm list-actions-more-item"
+                          type="button"
+                          onClick={() => openEventPlanById(eventItem.id, "ambience")}
+                        >
+                          <Icon name="sparkle" className="icon icon-sm" />
+                          <span>{t("event_plan_cta_action")}</span>
+                        </button>
                         <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleStartEditEvent(eventItem)}>
                           <Icon name="edit" className="icon icon-sm" />
                           <span>{t("edit_event")}</span>

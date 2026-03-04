@@ -6548,6 +6548,25 @@ function DashboardScreen({
     closeMobileMenu();
   };
 
+  const openEventPlanById = (eventId, targetTab = "ambience") => {
+    markUserNavigationIntent();
+    const fallbackEventId = eventId || events[0]?.id || "";
+    if (!fallbackEventId) {
+      return;
+    }
+    const normalizedTab = EVENT_PLANNER_VIEW_TABS.includes(String(targetTab || "").trim().toLowerCase())
+      ? String(targetTab || "").trim().toLowerCase()
+      : "menu";
+    setEventsMapFocusId(fallbackEventId);
+    setSelectedEventDetailId(fallbackEventId);
+    setEventDetailPlannerTab(normalizedTab);
+    setActiveView("events");
+    setEventsWorkspace("plan");
+    setMobileExpandedView("events");
+    setIsNotificationMenuOpen(false);
+    closeMobileMenu();
+  };
+
   const openGuestDetail = (guestId) => {
     markUserNavigationIntent();
     const fallbackGuestId = guestId || guests[0]?.id || "";
@@ -7118,20 +7137,7 @@ function DashboardScreen({
     setEventDetailPlannerTab(normalizedTab);
   };
   const handleOpenEventPlan = (targetTab = "ambience") => {
-    if (!selectedEventDetail?.id) {
-      return;
-    }
-    const normalizedTab = EVENT_PLANNER_VIEW_TABS.includes(String(targetTab || "").trim().toLowerCase())
-      ? String(targetTab || "").trim().toLowerCase()
-      : "menu";
-    markUserNavigationIntent();
-    setSelectedEventDetailId(selectedEventDetail.id);
-    setEventDetailPlannerTab(normalizedTab);
-    setActiveView("events");
-    setEventsWorkspace("plan");
-    setMobileExpandedView("events");
-    setIsNotificationMenuOpen(false);
-    closeMobileMenu();
+    openEventPlanById(selectedEventDetail?.id || "", targetTab);
   };
   const handleBackToEventDetail = () => {
     if (!selectedEventDetail?.id) {
@@ -11655,6 +11661,7 @@ function DashboardScreen({
                 pagedEvents={pagedEvents}
                 eventInvitationSummaryByEventId={eventInvitationSummaryByEventId}
                 openEventDetail={openEventDetail}
+                openEventPlanById={openEventPlanById}
                 handleStartEditEvent={handleStartEditEvent}
                 handleRequestDeleteEvent={handleRequestDeleteEvent}
                 isDeletingEventId={isDeletingEventId}
