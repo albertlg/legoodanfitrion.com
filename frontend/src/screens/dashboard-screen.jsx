@@ -2706,6 +2706,7 @@ function DashboardScreen({
   const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
   const [approvedLowConfidenceMergeIds, setApprovedLowConfidenceMergeIds] = useState([]);
   const [pendingImportMergeApprovalPreviewId, setPendingImportMergeApprovalPreviewId] = useState("");
+  const [importMergeReviewShowOnlyWillFill, setImportMergeReviewShowOnlyWillFill] = useState(true);
   const [importContactsPage, setImportContactsPage] = useState(1);
   const [importContactsPageSize, setImportContactsPageSize] = useState(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
   const [importContactsMessage, setImportContactsMessage] = useState("");
@@ -3438,6 +3439,14 @@ function DashboardScreen({
     () => pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill).length,
     [pendingImportMergeComparisonRows]
   );
+  const pendingImportMergeVisibleRows = useMemo(() => {
+    if (!importMergeReviewShowOnlyWillFill) {
+      return pendingImportMergeComparisonRows;
+    }
+    return pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill);
+  }, [importMergeReviewShowOnlyWillFill, pendingImportMergeComparisonRows]);
+  const pendingImportMergeVisibleCount = pendingImportMergeVisibleRows.length;
+  const pendingImportMergeTotalCount = pendingImportMergeComparisonRows.length;
   useEffect(() => {
     const defaultIds = importContactsReady.map((item) => item.previewId);
     setSelectedImportContactIds(defaultIds);
@@ -3454,6 +3463,11 @@ function DashboardScreen({
       setPendingImportMergeApprovalPreviewId("");
     }
   }, [pendingImportMergeApprovalItem]);
+  useEffect(() => {
+    if (activeView !== "guests" || guestsWorkspace !== "latest") {
+      setPendingImportMergeApprovalPreviewId("");
+    }
+  }, [activeView, guestsWorkspace]);
   useEffect(() => {
     setImportContactsPage(1);
   }, [
@@ -8790,6 +8804,8 @@ function DashboardScreen({
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
     setApprovedLowConfidenceMergeIds([]);
+    setPendingImportMergeApprovalPreviewId("");
+    setImportMergeReviewShowOnlyWillFill(true);
     setImportContactsPage(1);
     setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
@@ -8929,6 +8945,8 @@ function DashboardScreen({
     setImportDuplicateMode(nextMode);
     if (nextMode !== "merge") {
       setApprovedLowConfidenceMergeIds([]);
+      setPendingImportMergeApprovalPreviewId("");
+      setImportMergeReviewShowOnlyWillFill(true);
       return;
     }
     const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
@@ -8950,6 +8968,7 @@ function DashboardScreen({
     }
     setImportDuplicateMode("merge");
     setApprovedLowConfidenceMergeIds((prev) => (prev.includes(previewId) ? prev : [...prev, previewId]));
+    setImportMergeReviewShowOnlyWillFill(true);
     setPendingImportMergeApprovalPreviewId("");
   };
 
@@ -8962,10 +8981,12 @@ function DashboardScreen({
       handleApproveLowConfidenceMergeContact(previewId);
       return;
     }
+    setImportMergeReviewShowOnlyWillFill(true);
     setPendingImportMergeApprovalPreviewId(previewId);
   };
 
   const handleCloseLowConfidenceMergeReview = () => {
+    setImportMergeReviewShowOnlyWillFill(true);
     setPendingImportMergeApprovalPreviewId("");
   };
 
@@ -16189,6 +16210,31 @@ function DashboardScreen({
               <p className="item-meta">
                 {interpolateText(t("contact_import_merge_review_summary"), { count: pendingImportMergeWillFillCount })}
               </p>
+              <div className="import-merge-review-filters">
+                <span className="label-title">{t("contact_import_merge_review_filter_label")}</span>
+                <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("contact_import_merge_review_filter_label")}>
+                  <button
+                    className={`list-filter-tab ${importMergeReviewShowOnlyWillFill ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setImportMergeReviewShowOnlyWillFill(true)}
+                  >
+                    {t("contact_import_merge_review_filter_fill_only")}
+                  </button>
+                  <button
+                    className={`list-filter-tab ${!importMergeReviewShowOnlyWillFill ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setImportMergeReviewShowOnlyWillFill(false)}
+                  >
+                    {t("contact_import_merge_review_filter_all")}
+                  </button>
+                </div>
+                <span className="item-meta import-merge-review-visible">
+                  {interpolateText(t("contact_import_merge_review_visible"), {
+                    visible: pendingImportMergeVisibleCount,
+                    total: pendingImportMergeTotalCount
+                  })}
+                </span>
+              </div>
               <div className="import-merge-review-table-wrap">
                 <table className="import-merge-review-table">
                   <thead>
@@ -16200,7 +16246,7 @@ function DashboardScreen({
                     </tr>
                   </thead>
                   <tbody>
-                    {pendingImportMergeComparisonRows.map((rowItem) => (
+                    {pendingImportMergeVisibleRows.map((rowItem) => (
                       <tr
                         key={`merge-review-${rowItem.label}`}
                         className={rowItem.willFill ? "import-merge-review-row is-will-fill" : "import-merge-review-row"}
@@ -16215,6 +16261,13 @@ function DashboardScreen({
                         </td>
                       </tr>
                     ))}
+                    {pendingImportMergeVisibleRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="item-meta">
+                          {t("contact_import_merge_review_no_rows")}
+                        </td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>

@@ -6347,6 +6347,19 @@ textarea {
   gap: 0.5rem;
 }
 
+.import-merge-review-filters {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.import-merge-review-filters .list-filter-tabs {
+  margin: 0;
+}
+
+.import-merge-review-visible {
+  font-size: 0.74rem;
+}
+
 .import-merge-review-table-wrap {
   border: 1px solid var(--border);
   border-radius: 10px;
