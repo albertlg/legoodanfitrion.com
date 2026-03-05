@@ -1732,11 +1732,19 @@ function buildGuestNameKey(firstName, lastName) {
   return `${firstKey}|${lastKey}`;
 }
 
+function buildGuestFullNameKey(firstName, lastName) {
+  const fullName = String([firstName, lastName].filter(Boolean).join(" ") || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  return normalizeLookupValue(fullName);
+}
+
 function buildGuestMatchingKeys({ firstName, lastName, email, phone }) {
   const keys = [];
   const emailKey = normalizeEmailKey(email);
   const phoneKey = normalizePhoneKey(phone);
   const nameKey = buildGuestNameKey(firstName, lastName);
+  const fullNameKey = buildGuestFullNameKey(firstName, lastName);
   if (emailKey) {
     keys.push(`email:${emailKey}`);
   }
@@ -1745,6 +1753,9 @@ function buildGuestMatchingKeys({ firstName, lastName, email, phone }) {
   }
   if (nameKey) {
     keys.push(`name:${nameKey}`);
+  }
+  if (fullNameKey) {
+    keys.push(`fullname:${fullNameKey}`);
   }
   if (emailKey || phoneKey) {
     keys.push(`contact:${emailKey}|${phoneKey}`);
@@ -2821,12 +2832,25 @@ function DashboardScreen({
     }
     return map;
   }, [guests]);
+  const existingGuestByFullName = useMemo(() => {
+    const map = {};
+    for (const guestItem of guests) {
+      const fullNameKey = buildGuestFullNameKey(guestItem.first_name, guestItem.last_name);
+      if (fullNameKey && !map[fullNameKey]) {
+        map[fullNameKey] = guestItem;
+      }
+    }
+    return map;
+  }, [guests]);
   const ownerEmailKey = normalizeEmailKey(session?.user?.email || "");
   const ownerPhoneKey = normalizePhoneKey(hostProfilePhone || "");
-  const ownerNameKey = useMemo(() => {
+  const ownerNameKeys = useMemo(() => {
     const fallbackName = ownerEmailKey ? ownerEmailKey.split("@")[0] : "";
     const { firstName, lastName } = splitFullName(hostProfileName || fallbackName);
-    return buildGuestNameKey(firstName, lastName);
+    return {
+      exact: buildGuestNameKey(firstName, lastName),
+      full: buildGuestFullNameKey(firstName, lastName)
+    };
   }, [hostProfileName, ownerEmailKey]);
   const ownerGuestCandidate = useMemo(() => {
     if (ownerEmailKey && existingGuestByEmail[ownerEmailKey]) {
@@ -2842,11 +2866,15 @@ function DashboardScreen({
       const emailKey = normalizeEmailKey(email);
       const phoneKey = normalizePhoneKey(phone);
       const nameKey = buildGuestNameKey(firstName, lastName);
+      const fullNameKey = buildGuestFullNameKey(firstName, lastName);
 
       if (ownerGuestCandidate) {
         const isOwnerByEmail = Boolean(emailKey && ownerEmailKey && emailKey === ownerEmailKey);
         const isOwnerByPhone = Boolean(phoneKey && ownerPhoneKey && phoneKey === ownerPhoneKey);
-        const isOwnerByName = Boolean(nameKey && ownerNameKey && nameKey === ownerNameKey);
+        const isOwnerByName = Boolean(
+          (nameKey && ownerNameKeys.exact && nameKey === ownerNameKeys.exact) ||
+            (fullNameKey && ownerNameKeys.full && fullNameKey === ownerNameKeys.full)
+        );
         if (isOwnerByEmail || isOwnerByPhone || isOwnerByName) {
           return ownerGuestCandidate;
         }
@@ -2861,15 +2889,19 @@ function DashboardScreen({
       if (nameKey && existingGuestByName[nameKey]) {
         return existingGuestByName[nameKey];
       }
+      if (fullNameKey && existingGuestByFullName[fullNameKey]) {
+        return existingGuestByFullName[fullNameKey];
+      }
       return null;
     },
     [
       existingGuestByEmail,
+      existingGuestByFullName,
       existingGuestByName,
       existingGuestByPhone,
       ownerEmailKey,
       ownerGuestCandidate,
-      ownerNameKey,
+      ownerNameKeys,
       ownerPhoneKey
     ]
   );
