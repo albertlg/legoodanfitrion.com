@@ -36,6 +36,11 @@
   --sidebar-btn-border: rgba(127, 156, 194, 0.22);
   --sidebar-btn-hover: rgba(53, 84, 123, 0.74);
   --sidebar-btn-active: rgba(60, 95, 138, 0.78);
+  --glass-blur: 14px;
+  --glass-bg-soft: color-mix(in srgb, #ffffff 72%, transparent 28%);
+  --glass-bg-strong: color-mix(in srgb, #ffffff 84%, transparent 16%);
+  --glass-border: rgba(208, 219, 233, 0.76);
+  --glass-shadow: 0 14px 34px rgba(16, 26, 42, 0.14);
 }
 
 :root[data-theme="dark"] {
@@ -69,6 +74,10 @@
   --sidebar-btn-border: rgba(113, 143, 181, 0.36);
   --sidebar-btn-hover: rgba(61, 90, 128, 0.82);
   --sidebar-btn-active: rgba(85, 121, 166, 0.88);
+  --glass-bg-soft: color-mix(in srgb, #1a2a3f 74%, transparent 26%);
+  --glass-bg-strong: color-mix(in srgb, #1b2d44 86%, transparent 14%);
+  --glass-border: rgba(129, 159, 194, 0.44);
+  --glass-shadow: 0 16px 34px rgba(2, 8, 18, 0.5);
 }
 
 * {
@@ -1634,8 +1643,19 @@ h2 {
 
 .dashboard-header {
   padding: 0.96rem 1.35rem 0.74rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 88%, var(--border) 12%);
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--glass-bg-strong) 86%, transparent 14%) 0%,
+      color-mix(in srgb, var(--glass-bg-soft) 92%, transparent 8%) 100%
+    );
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.52)) saturate(1.15);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.52)) saturate(1.15);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--glass-border) 65%, transparent 35%);
   align-items: flex-start;
+  position: sticky;
+  top: 0;
+  z-index: 7;
 }
 
 .dashboard-header-main {
@@ -1746,10 +1766,16 @@ h2 {
   top: calc(100% + 0.45rem);
   right: 0;
   width: min(440px, calc(100vw - 2rem));
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 86%, var(--border) 14%);
   border-radius: 14px;
-  background: var(--panel-bg);
-  box-shadow: 0 22px 42px rgba(2, 6, 23, 0.2);
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--glass-bg-strong) 90%, transparent 10%) 0%,
+      color-mix(in srgb, var(--glass-bg-soft) 92%, transparent 8%) 100%
+    );
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.62)) saturate(1.2);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.62)) saturate(1.2);
+  box-shadow: var(--glass-shadow);
   padding: 0.75rem;
   display: grid;
   gap: 0.6rem;
@@ -1790,6 +1816,9 @@ h2 {
   padding: 1rem 0.75rem 0.78rem;
   border-right: 1px solid var(--border);
   background: var(--sidebar-overlay), var(--sidebar-bg);
+  box-shadow: inset -1px 0 0 var(--sidebar-border), 8px 0 24px rgba(6, 12, 22, 0.18);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.4)) saturate(1.14);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.4)) saturate(1.14);
   align-self: stretch;
   position: sticky;
   top: 0;
@@ -1967,10 +1996,10 @@ h2 {
 
 .session-box.session-box-sidebar {
   min-width: 100%;
-  border: none;
-  background: transparent;
-  border-radius: 0;
-  padding: 0.12rem 0;
+  border: 1px solid color-mix(in srgb, var(--sidebar-border) 88%, transparent 12%);
+  background: color-mix(in srgb, var(--sidebar-bg) 76%, transparent 24%);
+  border-radius: 12px;
+  padding: 0.42rem 0.48rem;
   grid-template-columns: 1fr auto;
   gap: 0.45rem;
 }
@@ -3395,15 +3424,23 @@ h2 {
   position: sticky;
   top: 0.35rem;
   z-index: 3;
-  padding: 0.34rem 0 0.62rem;
-  background: color-mix(in srgb, var(--surface-soft) 95%, transparent 5%);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
-  backdrop-filter: blur(6px);
+  padding: 0.46rem 0.52rem 0.7rem;
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--glass-bg-strong) 88%, transparent 12%) 0%,
+      color-mix(in srgb, var(--glass-bg-soft) 90%, transparent 10%) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--glass-border) 80%, var(--border) 20%);
+  border-bottom-color: color-mix(in srgb, var(--glass-border) 60%, var(--border) 40%);
+  border-radius: 14px;
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.52)) saturate(1.15);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.52)) saturate(1.15);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary-strong) 12%, transparent 88%);
 }
 
 .event-planner-head-standalone {
   top: 0;
-  padding-top: 0.2rem;
+  padding-top: 0.3rem;
 }
 
 .event-planner-screen {
@@ -3415,7 +3452,7 @@ h2 {
 
 .event-planner-screen .event-planner-head {
   top: 0;
-  padding-top: 0.08rem;
+  padding-top: 0.26rem;
 }
 
 .event-planner-head-actions {
@@ -3625,9 +3662,12 @@ h2 {
 
 .event-planner-stats .detail-kpi-card {
   padding: 0.84rem 0.88rem;
-  background: var(--panel-bg);
+  background: color-mix(in srgb, var(--glass-bg-soft) 90%, transparent 10%);
+  border-color: color-mix(in srgb, var(--glass-border) 72%, var(--border) 28%);
   gap: 0.22rem;
   min-height: 116px;
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.26));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.26));
 }
 
 .event-planner-stat-card {
@@ -3735,9 +3775,16 @@ h2 {
   position: sticky;
   top: 5.15rem;
   z-index: 2;
-  padding: 0.18rem 0 0.24rem;
-  background: color-mix(in srgb, var(--surface-soft) 96%, transparent 4%);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent 28%);
+  padding: 0.24rem 0.24rem 0.3rem;
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--glass-bg-strong) 88%, transparent 12%) 0%,
+      color-mix(in srgb, var(--glass-bg-soft) 92%, transparent 8%) 100%
+    );
+  border: 1px solid color-mix(in srgb, var(--glass-border) 78%, var(--border) 22%);
+  border-radius: 12px;
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.48)) saturate(1.12);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.48)) saturate(1.12);
 }
 
 .event-planner-tabs-row .event-planner-tabs {
@@ -6436,6 +6483,15 @@ textarea {
   width: min(100%, 640px);
   max-height: min(92vh, 900px);
   overflow: auto;
+  border-color: color-mix(in srgb, var(--glass-border) 82%, var(--border) 18%);
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--glass-bg-strong) 92%, transparent 8%) 0%,
+      color-mix(in srgb, var(--glass-bg-soft) 94%, transparent 6%) 100%
+    );
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.66)) saturate(1.16);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.66)) saturate(1.16);
+  box-shadow: var(--glass-shadow);
 }
 
 .planner-context-overlay {
@@ -6450,10 +6506,12 @@ textarea {
 }
 
 .planner-context-section {
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 72%, var(--border) 28%);
   border-radius: 10px;
-  background: var(--surface-soft);
+  background: color-mix(in srgb, var(--glass-bg-soft) 88%, var(--surface-soft) 12%);
   padding: 0.55rem 0.65rem;
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.3));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.3));
 }
 
 .planner-context-section summary {
