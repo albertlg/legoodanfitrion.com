@@ -258,10 +258,19 @@ function getSuggestedEventSettingsFromInsights(eventInsights) {
   };
 }
 
-function buildHostingPlaybookActions(eventInsights, t) {
+function buildHostingPlaybookActions(eventInsights, t, options = {}) {
   if (!eventInsights?.hasData) {
     return [];
   }
+  const eventContext = options?.eventContext || {};
+  const eventDetail = options?.eventDetail || {};
+  const attendance = options?.statusCounts || {};
+  const pendingCount = Number(attendance.pending || 0);
+  const allowPlusOne = Boolean(eventContext.allowPlusOne ?? eventDetail.allow_plus_one);
+  const autoReminders = Boolean(eventContext.autoReminders ?? eventDetail.auto_reminders);
+  const dressCodeKey = normalizeEventDressCode(eventContext.dressCode ?? eventDetail.dress_code);
+  const playlistModeKey = normalizeEventPlaylistMode(eventContext.playlistMode ?? eventDetail.playlist_mode);
+  const locationLabel = String(eventDetail.location_name || eventDetail.location_address || "").trim();
   const actions = [];
   if (Array.isArray(eventInsights.avoidItems) && eventInsights.avoidItems.length > 0) {
     actions.push(
@@ -317,6 +326,17 @@ function buildHostingPlaybookActions(eventInsights, t) {
       ? t("smart_hosting_action_timing_buffer")
       : t("smart_hosting_action_timing_on_time")
   );
+  if (pendingCount > 0) {
+    actions.push(`${t("event_setting_auto_reminders")}: ${autoReminders ? t("status_yes") : t("status_no")}.`);
+  }
+  if (allowPlusOne) {
+    actions.push(`${t("event_setting_allow_plus_one")}: ${t("status_yes")}.`);
+  }
+  actions.push(`${t("event_setting_dress_code")}: ${t(`event_dress_code_${dressCodeKey}`)}.`);
+  actions.push(`${t("event_setting_playlist_mode")}: ${t(`event_playlist_mode_${playlistModeKey}`)}.`);
+  if (locationLabel) {
+    actions.push(`${t("field_place")}: ${locationLabel}.`);
+  }
   return actions.slice(0, 6);
 }
 
@@ -340,8 +360,17 @@ function isAlcoholicDrink(value) {
 }
 
 function rankItemsWithKeywords(items, keywords = [], contextText = "") {
+  let options = {};
+  if (contextText && typeof contextText === "object") {
+    options = contextText;
+    contextText = "";
+  }
   const normalizedKeywords = uniqueValues(keywords).map((item) => normalizeLookupValue(item)).filter(Boolean);
   const normalizedContext = normalizeLookupValue(contextText);
+  const normalizedAvoidKeywords = uniqueValues(options?.avoidKeywords || [])
+    .map((item) => normalizeLookupValue(item))
+    .filter(Boolean);
+  const preferNonAlcohol = Boolean(options?.preferNonAlcohol);
   return [...items].sort((a, b) => {
     const aNormalized = normalizeLookupValue(a);
     const bNormalized = normalizeLookupValue(b);
@@ -355,10 +384,57 @@ function rankItemsWithKeywords(items, keywords = [], contextText = "") {
       if (normalizedContext && normalizedItem && normalizedContext.includes(normalizedItem)) {
         score += 2;
       }
+      for (const avoidKeyword of normalizedAvoidKeywords) {
+        if (avoidKeyword && normalizedItem.includes(avoidKeyword)) {
+          score -= 4;
+        }
+      }
+      if (preferNonAlcohol && isAlcoholicDrink(normalizedItem)) {
+        score -= 3;
+      }
       return score;
     };
     return scoreItem(bNormalized) - scoreItem(aNormalized);
   });
+}
+
+function buildPlannerHealthProfile(eventInsights = {}) {
+  const healthSignals = uniqueValues([
+    ...(Array.isArray(eventInsights?.avoidItems) ? eventInsights.avoidItems : []),
+    ...(Array.isArray(eventInsights?.medicalConditions) ? eventInsights.medicalConditions : []),
+    ...(Array.isArray(eventInsights?.dietaryMedicalRestrictions) ? eventInsights.dietaryMedicalRestrictions : [])
+  ]);
+  const normalizedSignals = normalizeLookupValue(healthSignals.join(" "));
+  const avoidKeywords = new Set();
+
+  const addKeywords = (items) => {
+    for (const item of items) {
+      const normalized = normalizeLookupValue(item);
+      if (normalized) {
+        avoidKeywords.add(normalized);
+      }
+    }
+  };
+
+  addKeywords(healthSignals);
+
+  if (/(lact|dairy|leche|milk|queso|cheese|cream|nata)/.test(normalizedSignals)) {
+    addKeywords(["lactose", "dairy", "milk", "cheese", "cream", "nata"]);
+  }
+  if (/(gluten|celiac|celiaco|celiac)/.test(normalizedSignals)) {
+    addKeywords(["gluten", "bread", "pasta", "flour", "harina"]);
+  }
+  if (/(diabet|insulin|sugar|azucar|glycemic|glucem)/.test(normalizedSignals)) {
+    addKeywords(["sugar", "sweet", "cake", "dessert", "caramel", "chocolate", "syrup"]);
+  }
+  if (/(hipertens|hypertens|sodium|salt|sal|renal|kidney|cardiac|corazon|heart)/.test(normalizedSignals)) {
+    addKeywords(["salt", "salty", "cured", "smoked", "sausage", "chips", "fried"]);
+  }
+
+  return {
+    avoidKeywords: Array.from(avoidKeywords),
+    preferNonAlcohol: /(diabet|insulin|hypertens|renal|kidney|liver|hepatic|medic|pregnan|embaraz)/.test(normalizedSignals)
+  };
 }
 
 const EVENT_TYPE_TO_PLANNER_PRESET = {
@@ -546,6 +622,8 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
   const guestCount = Math.max(1, Number(eventInsights?.consideredGuestsCount || 0));
   const durationHours = Math.max(2, Math.min(12, Number(context.durationHours || 4)));
   const budgetKey = ["low", "medium", "high"].includes(context.budgetKey) ? context.budgetKey : "medium";
+  const plannerHealthProfile = buildPlannerHealthProfile(eventInsights);
+  const isHostedAtVenue = /restaurant|restaur|hotel|bar|thefork|local|sala/.test(String(context.searchText || ""));
   const foodBase = uniqueValues(
     Array.isArray(eventInsights?.foodSuggestions) ? eventInsights.foodSuggestions : []
   );
@@ -566,9 +644,29 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
     bookclub: ["book", "tea", "quiche", "salad", "light", "tart"],
     social: ["sharing", "seasonal", "mix", "table"]
   };
-  const presetKeywords = contextKeywords[context.preset] || contextKeywords.social;
-  const rankedFood = rankItemsWithKeywords(foodBase, presetKeywords, context.searchText);
-  const rankedDrink = rankItemsWithKeywords(drinkBase, presetKeywords, context.searchText).sort((a, b) => {
+  const toneKeywords =
+    context.toneKey === "formal"
+      ? ["gourmet", "wine", "pairing", "seasonal", "chef"]
+      : ["sharing", "casual", "tapas", "comfort"];
+  const momentKeywords =
+    context.momentKey === "morning"
+      ? ["breakfast", "coffee", "toast", "fruit"]
+      : context.momentKey === "afternoon"
+      ? ["light", "fresh", "salad", "tea"]
+      : context.momentKey === "night"
+      ? ["dinner", "warm", "cocktail", "pairing"]
+      : ["sunset", "snack", "mix"];
+  const presetKeywords = uniqueValues([...(contextKeywords[context.preset] || contextKeywords.social), ...toneKeywords, ...momentKeywords]);
+  const rankedFood = rankItemsWithKeywords(foodBase, presetKeywords, context.searchText, {
+    avoidKeywords: plannerHealthProfile.avoidKeywords
+  });
+  const rankedDrink = rankItemsWithKeywords(drinkBase, presetKeywords, context.searchText, {
+    avoidKeywords: plannerHealthProfile.avoidKeywords,
+    preferNonAlcohol: plannerHealthProfile.preferNonAlcohol
+  }).sort((a, b) => {
+    if (plannerHealthProfile.preferNonAlcohol) {
+      return Number(isAlcoholicDrink(a)) - Number(isAlcoholicDrink(b));
+    }
     if (context.momentKey === "morning" || context.momentKey === "afternoon") {
       return Number(isAlcoholicDrink(a)) - Number(isAlcoholicDrink(b));
     }
@@ -624,7 +722,8 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
 
   const durationFactor = durationHours >= 6 ? 1.26 : durationHours >= 5 ? 1.16 : durationHours <= 3 ? 0.9 : 1;
   const guestLoadFactor = guestCount >= 30 ? 1.18 : guestCount >= 16 ? 1.08 : guestCount <= 6 ? 0.92 : 1;
-  const quantityFactor = durationFactor * guestLoadFactor;
+  const locationFactor = isHostedAtVenue ? 0.82 : 1;
+  const quantityFactor = durationFactor * guestLoadFactor * locationFactor;
 
   const menuSections = [
     {
@@ -791,7 +890,10 @@ function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
   const durationCostFactor = durationHours >= 6 ? 1.22 : durationHours >= 5 ? 1.14 : durationHours <= 3 ? 0.9 : 1;
   const estimatedCost = Math.max(
     28,
-    Math.round(guestCount * contextCostFactor * budgetFactor * toneFactor * durationCostFactor + avoidBase.length * 1.8)
+    Math.round(
+      guestCount * contextCostFactor * budgetFactor * toneFactor * durationCostFactor * (isHostedAtVenue ? 0.9 : 1) +
+        avoidBase.length * 1.8
+    )
   );
 
   const contextSummary = interpolateText(t("event_planner_context_summary_template"), {
@@ -1033,7 +1135,14 @@ function buildEventHostPlaybook({
   const decorHighlights = rotateValues(uniqueValues(eventInsights?.decorColors || []), variantSeed + 3).slice(0, 4);
   const icebreakers = rotateValues(uniqueValues(eventInsights?.icebreakers || []), variantSeed + 4).slice(0, 5);
   const tabooTopics = rotateValues(uniqueValues(eventInsights?.tabooTopics || []), variantSeed + 5).slice(0, 4);
-  const actionableItems = rotateValues(buildHostingPlaybookActions(eventInsights, t), variantSeed).slice(0, 6);
+  const actionableItems = rotateValues(
+    buildHostingPlaybookActions(eventInsights, t, {
+      eventContext: context,
+      eventDetail: eventItem,
+      statusCounts: attendance
+    }),
+    variantSeed
+  ).slice(0, 6);
 
   const timeline = [
     {
@@ -1126,7 +1235,9 @@ function buildEventHostPlaybook({
 
   const riskHealthItems = uniqueValues([
     ...(Array.isArray(criticalRestrictions) ? criticalRestrictions : []),
-    ...(Array.isArray(healthAlerts) ? healthAlerts.flatMap((item) => item?.avoid || []) : [])
+    ...(Array.isArray(healthAlerts) ? healthAlerts.flatMap((item) => item?.avoid || []) : []),
+    ...(Array.isArray(eventInsights?.medicalConditions) ? eventInsights.medicalConditions : []),
+    ...(Array.isArray(eventInsights?.dietaryMedicalRestrictions) ? eventInsights.dietaryMedicalRestrictions : [])
   ]).slice(0, 8);
 
   const risks = [];
@@ -1140,15 +1251,15 @@ function buildEventHostPlaybook({
       })
     });
   }
-  if (pendingRate >= 0.35) {
+  if (pendingRate >= 0.35 || (pending > 0 && !autoReminders)) {
     risks.push({
       id: "risk-rsvp",
-      level: "status-pending",
+      level: pending > 0 && !autoReminders ? "status-no" : "status-pending",
       label: t("event_planner_host_risk_rsvp_title"),
       detail: interpolateText(t("event_planner_host_risk_rsvp_detail"), {
         pending,
         total
-      })
+      }) + (pending > 0 && !autoReminders ? ` ${t("event_setting_auto_reminders")}: ${t("status_no")}.` : "")
     });
   }
   if (allowPlusOne && plusOneEstimated >= 2) {
@@ -7414,7 +7525,7 @@ function DashboardScreen({
         source: "local_heuristic",
         modelMeta: {
           scope: String(scope || "all"),
-          engine: "local-host-plan-v1"
+          engine: "local-host-plan-v2"
         }
       });
 
