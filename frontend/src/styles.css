@@ -6335,6 +6335,50 @@ textarea {
   font-size: 0.68rem;
 }
 
+.import-merge-review-dialog {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(88vh, 760px);
+  overflow: auto;
+}
+
+.import-merge-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.import-merge-review-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.import-merge-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.import-merge-review-table th,
+.import-merge-review-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.48rem 0.56rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent 35%);
+}
+
+.import-merge-review-table thead th {
+  background: color-mix(in srgb, var(--surface-soft) 74%, var(--panel-bg) 26%);
+  font-weight: 700;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.import-merge-review-table tbody tr:last-child th,
+.import-merge-review-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .import-wizard-alert {
   margin: 0;
 }
@@ -7143,6 +7187,19 @@ code {
   .import-wizard-footer .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .import-merge-review-dialog {
+    width: min(100%, 560px);
+  }
+
+  .import-merge-review-table {
+    font-size: 0.8rem;
+  }
+
+  .import-merge-review-table th,
+  .import-merge-review-table td {
+    padding: 0.42rem 0.46rem;
   }
 
   .event-builder-shell {

@@ -1709,6 +1709,14 @@ function getMergedFieldValue(existingValue, incomingValue) {
   return String(incomingValue).trim();
 }
 
+function formatMergeReviewValue(value) {
+  if (value == null) {
+    return "—";
+  }
+  const normalized = String(value).trim();
+  return normalized || "—";
+}
+
 function buildGuestFingerprint({ firstName, lastName, email, phone }) {
   const emailKey = normalizeEmailKey(email);
   const phoneKey = normalizePhoneKey(phone);
@@ -2697,6 +2705,7 @@ function DashboardScreen({
   const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
   const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
   const [approvedLowConfidenceMergeIds, setApprovedLowConfidenceMergeIds] = useState([]);
+  const [pendingImportMergeApprovalPreviewId, setPendingImportMergeApprovalPreviewId] = useState("");
   const [importContactsPage, setImportContactsPage] = useState(1);
   const [importContactsPageSize, setImportContactsPageSize] = useState(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
   const [importContactsMessage, setImportContactsMessage] = useState("");
@@ -3377,6 +3386,37 @@ function DashboardScreen({
     const start = (safePage - 1) * importContactsPageSize;
     return importContactsFiltered.slice(start, start + importContactsPageSize);
   }, [importContactsFiltered, importContactsPage, importContactsPageSize, importContactsTotalPages]);
+  const pendingImportMergeApprovalItem = useMemo(
+    () => importContactsAnalysis.find((item) => item.previewId === pendingImportMergeApprovalPreviewId) || null,
+    [importContactsAnalysis, pendingImportMergeApprovalPreviewId]
+  );
+  const pendingImportMergeApprovalTargetGuest = useMemo(() => {
+    if (!pendingImportMergeApprovalItem?.existingGuestId) {
+      return null;
+    }
+    return guestsById[pendingImportMergeApprovalItem.existingGuestId] || null;
+  }, [guestsById, pendingImportMergeApprovalItem]);
+  const pendingImportMergeComparisonRows = useMemo(() => {
+    if (!pendingImportMergeApprovalItem || !pendingImportMergeApprovalTargetGuest) {
+      return [];
+    }
+    const sourceName = [pendingImportMergeApprovalItem.firstName, pendingImportMergeApprovalItem.lastName]
+      .filter(Boolean)
+      .join(" ");
+    const targetName = [pendingImportMergeApprovalTargetGuest.first_name, pendingImportMergeApprovalTargetGuest.last_name]
+      .filter(Boolean)
+      .join(" ");
+    return [
+      { label: t("field_full_name"), source: sourceName, target: targetName },
+      { label: t("email"), source: pendingImportMergeApprovalItem.email, target: pendingImportMergeApprovalTargetGuest.email },
+      { label: t("field_phone"), source: pendingImportMergeApprovalItem.phone, target: pendingImportMergeApprovalTargetGuest.phone },
+      { label: t("field_city"), source: pendingImportMergeApprovalItem.city, target: pendingImportMergeApprovalTargetGuest.city },
+      { label: t("field_country"), source: pendingImportMergeApprovalItem.country, target: pendingImportMergeApprovalTargetGuest.country },
+      { label: t("field_address"), source: pendingImportMergeApprovalItem.address, target: pendingImportMergeApprovalTargetGuest.address },
+      { label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
+      { label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday }
+    ];
+  }, [pendingImportMergeApprovalItem, pendingImportMergeApprovalTargetGuest, t]);
   useEffect(() => {
     const defaultIds = importContactsReady.map((item) => item.previewId);
     setSelectedImportContactIds(defaultIds);
@@ -3388,6 +3428,11 @@ function DashboardScreen({
       return next.length === prev.length ? prev : next;
     });
   }, [importContactsAnalysis]);
+  useEffect(() => {
+    if (!pendingImportMergeApprovalItem || !pendingImportMergeApprovalItem.requiresMergeApproval) {
+      setPendingImportMergeApprovalPreviewId("");
+    }
+  }, [pendingImportMergeApprovalItem]);
   useEffect(() => {
     setImportContactsPage(1);
   }, [
@@ -8884,6 +8929,30 @@ function DashboardScreen({
     }
     setImportDuplicateMode("merge");
     setApprovedLowConfidenceMergeIds((prev) => (prev.includes(previewId) ? prev : [...prev, previewId]));
+    setPendingImportMergeApprovalPreviewId("");
+  };
+
+  const handleOpenLowConfidenceMergeReview = (previewId) => {
+    if (!previewId) {
+      return;
+    }
+    const targetItem = importContactsAnalysis.find((item) => item.previewId === previewId);
+    if (!targetItem?.requiresMergeApproval) {
+      handleApproveLowConfidenceMergeContact(previewId);
+      return;
+    }
+    setPendingImportMergeApprovalPreviewId(previewId);
+  };
+
+  const handleCloseLowConfidenceMergeReview = () => {
+    setPendingImportMergeApprovalPreviewId("");
+  };
+
+  const handleConfirmLowConfidenceMergeReview = () => {
+    if (!pendingImportMergeApprovalItem?.previewId) {
+      return;
+    }
+    handleApproveLowConfidenceMergeContact(pendingImportMergeApprovalItem.previewId);
   };
 
   const handleApproveAllLowConfidenceMergeContacts = () => {
@@ -13225,10 +13294,10 @@ function DashboardScreen({
                                 onClick={(event) => {
                                   event.preventDefault();
                                   event.stopPropagation();
-                                  handleApproveLowConfidenceMergeContact(contactItem.previewId);
+                                  handleOpenLowConfidenceMergeReview(contactItem.previewId);
                                 }}
                               >
-                                {t("contact_import_merge_approve_contact")}
+                                {t("contact_import_merge_review_action")}
                               </button>
                             ) : null}
                           </span>
@@ -15882,10 +15951,10 @@ function DashboardScreen({
                                     onClick={(event) => {
                                       event.preventDefault();
                                       event.stopPropagation();
-                                      handleApproveLowConfidenceMergeContact(contactItem.previewId);
+                                      handleOpenLowConfidenceMergeReview(contactItem.previewId);
                                     }}
                                   >
-                                    {t("contact_import_merge_approve_contact")}
+                                    {t("contact_import_merge_review_action")}
                                   </button>
                                 ) : null}
                               </span>
@@ -16068,6 +16137,60 @@ function DashboardScreen({
                   disabled={isMergingGuest || !guestMergeTargetId}
                 >
                   {isMergingGuest ? t("guest_merging") : t("merge_guest_confirm")}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {pendingImportMergeApprovalItem ? (
+          <div className="confirm-overlay" onClick={handleCloseLowConfidenceMergeReview}>
+            <section
+              className="confirm-dialog import-merge-review-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="import-merge-review-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="import-merge-review-title" className="item-title">
+                {t("contact_import_merge_review_title")}
+              </h3>
+              <p className="item-meta">{t("contact_import_merge_review_hint")}</p>
+              <div className="import-merge-review-head">
+                <span className="status-pill status-event-draft">
+                  {t("contact_import_match_reason_label")}: {pendingImportMergeApprovalItem.duplicateReasonLabel || "—"}
+                </span>
+                <span className="status-pill status-maybe">
+                  {t("contact_import_merge_confidence_label")}:{" "}
+                  {t(`contact_import_merge_confidence_${pendingImportMergeApprovalItem.duplicateMergeConfidence || "low"}`)}
+                </span>
+              </div>
+              <div className="import-merge-review-table-wrap">
+                <table className="import-merge-review-table">
+                  <thead>
+                    <tr>
+                      <th>{t("contact_import_merge_review_field")}</th>
+                      <th>{t("contact_import_merge_review_source")}</th>
+                      <th>{t("contact_import_merge_review_target")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingImportMergeComparisonRows.map((rowItem) => (
+                      <tr key={`merge-review-${rowItem.label}`}>
+                        <th>{rowItem.label}</th>
+                        <td>{formatMergeReviewValue(rowItem.source)}</td>
+                        <td>{formatMergeReviewValue(rowItem.target)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="button-row">
+                <button className="btn btn-ghost" type="button" onClick={handleCloseLowConfidenceMergeReview}>
+                  {t("cancel_action")}
+                </button>
+                <button className="btn" type="button" onClick={handleConfirmLowConfidenceMergeReview}>
+                  {t("contact_import_merge_approve_contact")}
                 </button>
               </div>
             </section>
