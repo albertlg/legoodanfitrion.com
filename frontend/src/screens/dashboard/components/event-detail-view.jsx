@@ -86,6 +86,9 @@ export function EventDetailView({
   selectedEventPlannerSavedLabel,
   selectedEventPlannerSnapshotVersion,
   selectedEventPlannerSnapshotHistory,
+  selectedEventPlannerVariantSeed,
+  selectedEventPlannerTabSeed,
+  selectedEventPlannerLastGeneratedByScope,
   selectedEventPlannerGenerationState,
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
@@ -430,7 +433,11 @@ export function EventDetailView({
               selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
               selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
               selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
+              selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
+              selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
+              selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
               selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
+              language={language}
               handleOpenEventPlannerContext={handleOpenEventPlannerContext}
               handleRegenerateEventPlanner={handleRegenerateEventPlanner}
               handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}

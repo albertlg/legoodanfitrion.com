@@ -5587,6 +5587,28 @@ function DashboardScreen({
     }
     return eventPlannerSnapshotHistoryByEventId[selectedEventDetail.id] || [];
   }, [eventPlannerSnapshotHistoryByEventId, selectedEventDetail?.id]);
+  const selectedEventPlannerLastGeneratedByScope = useMemo(() => {
+    const byScope = {};
+    for (const row of selectedEventPlannerSnapshotHistory) {
+      const scopeKey = String(row?.scope || row?.snapshotState?.modelMeta?.scope || "all")
+        .trim()
+        .toLowerCase();
+      if (!scopeKey || byScope[scopeKey]) {
+        continue;
+      }
+      byScope[scopeKey] = {
+        version: Number(row?.version || row?.snapshotState?.version || 0) || 0,
+        generatedAt: String(row?.generatedAt || row?.snapshotState?.generatedAt || "")
+      };
+    }
+    if (!byScope.all && selectedEventPlannerSnapshotState?.generatedAt) {
+      byScope.all = {
+        version: Number(selectedEventPlannerSnapshotState.version || 0) || 0,
+        generatedAt: String(selectedEventPlannerSnapshotState.generatedAt || "")
+      };
+    }
+    return byScope;
+  }, [selectedEventPlannerSnapshotHistory, selectedEventPlannerSnapshotState]);
   const selectedEventPlannerGenerationState = useMemo(() => {
     if (!selectedEventDetail?.id) {
       return null;
@@ -5938,12 +5960,9 @@ function DashboardScreen({
     [selectedGuestDetailGroups, t]
   );
 
-  const filteredEvents = useMemo(() => {
+  const searchedEvents = useMemo(() => {
     const term = eventSearch.trim().toLowerCase();
-    const list = events.filter((eventItem) => {
-      if (eventStatusFilter !== "all" && eventItem.status !== eventStatusFilter) {
-        return false;
-      }
+    return events.filter((eventItem) => {
       if (!term) {
         return true;
       }
@@ -5958,6 +5977,31 @@ function DashboardScreen({
         .join(" ")
         .toLowerCase();
       return haystack.includes(term);
+    });
+  }, [events, eventSearch, language]);
+  const eventStatusCounts = useMemo(() => {
+    const counts = {
+      all: searchedEvents.length,
+      published: 0,
+      draft: 0,
+      completed: 0,
+      cancelled: 0
+    };
+    for (const eventItem of searchedEvents) {
+      const statusKey = String(eventItem.status || "").trim().toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(counts, statusKey)) {
+        counts[statusKey] += 1;
+      }
+    }
+    return counts;
+  }, [searchedEvents]);
+
+  const filteredEvents = useMemo(() => {
+    const list = searchedEvents.filter((eventItem) => {
+      if (eventStatusFilter !== "all" && eventItem.status !== eventStatusFilter) {
+        return false;
+      }
+      return true;
     });
 
     list.sort((a, b) => {
@@ -5980,7 +6024,7 @@ function DashboardScreen({
       return bCreated - aCreated;
     });
     return list;
-  }, [events, eventSearch, eventStatusFilter, eventSort, language]);
+  }, [searchedEvents, eventStatusFilter, eventSort, language]);
 
   const filteredGuests = useMemo(() => {
     const term = guestSearch.trim().toLowerCase();
@@ -13270,6 +13314,7 @@ function DashboardScreen({
                 pageSizeOptions={PAGE_SIZE_OPTIONS}
                 eventStatusFilter={eventStatusFilter}
                 setEventStatusFilter={setEventStatusFilter}
+                eventStatusCounts={eventStatusCounts}
                 filteredEvents={filteredEvents}
                 pagedEvents={pagedEvents}
                 eventInvitationSummaryByEventId={eventInvitationSummaryByEventId}
@@ -13327,6 +13372,9 @@ function DashboardScreen({
                 selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
                 selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
                 selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
+                selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
+                selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
+                selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
                 selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
                 handleOpenEventPlannerContext={handleOpenEventPlannerContext}
                 handleRegenerateEventPlanner={handleRegenerateEventPlanner}

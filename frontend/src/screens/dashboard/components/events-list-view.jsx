@@ -13,6 +13,7 @@ export function EventsListView({
   pageSizeOptions,
   eventStatusFilter,
   setEventStatusFilter,
+  eventStatusCounts,
   filteredEvents,
   pagedEvents,
   eventInvitationSummaryByEventId,
@@ -34,6 +35,13 @@ export function EventsListView({
   orderedEventMapPoints,
   GeoPointsMapPanel
 }) {
+  const statusCounts = eventStatusCounts || {
+    all: filteredEvents.length,
+    published: 0,
+    draft: 0,
+    completed: 0,
+    cancelled: 0
+  };
   return (
     <section className="panel panel-list panel-events-latest">
       <div className="list-tools list-tools-events">
@@ -84,7 +92,7 @@ export function EventsListView({
             aria-pressed={eventStatusFilter === statusOption.key}
             onClick={() => setEventStatusFilter(statusOption.key)}
           >
-            {statusOption.label}
+            {statusOption.label} ({statusCounts[statusOption.key] || 0})
           </button>
         ))}
       </div>

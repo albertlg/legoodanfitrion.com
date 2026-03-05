@@ -14,7 +14,11 @@ export function HostPlanView({
   selectedEventPlannerSavedLabel,
   selectedEventPlannerSnapshotVersion = 0,
   selectedEventPlannerSnapshotHistory = [],
+  selectedEventPlannerVariantSeed = 0,
+  selectedEventPlannerTabSeed = {},
+  selectedEventPlannerLastGeneratedByScope = {},
   selectedEventPlannerGenerationState,
+  language = "en",
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
   handleRestoreEventPlannerSnapshot,
@@ -48,6 +52,14 @@ export function HostPlanView({
   handleCopyEventPlannerMessages,
   handleCopyEventPlannerPrompt
 }) {
+  const plannerTabs = [
+    { key: "menu", label: t("event_planner_tab_menu") },
+    { key: "shopping", label: t("event_planner_tab_shopping") },
+    { key: "ambience", label: t("event_planner_tab_ambience") },
+    { key: "timings", label: t("event_planner_tab_timings") },
+    { key: "communication", label: t("event_planner_tab_communication") },
+    { key: "risks", label: t("event_planner_tab_risks") }
+  ];
   const isGenerating = Boolean(selectedEventPlannerGenerationState?.isGenerating);
   const generatingScope = String(selectedEventPlannerGenerationState?.scope || "");
   const isGeneratingAll = isGenerating && generatingScope === "all";
@@ -55,6 +67,35 @@ export function HostPlanView({
   const selectedPlannerVersionValue = String(
     Number(selectedEventPlannerSnapshotVersion || selectedEventPlannerSnapshotHistory?.[0]?.version || 0) || ""
   );
+  const menuTabRound = Math.max(
+    Number(selectedEventPlannerTabSeed?.menu || 0),
+    Number(selectedEventPlannerTabSeed?.shopping || 0)
+  );
+  const tabRounds = {
+    menu: menuTabRound,
+    shopping: menuTabRound,
+    ambience: Number(selectedEventPlannerTabSeed?.ambience || 0),
+    timings: Number(selectedEventPlannerTabSeed?.timings || 0),
+    communication: Number(selectedEventPlannerTabSeed?.communication || 0),
+    risks: Number(selectedEventPlannerTabSeed?.risks || 0)
+  };
+  const activeTabGenerationMeta =
+    selectedEventPlannerLastGeneratedByScope[eventDetailPlannerTab] ||
+    selectedEventPlannerLastGeneratedByScope.all ||
+    null;
+  const activeTabGeneratedAtLabel = activeTabGenerationMeta?.generatedAt
+    ? new Date(activeTabGenerationMeta.generatedAt).toLocaleString(language || undefined, {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    : "";
+  const activeTabVersionLabel = activeTabGenerationMeta?.version
+    ? `v${activeTabGenerationMeta.version}`
+    : selectedEventPlannerVariantSeed
+    ? `v${selectedEventPlannerVariantSeed}`
+    : "";
   const ambienceTimelineHighlights = (selectedEventHostPlaybook?.timeline || []).slice(0, 3);
   const plannerDressCodeKey = ["none", "casual", "elegant", "formal", "themed"].includes(
     String(selectedEventPlannerContextEffective?.dressCode || "")
@@ -308,60 +349,24 @@ export function HostPlanView({
       ) : null}
       <div className={`event-planner-tabs-row ${standalone ? "event-planner-tabs-row-standalone" : ""}`}>
         <div className="list-filter-tabs list-filter-tabs-segmented event-planner-tabs" role="tablist" aria-label={t("event_planner_title")}>
-          <button
-            className={`list-filter-tab ${eventDetailPlannerTab === "menu" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={eventDetailPlannerTab === "menu"}
-            onClick={() => handleEventPlannerTabChange("menu")}
-          >
-            {t("event_planner_tab_menu")}
-          </button>
-          <button
-            className={`list-filter-tab ${eventDetailPlannerTab === "shopping" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={eventDetailPlannerTab === "shopping"}
-            onClick={() => handleEventPlannerTabChange("shopping")}
-          >
-            {t("event_planner_tab_shopping")}
-          </button>
-          <button
-            className={`list-filter-tab ${eventDetailPlannerTab === "ambience" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={eventDetailPlannerTab === "ambience"}
-            onClick={() => handleEventPlannerTabChange("ambience")}
-          >
-            {t("event_planner_tab_ambience")}
-          </button>
-          <button
-            className={`list-filter-tab ${eventDetailPlannerTab === "timings" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={eventDetailPlannerTab === "timings"}
-            onClick={() => handleEventPlannerTabChange("timings")}
-          >
-            {t("event_planner_tab_timings")}
-          </button>
-          <button
-            className={`list-filter-tab ${eventDetailPlannerTab === "communication" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={eventDetailPlannerTab === "communication"}
-            onClick={() => handleEventPlannerTabChange("communication")}
-          >
-            {t("event_planner_tab_communication")}
-          </button>
-          <button
-            className={`list-filter-tab ${eventDetailPlannerTab === "risks" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={eventDetailPlannerTab === "risks"}
-            onClick={() => handleEventPlannerTabChange("risks")}
-          >
-            {t("event_planner_tab_risks")}
-          </button>
+          {plannerTabs.map((tabItem) => {
+            const isActive = eventDetailPlannerTab === tabItem.key;
+            const hasVersion = Number(tabRounds[tabItem.key] || 0) > 0;
+            const isTabGenerating = isGeneratingCurrentTab && isActive;
+            return (
+              <button
+                key={tabItem.key}
+                className={`list-filter-tab ${isActive ? "active" : ""} ${isTabGenerating ? "is-generating" : ""}`}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => handleEventPlannerTabChange(tabItem.key)}
+              >
+                <span className="event-planner-tab-label">{tabItem.label}</span>
+                {hasVersion ? <span className="event-planner-tab-badge">v{tabRounds[tabItem.key]}</span> : null}
+              </button>
+            );
+          })}
         </div>
         <button
           className="btn btn-ghost btn-sm event-planner-tab-regen-btn"
@@ -373,6 +378,12 @@ export function HostPlanView({
           {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
         </button>
       </div>
+      {activeTabVersionLabel || activeTabGeneratedAtLabel ? (
+        <p className="hint event-planner-tabs-meta">
+          <Icon name="clock" className="icon icon-xs" />
+          {t("event_planner_versions_label")}: {[activeTabVersionLabel, activeTabGeneratedAtLabel].filter(Boolean).join(" · ")}
+        </p>
+      ) : null}
       {eventDetailPlannerTab === "menu" ? (
         <div className="event-planner-menu-grid">
           {selectedEventMealPlan.menuSections.map((sectionItem) => (

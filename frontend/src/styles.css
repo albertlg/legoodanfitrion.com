@@ -3755,12 +3755,53 @@ h2 {
 }
 
 .event-planner-tabs .list-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
   flex: 0 0 auto;
   white-space: nowrap;
   min-height: 38px;
   padding: 0.34rem 0.94rem;
   font-size: 0.82rem;
   font-weight: 650;
+}
+
+.event-planner-tab-label {
+  display: inline-block;
+}
+
+.event-planner-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.14rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+  background: color-mix(in srgb, var(--surface-soft) 78%, var(--panel-bg) 22%);
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.event-planner-tabs .list-filter-tab.active .event-planner-tab-badge {
+  border-color: color-mix(in srgb, var(--primary) 64%, var(--border) 36%);
+  background: color-mix(in srgb, var(--panel-bg) 72%, var(--primary) 28%);
+  color: var(--primary);
+}
+
+.event-planner-tabs .list-filter-tab.is-generating {
+  border-color: color-mix(in srgb, var(--primary) 72%, var(--border) 28%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 28%, transparent 72%);
+}
+
+.event-planner-tabs-meta {
+  margin: -0.08rem 0 0.06rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
 }
 
 .event-planner-tabs-row {
