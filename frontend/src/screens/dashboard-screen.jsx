@@ -1763,6 +1763,52 @@ function buildGuestMatchingKeys({ firstName, lastName, email, phone }) {
   return uniqueValues(keys);
 }
 
+function getImportDuplicateReasonCodes({ firstName, lastName, email, phone, existingGuest, ownerGuestId }) {
+  if (!existingGuest) {
+    return [];
+  }
+  const reasons = [];
+  const existingEmailKey = normalizeEmailKey(existingGuest.email);
+  const existingPhoneKey = normalizePhoneKey(existingGuest.phone);
+  const incomingEmailKey = normalizeEmailKey(email);
+  const incomingPhoneKey = normalizePhoneKey(phone);
+  const existingNameKey = buildGuestNameKey(existingGuest.first_name, existingGuest.last_name);
+  const incomingNameKey = buildGuestNameKey(firstName, lastName);
+  const existingFullNameKey = buildGuestFullNameKey(existingGuest.first_name, existingGuest.last_name);
+  const incomingFullNameKey = buildGuestFullNameKey(firstName, lastName);
+
+  if (ownerGuestId && existingGuest.id === ownerGuestId) {
+    reasons.push("owner");
+  }
+  if (incomingEmailKey && existingEmailKey && incomingEmailKey === existingEmailKey) {
+    reasons.push("email");
+  }
+  if (incomingPhoneKey && existingPhoneKey && incomingPhoneKey === existingPhoneKey) {
+    reasons.push("phone");
+  }
+  if (incomingFullNameKey && existingFullNameKey && incomingFullNameKey === existingFullNameKey) {
+    reasons.push("full_name");
+  } else if (incomingNameKey && existingNameKey && incomingNameKey === existingNameKey) {
+    reasons.push("name");
+  }
+
+  return uniqueValues(reasons);
+}
+
+function getImportDuplicateMergeConfidence(reasonCodes) {
+  const reasons = Array.isArray(reasonCodes) ? reasonCodes : [];
+  if (reasons.some((item) => item === "owner" || item === "email" || item === "phone")) {
+    return "high";
+  }
+  if (reasons.includes("full_name")) {
+    return "medium";
+  }
+  if (reasons.includes("name")) {
+    return "low";
+  }
+  return "low";
+}
+
 function buildGuestDuplicateMatchScore(sourceGuest, targetGuest) {
   if (!sourceGuest?.id || !targetGuest?.id || sourceGuest.id === targetGuest.id) {
     return -1;
@@ -3003,6 +3049,19 @@ function DashboardScreen({
       const existingGuest = findExistingGuestForContact({ firstName, lastName, email, phone });
       const duplicateExisting = Boolean(existingGuest);
       const willMerge = duplicateExisting && importDuplicateMode === "merge";
+      const duplicateReasonCodes = getImportDuplicateReasonCodes({
+        firstName,
+        lastName,
+        email,
+        phone,
+        existingGuest,
+        ownerGuestId: ownerGuestCandidate?.id || ""
+      });
+      const duplicateMergeConfidence = getImportDuplicateMergeConfidence(duplicateReasonCodes);
+      const duplicateReasonLabel = duplicateReasonCodes
+        .map((reasonCode) => t(`contact_import_match_reason_${reasonCode}`))
+        .filter(Boolean)
+        .join(" · ");
       const existingGuestName =
         duplicateExisting && existingGuest
           ? `${existingGuest.first_name || ""} ${existingGuest.last_name || ""}`.trim() || t("field_guest")
@@ -3048,11 +3107,14 @@ function DashboardScreen({
         hasDualChannel,
         duplicateInPreview,
         duplicateExisting,
+        duplicateReasonCodes,
+        duplicateReasonLabel,
+        duplicateMergeConfidence,
         willMerge,
         canImport
       };
     });
-  }, [findExistingGuestForContact, importContactsPreview, importDuplicateMode, t]);
+  }, [findExistingGuestForContact, importContactsPreview, importDuplicateMode, ownerGuestCandidate?.id, t]);
   const importContactsGroupOptions = useMemo(
     () =>
       uniqueValues(
@@ -8748,12 +8810,45 @@ function DashboardScreen({
     );
   };
 
+  const getSmartImportMergeSelection = (items) => {
+    const duplicateCandidates = items.filter((item) => item.duplicateExisting && !item.duplicateInPreview);
+    const safeCandidates = duplicateCandidates.filter(
+      (item) => item.duplicateMergeConfidence === "high" || item.duplicateMergeConfidence === "medium"
+    );
+    return {
+      duplicateCandidates,
+      selectedCandidates: safeCandidates.length > 0 ? safeCandidates : duplicateCandidates
+    };
+  };
+
+  const handleImportDuplicateModeChange = (nextModeInput) => {
+    const nextMode = nextModeInput === "merge" ? "merge" : "skip";
+    setImportDuplicateMode(nextMode);
+    if (nextMode !== "merge") {
+      return;
+    }
+    const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
+    if (duplicateCandidates.length === 0 || selectedImportContactIds.length > 0) {
+      return;
+    }
+    setSelectedImportContactIds(selectedCandidates.map((item) => item.previewId));
+    setImportContactsMessage(
+      interpolateText(t("contact_import_merge_smart_selected"), {
+        selected: selectedCandidates.length,
+        total: duplicateCandidates.length
+      })
+    );
+  };
+
   const handleSelectDuplicateMergeImportContacts = () => {
     setImportDuplicateMode("merge");
-    setSelectedImportContactIds(
-      importContactsFiltered
-        .filter((item) => item.duplicateExisting && !item.duplicateInPreview)
-        .map((item) => item.previewId)
+    const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
+    setSelectedImportContactIds(selectedCandidates.map((item) => item.previewId));
+    setImportContactsMessage(
+      interpolateText(t("contact_import_merge_smart_selected"), {
+        selected: selectedCandidates.length,
+        total: duplicateCandidates.length
+      })
     );
   };
 
@@ -12875,7 +12970,7 @@ function DashboardScreen({
                       <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
                       <select
                         value={importDuplicateMode}
-                        onChange={(event) => setImportDuplicateMode(event.target.value === "merge" ? "merge" : "skip")}
+                        onChange={(event) => handleImportDuplicateModeChange(event.target.value)}
                       >
                         <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
                         <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
@@ -12977,7 +13072,7 @@ function DashboardScreen({
                       {t("contact_import_select_dual_channel")}
                     </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
-                      {t("contact_import_duplicate_mode_merge")}
+                      {t("contact_import_select_merge_safe")}
                     </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
                       {t("contact_import_select_filtered_ready")}
@@ -13040,6 +13135,11 @@ function DashboardScreen({
                             {contactItem.duplicateExisting && contactItem.existingGuestName ? (
                               <small>
                                 {t("merge_guest_target_label")}: {contactItem.existingGuestName}
+                              </small>
+                            ) : null}
+                            {contactItem.duplicateExisting && contactItem.duplicateReasonLabel ? (
+                              <small>
+                                {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
                               </small>
                             ) : null}
                           </span>
@@ -15562,7 +15662,7 @@ function DashboardScreen({
                         <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
                         <select
                           value={importDuplicateMode}
-                          onChange={(event) => setImportDuplicateMode(event.target.value === "merge" ? "merge" : "skip")}
+                          onChange={(event) => handleImportDuplicateModeChange(event.target.value)}
                         >
                           <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
                           <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
@@ -15593,7 +15693,7 @@ function DashboardScreen({
                         {t("contact_import_select_suggested")}
                       </button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
-                        {t("contact_import_duplicate_mode_merge")}
+                        {t("contact_import_select_merge_safe")}
                       </button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
                         {t("contact_import_select_page_ready")}
@@ -15659,6 +15759,11 @@ function DashboardScreen({
                                 {contactItem.duplicateExisting && contactItem.existingGuestName ? (
                                   <span className="item-meta import-preview-target">
                                     {t("merge_guest_target_label")}: {contactItem.existingGuestName}
+                                  </span>
+                                ) : null}
+                                {contactItem.duplicateExisting && contactItem.duplicateReasonLabel ? (
+                                  <span className="item-meta import-preview-target">
+                                    {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
                                   </span>
                                 ) : null}
                               </span>
