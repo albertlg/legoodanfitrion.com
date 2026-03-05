@@ -3406,7 +3406,7 @@ function DashboardScreen({
     const targetName = [pendingImportMergeApprovalTargetGuest.first_name, pendingImportMergeApprovalTargetGuest.last_name]
       .filter(Boolean)
       .join(" ");
-    return [
+    const rows = [
       { label: t("field_full_name"), source: sourceName, target: targetName },
       { label: t("email"), source: pendingImportMergeApprovalItem.email, target: pendingImportMergeApprovalTargetGuest.email },
       { label: t("field_phone"), source: pendingImportMergeApprovalItem.phone, target: pendingImportMergeApprovalTargetGuest.phone },
@@ -3416,7 +3416,26 @@ function DashboardScreen({
       { label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
       { label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday }
     ];
+    return rows.map((rowItem) => {
+      const sourceBlank = isBlankValue(rowItem.source);
+      const targetBlank = isBlankValue(rowItem.target);
+      let mergeResultKey = "keep_target";
+      if (!sourceBlank && targetBlank) {
+        mergeResultKey = "will_fill";
+      } else if (sourceBlank && targetBlank) {
+        mergeResultKey = "empty";
+      }
+      return {
+        ...rowItem,
+        mergeResultKey,
+        willFill: mergeResultKey === "will_fill"
+      };
+    });
   }, [pendingImportMergeApprovalItem, pendingImportMergeApprovalTargetGuest, t]);
+  const pendingImportMergeWillFillCount = useMemo(
+    () => pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill).length,
+    [pendingImportMergeComparisonRows]
+  );
   useEffect(() => {
     const defaultIds = importContactsReady.map((item) => item.previewId);
     setSelectedImportContactIds(defaultIds);
@@ -16165,6 +16184,9 @@ function DashboardScreen({
                   {t(`contact_import_merge_confidence_${pendingImportMergeApprovalItem.duplicateMergeConfidence || "low"}`)}
                 </span>
               </div>
+              <p className="item-meta">
+                {interpolateText(t("contact_import_merge_review_summary"), { count: pendingImportMergeWillFillCount })}
+              </p>
               <div className="import-merge-review-table-wrap">
                 <table className="import-merge-review-table">
                   <thead>
@@ -16172,14 +16194,23 @@ function DashboardScreen({
                       <th>{t("contact_import_merge_review_field")}</th>
                       <th>{t("contact_import_merge_review_source")}</th>
                       <th>{t("contact_import_merge_review_target")}</th>
+                      <th>{t("contact_import_merge_review_result")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pendingImportMergeComparisonRows.map((rowItem) => (
-                      <tr key={`merge-review-${rowItem.label}`}>
+                      <tr
+                        key={`merge-review-${rowItem.label}`}
+                        className={rowItem.willFill ? "import-merge-review-row is-will-fill" : "import-merge-review-row"}
+                      >
                         <th>{rowItem.label}</th>
                         <td>{formatMergeReviewValue(rowItem.source)}</td>
                         <td>{formatMergeReviewValue(rowItem.target)}</td>
+                        <td>
+                          <span className={`status-pill import-merge-review-result is-${rowItem.mergeResultKey}`}>
+                            {t(`contact_import_merge_review_result_${rowItem.mergeResultKey}`)}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

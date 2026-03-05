@@ -6379,6 +6379,33 @@ textarea {
   border-bottom: none;
 }
 
+.import-merge-review-row.is-will-fill {
+  background: color-mix(in srgb, var(--success) 10%, transparent 90%);
+}
+
+.import-merge-review-result {
+  font-size: 0.68rem;
+  padding: 0.14rem 0.42rem;
+}
+
+.import-merge-review-result.is-will_fill {
+  background: color-mix(in srgb, var(--success) 16%, var(--surface) 84%);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border) 50%);
+}
+
+.import-merge-review-result.is-keep_target {
+  background: color-mix(in srgb, var(--accent-blue) 10%, var(--surface) 90%);
+  color: var(--accent-blue-strong);
+  border-color: color-mix(in srgb, var(--accent-blue) 45%, var(--border) 55%);
+}
+
+.import-merge-review-result.is-empty {
+  background: color-mix(in srgb, var(--border) 18%, var(--surface) 82%);
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent 30%);
+}
+
 .import-wizard-alert {
   margin: 0;
 }
