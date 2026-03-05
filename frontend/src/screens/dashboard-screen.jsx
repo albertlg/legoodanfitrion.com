@@ -2846,8 +2846,8 @@ function DashboardScreen({
       if (ownerGuestCandidate) {
         const isOwnerByEmail = Boolean(emailKey && ownerEmailKey && emailKey === ownerEmailKey);
         const isOwnerByPhone = Boolean(phoneKey && ownerPhoneKey && phoneKey === ownerPhoneKey);
-        const isOwnerByNameOnly = Boolean(!emailKey && !phoneKey && nameKey && ownerNameKey && nameKey === ownerNameKey);
-        if (isOwnerByEmail || isOwnerByPhone || isOwnerByNameOnly) {
+        const isOwnerByName = Boolean(nameKey && ownerNameKey && nameKey === ownerNameKey);
+        if (isOwnerByEmail || isOwnerByPhone || isOwnerByName) {
           return ownerGuestCandidate;
         }
       }
@@ -2971,6 +2971,10 @@ function DashboardScreen({
       const existingGuest = findExistingGuestForContact({ firstName, lastName, email, phone });
       const duplicateExisting = Boolean(existingGuest);
       const willMerge = duplicateExisting && importDuplicateMode === "merge";
+      const existingGuestName =
+        duplicateExisting && existingGuest
+          ? `${existingGuest.first_name || ""} ${existingGuest.last_name || ""}`.trim() || t("field_guest")
+          : "";
       const canImport = Boolean((firstName || email || phone) && !duplicateInPreview && (!duplicateExisting || willMerge));
       const hasDualChannel = Boolean(normalizeEmailKey(email) && normalizePhoneKey(phone));
       const captureScore = calculateImportContactCaptureScore({
@@ -2992,6 +2996,7 @@ function DashboardScreen({
         fingerprint,
         matchingKeys,
         existingGuestId: existingGuest?.id || "",
+        existingGuestName,
         firstName,
         lastName,
         email,
@@ -3015,7 +3020,7 @@ function DashboardScreen({
         canImport
       };
     });
-  }, [findExistingGuestForContact, importContactsPreview, importDuplicateMode]);
+  }, [findExistingGuestForContact, importContactsPreview, importDuplicateMode, t]);
   const importContactsGroupOptions = useMemo(
     () =>
       uniqueValues(
@@ -8711,6 +8716,15 @@ function DashboardScreen({
     );
   };
 
+  const handleSelectDuplicateMergeImportContacts = () => {
+    setImportDuplicateMode("merge");
+    setSelectedImportContactIds(
+      importContactsFiltered
+        .filter((item) => item.duplicateExisting && !item.duplicateInPreview)
+        .map((item) => item.previewId)
+    );
+  };
+
   const toggleImportContactSelection = (previewId) => {
     setSelectedImportContactIds((prev) =>
       prev.includes(previewId) ? prev.filter((item) => item !== previewId) : [...prev, previewId]
@@ -12930,6 +12944,9 @@ function DashboardScreen({
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDualChannelImportContacts}>
                       {t("contact_import_select_dual_channel")}
                     </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
+                      {t("contact_import_duplicate_mode_merge")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
                       {t("contact_import_select_filtered_ready")}
                     </button>
@@ -12988,6 +13005,11 @@ function DashboardScreen({
                                 ? t("contact_import_status_duplicate_file")
                                 : t("contact_import_status_ready")}
                             </small>
+                            {contactItem.duplicateExisting && contactItem.existingGuestName ? (
+                              <small>
+                                {t("merge_guest_target_label")}: {contactItem.existingGuestName}
+                              </small>
+                            ) : null}
                           </span>
                         </label>
                       </li>
@@ -15504,6 +15526,16 @@ function DashboardScreen({
                           ))}
                         </select>
                       </label>
+                      <label>
+                        <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
+                        <select
+                          value={importDuplicateMode}
+                          onChange={(event) => setImportDuplicateMode(event.target.value === "merge" ? "merge" : "skip")}
+                        >
+                          <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
+                          <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
+                        </select>
+                      </label>
                     </div>
                     <div className="import-status-pills">
                       <span className="status-pill status-event-published">
@@ -15528,6 +15560,9 @@ function DashboardScreen({
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectSuggestedImportContacts}>
                         {t("contact_import_select_suggested")}
                       </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
+                        {t("contact_import_duplicate_mode_merge")}
+                      </button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
                         {t("contact_import_select_page_ready")}
                       </button>
@@ -15550,7 +15585,9 @@ function DashboardScreen({
                       <ul className="list import-preview-list import-preview-list-modal">
                         {pagedImportContacts.map((contactItem) => {
                           const statusText = contactItem.duplicateExisting
-                            ? t("contact_import_status_duplicate_existing")
+                            ? contactItem.willMerge
+                              ? t("contact_import_status_duplicate_merge")
+                              : t("contact_import_status_duplicate_existing")
                             : contactItem.duplicateInPreview
                             ? t("contact_import_status_duplicate_file")
                             : contactItem.potentialLevel === "high"
@@ -15585,8 +15622,13 @@ function DashboardScreen({
                               <span className="import-preview-cell">
                                 {[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}
                               </span>
-                              <span className="import-preview-cell">
+                              <span className="import-preview-cell import-preview-status">
                                 <span className={`status-pill ${statusClass}`}>{statusText}</span>
+                                {contactItem.duplicateExisting && contactItem.existingGuestName ? (
+                                  <span className="item-meta import-preview-target">
+                                    {t("merge_guest_target_label")}: {contactItem.existingGuestName}
+                                  </span>
+                                ) : null}
                               </span>
                             </li>
                           );

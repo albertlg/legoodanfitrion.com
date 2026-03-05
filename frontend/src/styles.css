@@ -6305,6 +6305,21 @@ textarea {
   place-items: center;
 }
 
+.import-preview-cell.import-preview-status {
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 0.2rem;
+  white-space: normal;
+}
+
+.import-preview-target {
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
 .import-wizard-alert {
   margin: 0;
 }
