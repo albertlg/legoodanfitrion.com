@@ -63,7 +63,8 @@ const CSV_HEADER_ALIASES = {
   address: ["address", "direccion", "dirección", "adreca", "adreça", "adresse"],
   company: ["company", "empresa", "societe", "société"],
   birthday: ["birthday", "birthdate", "birth_date", "cumpleanos", "cumpleaños", "aniversari", "anniversaire"],
-  groups: ["groups", "labels", "tags", "etiquetas", "grups", "groupes"]
+  groups: ["groups", "labels", "tags", "etiquetas", "grups", "groupes"],
+  photoUrl: ["photo", "photo_url", "avatar", "avatar_url", "image", "image_url", "picture", "foto", "imatge", "image"]
 };
 
 const HEADER_ALIAS_INDEX = Object.fromEntries(
@@ -85,7 +86,7 @@ function splitName(fullName) {
 }
 
 function parseContactTokens(tokens) {
-  const [nameToken = "", emailToken = "", phoneToken = "", cityToken = "", countryToken = "", birthdayToken = "", groupsToken = ""] = tokens;
+  const [nameToken = "", emailToken = "", phoneToken = "", cityToken = "", countryToken = "", birthdayToken = "", groupsToken = "", photoToken = ""] = tokens;
   const nameParts = splitName(nameToken);
   const emailLooksValid = /@/.test(emailToken);
   const phoneLooksValid = /\d/.test(phoneToken);
@@ -100,8 +101,26 @@ function parseContactTokens(tokens) {
     address: "",
     company: "",
     birthday: normalizeText(birthdayToken),
-    groups: normalizeText(groupsToken)
+    groups: normalizeText(groupsToken),
+    photoUrl: normalizeText(photoToken)
   };
+}
+
+function unfoldVcfLines(sourceText) {
+  const normalized = String(sourceText || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const rawLines = normalized.split("\n");
+  const unfolded = [];
+  for (const line of rawLines) {
+    if (!line) {
+      continue;
+    }
+    if ((line.startsWith(" ") || line.startsWith("\t")) && unfolded.length > 0) {
+      unfolded[unfolded.length - 1] += line.slice(1);
+    } else {
+      unfolded.push(line.trim());
+    }
+  }
+  return unfolded;
 }
 
 function parseContactsFromCsv(text) {
@@ -141,7 +160,8 @@ function parseContactsFromCsv(text) {
         address: "",
         company: "",
         birthday: "",
-        groups: ""
+        groups: "",
+        photoUrl: ""
       };
 
       let fullName = "";
@@ -191,11 +211,7 @@ function parseContactsFromVcf(text) {
   const cards = source.match(/BEGIN:VCARD[\s\S]*?END:VCARD/gi) || [];
   return cards
     .map((card) => {
-      const lines = card
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        .split("\n")
-        .map((line) => line.trim());
+      const lines = unfoldVcfLines(card);
 
       let firstName = "";
       let lastName = "";
@@ -206,6 +222,7 @@ function parseContactsFromVcf(text) {
       let country = "";
       let company = "";
       let birthday = "";
+      let photoUrl = "";
 
       for (const line of lines) {
         if (line.startsWith("FN:")) {
@@ -242,6 +259,22 @@ function parseContactsFromVcf(text) {
           } else if (/^\d{8}$/.test(rawBirthday)) {
             birthday = `${rawBirthday.slice(0, 4)}-${rawBirthday.slice(4, 6)}-${rawBirthday.slice(6, 8)}`;
           }
+        } else if (line.toUpperCase().startsWith("PHOTO")) {
+          const lineUpper = line.toUpperCase();
+          const photoValue = normalizeText(line.split(":").slice(1).join(":"));
+          if (!photoValue) {
+            continue;
+          }
+          if (/^https?:\/\//i.test(photoValue) || /^data:image\//i.test(photoValue)) {
+            photoUrl = photoUrl || photoValue;
+            continue;
+          }
+          if (lineUpper.includes("ENCODING=B")) {
+            const typeMatch = lineUpper.match(/TYPE=([^;:]+)/i);
+            const rawType = String(typeMatch?.[1] || "jpeg").trim().toLowerCase();
+            const mimeType = rawType.includes("/") ? rawType : `image/${rawType}`;
+            photoUrl = photoUrl || `data:${mimeType};base64,${photoValue}`;
+          }
         }
       }
 
@@ -256,6 +289,7 @@ function parseContactsFromVcf(text) {
         address: normalizeText(address),
         company: normalizeText(company),
         birthday: normalizeText(birthday),
+        photoUrl: normalizeText(photoUrl),
         groups: ""
       };
     })

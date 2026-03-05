@@ -8,7 +8,8 @@ const GOOGLE_CONNECTIONS_FIELDS = [
   "addresses",
   "organizations",
   "birthdays",
-  "memberships"
+  "memberships",
+  "photos"
 ].join(",");
 
 let identityLoadPromise;
@@ -145,6 +146,7 @@ function toGoogleContact(person, contactGroupsByResourceName = {}) {
   const address = String(addressItem.formattedValue || addressItem.streetAddress || "").trim();
   const company = String(person?.organizations?.[0]?.name || "").trim();
   const birthday = normalizeBirthday(person?.birthdays?.[0]);
+  const photoUrl = String(person?.photos?.[0]?.url || "").trim();
   const groups = Array.isArray(person?.memberships)
     ? Array.from(
         new Set(
@@ -170,6 +172,7 @@ function toGoogleContact(person, contactGroupsByResourceName = {}) {
     postalCode,
     stateRegion,
     birthday,
+    photoUrl,
     groups
   };
 }

@@ -199,6 +199,14 @@ function getCanonicalPathForRoute(route) {
     return route.token ? `/rsvp/${encodeURIComponent(route.token)}` : "/";
   }
   if (route.kind === "app") {
+    const importWizardSource = String(route.appRoute?.importWizardSource || "").trim().toLowerCase();
+    if (
+      route.appRoute?.view === "guests" &&
+      route.appRoute?.workspace === "latest" &&
+      ["csv", "gmail", "mobile"].includes(importWizardSource)
+    ) {
+      return `/app/guests?import=${encodeURIComponent(importWizardSource)}&wizard=1`;
+    }
     return buildCanonicalAppPath(route.appRoute || { view: "overview" });
   }
   return "/";

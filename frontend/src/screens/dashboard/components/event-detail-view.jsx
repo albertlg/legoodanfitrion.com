@@ -3,7 +3,6 @@ import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
 
-const GOOGLE_MAPS_API_KEY = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
   celebration: "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1600&q=80",
@@ -33,17 +32,12 @@ function getEventPlaceLookupValue(eventItem) {
   return String(eventItem.location_address || eventItem.location_name || "").trim();
 }
 
-function buildStreetViewPhotoUrl(eventItem, width = 1400, height = 620) {
-  if (!GOOGLE_MAPS_API_KEY) {
-    return "";
-  }
+function buildSatelliteEmbedUrl(eventItem, zoom = 17) {
   const placeLookup = getEventPlaceLookupValue(eventItem);
   if (!placeLookup) {
     return "";
   }
-  return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${encodeURIComponent(
-    placeLookup
-  )}&fov=100&pitch=2&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}`;
+  return `https://maps.google.com/maps?q=${encodeURIComponent(placeLookup)}&t=k&z=${zoom}&ie=UTF8&output=embed`;
 }
 
 function getEventCoverImageUrl(eventItem) {
@@ -56,14 +50,7 @@ function getEventCoverImageUrl(eventItem) {
   if (explicitCover) {
     return explicitCover;
   }
-  return buildStreetViewPhotoUrl(eventItem, 1400, 620) || getFallbackEventCoverUrl(eventItem.event_type);
-}
-
-function getEventLocationPhotoUrl(eventItem) {
-  if (!eventItem) {
-    return "";
-  }
-  return buildStreetViewPhotoUrl(eventItem, 1120, 680) || getFallbackEventCoverUrl(eventItem.event_type);
+  return getFallbackEventCoverUrl(eventItem.event_type);
 }
 
 export function EventDetailView({
@@ -148,8 +135,10 @@ export function EventDetailView({
       : selectedEventDetail?.location_address
       ? `https://www.google.com/maps?q=${encodeURIComponent(selectedEventDetail.location_address)}`
       : "";
+  const eventSatelliteEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 17);
+  const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
-  const eventLocationPhotoUrl = getEventLocationPhotoUrl(selectedEventDetail);
+  const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
 
   return (
     <section className={`panel panel-wide detail-panel ${isPlanWorkspace ? "detail-panel-plan" : ""}`}>
@@ -171,45 +160,73 @@ export function EventDetailView({
       </div>
       {selectedEventDetail && !isPlanWorkspace ? (
         <article className="event-detail-cover" aria-label={t("event_detail_cover_title")}>
-          <img
-            src={eventCoverImageUrl}
-            alt={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
-            loading="lazy"
-          />
+          {eventSatelliteCoverEmbedUrl ? (
+            <iframe
+              title={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
+              src={eventSatelliteCoverEmbedUrl}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          ) : (
+            <img
+              src={eventCoverImageUrl}
+              alt={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
+              loading="lazy"
+            />
+          )}
           <div className="event-detail-cover-overlay">
-            <span className="status-pill status-host-conversion-source-default">{eventPlaceLabel}</span>
-            {selectedEventDetail.event_type ? (
-              <span className="status-pill status-maybe">
-                {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
-              </span>
-            ) : null}
-          </div>
-        </article>
-      ) : null}
-      {!isPlanWorkspace ? (
-        <div className="detail-head detail-head-rich">
-          <div className="detail-head-primary">
-            <div className="detail-head-title-row">
-              <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
-              {selectedEventDetail ? (
-                <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
+            <div className="event-detail-cover-badges">
+              <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
+              {selectedEventDetail.event_type ? (
+                <span className="status-pill status-maybe">
+                  {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
+                </span>
               ) : null}
             </div>
-            <div className="detail-meta-inline">
+            <p className="event-detail-cover-title">{selectedEventDetail.title || t("event_detail_title")}</p>
+            <div className="event-detail-cover-meta">
               <span>
-                <Icon name="calendar" className="icon icon-sm" />
+                <Icon name="calendar" className="icon icon-xs" />
                 {eventDateLabel}
               </span>
               <span>
-                <Icon name="clock" className="icon icon-sm" />
+                <Icon name="clock" className="icon icon-xs" />
                 {eventTimeLabel}
               </span>
               <span>
-                <Icon name="location" className="icon icon-sm" />
+                <Icon name="location" className="icon icon-xs" />
                 {eventPlaceLabel}
               </span>
             </div>
           </div>
+        </article>
+      ) : null}
+      {!isPlanWorkspace ? (
+        <div className={`detail-head ${hasEventHeroCover ? "detail-head-event-actions" : "detail-head-rich"}`}>
+          {!hasEventHeroCover ? (
+            <div className="detail-head-primary">
+              <div className="detail-head-title-row">
+                <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+                {selectedEventDetail ? (
+                  <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
+                ) : null}
+              </div>
+              <div className="detail-meta-inline">
+                <span>
+                  <Icon name="calendar" className="icon icon-sm" />
+                  {eventDateLabel}
+                </span>
+                <span>
+                  <Icon name="clock" className="icon icon-sm" />
+                  {eventTimeLabel}
+                </span>
+                <span>
+                  <Icon name="location" className="icon icon-sm" />
+                  {eventPlaceLabel}
+                </span>
+              </div>
+            </div>
+          ) : null}
           {selectedEventDetail ? (
             <div className="button-row detail-head-actions detail-head-actions-compact detail-head-actions-event">
               <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
@@ -283,7 +300,7 @@ export function EventDetailView({
         <div className={`detail-layout detail-layout-event ${eventsWorkspace === "plan" ? "detail-layout-event-plan-only" : ""}`}>
           {eventsWorkspace === "detail" ? (
             <article className="detail-card detail-card-event-overview">
-              <p className="item-title">{selectedEventDetail.title}</p>
+              {!hasEventHeroCover ? <p className="item-title">{selectedEventDetail.title}</p> : null}
               <p className="item-meta">
                 {t("status")}: <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
               </p>
@@ -358,17 +375,23 @@ export function EventDetailView({
                   </li>
                 ))}
               </ul>
+            </article>
+          ) : null}
+          {eventsWorkspace === "detail" ? (
+            <article className="detail-card detail-card-event-alerts">
+              <p className="item-title">{t("event_detail_alerts_title")}</p>
+              <p className="item-meta">
+                {t("status_yes")}: {selectedEventHealthAlertsConfirmedCount} · {t("status_pending")}:{" "}
+                {selectedEventHealthAlertsPendingCount}
+              </p>
               {selectedEventHealthAlerts.length > 0 ? (
-                <div className="recommendation-card warning">
-                  <p className="item-title">{t("event_detail_alerts_title")}</p>
-                  <ul className="list recommendation-list">
-                    {selectedEventHealthAlerts.map((alertItem) => (
-                      <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`}>
-                        <strong>{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <ul className="list recommendation-list">
+                  {selectedEventHealthAlerts.map((alertItem) => (
+                    <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`}>
+                      <strong>{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p className="hint">{t("event_detail_alerts_empty")}</p>
               )}
@@ -448,11 +471,20 @@ export function EventDetailView({
             <article className="detail-card detail-card-map detail-card-event-location-photo">
               <p className="item-title">{t("event_detail_location_photo_title")}</p>
               <div className="event-location-photo" aria-label={t("event_detail_location_photo_title")}>
-                <img
-                  src={eventLocationPhotoUrl}
-                  alt={interpolateText(t("event_detail_location_photo_alt"), { place: eventPlaceLabel })}
-                  loading="lazy"
-                />
+                {eventSatelliteEmbedUrl ? (
+                  <iframe
+                    title={interpolateText(t("event_detail_location_photo_alt"), { place: eventPlaceLabel })}
+                    src={eventSatelliteEmbedUrl}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                ) : (
+                  <img
+                    src={eventCoverImageUrl}
+                    alt={interpolateText(t("event_detail_location_photo_alt"), { place: eventPlaceLabel })}
+                    loading="lazy"
+                  />
+                )}
               </div>
               <p className="item-meta">{eventPlaceLabel}</p>
               {eventMapsExternalUrl ? (

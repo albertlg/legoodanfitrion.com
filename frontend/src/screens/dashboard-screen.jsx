@@ -30,6 +30,9 @@ import {
 import { supabase } from "../lib/supabaseClient";
 import { validateEventForm, validateGuestForm, validateInvitationForm } from "../lib/validation";
 
+const GUEST_AVATAR_STORAGE_BUCKET = String(import.meta.env.VITE_SUPABASE_GUEST_AVATAR_BUCKET || "guest-avatars").trim() || "guest-avatars";
+const GUEST_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
 function toNullable(value) {
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
@@ -2009,8 +2012,78 @@ function normalizeDeviceContact(rawContact) {
     company: "",
     postalCode: String(addressObject?.postalCode || "").trim(),
     stateRegion: String(addressObject?.region || addressObject?.state || "").trim(),
+    photoUrl: Array.isArray(rawContact?.icon) ? String(rawContact.icon[0] || "").trim() : String(rawContact?.icon || "").trim(),
     groups: []
   };
+}
+
+function readImageFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("image_read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isDataImageUrl(value) {
+  return /^data:image\/[-+.\w]+;base64,/i.test(String(value || "").trim());
+}
+
+function extensionFromMimeType(mimeType) {
+  const normalized = String(mimeType || "").toLowerCase();
+  if (normalized.includes("png")) {
+    return "png";
+  }
+  if (normalized.includes("webp")) {
+    return "webp";
+  }
+  if (normalized.includes("gif")) {
+    return "gif";
+  }
+  if (normalized.includes("svg")) {
+    return "svg";
+  }
+  return "jpg";
+}
+
+async function uploadGuestAvatarToStorage({ dataUrl, userId, guestId }) {
+  if (!supabase || !userId || !guestId || !isDataImageUrl(dataUrl)) {
+    return { url: "", error: null };
+  }
+  try {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      return { url: "", error: new Error("empty_image_blob") };
+    }
+    if (blob.size > GUEST_AVATAR_MAX_BYTES) {
+      return { url: "", error: new Error("avatar_too_large") };
+    }
+    const extension = extensionFromMimeType(blob.type || "");
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+    const objectPath = `${userId}/${guestId}/${fileName}`;
+    const uploadResult = await supabase.storage.from(GUEST_AVATAR_STORAGE_BUCKET).upload(objectPath, blob, {
+      upsert: true,
+      cacheControl: "3600",
+      contentType: blob.type || undefined
+    });
+    if (uploadResult.error) {
+      return { url: "", error: uploadResult.error };
+    }
+    const publicResult = supabase.storage.from(GUEST_AVATAR_STORAGE_BUCKET).getPublicUrl(objectPath);
+    const publicUrl = String(publicResult?.data?.publicUrl || "").trim();
+    if (!publicUrl) {
+      return { url: "", error: new Error("avatar_public_url_missing") };
+    }
+    return { url: publicUrl, error: null };
+  } catch (error) {
+    return { url: "", error: error instanceof Error ? error : new Error(String(error || "avatar_upload_failed")) };
+  }
 }
 
 function getInitials(value, fallback = "LG") {
@@ -2027,37 +2100,21 @@ function getInitials(value, fallback = "LG") {
     .join("");
 }
 
-function buildGeneratedGuestAvatarUrl(seed) {
-  const normalizedSeed = encodeURIComponent(String(seed || "guest").trim() || "guest");
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${normalizedSeed}&radius=50&fontWeight=700&backgroundColor=1f2f46,2f4f77,8fa8ca,cbb58a`;
-}
-
 function getGuestAvatarUrl(guestItem, fallbackLabel = "") {
   if (!guestItem && !fallbackLabel) {
     return "";
   }
-  const preferredImageUrl = [
-    guestItem?.avatar_url,
-    guestItem?.photo_url,
-    guestItem?.image_url,
-    guestItem?.picture
-  ]
-    .map((item) => String(item || "").trim())
-    .find(Boolean);
+  const preferredImageUrl = getGuestPhotoValue(guestItem);
   if (preferredImageUrl) {
     return preferredImageUrl;
   }
-  const seed = [
-    guestItem?.id,
-    guestItem?.first_name,
-    guestItem?.last_name,
-    guestItem?.email,
-    guestItem?.phone,
-    fallbackLabel
-  ]
+  return "";
+}
+
+function getGuestPhotoValue(guestItem) {
+  return [guestItem?.avatar_url, guestItem?.photo_url, guestItem?.image_url, guestItem?.picture]
     .map((item) => String(item || "").trim())
-    .find(Boolean);
-  return buildGeneratedGuestAvatarUrl(seed || "guest");
+    .find(Boolean) || "";
 }
 
 function uniqueValues(values) {
@@ -2699,6 +2756,7 @@ function DashboardScreen({
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
+  const [guestPhotoUrl, setGuestPhotoUrl] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestRelationship, setGuestRelationship] = useState("");
@@ -2748,6 +2806,10 @@ function DashboardScreen({
   const [importContactsMessage, setImportContactsMessage] = useState("");
   const [isImportingContacts, setIsImportingContacts] = useState(false);
   const [isImportingGoogleContacts, setIsImportingGoogleContacts] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(
+    () => (typeof window !== "undefined" ? window.matchMedia("(max-width: 900px)").matches : false)
+  );
+  const isMobileImportExperience = isCompactViewport;
   const [hostProfileName, setHostProfileName] = useState("");
   const [hostProfilePhone, setHostProfilePhone] = useState("");
   const [hostProfileCity, setHostProfileCity] = useState("");
@@ -3097,6 +3159,7 @@ function DashboardScreen({
       const email = String(contactItem?.email || "").trim();
       const phone = String(contactItem?.phone || "").trim();
       const birthday = normalizeIsoDate(contactItem?.birthday);
+      const photoUrl = String(contactItem?.photoUrl || "").trim();
       const groups = toContactGroupsList(contactItem);
       const importSource = normalizeImportSource(contactItem?.importSource);
       const fingerprint = buildGuestFingerprint({ firstName, lastName, email, phone });
@@ -3146,6 +3209,7 @@ function DashboardScreen({
         address: String(contactItem?.address || "").trim(),
         company: String(contactItem?.company || "").trim(),
         birthday,
+        photoUrl,
         groups
       });
       const potentialLevel = getImportPotentialLevel(captureScore);
@@ -3160,6 +3224,7 @@ function DashboardScreen({
         email,
         phone,
         birthday,
+        photoUrl,
         groups,
         importSource,
         relationship: String(contactItem?.relationship || "").trim(),
@@ -3451,7 +3516,13 @@ function DashboardScreen({
       { fieldKey: "country", label: t("field_country"), source: pendingImportMergeApprovalItem.country, target: pendingImportMergeApprovalTargetGuest.country },
       { fieldKey: "address", label: t("field_address"), source: pendingImportMergeApprovalItem.address, target: pendingImportMergeApprovalTargetGuest.address },
       { fieldKey: "company", label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
-      { fieldKey: "birthday", label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday }
+      { fieldKey: "birthday", label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday },
+      {
+        fieldKey: "avatar_url",
+        label: t("field_guest_photo"),
+        source: pendingImportMergeApprovalItem.photoUrl ? t("status_yes") : t("status_no"),
+        target: pendingImportMergeApprovalTargetGuest.avatar_url ? t("status_yes") : t("status_no")
+      }
     ];
     const rankedRows = rows.map((rowItem) => {
       const sourceBlank = isBlankValue(rowItem.source);
@@ -3575,6 +3646,16 @@ function DashboardScreen({
       document.body.style.overflow = previousOverflow;
     };
   }, [isImportWizardOpen]);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const onChange = (event) => setIsCompactViewport(Boolean(event.matches));
+    setIsCompactViewport(Boolean(mediaQuery.matches));
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
   useEffect(() => {
     if (activeView !== "guests" || guestsWorkspace !== "latest") {
       setIsImportWizardOpen(false);
@@ -3811,17 +3892,87 @@ function DashboardScreen({
   );
   const pendingHostGuestsCount = Math.max(0, hostPotentialGuestsCount - convertedHostGuestsCount);
   const supportsContactPickerApi = typeof navigator !== "undefined" && Boolean(navigator.contacts?.select);
+  const canUseNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const canUseGoogleContacts = typeof window !== "undefined" && isGoogleContactsConfigured();
+  const isIOSDevice = useMemo(() => {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+    const ua = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    const touchPoints = Number(navigator.maxTouchPoints || 0);
+    return /iPhone|iPod|iPad/i.test(ua) || (platform === "MacIntel" && touchPoints > 1);
+  }, []);
   const canUseDeviceContacts =
     typeof window !== "undefined" &&
     typeof navigator !== "undefined" &&
     Boolean(window.isSecureContext) &&
     supportsContactPickerApi;
+  const recommendedImportWizardSource = useMemo(() => {
+    if (!isMobileImportExperience) {
+      return "csv";
+    }
+    if (canUseDeviceContacts) {
+      return "mobile";
+    }
+    if (isIOSDevice && canUseGoogleContacts) {
+      return "gmail";
+    }
+    if (canUseGoogleContacts) {
+      return "gmail";
+    }
+    return "mobile";
+  }, [canUseDeviceContacts, canUseGoogleContacts, isIOSDevice, isMobileImportExperience]);
+  const importWizardShouldStartAtConfigStep = useMemo(
+    () => isMobileImportExperience && ["mobile", "gmail"].includes(recommendedImportWizardSource),
+    [isMobileImportExperience, recommendedImportWizardSource]
+  );
   const contactPickerUnsupportedReason = !canUseDeviceContacts
     ? typeof window !== "undefined" && !window.isSecureContext
       ? t("contact_import_device_requires_https")
       : t("contact_import_device_not_supported")
     : "";
+  const importWizardSourceOptions = useMemo(() => {
+    const sourceItems = [
+      { key: "csv", icon: "folder", title: t("import_wizard_source_csv_title"), hint: t("import_wizard_source_csv_hint") },
+      { key: "gmail", icon: "mail", title: t("import_wizard_source_gmail_title"), hint: t("import_wizard_source_gmail_hint") },
+      { key: "mobile", icon: "phone", title: t("import_wizard_source_mobile_title"), hint: t("import_wizard_source_mobile_hint") }
+    ];
+    const visibleSources = isMobileImportExperience ? sourceItems.filter((item) => item.key !== "csv") : sourceItems;
+    const prioritizedSources = [...visibleSources].sort((left, right) => {
+      if (left.key === recommendedImportWizardSource) {
+        return -1;
+      }
+      if (right.key === recommendedImportWizardSource) {
+        return 1;
+      }
+      return 0;
+    });
+    return prioritizedSources.map((item) => ({
+      ...item,
+      isRecommended: item.key === recommendedImportWizardSource
+    }));
+  }, [isMobileImportExperience, recommendedImportWizardSource, t]);
+  useEffect(() => {
+    if (!isImportWizardOpen || importWizardStep !== 1) {
+      return;
+    }
+    const availableSources = new Set(importWizardSourceOptions.map((item) => item.key));
+    if (!availableSources.has(importWizardSource)) {
+      setImportWizardSource(recommendedImportWizardSource);
+      return;
+    }
+    if (isMobileImportExperience && importWizardSource === "csv") {
+      setImportWizardSource(recommendedImportWizardSource);
+    }
+  }, [
+    importWizardSource,
+    importWizardStep,
+    importWizardSourceOptions,
+    isImportWizardOpen,
+    isMobileImportExperience,
+    recommendedImportWizardSource
+  ]);
   const invitedGuestIdsByEvent = useMemo(() => {
     const byEvent = new Map();
     for (const invitationItem of invitations) {
@@ -6125,7 +6276,7 @@ function DashboardScreen({
     const guestsPromise = supabase
       .from("guests")
       .select(
-        "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, created_at"
+        "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
       )
       .eq("host_user_id", session.user.id)
       .order("created_at", { ascending: false })
@@ -6191,7 +6342,8 @@ function DashboardScreen({
         "twitter",
         "instagram",
         "linkedin",
-        "last_meet_at"
+        "last_meet_at",
+        "avatar_url"
       ])
     ) {
       const fallbackGuests = await supabase
@@ -6246,7 +6398,7 @@ function DashboardScreen({
       let routeGuestResult = await supabase
         .from("guests")
         .select(
-          "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, created_at"
+          "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
         )
         .eq("host_user_id", session.user.id)
         .eq("id", routeGuestDetailId)
@@ -6262,7 +6414,8 @@ function DashboardScreen({
           "twitter",
           "instagram",
           "linkedin",
-          "last_meet_at"
+          "last_meet_at",
+          "avatar_url"
         ])
       ) {
         routeGuestResult = await supabase
@@ -6620,7 +6773,7 @@ function DashboardScreen({
     if (activeView !== "profile") {
       return;
     }
-    if (guestFirstName || guestLastName || guestEmail || guestPhone || guestCity || guestCountry || guestRelationship) {
+    if (guestFirstName || guestLastName || guestPhotoUrl || guestEmail || guestPhone || guestCity || guestCountry || guestRelationship) {
       return;
     }
     syncHostGuestProfileForm();
@@ -6898,6 +7051,7 @@ function DashboardScreen({
     setGuestRelationship(toCatalogLabel("relationship", guestItem.relationship, language));
     setGuestCity(guestItem.city || "");
     setGuestCountry(guestItem.country || "");
+    setGuestPhotoUrl(getGuestPhotoValue(guestItem));
     setGuestAdvanced(getGuestAdvancedState(guestItem));
     setGuestLastSavedAt(guestItem.updated_at || guestItem.created_at || "");
     setSelectedGuestAddressPlace(
@@ -7432,6 +7586,7 @@ function DashboardScreen({
       setGuestRelationship(toCatalogLabel("relationship", linkedGuest.relationship, language));
       setGuestCity(linkedGuest.city || hostProfileCity || "");
       setGuestCountry(linkedGuest.country || hostProfileCountry || "");
+      setGuestPhotoUrl(getGuestPhotoValue(linkedGuest));
       setGuestAdvanced(getGuestAdvancedState(linkedGuest));
       setSelectedGuestAddressPlace(
         linkedGuest.address
@@ -7452,6 +7607,7 @@ function DashboardScreen({
       setGuestRelationship(hostProfileRelationship || "");
       setGuestCity(hostProfileCity || "");
       setGuestCountry(hostProfileCountry || "");
+      setGuestPhotoUrl("");
       setGuestAdvanced(GUEST_ADVANCED_INITIAL_STATE);
       setSelectedGuestAddressPlace(null);
     }
@@ -8552,7 +8708,7 @@ function DashboardScreen({
       return;
     }
     try {
-      const selectedContacts = await navigator.contacts.select(["name", "email", "tel", "address"], { multiple: true });
+      const selectedContacts = await navigator.contacts.select(["name", "email", "tel", "address", "icon"], { multiple: true });
       const parsedContacts = (selectedContacts || [])
         .map((item) => normalizeDeviceContact(item))
         .filter((contact) => contact.firstName || contact.lastName || contact.email || contact.phone);
@@ -8583,7 +8739,7 @@ function DashboardScreen({
       return;
     }
     try {
-      const selectedContacts = await navigator.contacts.select(["name", "email", "tel", "address"], { multiple: false });
+      const selectedContacts = await navigator.contacts.select(["name", "email", "tel", "address", "icon"], { multiple: false });
       const selectedContact = Array.isArray(selectedContacts) ? selectedContacts[0] : null;
       if (!selectedContact) {
         setGuestMessage(t("contact_import_device_empty"));
@@ -8596,6 +8752,7 @@ function DashboardScreen({
       setGuestPhone(contact.phone || guestPhone);
       setGuestCity(contact.city || guestCity);
       setGuestCountry(contact.country || guestCountry);
+      setGuestPhotoUrl(contact.photoUrl || guestPhotoUrl);
       setGuestAdvanced((prev) => ({
         ...prev,
         address: contact.address || prev.address,
@@ -8626,6 +8783,34 @@ function DashboardScreen({
       }
       setGuestMessage(`${t("contact_import_device_error")} ${String(error?.message || "")}`);
     }
+  };
+
+  const handleGuestPhotoUrlChange = (value) => {
+    setGuestPhotoUrl(String(value || "").trim());
+  };
+
+  const handleGuestPhotoFileChange = async (event) => {
+    const selectedFile = event?.target?.files?.[0];
+    if (!selectedFile) {
+      return;
+    }
+    try {
+      const dataUrl = await readImageFileAsDataUrl(selectedFile);
+      if (dataUrl) {
+        setGuestPhotoUrl(dataUrl);
+      }
+      setGuestMessage(t("guest_photo_loaded"));
+    } catch {
+      setGuestMessage(t("guest_photo_load_error"));
+    } finally {
+      if (event?.target) {
+        event.target.value = "";
+      }
+    }
+  };
+
+  const handleRemoveGuestPhoto = () => {
+    setGuestPhotoUrl("");
   };
 
   const handleCreateBirthdayEventFromGuest = () => {
@@ -8891,8 +9076,8 @@ function DashboardScreen({
 
   const handleOpenImportWizard = () => {
     handleClearImportContacts();
-    setImportWizardStep(1);
-    setImportWizardSource("csv");
+    setImportWizardStep(importWizardShouldStartAtConfigStep ? 2 : 1);
+    setImportWizardSource(recommendedImportWizardSource);
     setImportWizardShareEmail("");
     setImportWizardShareMessage("");
     setImportWizardResult({
@@ -8963,6 +9148,30 @@ function DashboardScreen({
     const mailToEmail = nextEmail ? nextEmail : "";
     window.open(`mailto:${mailToEmail}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
     setImportWizardShareMessage(t("import_wizard_mobile_email_sent"));
+  };
+
+  const handleShareImportWizardLink = async () => {
+    if (canUseNativeShare) {
+      try {
+        await navigator.share({
+          title: t("import_wizard_mobile_share_title"),
+          text: t("import_wizard_mobile_share_text"),
+          url: importWizardMobileLink
+        });
+        setImportWizardShareMessage(t("import_wizard_mobile_share_sent"));
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(importWizardMobileLink);
+      setImportWizardShareMessage(t("copy_ok"));
+    } catch {
+      setImportWizardShareMessage(t("copy_fail"));
+    }
   };
 
   const handleSelectAllReadyImportContacts = () => {
@@ -9070,7 +9279,8 @@ function DashboardScreen({
         { key: "country", source: contactItem.country, target: targetGuest.country },
         { key: "address", source: contactItem.address, target: targetGuest.address },
         { key: "company", source: contactItem.company, target: targetGuest.company },
-        { key: "birthday", source: contactItem.birthday, target: targetGuest.birthday }
+        { key: "birthday", source: contactItem.birthday, target: targetGuest.birthday },
+        { key: "avatar_url", source: contactItem.photoUrl, target: targetGuest.avatar_url }
       ];
       return fieldChecks.filter((item) => !isBlankValue(item.source) && isBlankValue(item.target)).map((item) => item.key);
     },
@@ -9258,6 +9468,7 @@ function DashboardScreen({
         assignMergeField("postal_code", existingGuest.postal_code, contactItem.postalCode);
         assignMergeField("state_region", existingGuest.state_region, contactItem.stateRegion);
         assignMergeField("birthday", existingGuest.birthday, contactItem.birthday);
+        assignMergeField("avatar_url", existingGuest.avatar_url, contactItem.photoUrl);
 
         if (Object.keys(mergePayload).length === 0) {
           skippedCount += 1;
@@ -9270,11 +9481,12 @@ function DashboardScreen({
           .eq("id", existingGuest.id)
           .eq("host_user_id", session.user.id);
 
-        if (error && isCompatibilityError(error, ["postal_code", "state_region", "birthday"])) {
+        if (error && isCompatibilityError(error, ["postal_code", "state_region", "birthday", "avatar_url"])) {
           const fallbackMergePayload = { ...mergePayload };
           delete fallbackMergePayload.postal_code;
           delete fallbackMergePayload.state_region;
           delete fallbackMergePayload.birthday;
+          delete fallbackMergePayload.avatar_url;
 
           if (Object.keys(fallbackMergePayload).length === 0) {
             mergedCount += 1;
@@ -9310,7 +9522,8 @@ function DashboardScreen({
         company: toNullable(contactItem.company),
         postal_code: toNullable(contactItem.postalCode),
         state_region: toNullable(contactItem.stateRegion),
-        birthday: toNullable(contactItem.birthday)
+        birthday: toNullable(contactItem.birthday),
+        avatar_url: toNullable(contactItem.photoUrl)
       };
       const payloadFallback = {
         host_user_id: session.user.id,
@@ -9331,7 +9544,7 @@ function DashboardScreen({
       }
 
       let { error } = await supabase.from("guests").insert(payloadBase);
-      if (error && isCompatibilityError(error, ["content_language", "postal_code", "state_region", "birthday"])) {
+      if (error && isCompatibilityError(error, ["content_language", "postal_code", "state_region", "birthday", "avatar_url"])) {
         ({ error } = await supabase.from("guests").insert(payloadFallback));
       }
 
@@ -9772,6 +9985,7 @@ function DashboardScreen({
     setGuestRelationship(toCatalogLabel("relationship", guestItem.relationship, language));
     setGuestCity(guestItem.city || "");
     setGuestCountry(guestItem.country || "");
+    setGuestPhotoUrl(getGuestPhotoValue(guestItem));
     setGuestAdvanced(getGuestAdvancedState(guestItem));
     setGuestLastSavedAt(guestItem.updated_at || guestItem.created_at || "");
     setSelectedGuestAddressPlace(
@@ -9802,6 +10016,7 @@ function DashboardScreen({
     setGuestRelationship("");
     setGuestCity("");
     setGuestCountry("");
+    setGuestPhotoUrl("");
     setGuestAdvanced(GUEST_ADVANCED_INITIAL_STATE);
     setGuestLastSavedAt("");
     setSelectedGuestAddressPlace(null);
@@ -9896,6 +10111,31 @@ function DashboardScreen({
     setGuestErrors({});
     setIsSavingGuest(true);
 
+    const normalizedGuestPhotoInput = String(guestPhotoUrl || "").trim();
+    const shouldUploadGuestAvatar = isDataImageUrl(normalizedGuestPhotoInput);
+    const existingGuestAvatarUrl = isEditingGuest
+      ? getGuestPhotoValue(guests.find((item) => item.id === editingGuestId))
+      : "";
+    let avatarUploadWarning = "";
+    let avatarValueForDb = toNullable(normalizedGuestPhotoInput);
+
+    if (shouldUploadGuestAvatar) {
+      avatarValueForDb = isEditingGuest ? toNullable(existingGuestAvatarUrl) : null;
+      if (isEditingGuest && editingGuestId) {
+        const uploadResult = await uploadGuestAvatarToStorage({
+          dataUrl: normalizedGuestPhotoInput,
+          userId: session.user.id,
+          guestId: editingGuestId
+        });
+        if (uploadResult.url) {
+          avatarValueForDb = uploadResult.url;
+          setGuestPhotoUrl(uploadResult.url);
+        } else if (uploadResult.error) {
+          avatarUploadWarning = String(uploadResult.error.message || "");
+        }
+      }
+    }
+
     const basePayload = {
       first_name: guestFirstName.trim(),
       content_language: language,
@@ -9913,7 +10153,8 @@ function DashboardScreen({
       twitter: toNullable(guestAdvanced.twitter),
       instagram: toNullable(guestAdvanced.instagram),
       linkedin: toNullable(guestAdvanced.linkedIn),
-      last_meet_at: toNullable(guestAdvanced.lastMeetAt)
+      last_meet_at: toNullable(guestAdvanced.lastMeetAt),
+      avatar_url: avatarValueForDb
     };
     const fallbackPayload = {
       first_name: guestFirstName.trim(),
@@ -9956,7 +10197,8 @@ function DashboardScreen({
         "twitter",
         "instagram",
         "linkedin",
-        "last_meet_at"
+        "last_meet_at",
+        "avatar_url"
       ])
     ) {
       const fallbackResult = isEditingGuest
@@ -9985,6 +10227,28 @@ function DashboardScreen({
       setIsSavingGuest(false);
       setGuestMessage(`${isEditingGuest ? t("error_update_guest") : t("error_create_guest")} ${error.message}`);
       return { ok: false, savedGuestId: "" };
+    }
+
+    if (!isEditingGuest && shouldUploadGuestAvatar && savedGuestId) {
+      const uploadResult = await uploadGuestAvatarToStorage({
+        dataUrl: normalizedGuestPhotoInput,
+        userId: session.user.id,
+        guestId: savedGuestId
+      });
+      if (uploadResult.url) {
+        const updateAvatarResult = await supabase
+          .from("guests")
+          .update({ avatar_url: uploadResult.url })
+          .eq("id", savedGuestId)
+          .eq("host_user_id", session.user.id);
+        if (updateAvatarResult.error) {
+          avatarUploadWarning = String(updateAvatarResult.error.message || "");
+        } else {
+          setGuestPhotoUrl(uploadResult.url);
+        }
+      } else if (uploadResult.error) {
+        avatarUploadWarning = String(uploadResult.error.message || "");
+      }
     }
 
     const preferencePayload = {
@@ -10103,7 +10367,8 @@ function DashboardScreen({
 
     if (relatedDataError) {
       setGuestLastSavedAt(new Date().toISOString());
-      setGuestMessage(`${t("guest_saved_partial_warning")} ${relatedDataError.message}`);
+      const avatarWarningText = avatarUploadWarning ? ` · ${t("guest_photo_storage_warning")} (${avatarUploadWarning})` : "";
+      setGuestMessage(`${t("guest_saved_partial_warning")} ${relatedDataError.message}${avatarWarningText}`);
       if (refreshAfterSave) {
         await loadDashboardData();
       }
@@ -10174,7 +10439,9 @@ function DashboardScreen({
 
     if (isEditingGuest) {
       setGuestLastSavedAt(new Date().toISOString());
-      if (successMessageMode === "form") {
+      if (avatarUploadWarning) {
+        setGuestMessage(`${t("guest_saved_partial_warning")} ${t("guest_photo_storage_warning")} (${avatarUploadWarning})`);
+      } else if (successMessageMode === "form") {
         setGuestMessage(t("guest_updated"));
       } else if (successMessageMode === "step") {
         setGuestMessage(t("guest_step_saved"));
@@ -10203,7 +10470,9 @@ function DashboardScreen({
       setEditingGuestId(savedGuestId);
       setSelectedGuestDetailId(savedGuestId);
       setGuestLastSavedAt(new Date().toISOString());
-      if (successMessageMode === "form") {
+      if (avatarUploadWarning) {
+        setGuestMessage(`${t("guest_saved_partial_warning")} ${t("guest_photo_storage_warning")} (${avatarUploadWarning})`);
+      } else if (successMessageMode === "form") {
         setGuestMessage(t("guest_created_continue_edit"));
       } else if (successMessageMode === "step") {
         setGuestMessage(t("guest_step_saved"));
@@ -10223,8 +10492,10 @@ function DashboardScreen({
     guestEmail,
     guestFirstName,
     guestLastName,
+    guestPhotoUrl,
     guestPhone,
     guestRelationship,
+    guests,
     isEditingGuest,
     language,
     loadDashboardData,
@@ -10320,6 +10591,7 @@ function DashboardScreen({
       fillGuestField("twitter", targetGuest.twitter, sourceGuest.twitter);
       fillGuestField("instagram", targetGuest.instagram, sourceGuest.instagram);
       fillGuestField("linkedin", targetGuest.linkedin, sourceGuest.linkedin);
+      fillGuestField("avatar_url", targetGuest.avatar_url, sourceGuest.avatar_url);
 
       const sourceLastMeet = String(sourceGuest.last_meet_at || "").trim();
       const targetLastMeet = String(targetGuest.last_meet_at || "").trim();
@@ -10345,7 +10617,8 @@ function DashboardScreen({
             "twitter",
             "instagram",
             "linkedin",
-            "last_meet_at"
+            "last_meet_at",
+            "avatar_url"
           ])
         ) {
           const fallbackGuestPayload = { ...mergeGuestPayload };
@@ -10356,6 +10629,7 @@ function DashboardScreen({
           delete fallbackGuestPayload.instagram;
           delete fallbackGuestPayload.linkedin;
           delete fallbackGuestPayload.last_meet_at;
+          delete fallbackGuestPayload.avatar_url;
           if (Object.keys(fallbackGuestPayload).length > 0) {
             ({ error: mergeGuestError } = await supabase
               .from("guests")
@@ -10959,6 +11233,8 @@ function DashboardScreen({
     .replace(/\s+/g, " ") || String(session?.user?.email || "").split("@")[0] || t("host_default_name");
   const hostFirstName = hostDisplayName.split(" ")[0] || t("host_default_name");
   const hostInitials = getInitials(hostDisplayName);
+  const hostAvatarUrl = getGuestAvatarUrl(selfGuestCandidate, hostDisplayName);
+  const guestPhotoInputValue = isDataImageUrl(guestPhotoUrl) ? "" : guestPhotoUrl;
   const profileLinkedGuestId = selfGuestCandidate?.id || editingGuestId || "";
   const isProfileGuestLinked = Boolean(profileLinkedGuestId);
   const isGlobalProfileClaimed = Boolean(globalProfileId);
@@ -11335,9 +11611,13 @@ function DashboardScreen({
               t={t}
             />
             <div className="session-box session-box-sidebar">
-              <span className="session-avatar" aria-hidden="true">
-                {hostInitials}
-              </span>
+              <AvatarCircle
+                className="session-avatar"
+                label={hostDisplayName}
+                fallback={hostInitials}
+                imageUrl={hostAvatarUrl}
+                size={38}
+              />
               <div className="session-meta">
                 <p className="session-label">{t("active_session")}</p>
                 <button
@@ -11453,9 +11733,13 @@ function DashboardScreen({
               t={t}
             />
             <div className="session-box session-box-mobile">
-              <span className="session-avatar" aria-hidden="true">
-                {hostInitials}
-              </span>
+              <AvatarCircle
+                className="session-avatar"
+                label={hostDisplayName}
+                fallback={hostInitials}
+                imageUrl={hostAvatarUrl}
+                size={38}
+              />
               <div className="session-meta">
                 <p className="session-label">{t("active_session")}</p>
                 <button
@@ -11633,9 +11917,13 @@ function DashboardScreen({
               <div className="overview-side-stack">
                 <article className="panel host-rating-panel">
                   <div className="host-profile-snapshot">
-                    <span className="session-avatar" aria-hidden="true">
-                      {hostInitials}
-                    </span>
+                    <AvatarCircle
+                      className="session-avatar"
+                      label={hostDisplayName}
+                      fallback={hostInitials}
+                      imageUrl={hostAvatarUrl}
+                      size={38}
+                    />
                     <div>
                       <p className="item-title">{hostDisplayName}</p>
                       <p className="field-help">{t("panel_title")}</p>
@@ -12346,6 +12634,34 @@ function DashboardScreen({
                     aria-invalid={Boolean(guestErrors.lastName)}
                   />
                   <FieldMeta errorText={guestErrors.lastName ? t(guestErrors.lastName) : ""} />
+                </label>
+                <label>
+                  <span className="label-title">{t("field_guest_photo")}</span>
+                  <div className="guest-photo-input-row">
+                    <AvatarCircle
+                      className="list-avatar guest-photo-preview"
+                      label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
+                      fallback="IN"
+                      imageUrl={guestPhotoUrl}
+                      size={44}
+                    />
+                    <input
+                      type="url"
+                      value={guestPhotoInputValue}
+                      onChange={(event) => handleGuestPhotoUrlChange(event.target.value)}
+                      placeholder={t("placeholder_guest_photo")}
+                    />
+                  </div>
+                  <div className="button-row guest-photo-actions">
+                    <label className="btn btn-ghost btn-sm guest-photo-upload-btn">
+                      {t("guest_photo_upload")}
+                      <input type="file" accept="image/*" onChange={handleGuestPhotoFileChange} />
+                    </label>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleRemoveGuestPhoto} disabled={!guestPhotoUrl}>
+                      {t("guest_photo_remove")}
+                    </button>
+                  </div>
+                  <FieldMeta helpText={t("guest_photo_hint")} />
                 </label>
                 <label>
                   <span className="label-title">
@@ -13572,6 +13888,35 @@ function DashboardScreen({
               </label>
 
               <label>
+                <span className="label-title">{t("field_guest_photo")}</span>
+                <div className="guest-photo-input-row">
+                  <AvatarCircle
+                    className="list-avatar guest-photo-preview"
+                    label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
+                    fallback="IN"
+                    imageUrl={guestPhotoUrl}
+                    size={44}
+                  />
+                  <input
+                    type="url"
+                    value={guestPhotoInputValue}
+                    onChange={(event) => handleGuestPhotoUrlChange(event.target.value)}
+                    placeholder={t("placeholder_guest_photo")}
+                  />
+                </div>
+                <div className="button-row guest-photo-actions">
+                  <label className="btn btn-ghost btn-sm guest-photo-upload-btn">
+                    {t("guest_photo_upload")}
+                    <input type="file" accept="image/*" onChange={handleGuestPhotoFileChange} />
+                  </label>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={handleRemoveGuestPhoto} disabled={!guestPhotoUrl}>
+                    {t("guest_photo_remove")}
+                  </button>
+                </div>
+                <FieldMeta helpText={t("guest_photo_hint")} />
+              </label>
+
+              <label>
                 <span className="label-title">
                   <Icon name="mail" className="icon icon-sm" />
                   {t("email")}
@@ -14702,32 +15047,46 @@ function DashboardScreen({
                 </button>
               </div>
               <div className="detail-head detail-head-rich">
-                  <div className="detail-head-primary">
-                    <div className="detail-head-title-row">
-                      <h2 className="section-title detail-title">
-                      {selectedGuestDetail
-                        ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
-                        : t("guest_detail_title")}
-                    </h2>
-                    {selectedGuestDetail?.relationship ? (
-                      <span className="status-pill status-host-conversion-source-default">
-                        {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
-                      </span>
+                  <div className="detail-head-primary detail-head-primary-guest">
+                    {selectedGuestDetail ? (
+                      <AvatarCircle
+                        className="list-avatar detail-head-avatar"
+                        label={`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
+                        fallback="IN"
+                        imageUrl={getGuestAvatarUrl(
+                          selectedGuestDetail,
+                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
+                        )}
+                        size={54}
+                      />
                     ) : null}
-                  </div>
-                  <div className="detail-meta-inline">
-                    <span>
-                      <Icon name="mail" className="icon icon-sm" />
-                      {selectedGuestDetail?.email || "-"}
-                    </span>
-                    <span>
-                      <Icon name="phone" className="icon icon-sm" />
-                      {selectedGuestDetail?.phone || "-"}
-                    </span>
-                    <span>
-                      <Icon name="location" className="icon icon-sm" />
-                      {[selectedGuestDetail?.city, selectedGuestDetail?.country].filter(Boolean).join(", ") || "-"}
-                    </span>
+                    <div className="detail-head-primary-content">
+                      <div className="detail-head-title-row">
+                        <h2 className="section-title detail-title">
+                        {selectedGuestDetail
+                          ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
+                          : t("guest_detail_title")}
+                      </h2>
+                      {selectedGuestDetail?.relationship ? (
+                        <span className="status-pill status-host-conversion-source-default">
+                          {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="detail-meta-inline">
+                      <span>
+                        <Icon name="mail" className="icon icon-sm" />
+                        {selectedGuestDetail?.email || "-"}
+                      </span>
+                      <span>
+                        <Icon name="phone" className="icon icon-sm" />
+                        {selectedGuestDetail?.phone || "-"}
+                      </span>
+                      <span>
+                        <Icon name="location" className="icon icon-sm" />
+                        {[selectedGuestDetail?.city, selectedGuestDetail?.country].filter(Boolean).join(", ") || "-"}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 {selectedGuestDetail ? (
@@ -14801,25 +15160,28 @@ function DashboardScreen({
                     </button>
                   ))}
                 </div>
-                <div className="detail-layout detail-layout-guest">
+                <div className={`detail-layout detail-layout-guest detail-layout-guest-tab-${guestProfileViewTab}`}>
                   <article className="detail-card detail-card-guest-contact">
-                    <div className="detail-guest-contact-head">
-                      <AvatarCircle
-                        className="list-avatar detail-guest-contact-avatar"
-                        label={`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
-                        fallback="IN"
-                        imageUrl={getGuestAvatarUrl(
-                          selectedGuestDetail,
-                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
-                        )}
-                        size={40}
-                      />
-                      <div>
-                        <p className="item-title">
-                          {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
-                        </p>
-                        <p className="item-meta">{selectedGuestDetail.email || selectedGuestDetail.phone || "-"}</p>
-                      </div>
+                    <div className="detail-guest-contact-head detail-guest-contact-head-compact">
+                      <p className="item-title">{t("guest_detail_title")}</p>
+                      <p className="item-meta">
+                        {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
+                      </p>
+                    </div>
+                    <div className="detail-guest-contact-channels">
+                      {selectedGuestDetail.email ? (
+                        <a className="detail-contact-link" href={`mailto:${selectedGuestDetail.email}`}>
+                          <Icon name="mail" className="icon icon-sm" />
+                          <span>{selectedGuestDetail.email}</span>
+                        </a>
+                      ) : null}
+                      {selectedGuestDetail.phone ? (
+                        <a className="detail-contact-link" href={`tel:${selectedGuestDetail.phone}`}>
+                          <Icon name="phone" className="icon icon-sm" />
+                          <span>{selectedGuestDetail.phone}</span>
+                        </a>
+                      ) : null}
+                      {!selectedGuestDetail.email && !selectedGuestDetail.phone ? <p className="item-meta">-</p> : null}
                     </div>
                     <div className="detail-guest-contact-meta">
                       {selectedGuestDetail.relationship ? (
@@ -15851,11 +16213,7 @@ function DashboardScreen({
               <div className="import-wizard-body">
                 {importWizardStep === 1 ? (
                   <div className="import-source-grid">
-                    {[
-                      { key: "csv", icon: "folder", title: t("import_wizard_source_csv_title"), hint: t("import_wizard_source_csv_hint") },
-                      { key: "gmail", icon: "mail", title: t("import_wizard_source_gmail_title"), hint: t("import_wizard_source_gmail_hint") },
-                      { key: "mobile", icon: "phone", title: t("import_wizard_source_mobile_title"), hint: t("import_wizard_source_mobile_hint") }
-                    ].map((sourceItem) => (
+                    {importWizardSourceOptions.map((sourceItem) => (
                       <button
                         key={sourceItem.key}
                         type="button"
@@ -15866,8 +16224,34 @@ function DashboardScreen({
                         <span className="import-source-icon">
                           <Icon name={sourceItem.icon} className="icon icon-sm" />
                         </span>
-                        <span className="item-title">{sourceItem.title}</span>
+                        <span className="import-source-title-row">
+                          <span className="item-title">{sourceItem.title}</span>
+                          {sourceItem.isRecommended ? (
+                            <span className="import-source-recommended">{t("import_wizard_source_recommended")}</span>
+                          ) : null}
+                        </span>
                         <span className="item-meta">{sourceItem.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {importWizardStep === 2 && isMobileImportExperience && importWizardSourceOptions.length > 1 ? (
+                  <div className="import-source-switch" role="tablist" aria-label={t("import_wizard_step_1_title")}>
+                    {importWizardSourceOptions.map((sourceItem) => (
+                      <button
+                        key={`switch-${sourceItem.key}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={importWizardSource === sourceItem.key}
+                        className={`import-source-switch-btn ${importWizardSource === sourceItem.key ? "active" : ""}`}
+                        onClick={() => {
+                          setImportContactsMessage("");
+                          setImportWizardSource(sourceItem.key);
+                        }}
+                      >
+                        <Icon name={sourceItem.icon} className="icon icon-xs" />
+                        <span>{sourceItem.title}</span>
                       </button>
                     ))}
                   </div>
@@ -15944,69 +16328,104 @@ function DashboardScreen({
 
                 {importWizardStep === 2 && importWizardSource === "mobile" ? (
                   <div className="import-step-stack">
-                    <div className="import-mobile-qr-box">
-                      {importWizardQrDataUrl ? (
-                        <img src={importWizardQrDataUrl} alt={t("import_wizard_mobile_qr_alt")} />
-                      ) : (
-                        <div className="import-mobile-qr-fallback">
-                          <Icon name="phone" className="icon" />
-                          <span>{t("import_wizard_mobile_qr_hint")}</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="item-meta">{t("import_wizard_mobile_qr_hint")}</p>
-                    <p className="hint">
-                      {canUseDeviceContacts ? t("contact_import_device_supported") : t("contact_import_device_not_supported")}
-                    </p>
-                    {!canUseDeviceContacts ? <p className="hint">{contactPickerUnsupportedReason}</p> : null}
+                    {canUseDeviceContacts ? (
+                      <article className="recommendation-card">
+                        <p className="item-title">{t("import_wizard_mobile_native_title")}</p>
+                        <p className="item-meta">{t("import_wizard_mobile_native_hint")}</p>
+                        <button
+                          className="btn btn-sm"
+                          type="button"
+                          onClick={() => handlePickDeviceContacts({ fromWizard: true })}
+                        >
+                          <Icon name="phone" className="icon icon-sm" />
+                          {t("contact_import_device_button")}
+                        </button>
+                      </article>
+                    ) : (
+                      <article className="recommendation-card warning">
+                        <p className="item-title">
+                          {isIOSDevice ? t("import_wizard_ios_recommendation_title") : t("import_wizard_mobile_fallback_title")}
+                        </p>
+                        <p className="item-meta">
+                          {isIOSDevice ? t("import_wizard_ios_recommendation_hint") : t("import_wizard_mobile_fallback_hint")}
+                        </p>
+                        <p className="hint">{contactPickerUnsupportedReason}</p>
+                        {isIOSDevice && canUseGoogleContacts ? (
+                          <button className="btn btn-sm" type="button" onClick={() => setImportWizardSource("gmail")}>
+                            <Icon name="mail" className="icon icon-sm" />
+                            {t("import_wizard_ios_use_google_action")}
+                          </button>
+                        ) : null}
+                      </article>
+                    )}
+                    {!canUseDeviceContacts ? (
+                      <div className="import-mobile-qr-box">
+                        {importWizardQrDataUrl ? (
+                          <img src={importWizardQrDataUrl} alt={t("import_wizard_mobile_qr_alt")} />
+                        ) : (
+                          <div className="import-mobile-qr-fallback">
+                            <Icon name="phone" className="icon" />
+                            <span>{t("import_wizard_mobile_qr_hint")}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    {!canUseDeviceContacts ? <p className="item-meta">{t("import_wizard_mobile_qr_hint")}</p> : null}
                     <div className="button-row">
                       <button
                         className="btn btn-ghost btn-sm"
                         type="button"
-                        onClick={() => handlePickDeviceContacts({ fromWizard: true })}
+                        onClick={handleShareImportWizardLink}
                       >
-                        <Icon name="phone" className="icon icon-sm" />
-                        {t("contact_import_device_button")}
+                        <Icon name="message" className="icon icon-sm" />
+                        {t("import_wizard_mobile_share_action")}
                       </button>
-                      <label className="btn btn-ghost btn-sm">
-                        <Icon name="folder" className="icon icon-sm" />
-                        {t("contact_import_open_file_button")}
-                        <input
-                          type="file"
-                          accept=".csv,.vcf,.vcard,text/csv,text/vcard"
-                          onChange={handleImportContactsFile}
-                          hidden
-                        />
-                      </label>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(importWizardMobileLink);
-                            setImportWizardShareMessage(t("copy_ok"));
-                          } catch {
-                            setImportWizardShareMessage(t("copy_fail"));
-                          }
-                        }}
-                      >
-                        <Icon name="link" className="icon icon-sm" />
-                        {t("copy_link")}
-                      </button>
+                      {!canUseDeviceContacts ? (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => handleImportGoogleContacts({ fromWizard: true })}
+                          disabled={isImportingGoogleContacts || !canUseGoogleContacts}
+                        >
+                          <Icon name="mail" className="icon icon-sm" />
+                          {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
+                        </button>
+                      ) : null}
                     </div>
-                    <label>
-                      <span className="label-title">{t("email")}</span>
-                      <input
-                        type="email"
-                        value={importWizardShareEmail}
-                        onChange={(event) => setImportWizardShareEmail(event.target.value)}
-                        placeholder={t("placeholder_email")}
-                      />
-                    </label>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardEmailLink}>
-                      <Icon name="mail" className="icon icon-sm" />
-                      {t("import_wizard_mobile_email_action")}
-                    </button>
+                    {!isMobileImportExperience ? (
+                      <>
+                        <label>
+                          <span className="label-title">{t("email")}</span>
+                          <input
+                            type="email"
+                            value={importWizardShareEmail}
+                            onChange={(event) => setImportWizardShareEmail(event.target.value)}
+                            placeholder={t("placeholder_email")}
+                          />
+                        </label>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardEmailLink}>
+                          <Icon name="mail" className="icon icon-sm" />
+                          {t("import_wizard_mobile_email_action")}
+                        </button>
+                      </>
+                    ) : null}
+                    {!canUseDeviceContacts && !isMobileImportExperience ? (
+                      <details className="contact-import-fallback-details">
+                        <summary>{t("import_wizard_mobile_alternative_methods")}</summary>
+                        <div className="button-row">
+                          <label className="btn btn-ghost btn-sm">
+                            <Icon name="folder" className="icon icon-sm" />
+                            {t("contact_import_open_file_button")}
+                            <input
+                              type="file"
+                              accept=".csv,.vcf,.vcard,text/csv,text/vcard"
+                              onChange={handleImportContactsFile}
+                              hidden
+                            />
+                          </label>
+                        </div>
+                      </details>
+                    ) : null}
                   </div>
                 ) : null}
 
