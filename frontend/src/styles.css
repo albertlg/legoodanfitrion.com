@@ -2919,6 +2919,26 @@ h2 {
   letter-spacing: 0.01em;
 }
 
+.detail-breadcrumb-row {
+  width: 100%;
+  gap: 0.42rem;
+}
+
+.detail-breadcrumb-pill {
+  border-radius: 999px;
+  min-height: 34px;
+  padding-inline: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.detail-breadcrumb-sep {
+  opacity: 0.72;
+}
+
 .breadcrumb-link {
   color: var(--text-muted);
   font-weight: 600;
@@ -3007,12 +3027,12 @@ h2 {
   justify-content: flex-end;
 }
 
-.detail-head-actions-guest {
+.detail-head-actions-compact {
   align-items: center;
   gap: 0.38rem;
 }
 
-.detail-head-actions-guest .btn {
+.detail-head-actions-compact .btn {
   min-height: 38px;
 }
 
@@ -7200,28 +7220,28 @@ code {
     justify-content: flex-start;
   }
 
-  .detail-head-actions-guest {
+  .detail-head-actions-compact {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.35rem;
   }
 
-  .detail-head-actions-guest .btn {
+  .detail-head-actions-compact .btn {
     width: 100%;
     justify-content: center;
   }
 
-  .detail-head-actions-guest .list-actions-more {
+  .detail-head-actions-compact .list-actions-more {
     grid-column: 1 / -1;
   }
 
-  .detail-head-actions-guest .list-actions-more > summary {
+  .detail-head-actions-compact .list-actions-more > summary {
     width: 100%;
     justify-content: center;
   }
 
-  .detail-head-actions-guest .list-actions-more-menu {
+  .detail-head-actions-compact .list-actions-more-menu {
     left: 0;
     right: auto;
     min-width: min(300px, calc(100vw - 3rem));

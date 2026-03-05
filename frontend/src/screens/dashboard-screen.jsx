@@ -14063,17 +14063,12 @@ function DashboardScreen({
 
             {guestsWorkspace === "detail" ? (
             <section className="panel panel-wide detail-panel detail-panel-guest">
-              <p className="detail-breadcrumb">
-                <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("guests", "latest")}>
+              <div className="detail-breadcrumb detail-breadcrumb-row">
+                <button className="btn btn-ghost btn-sm detail-breadcrumb-pill" type="button" onClick={() => openWorkspace("guests", "latest")}>
+                  <Icon name="arrow_left" className="icon icon-sm" />
                   {t("latest_guests_title")}
                 </button>
-                <span>/</span>
-                <span>
-                  {selectedGuestDetail
-                    ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("guest_detail_title")
-                    : t("guest_detail_title")}
-                </span>
-              </p>
+              </div>
               <div className="detail-head detail-head-rich">
                   <div className="detail-head-primary">
                     <div className="detail-head-title-row">
@@ -14104,7 +14099,7 @@ function DashboardScreen({
                   </div>
                 </div>
                 {selectedGuestDetail ? (
-                  <div className="button-row detail-head-actions detail-head-actions-guest">
+                  <div className="button-row detail-head-actions detail-head-actions-compact detail-head-actions-guest">
                     <button
                       className="btn btn-ghost btn-sm"
                       type="button"

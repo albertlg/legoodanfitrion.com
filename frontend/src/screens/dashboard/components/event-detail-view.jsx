@@ -80,25 +80,22 @@ export function EventDetailView({
 
   return (
     <section className={`panel panel-wide detail-panel ${isPlanWorkspace ? "detail-panel-plan" : ""}`}>
-      <p className="detail-breadcrumb">
-        <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("events", "latest")}>
+      <div className="detail-breadcrumb detail-breadcrumb-row">
+        <button className="btn btn-ghost btn-sm detail-breadcrumb-pill" type="button" onClick={() => openWorkspace("events", "latest")}>
+          <Icon name="arrow_left" className="icon icon-sm" />
           {t("latest_events_title")}
         </button>
-        <span>/</span>
-        {eventsWorkspace === "plan" ? (
-          <button className="text-link-btn breadcrumb-link" type="button" onClick={handleBackToEventDetail}>
-            {selectedEventDetail?.title || t("event_detail_title")}
-          </button>
-        ) : (
-          <span>{selectedEventDetail?.title || t("event_detail_title")}</span>
-        )}
         {eventsWorkspace === "plan" ? (
           <>
-            <span>/</span>
+            <span className="detail-breadcrumb-sep">/</span>
+            <button className="text-link-btn breadcrumb-link" type="button" onClick={handleBackToEventDetail}>
+              {selectedEventDetail?.title || t("event_detail_title")}
+            </button>
+            <span className="detail-breadcrumb-sep">/</span>
             <span>{t("event_planner_title")}</span>
           </>
         ) : null}
-      </p>
+      </div>
       {!isPlanWorkspace ? (
         <div className="detail-head detail-head-rich">
           <div className="detail-head-primary">
@@ -124,7 +121,7 @@ export function EventDetailView({
             </div>
           </div>
           {selectedEventDetail ? (
-            <div className="button-row detail-head-actions">
+            <div className="button-row detail-head-actions detail-head-actions-compact detail-head-actions-event">
               <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
                 <Icon name="sparkle" className="icon icon-sm" />
                 {t("event_plan_cta_action")}
@@ -133,26 +130,38 @@ export function EventDetailView({
                 <Icon name="edit" className="icon icon-sm" />
                 {t("event_detail_edit_action")}
               </button>
-              {selectedEventDetailPrimaryShare?.url ? (
-                <a className="btn btn-sm" href={selectedEventDetailPrimaryShare.url} target="_blank" rel="noreferrer">
-                  <Icon name="mail" className="icon icon-sm" />
-                  {t("open_rsvp")}
-                </a>
-              ) : (
-                <button
-                  className="btn btn-sm"
-                  type="button"
-                  onClick={() =>
-                    openInvitationCreate({
-                      eventId: selectedEventDetail.id,
-                      messageKey: "invitation_prefill_event"
-                    })
-                  }
-                >
-                  <Icon name="mail" className="icon icon-sm" />
-                  {t("event_detail_create_invitation_action")}
-                </button>
-              )}
+              <details className="list-actions-more">
+                <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                  <Icon name="more_horizontal" className="icon icon-sm" />
+                </summary>
+                <div className="list-actions-more-menu" role="menu">
+                  {selectedEventDetailPrimaryShare?.url ? (
+                    <a
+                      className="btn btn-ghost btn-sm list-actions-more-item"
+                      href={selectedEventDetailPrimaryShare.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icon name="mail" className="icon icon-sm" />
+                      <span>{t("open_rsvp")}</span>
+                    </a>
+                  ) : (
+                    <button
+                      className="btn btn-ghost btn-sm list-actions-more-item"
+                      type="button"
+                      onClick={() =>
+                        openInvitationCreate({
+                          eventId: selectedEventDetail.id,
+                          messageKey: "invitation_prefill_event"
+                        })
+                      }
+                    >
+                      <Icon name="mail" className="icon icon-sm" />
+                      <span>{t("event_detail_create_invitation_action")}</span>
+                    </button>
+                  )}
+                </div>
+              </details>
             </div>
           ) : null}
         </div>
