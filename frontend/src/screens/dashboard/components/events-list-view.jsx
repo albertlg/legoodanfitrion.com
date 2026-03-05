@@ -170,6 +170,41 @@ export function EventsListView({
                       <Icon name="edit" className="icon icon-sm" />
                       <span>{t("edit_event")}</span>
                     </button>
+                    <details className="list-actions-more list-actions-more-mobile">
+                      <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                        <Icon name="more_horizontal" className="icon icon-sm" />
+                      </summary>
+                      <div className="list-actions-more-menu" role="menu">
+                        <button
+                          className="btn btn-ghost btn-sm list-actions-more-item"
+                          type="button"
+                          onClick={() => openEventPlanById(eventItem.id, "ambience")}
+                        >
+                          <Icon name="sparkle" className="icon icon-sm" />
+                          <span>{t("event_plan_cta_action")}</span>
+                        </button>
+                        {eventMapsUrl ? (
+                          <a
+                            className="btn btn-ghost btn-sm list-actions-more-item"
+                            href={eventMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Icon name="location" className="icon icon-sm" />
+                            <span>{t("map_open_external")}</span>
+                          </a>
+                        ) : null}
+                        <button
+                          className="btn btn-danger btn-sm list-actions-more-item"
+                          type="button"
+                          onClick={() => handleRequestDeleteEvent(eventItem)}
+                          disabled={isDeletingEventId === eventItem.id}
+                        >
+                          <Icon name="x" className="icon icon-sm" />
+                          <span>{isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}</span>
+                        </button>
+                      </div>
+                    </details>
                   </div>
                   <div className="button-row cell-actions list-row-actions list-row-actions-event">
                     <div className="list-row-actions-main">

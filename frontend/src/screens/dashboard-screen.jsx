@@ -13743,8 +13743,8 @@ function DashboardScreen({
 
             {guestsWorkspace === "latest" ? (
             <section className="panel panel-list panel-guests-latest">
-              <div className="list-tools">
-                <label>
+              <div className="list-tools list-tools-events">
+                <label className="list-tools-search">
                   <span className="label-title">{t("search")}</span>
                   <input
                     type="search"
@@ -13753,25 +13753,27 @@ function DashboardScreen({
                     placeholder={t("search_guests_placeholder")}
                   />
                 </label>
-                <label>
-                  <span className="label-title">{t("sort_by")}</span>
-                  <select value={guestSort} onChange={(event) => setGuestSort(event.target.value)}>
-                    <option value="created_desc">{t("sort_created_desc")}</option>
-                    <option value="created_asc">{t("sort_created_asc")}</option>
-                    <option value="name_asc">{t("sort_name_asc")}</option>
-                    <option value="name_desc">{t("sort_name_desc")}</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="label-title">{t("pagination_items_per_page")}</span>
-                  <select value={guestPageSize} onChange={(event) => setGuestPageSize(Number(event.target.value) || GUESTS_PAGE_SIZE_DEFAULT)}>
-                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                      <option key={optionValue} value={optionValue}>
-                        {optionValue}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="list-tools-secondary">
+                  <label>
+                    <span className="label-title">{t("sort_by")}</span>
+                    <select value={guestSort} onChange={(event) => setGuestSort(event.target.value)}>
+                      <option value="created_desc">{t("sort_created_desc")}</option>
+                      <option value="created_asc">{t("sort_created_asc")}</option>
+                      <option value="name_asc">{t("sort_name_asc")}</option>
+                      <option value="name_desc">{t("sort_name_desc")}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="label-title">{t("pagination_items_per_page")}</span>
+                    <select value={guestPageSize} onChange={(event) => setGuestPageSize(Number(event.target.value) || GUESTS_PAGE_SIZE_DEFAULT)}>
+                      {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                        <option key={optionValue} value={optionValue}>
+                          {optionValue}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </div>
               <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_contact")}>
                 {[
@@ -13850,6 +13852,64 @@ function DashboardScreen({
                       ]);
                       const healthPreviewVisible = healthPreview.slice(0, 2);
                       const healthPreviewRemaining = Math.max(0, healthPreview.length - healthPreviewVisible.length);
+                      const renderGuestRowMoreActionItems = () => (
+                        <>
+                          <button
+                            className="btn btn-ghost btn-sm list-actions-more-item"
+                            type="button"
+                            onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
+                          >
+                            <Icon name="sparkle" className="icon icon-sm" />
+                            <span>{t("guest_advanced_title")}</span>
+                          </button>
+                          <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(guestItem)}>
+                            <Icon name="link" className="icon icon-sm" />
+                            <span>{t("merge_guest_action")}</span>
+                          </button>
+                          {guestItem.email || guestItem.phone ? (
+                            <button
+                              className="btn btn-ghost btn-sm list-actions-more-item"
+                              type="button"
+                              onClick={() => handleCopyHostSignupLink(guestItem)}
+                              disabled={Boolean(conversion)}
+                            >
+                              <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
+                              <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
+                            </button>
+                          ) : null}
+                          {guestItem.email || guestItem.phone ? (
+                            <button
+                              className="btn btn-ghost btn-sm list-actions-more-item"
+                              type="button"
+                              onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
+                              disabled={Boolean(conversion)}
+                            >
+                              <Icon name="message" className="icon icon-sm" />
+                              <span>{t("host_invite_whatsapp_action")}</span>
+                            </button>
+                          ) : null}
+                          {guestItem.email || guestItem.phone ? (
+                            <button
+                              className="btn btn-ghost btn-sm list-actions-more-item"
+                              type="button"
+                              onClick={() => handleShareHostSignupLink(guestItem, "email")}
+                              disabled={Boolean(conversion)}
+                            >
+                              <Icon name="mail" className="icon icon-sm" />
+                              <span>{t("host_invite_email_action")}</span>
+                            </button>
+                          ) : null}
+                          <button
+                            className="btn btn-danger btn-sm list-actions-more-item"
+                            type="button"
+                            onClick={() => handleRequestDeleteGuest(guestItem)}
+                            disabled={isDeletingGuestId === guestItem.id}
+                          >
+                            <Icon name="x" className="icon icon-sm" />
+                            <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
+                          </button>
+                        </>
+                      );
                       return (
                       <li key={guestItem.id} className="list-table-row list-row-guest">
                         <div className="cell-main list-title-with-avatar">
@@ -13926,60 +13986,7 @@ function DashboardScreen({
                               <Icon name="more_horizontal" className="icon icon-sm" />
                             </summary>
                             <div className="list-actions-more-menu" role="menu">
-                              <button
-                                className="btn btn-ghost btn-sm list-actions-more-item"
-                                type="button"
-                                onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
-                              >
-                                <Icon name="sparkle" className="icon icon-sm" />
-                                <span>{t("guest_advanced_title")}</span>
-                              </button>
-                              <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(guestItem)}>
-                                <Icon name="link" className="icon icon-sm" />
-                                <span>{t("merge_guest_action")}</span>
-                              </button>
-                              {guestItem.email || guestItem.phone ? (
-                                <button
-                                  className="btn btn-ghost btn-sm list-actions-more-item"
-                                  type="button"
-                                  onClick={() => handleCopyHostSignupLink(guestItem)}
-                                  disabled={Boolean(conversion)}
-                                >
-                                  <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
-                                  <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
-                                </button>
-                              ) : null}
-                              {guestItem.email || guestItem.phone ? (
-                                <button
-                                  className="btn btn-ghost btn-sm list-actions-more-item"
-                                  type="button"
-                                  onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
-                                  disabled={Boolean(conversion)}
-                                >
-                                  <Icon name="message" className="icon icon-sm" />
-                                  <span>{t("host_invite_whatsapp_action")}</span>
-                                </button>
-                              ) : null}
-                              {guestItem.email || guestItem.phone ? (
-                                <button
-                                  className="btn btn-ghost btn-sm list-actions-more-item"
-                                  type="button"
-                                  onClick={() => handleShareHostSignupLink(guestItem, "email")}
-                                  disabled={Boolean(conversion)}
-                                >
-                                  <Icon name="mail" className="icon icon-sm" />
-                                  <span>{t("host_invite_email_action")}</span>
-                                </button>
-                              ) : null}
-                              <button
-                                className="btn btn-danger btn-sm list-actions-more-item"
-                                type="button"
-                                onClick={() => handleRequestDeleteGuest(guestItem)}
-                                disabled={isDeletingGuestId === guestItem.id}
-                              >
-                                <Icon name="x" className="icon icon-sm" />
-                                <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
-                              </button>
+                              {renderGuestRowMoreActionItems()}
                             </div>
                           </details>
                         </div>
@@ -14004,60 +14011,7 @@ function DashboardScreen({
                                 <Icon name="edit" className="icon icon-sm" />
                                 <span>{t("edit_guest")}</span>
                               </button>
-                              <button
-                                className="btn btn-ghost btn-sm list-actions-more-item"
-                                type="button"
-                                onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
-                              >
-                                <Icon name="sparkle" className="icon icon-sm" />
-                                <span>{t("guest_advanced_title")}</span>
-                              </button>
-                              <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(guestItem)}>
-                                <Icon name="link" className="icon icon-sm" />
-                                <span>{t("merge_guest_action")}</span>
-                              </button>
-                              {guestItem.email || guestItem.phone ? (
-                                <button
-                                  className="btn btn-ghost btn-sm list-actions-more-item"
-                                  type="button"
-                                  onClick={() => handleCopyHostSignupLink(guestItem)}
-                                  disabled={Boolean(conversion)}
-                                >
-                                  <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
-                                  <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
-                                </button>
-                              ) : null}
-                              {guestItem.email || guestItem.phone ? (
-                                <button
-                                  className="btn btn-ghost btn-sm list-actions-more-item"
-                                  type="button"
-                                  onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
-                                  disabled={Boolean(conversion)}
-                                >
-                                  <Icon name="message" className="icon icon-sm" />
-                                  <span>{t("host_invite_whatsapp_action")}</span>
-                                </button>
-                              ) : null}
-                              {guestItem.email || guestItem.phone ? (
-                                <button
-                                  className="btn btn-ghost btn-sm list-actions-more-item"
-                                  type="button"
-                                  onClick={() => handleShareHostSignupLink(guestItem, "email")}
-                                  disabled={Boolean(conversion)}
-                                >
-                                  <Icon name="mail" className="icon icon-sm" />
-                                  <span>{t("host_invite_email_action")}</span>
-                                </button>
-                              ) : null}
-                              <button
-                                className="btn btn-danger btn-sm list-actions-more-item"
-                                type="button"
-                                onClick={() => handleRequestDeleteGuest(guestItem)}
-                                disabled={isDeletingGuestId === guestItem.id}
-                              >
-                                <Icon name="x" className="icon icon-sm" />
-                                <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
-                              </button>
+                              {renderGuestRowMoreActionItems()}
                             </div>
                           </details>
                         </div>
@@ -14863,16 +14817,6 @@ function DashboardScreen({
 
             {invitationsWorkspace === "latest" ? (
             <section className="panel panel-list panel-invitations-latest">
-              <div className="button-row invitation-list-head-actions">
-                <button className="btn btn-ghost btn-sm" type="button" onClick={openInvitationBulkWorkspace}>
-                  <Icon name="message" className="icon icon-sm" />
-                  {t("invitation_bulk_title")}
-                </button>
-                <button className="btn btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
-                  <Icon name="mail" className="icon icon-sm" />
-                  {t("quick_create_invitation")}
-                </button>
-              </div>
               <div className="list-tools list-tools-invitations">
                 <label className="list-tools-search">
                   <span className="label-title">{t("search")}</span>
@@ -15078,6 +15022,42 @@ function DashboardScreen({
                             <Icon name="eye" className="icon icon-sm" />
                             <span>{mobileRsvpLabel}</span>
                           </a>
+                          <details className="list-actions-more list-actions-more-mobile invitation-actions-more">
+                            <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                              <Icon name="more_horizontal" className="icon icon-sm" />
+                            </summary>
+                            <div className="list-actions-more-menu invitation-actions-more-menu" role="menu">
+                              <button
+                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
+                                type="button"
+                                onClick={() => {
+                                  const prepared = handlePrepareInvitationShare(invitation);
+                                  if (prepared?.mailtoUrl) {
+                                    window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
+                                  }
+                                }}
+                              >
+                                <Icon name="mail" className="icon icon-sm" />
+                                <span>{t("invitation_open_email")}</span>
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
+                                type="button"
+                                onClick={() => handleCopyInvitationLink(url)}
+                              >
+                                <Icon name="link" className="icon icon-sm" />
+                                <span>{t("copy_link")}</span>
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm list-actions-more-item invitation-actions-more-item"
+                                type="button"
+                                onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
+                              >
+                                <Icon name="x" className="icon icon-sm" />
+                                <span>{t("delete_invitation")}</span>
+                              </button>
+                            </div>
+                          </details>
                         </div>
                         <div className={`button-row cell-actions list-row-actions invitation-actions invitation-actions--${invitationStatus}`}>
                           <button

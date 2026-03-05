@@ -4014,13 +4014,6 @@ h2 {
   gap: 0.45rem;
 }
 
-.invitation-list-head-actions {
-  margin-top: 0.18rem;
-  margin-bottom: 0.2rem;
-  gap: 0.42rem;
-  justify-content: flex-end;
-}
-
 .list-tools-invitations {
   gap: 0.5rem;
   margin-top: 0.22rem;
@@ -5079,10 +5072,6 @@ textarea {
   margin-top: 0.4rem;
 }
 
-.list-tools-events .list-tools-search {
-  grid-column: 1 / -1;
-}
-
 .list-tools-secondary {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, max-content));
@@ -5091,8 +5080,12 @@ textarea {
 }
 
 .panel-list .list-tools {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: minmax(280px, 1fr) auto;
   align-items: end;
+}
+
+.list-tools .list-tools-search {
+  min-width: 0;
 }
 
 .list-filter-tabs {
@@ -6608,7 +6601,17 @@ code {
   }
 
   .dashboard-quick-actions {
-    display: none;
+    display: inline-flex;
+    grid-column: 1 / -1;
+    width: 100%;
+    gap: 0.45rem;
+    justify-content: stretch;
+  }
+
+  .dashboard-quick-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 42px;
   }
 
   .app-header {
@@ -6982,15 +6985,6 @@ code {
   .invitation-actions .btn-icon-only {
     min-width: 2.1rem;
     flex: 0 0 auto;
-  }
-
-  .invitation-list-head-actions {
-    justify-content: stretch;
-  }
-
-  .invitation-list-head-actions .btn {
-    flex: 1 1 auto;
-    justify-content: center;
   }
 
   .list-tools-secondary-invitations {
