@@ -1,6 +1,70 @@
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
+import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
+
+const GOOGLE_MAPS_API_KEY = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
+const EVENT_COVER_FALLBACK_BY_TYPE = {
+  bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
+  celebration: "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1600&q=80",
+  party: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=80",
+  romantic_date: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80",
+  book_club: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1600&q=80",
+  meeting: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80",
+  brunch: "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=1600&q=80",
+  dinner: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1600&q=80",
+  default: "https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
+};
+
+function getFallbackEventCoverUrl(eventType) {
+  const key = String(eventType || "")
+    .trim()
+    .toLowerCase();
+  return EVENT_COVER_FALLBACK_BY_TYPE[key] || EVENT_COVER_FALLBACK_BY_TYPE.default;
+}
+
+function getEventPlaceLookupValue(eventItem) {
+  if (!eventItem) {
+    return "";
+  }
+  if (typeof eventItem.location_lat === "number" && typeof eventItem.location_lng === "number") {
+    return `${eventItem.location_lat},${eventItem.location_lng}`;
+  }
+  return String(eventItem.location_address || eventItem.location_name || "").trim();
+}
+
+function buildStreetViewPhotoUrl(eventItem, width = 1400, height = 620) {
+  if (!GOOGLE_MAPS_API_KEY) {
+    return "";
+  }
+  const placeLookup = getEventPlaceLookupValue(eventItem);
+  if (!placeLookup) {
+    return "";
+  }
+  return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${encodeURIComponent(
+    placeLookup
+  )}&fov=100&pitch=2&key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}`;
+}
+
+function getEventCoverImageUrl(eventItem) {
+  if (!eventItem) {
+    return "";
+  }
+  const explicitCover = [eventItem.cover_image_url, eventItem.image_url, eventItem.header_image_url]
+    .map((item) => String(item || "").trim())
+    .find(Boolean);
+  if (explicitCover) {
+    return explicitCover;
+  }
+  return buildStreetViewPhotoUrl(eventItem, 1400, 620) || getFallbackEventCoverUrl(eventItem.event_type);
+}
+
+function getEventLocationPhotoUrl(eventItem) {
+  if (!eventItem) {
+    return "";
+  }
+  return buildStreetViewPhotoUrl(eventItem, 1120, 680) || getFallbackEventCoverUrl(eventItem.event_type);
+}
 
 export function EventDetailView({
   eventsWorkspace,
@@ -67,6 +131,7 @@ export function EventDetailView({
   handleCopyEventPlannerMessages,
   handleCopyEventPlannerPrompt,
   getMapEmbedUrl,
+  getGuestAvatarUrl,
   selectedEventDetailGuests,
   openGuestDetail,
   handlePrepareInvitationShare,
@@ -77,6 +142,14 @@ export function EventDetailView({
   const eventDateLabel = formatLongDate(selectedEventDetail?.start_at, language, t("no_date"));
   const eventTimeLabel = formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"));
   const eventPlaceLabel = selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-";
+  const eventMapsExternalUrl =
+    typeof selectedEventDetail?.location_lat === "number" && typeof selectedEventDetail?.location_lng === "number"
+      ? `https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`
+      : selectedEventDetail?.location_address
+      ? `https://www.google.com/maps?q=${encodeURIComponent(selectedEventDetail.location_address)}`
+      : "";
+  const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
+  const eventLocationPhotoUrl = getEventLocationPhotoUrl(selectedEventDetail);
 
   return (
     <section className={`panel panel-wide detail-panel ${isPlanWorkspace ? "detail-panel-plan" : ""}`}>
@@ -96,6 +169,23 @@ export function EventDetailView({
           </>
         ) : null}
       </div>
+      {selectedEventDetail && !isPlanWorkspace ? (
+        <article className="event-detail-cover" aria-label={t("event_detail_cover_title")}>
+          <img
+            src={eventCoverImageUrl}
+            alt={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
+            loading="lazy"
+          />
+          <div className="event-detail-cover-overlay">
+            <span className="status-pill status-host-conversion-source-default">{eventPlaceLabel}</span>
+            {selectedEventDetail.event_type ? (
+              <span className="status-pill status-maybe">
+                {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
+              </span>
+            ) : null}
+          </div>
+        </article>
+      ) : null}
       {!isPlanWorkspace ? (
         <div className="detail-head detail-head-rich">
           <div className="detail-head-primary">
@@ -354,6 +444,27 @@ export function EventDetailView({
             />
           ) : null}
 
+          {eventsWorkspace === "detail" ? (
+            <article className="detail-card detail-card-map detail-card-event-location-photo">
+              <p className="item-title">{t("event_detail_location_photo_title")}</p>
+              <div className="event-location-photo" aria-label={t("event_detail_location_photo_title")}>
+                <img
+                  src={eventLocationPhotoUrl}
+                  alt={interpolateText(t("event_detail_location_photo_alt"), { place: eventPlaceLabel })}
+                  loading="lazy"
+                />
+              </div>
+              <p className="item-meta">{eventPlaceLabel}</p>
+              {eventMapsExternalUrl ? (
+                <div className="button-row">
+                  <a className="btn btn-ghost btn-sm" href={eventMapsExternalUrl} target="_blank" rel="noreferrer">
+                    {t("map_open_external")}
+                  </a>
+                </div>
+              ) : null}
+            </article>
+          ) : null}
+
           {eventsWorkspace === "detail" && typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
             <article className="detail-card detail-card-map detail-card-event-map">
               <p className="item-title">{t("map_preview_title")}</p>
@@ -384,15 +495,23 @@ export function EventDetailView({
                   <ul className="list detail-table-list detail-table-list-event-guests">
                     {selectedEventDetailGuests.map((row) => {
                       const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
+                      const rowGuestLabel = row.name || t("field_guest");
                       return (
                         <li key={row.invitation.id} className="detail-table-row detail-table-row-event-guests">
-                          <div className="cell-main">
+                          <div className="cell-main list-title-with-avatar">
+                            <AvatarCircle
+                              className="list-avatar list-avatar-sm"
+                              label={rowGuestLabel}
+                              fallback="IN"
+                              imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
+                              size={30}
+                            />
                             <button
                               className="text-link-btn invitation-linked-name"
                               type="button"
                               onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
                             >
-                              {row.name}
+                              {rowGuestLabel}
                             </button>
                           </div>
                           <p className="item-meta cell-meta">{row.contact}</p>

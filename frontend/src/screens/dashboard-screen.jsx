@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AvatarCircle } from "../components/avatar-circle";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { FieldMeta } from "../components/field-meta";
@@ -2024,6 +2025,39 @@ function getInitials(value, fallback = "LG") {
     .slice(0, 2)
     .map((item) => item[0]?.toUpperCase() || "")
     .join("");
+}
+
+function buildGeneratedGuestAvatarUrl(seed) {
+  const normalizedSeed = encodeURIComponent(String(seed || "guest").trim() || "guest");
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${normalizedSeed}&radius=50&fontWeight=700&backgroundColor=1f2f46,2f4f77,8fa8ca,cbb58a`;
+}
+
+function getGuestAvatarUrl(guestItem, fallbackLabel = "") {
+  if (!guestItem && !fallbackLabel) {
+    return "";
+  }
+  const preferredImageUrl = [
+    guestItem?.avatar_url,
+    guestItem?.photo_url,
+    guestItem?.image_url,
+    guestItem?.picture
+  ]
+    .map((item) => String(item || "").trim())
+    .find(Boolean);
+  if (preferredImageUrl) {
+    return preferredImageUrl;
+  }
+  const seed = [
+    guestItem?.id,
+    guestItem?.first_name,
+    guestItem?.last_name,
+    guestItem?.email,
+    guestItem?.phone,
+    fallbackLabel
+  ]
+    .map((item) => String(item || "").trim())
+    .find(Boolean);
+  return buildGeneratedGuestAvatarUrl(seed || "guest");
 }
 
 function uniqueValues(values) {
@@ -9017,6 +9051,32 @@ function DashboardScreen({
     );
   };
 
+  const getDefaultApprovedFieldKeysForImportItem = useCallback(
+    (contactItem) => {
+      if (!contactItem?.existingGuestId) {
+        return [];
+      }
+      const targetGuest = guestsById[contactItem.existingGuestId];
+      if (!targetGuest) {
+        return [];
+      }
+      const sourceFullName = [contactItem.firstName, contactItem.lastName].filter(Boolean).join(" ");
+      const targetFullName = [targetGuest.first_name, targetGuest.last_name].filter(Boolean).join(" ");
+      const fieldChecks = [
+        { key: "full_name", source: sourceFullName, target: targetFullName },
+        { key: "email", source: contactItem.email, target: targetGuest.email },
+        { key: "phone", source: contactItem.phone, target: targetGuest.phone },
+        { key: "city", source: contactItem.city, target: targetGuest.city },
+        { key: "country", source: contactItem.country, target: targetGuest.country },
+        { key: "address", source: contactItem.address, target: targetGuest.address },
+        { key: "company", source: contactItem.company, target: targetGuest.company },
+        { key: "birthday", source: contactItem.birthday, target: targetGuest.birthday }
+      ];
+      return fieldChecks.filter((item) => !isBlankValue(item.source) && isBlankValue(item.target)).map((item) => item.key);
+    },
+    [guestsById]
+  );
+
   const handleApproveLowConfidenceMergeContact = (previewId, selectedFieldKeys = pendingImportMergeSelectedFieldKeys) => {
     if (!previewId) {
       return;
@@ -9069,13 +9129,24 @@ function DashboardScreen({
 
   const handleApproveAllLowConfidenceMergeContacts = () => {
     setImportDuplicateMode("merge");
-    const pendingIds = importContactsFiltered
-      .filter((item) => item.duplicateExisting && item.duplicateMergeConfidence === "low" && !item.duplicateInPreview)
-      .map((item) => item.previewId);
+    const pendingItems = importContactsFiltered.filter(
+      (item) => item.duplicateExisting && item.duplicateMergeConfidence === "low" && !item.duplicateInPreview
+    );
+    const pendingIds = pendingItems.map((item) => item.previewId);
     if (pendingIds.length === 0) {
       return;
     }
     setApprovedLowConfidenceMergeIds((prev) => uniqueValues([...prev, ...pendingIds]));
+    setApprovedLowConfidenceMergeFieldsByPreviewId((prev) => {
+      const next = { ...prev };
+      for (const pendingItem of pendingItems) {
+        const fieldKeys = getDefaultApprovedFieldKeysForImportItem(pendingItem);
+        if (fieldKeys.length > 0) {
+          next[pendingItem.previewId] = uniqueValues(fieldKeys);
+        }
+      }
+      return next;
+    });
     setImportContactsMessage(
       interpolateText(t("contact_import_merge_low_approved"), {
         count: pendingIds.length
@@ -12972,6 +13043,7 @@ function DashboardScreen({
                 handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
                 handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
                 getMapEmbedUrl={getMapEmbedUrl}
+                getGuestAvatarUrl={getGuestAvatarUrl}
                 selectedEventDetailGuests={selectedEventDetailGuests}
                 openGuestDetail={openGuestDetail}
                 handlePrepareInvitationShare={handlePrepareInvitationShare}
@@ -14467,7 +14539,13 @@ function DashboardScreen({
                       return (
                       <li key={guestItem.id} className="list-table-row list-row-guest">
                         <div className="cell-main list-title-with-avatar">
-                          <span className="list-avatar">{getInitials(guestFullName, "IN")}</span>
+                          <AvatarCircle
+                            className="list-avatar"
+                            label={guestFullName}
+                            fallback="IN"
+                            imageUrl={getGuestAvatarUrl(guestItem, guestFullName)}
+                            size={32}
+                          />
                           <div>
                             <p className="item-title">
                               <button
@@ -14726,12 +14804,16 @@ function DashboardScreen({
                 <div className="detail-layout detail-layout-guest">
                   <article className="detail-card detail-card-guest-contact">
                     <div className="detail-guest-contact-head">
-                      <span className="list-avatar detail-guest-contact-avatar">
-                        {getInitials(
-                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest"),
-                          "IN"
+                      <AvatarCircle
+                        className="list-avatar detail-guest-contact-avatar"
+                        label={`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
+                        fallback="IN"
+                        imageUrl={getGuestAvatarUrl(
+                          selectedGuestDetail,
+                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
                         )}
-                      </span>
+                        size={40}
+                      />
                       <div>
                         <p className="item-title">
                           {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
@@ -15509,7 +15591,13 @@ function DashboardScreen({
                     return (
                       <li key={invitation.id} className="list-table-row list-row-invitation">
                         <div className="cell-main list-title-with-avatar">
-                          <span className="list-avatar list-avatar-sm">{getInitials(guestName, "IN")}</span>
+                          <AvatarCircle
+                            className="list-avatar list-avatar-sm"
+                            label={guestName}
+                            fallback="IN"
+                            imageUrl={getGuestAvatarUrl(guestItem, guestName)}
+                            size={29}
+                          />
                           <div>
                             <p className="item-title">
                               <button

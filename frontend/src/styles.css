@@ -3043,6 +3043,34 @@ h2 {
   padding-inline: 0.8rem;
 }
 
+.event-detail-cover {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--panel-bg);
+  min-height: 170px;
+}
+
+.event-detail-cover img {
+  width: 100%;
+  height: clamp(164px, 28vw, 248px);
+  object-fit: cover;
+  display: block;
+}
+
+.event-detail-cover-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.6rem 0.76rem;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--surface) 74%, transparent 26%) 100%);
+}
+
 .detail-kpi-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3151,6 +3179,26 @@ h2 {
 .detail-layout-event .detail-card-event-map {
   grid-column: 2;
   grid-row: 5;
+}
+
+.detail-layout-event .detail-card-event-location-photo {
+  grid-column: 2;
+  grid-row: 6;
+}
+
+.event-location-photo {
+  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent 8%);
+  border-radius: 11px;
+  overflow: hidden;
+  min-height: 164px;
+  background: color-mix(in srgb, var(--surface-soft) 88%, var(--surface) 12%);
+}
+
+.event-location-photo img {
+  width: 100%;
+  height: clamp(160px, 19vw, 230px);
+  object-fit: cover;
+  display: block;
 }
 
 .detail-layout-event .detail-card-event-plan-cta {
@@ -5312,6 +5360,14 @@ textarea {
   justify-content: center;
 }
 
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
+}
+
 .list-avatar-sm {
   width: 1.8rem;
   height: 1.8rem;
@@ -7317,6 +7373,7 @@ code {
   .detail-layout-event .detail-card-event-checklist,
   .detail-layout-event .detail-card-event-plan-cta,
   .detail-layout-event .detail-card-event-planner,
+  .detail-layout-event .detail-card-event-location-photo,
   .detail-layout-event .detail-card-event-map,
   .detail-layout-event .detail-card-event-guests,
   .detail-layout-event .detail-card-event-activity,
@@ -7355,6 +7412,10 @@ code {
   .detail-title {
     font-size: 1.54rem;
     line-height: 1.12;
+  }
+
+  .event-detail-cover img {
+    height: 176px;
   }
 
   .detail-panel-guest .detail-title {
