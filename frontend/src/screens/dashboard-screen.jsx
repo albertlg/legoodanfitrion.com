@@ -3416,7 +3416,7 @@ function DashboardScreen({
       { label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
       { label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday }
     ];
-    return rows.map((rowItem) => {
+    const rankedRows = rows.map((rowItem) => {
       const sourceBlank = isBlankValue(rowItem.source);
       const targetBlank = isBlankValue(rowItem.target);
       let mergeResultKey = "keep_target";
@@ -3431,6 +3431,8 @@ function DashboardScreen({
         willFill: mergeResultKey === "will_fill"
       };
     });
+    const resultOrder = { will_fill: 0, keep_target: 1, empty: 2 };
+    return rankedRows.sort((a, b) => (resultOrder[a.mergeResultKey] ?? 99) - (resultOrder[b.mergeResultKey] ?? 99));
   }, [pendingImportMergeApprovalItem, pendingImportMergeApprovalTargetGuest, t]);
   const pendingImportMergeWillFillCount = useMemo(
     () => pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill).length,
