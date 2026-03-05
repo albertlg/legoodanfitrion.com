@@ -6419,6 +6419,15 @@ textarea {
   border-color: color-mix(in srgb, var(--border) 70%, transparent 30%);
 }
 
+.import-merge-review-check {
+  width: 42px;
+  text-align: center;
+}
+
+.import-merge-review-check input {
+  margin: 0;
+}
+
 .import-wizard-alert {
   margin: 0;
 }

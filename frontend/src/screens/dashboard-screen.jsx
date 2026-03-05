@@ -2707,6 +2707,8 @@ function DashboardScreen({
   const [approvedLowConfidenceMergeIds, setApprovedLowConfidenceMergeIds] = useState([]);
   const [pendingImportMergeApprovalPreviewId, setPendingImportMergeApprovalPreviewId] = useState("");
   const [importMergeReviewShowOnlyWillFill, setImportMergeReviewShowOnlyWillFill] = useState(true);
+  const [pendingImportMergeSelectedFieldKeys, setPendingImportMergeSelectedFieldKeys] = useState([]);
+  const [approvedLowConfidenceMergeFieldsByPreviewId, setApprovedLowConfidenceMergeFieldsByPreviewId] = useState({});
   const [importContactsPage, setImportContactsPage] = useState(1);
   const [importContactsPageSize, setImportContactsPageSize] = useState(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
   const [importContactsMessage, setImportContactsMessage] = useState("");
@@ -3408,14 +3410,14 @@ function DashboardScreen({
       .filter(Boolean)
       .join(" ");
     const rows = [
-      { label: t("field_full_name"), source: sourceName, target: targetName },
-      { label: t("email"), source: pendingImportMergeApprovalItem.email, target: pendingImportMergeApprovalTargetGuest.email },
-      { label: t("field_phone"), source: pendingImportMergeApprovalItem.phone, target: pendingImportMergeApprovalTargetGuest.phone },
-      { label: t("field_city"), source: pendingImportMergeApprovalItem.city, target: pendingImportMergeApprovalTargetGuest.city },
-      { label: t("field_country"), source: pendingImportMergeApprovalItem.country, target: pendingImportMergeApprovalTargetGuest.country },
-      { label: t("field_address"), source: pendingImportMergeApprovalItem.address, target: pendingImportMergeApprovalTargetGuest.address },
-      { label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
-      { label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday }
+      { fieldKey: "full_name", label: t("field_full_name"), source: sourceName, target: targetName },
+      { fieldKey: "email", label: t("email"), source: pendingImportMergeApprovalItem.email, target: pendingImportMergeApprovalTargetGuest.email },
+      { fieldKey: "phone", label: t("field_phone"), source: pendingImportMergeApprovalItem.phone, target: pendingImportMergeApprovalTargetGuest.phone },
+      { fieldKey: "city", label: t("field_city"), source: pendingImportMergeApprovalItem.city, target: pendingImportMergeApprovalTargetGuest.city },
+      { fieldKey: "country", label: t("field_country"), source: pendingImportMergeApprovalItem.country, target: pendingImportMergeApprovalTargetGuest.country },
+      { fieldKey: "address", label: t("field_address"), source: pendingImportMergeApprovalItem.address, target: pendingImportMergeApprovalTargetGuest.address },
+      { fieldKey: "company", label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
+      { fieldKey: "birthday", label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday }
     ];
     const rankedRows = rows.map((rowItem) => {
       const sourceBlank = isBlankValue(rowItem.source);
@@ -3447,6 +3449,15 @@ function DashboardScreen({
   }, [importMergeReviewShowOnlyWillFill, pendingImportMergeComparisonRows]);
   const pendingImportMergeVisibleCount = pendingImportMergeVisibleRows.length;
   const pendingImportMergeTotalCount = pendingImportMergeComparisonRows.length;
+  const pendingImportMergeDefaultSelectedFieldKeys = useMemo(
+    () => pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill).map((rowItem) => rowItem.fieldKey),
+    [pendingImportMergeComparisonRows]
+  );
+  const pendingImportMergeSelectedFieldKeysSet = useMemo(
+    () => new Set(pendingImportMergeSelectedFieldKeys),
+    [pendingImportMergeSelectedFieldKeys]
+  );
+  const pendingImportMergeSelectableCount = pendingImportMergeDefaultSelectedFieldKeys.length;
   useEffect(() => {
     const defaultIds = importContactsReady.map((item) => item.previewId);
     setSelectedImportContactIds(defaultIds);
@@ -3459,13 +3470,36 @@ function DashboardScreen({
     });
   }, [importContactsAnalysis]);
   useEffect(() => {
+    setApprovedLowConfidenceMergeFieldsByPreviewId((prev) => {
+      const validIds = new Set(importContactsAnalysis.map((item) => item.previewId));
+      const entries = Object.entries(prev).filter(([previewId]) => validIds.has(previewId));
+      if (entries.length === Object.keys(prev).length) {
+        return prev;
+      }
+      return Object.fromEntries(entries);
+    });
+  }, [importContactsAnalysis]);
+  useEffect(() => {
     if (!pendingImportMergeApprovalItem || !pendingImportMergeApprovalItem.requiresMergeApproval) {
       setPendingImportMergeApprovalPreviewId("");
     }
   }, [pendingImportMergeApprovalItem]);
   useEffect(() => {
+    if (!pendingImportMergeApprovalItem) {
+      setPendingImportMergeSelectedFieldKeys([]);
+      return;
+    }
+    const saved = approvedLowConfidenceMergeFieldsByPreviewId[pendingImportMergeApprovalItem.previewId];
+    if (Array.isArray(saved) && saved.length > 0) {
+      setPendingImportMergeSelectedFieldKeys(saved);
+      return;
+    }
+    setPendingImportMergeSelectedFieldKeys(pendingImportMergeDefaultSelectedFieldKeys);
+  }, [approvedLowConfidenceMergeFieldsByPreviewId, pendingImportMergeApprovalItem, pendingImportMergeDefaultSelectedFieldKeys]);
+  useEffect(() => {
     if (activeView !== "guests" || guestsWorkspace !== "latest") {
       setPendingImportMergeApprovalPreviewId("");
+      setPendingImportMergeSelectedFieldKeys([]);
     }
   }, [activeView, guestsWorkspace]);
   useEffect(() => {
@@ -3536,6 +3570,10 @@ function DashboardScreen({
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
     setApprovedLowConfidenceMergeIds([]);
+    setApprovedLowConfidenceMergeFieldsByPreviewId({});
+    setPendingImportMergeApprovalPreviewId("");
+    setPendingImportMergeSelectedFieldKeys([]);
+    setImportMergeReviewShowOnlyWillFill(true);
     setImportContactsPage(1);
     setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
@@ -8368,6 +8406,10 @@ function DashboardScreen({
     setImportContactsPreview(tagImportedContacts(parsedContacts, source));
     setImportDuplicateMode("skip");
     setApprovedLowConfidenceMergeIds([]);
+    setApprovedLowConfidenceMergeFieldsByPreviewId({});
+    setPendingImportMergeApprovalPreviewId("");
+    setPendingImportMergeSelectedFieldKeys([]);
+    setImportMergeReviewShowOnlyWillFill(true);
     if (!keepDraft) {
       setImportContactsDraft("");
     }
@@ -8804,8 +8846,10 @@ function DashboardScreen({
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
     setApprovedLowConfidenceMergeIds([]);
+    setApprovedLowConfidenceMergeFieldsByPreviewId({});
     setPendingImportMergeApprovalPreviewId("");
     setImportMergeReviewShowOnlyWillFill(true);
+    setPendingImportMergeSelectedFieldKeys([]);
     setImportContactsPage(1);
     setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
@@ -8945,8 +8989,10 @@ function DashboardScreen({
     setImportDuplicateMode(nextMode);
     if (nextMode !== "merge") {
       setApprovedLowConfidenceMergeIds([]);
+      setApprovedLowConfidenceMergeFieldsByPreviewId({});
       setPendingImportMergeApprovalPreviewId("");
       setImportMergeReviewShowOnlyWillFill(true);
+      setPendingImportMergeSelectedFieldKeys([]);
       return;
     }
     const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
@@ -8962,14 +9008,30 @@ function DashboardScreen({
     );
   };
 
-  const handleApproveLowConfidenceMergeContact = (previewId) => {
+  const handleTogglePendingImportMergeFieldKey = (fieldKey) => {
+    if (!fieldKey) {
+      return;
+    }
+    setPendingImportMergeSelectedFieldKeys((prev) =>
+      prev.includes(fieldKey) ? prev.filter((item) => item !== fieldKey) : [...prev, fieldKey]
+    );
+  };
+
+  const handleApproveLowConfidenceMergeContact = (previewId, selectedFieldKeys = pendingImportMergeSelectedFieldKeys) => {
     if (!previewId) {
       return;
     }
     setImportDuplicateMode("merge");
     setApprovedLowConfidenceMergeIds((prev) => (prev.includes(previewId) ? prev : [...prev, previewId]));
+    if (Array.isArray(selectedFieldKeys) && selectedFieldKeys.length > 0) {
+      setApprovedLowConfidenceMergeFieldsByPreviewId((prev) => ({
+        ...prev,
+        [previewId]: uniqueValues(selectedFieldKeys)
+      }));
+    }
     setImportMergeReviewShowOnlyWillFill(true);
     setPendingImportMergeApprovalPreviewId("");
+    setPendingImportMergeSelectedFieldKeys([]);
   };
 
   const handleOpenLowConfidenceMergeReview = (previewId) => {
@@ -8988,13 +9050,21 @@ function DashboardScreen({
   const handleCloseLowConfidenceMergeReview = () => {
     setImportMergeReviewShowOnlyWillFill(true);
     setPendingImportMergeApprovalPreviewId("");
+    setPendingImportMergeSelectedFieldKeys([]);
   };
 
   const handleConfirmLowConfidenceMergeReview = () => {
     if (!pendingImportMergeApprovalItem?.previewId) {
       return;
     }
-    handleApproveLowConfidenceMergeContact(pendingImportMergeApprovalItem.previewId);
+    if (pendingImportMergeSelectableCount > 0 && pendingImportMergeSelectedFieldKeys.length === 0) {
+      setImportContactsMessage(t("contact_import_merge_review_select_at_least_one"));
+      return;
+    }
+    handleApproveLowConfidenceMergeContact(
+      pendingImportMergeApprovalItem.previewId,
+      pendingImportMergeSelectedFieldKeys
+    );
   };
 
   const handleApproveAllLowConfidenceMergeContacts = () => {
@@ -9080,8 +9150,24 @@ function DashboardScreen({
           continue;
         }
 
+        const approvedFieldKeys = approvedLowConfidenceMergeFieldsByPreviewId[contactItem.previewId];
+        const approvedFieldSet =
+          Array.isArray(approvedFieldKeys) && approvedFieldKeys.length > 0 ? new Set(approvedFieldKeys) : null;
+        const isMergeFieldAllowed = (field) => {
+          if (!approvedFieldSet) {
+            return true;
+          }
+          if (field === "first_name" || field === "last_name") {
+            return approvedFieldSet.has("full_name") || approvedFieldSet.has(field);
+          }
+          return approvedFieldSet.has(field);
+        };
+
         const mergePayload = {};
         const assignMergeField = (field, existingValue, incomingValue) => {
+          if (!isMergeFieldAllowed(field)) {
+            return;
+          }
           const mergedValue = getMergedFieldValue(existingValue, incomingValue);
           if (typeof mergedValue === "undefined") {
             return;
@@ -9188,6 +9274,9 @@ function DashboardScreen({
 
     setIsImportingContacts(false);
     setSelectedImportContactIds([]);
+    setApprovedLowConfidenceMergeFieldsByPreviewId({});
+    setPendingImportMergeSelectedFieldKeys([]);
+    setPendingImportMergeApprovalPreviewId("");
     setImportContactsMessage(
       `${t("contact_import_done")} ${importedCount}. ${t("contact_import_merged")} ${mergedCount}. ${t("contact_import_skipped")} ${skippedCount}. ${
         failedCount > 0 ? `${t("contact_import_failed")} ${failedCount}.` : ""
@@ -16239,6 +16328,7 @@ function DashboardScreen({
                 <table className="import-merge-review-table">
                   <thead>
                     <tr>
+                      <th>{t("contact_import_merge_review_apply")}</th>
                       <th>{t("contact_import_merge_review_field")}</th>
                       <th>{t("contact_import_merge_review_source")}</th>
                       <th>{t("contact_import_merge_review_target")}</th>
@@ -16251,6 +16341,14 @@ function DashboardScreen({
                         key={`merge-review-${rowItem.label}`}
                         className={rowItem.willFill ? "import-merge-review-row is-will-fill" : "import-merge-review-row"}
                       >
+                        <td className="import-merge-review-check">
+                          <input
+                            type="checkbox"
+                            checked={pendingImportMergeSelectedFieldKeysSet.has(rowItem.fieldKey)}
+                            disabled={!rowItem.willFill}
+                            onChange={() => handleTogglePendingImportMergeFieldKey(rowItem.fieldKey)}
+                          />
+                        </td>
                         <th>{rowItem.label}</th>
                         <td>{formatMergeReviewValue(rowItem.source)}</td>
                         <td>{formatMergeReviewValue(rowItem.target)}</td>
@@ -16263,7 +16361,7 @@ function DashboardScreen({
                     ))}
                     {pendingImportMergeVisibleRows.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="item-meta">
+                        <td colSpan={5} className="item-meta">
                           {t("contact_import_merge_review_no_rows")}
                         </td>
                       </tr>
@@ -16275,7 +16373,12 @@ function DashboardScreen({
                 <button className="btn btn-ghost" type="button" onClick={handleCloseLowConfidenceMergeReview}>
                   {t("cancel_action")}
                 </button>
-                <button className="btn" type="button" onClick={handleConfirmLowConfidenceMergeReview}>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={handleConfirmLowConfidenceMergeReview}
+                  disabled={pendingImportMergeSelectableCount > 0 && pendingImportMergeSelectedFieldKeys.length === 0}
+                >
                   {t("contact_import_merge_approve_contact")}
                 </button>
               </div>
