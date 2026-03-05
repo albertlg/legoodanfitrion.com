@@ -1809,6 +1809,16 @@ function getImportDuplicateMergeConfidence(reasonCodes) {
   return "low";
 }
 
+function getImportDuplicateMergeConfidenceStatusClass(confidence) {
+  if (confidence === "high") {
+    return "status-yes";
+  }
+  if (confidence === "medium") {
+    return "status-maybe";
+  }
+  return "status-event-draft";
+}
+
 function buildGuestDuplicateMatchScore(sourceGuest, targetGuest) {
   if (!sourceGuest?.id || !targetGuest?.id || sourceGuest.id === targetGuest.id) {
     return -1;
@@ -13142,6 +13152,12 @@ function DashboardScreen({
                                 {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
                               </small>
                             ) : null}
+                            {contactItem.duplicateExisting ? (
+                              <small>
+                                {t("contact_import_merge_confidence_label")}:{" "}
+                                {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
+                              </small>
+                            ) : null}
                           </span>
                         </label>
                       </li>
@@ -15764,6 +15780,18 @@ function DashboardScreen({
                                 {contactItem.duplicateExisting && contactItem.duplicateReasonLabel ? (
                                   <span className="item-meta import-preview-target">
                                     {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
+                                  </span>
+                                ) : null}
+                                {contactItem.duplicateExisting ? (
+                                  <span className="import-preview-target">
+                                    <span
+                                      className={`status-pill import-merge-confidence ${getImportDuplicateMergeConfidenceStatusClass(
+                                        contactItem.duplicateMergeConfidence
+                                      )}`}
+                                    >
+                                      {t("contact_import_merge_confidence_label")}:{" "}
+                                      {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
+                                    </span>
                                   </span>
                                 ) : null}
                               </span>

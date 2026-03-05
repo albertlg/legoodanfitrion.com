@@ -6320,6 +6320,11 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.import-merge-confidence {
+  font-size: 0.66rem;
+  padding: 0.14rem 0.42rem;
+}
+
 .import-wizard-alert {
   margin: 0;
 }
