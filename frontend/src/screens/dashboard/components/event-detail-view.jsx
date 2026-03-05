@@ -33,9 +33,12 @@ export function EventDetailView({
   selectedEventMealPlan,
   selectedEventPlannerContextEffective,
   selectedEventPlannerSavedLabel,
+  selectedEventPlannerSnapshotVersion,
+  selectedEventPlannerSnapshotHistory,
   selectedEventPlannerGenerationState,
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
+  handleRestoreEventPlannerSnapshot,
   eventDetailPlannerTab,
   handleExportEventPlannerShoppingList,
   selectedEventDietTypesCount,
@@ -303,9 +306,12 @@ export function EventDetailView({
               selectedEventMealPlan={selectedEventMealPlan}
               selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
               selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
+              selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
+              selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
               selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
               handleOpenEventPlannerContext={handleOpenEventPlannerContext}
               handleRegenerateEventPlanner={handleRegenerateEventPlanner}
+              handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
               eventDetailPlannerTab={eventDetailPlannerTab}
               handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
               selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}

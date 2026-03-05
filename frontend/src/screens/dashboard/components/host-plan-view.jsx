@@ -12,9 +12,12 @@ export function HostPlanView({
   selectedEventMealPlan,
   selectedEventPlannerContextEffective,
   selectedEventPlannerSavedLabel,
+  selectedEventPlannerSnapshotVersion = 0,
+  selectedEventPlannerSnapshotHistory = [],
   selectedEventPlannerGenerationState,
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
+  handleRestoreEventPlannerSnapshot,
   eventDetailPlannerTab,
   handleExportEventPlannerShoppingList,
   selectedEventDetailStatusCounts,
@@ -49,6 +52,9 @@ export function HostPlanView({
   const generatingScope = String(selectedEventPlannerGenerationState?.scope || "");
   const isGeneratingAll = isGenerating && generatingScope === "all";
   const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
+  const selectedPlannerVersionValue = String(
+    Number(selectedEventPlannerSnapshotVersion || selectedEventPlannerSnapshotHistory?.[0]?.version || 0) || ""
+  );
   const ambienceTimelineHighlights = (selectedEventHostPlaybook?.timeline || []).slice(0, 3);
   const plannerDressCodeKey = ["none", "casual", "elegant", "formal", "themed"].includes(
     String(selectedEventPlannerContextEffective?.dressCode || "")
@@ -145,20 +151,27 @@ export function HostPlanView({
               {selectedEventPlaceLabel}
             </span>
           </div>
-          <div className="event-planner-context-chips" aria-label={t("event_settings_title")}>
-            {plannerContextChips.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                className="status-pill status-draft event-planner-context-chip event-planner-context-chip-btn"
-                onClick={() => handleOpenEventPlannerContext(chip.focusField)}
-                disabled={isGenerating}
-              >
-                <Icon name={chip.icon} className="icon icon-sm" />
-                {chip.label}
-              </button>
-            ))}
-          </div>
+          <details className="event-planner-quick-settings" aria-label={t("event_settings_title")}>
+            <summary>
+              <Icon name="sparkle" className="icon icon-sm" />
+              {t("event_planner_quick_settings_label")}
+            </summary>
+            <p className="hint event-planner-quick-settings-hint">{t("event_planner_quick_settings_hint")}</p>
+            <div className="event-planner-context-chips">
+              {plannerContextChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className="status-pill status-draft event-planner-context-chip event-planner-context-chip-btn"
+                  onClick={() => handleOpenEventPlannerContext(chip.focusField)}
+                  disabled={isGenerating}
+                >
+                  <Icon name={chip.icon} className="icon icon-sm" />
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </details>
           {!standalone ? (
             <p className="hint">
               {interpolateText(t("event_planner_context_applied"), {
@@ -171,6 +184,32 @@ export function HostPlanView({
               <Icon name="clock" className="icon icon-sm" />
               {selectedEventPlannerSavedLabel}
             </p>
+          ) : null}
+          {selectedEventPlannerSnapshotHistory.length > 1 ? (
+            <details className="event-planner-version-history">
+              <summary>
+                <Icon name="clock" className="icon icon-sm" />
+                {t("event_planner_versions_label")} ({selectedEventPlannerSnapshotHistory.length})
+              </summary>
+              <label className="event-planner-version-select-wrap">
+                <span className="event-planner-version-label">{t("event_planner_versions_label")}</span>
+                <select
+                  className="event-planner-version-select"
+                  value={selectedPlannerVersionValue}
+                  onChange={(event) => handleRestoreEventPlannerSnapshot(event.target.value)}
+                  disabled={isGenerating}
+                >
+                  {selectedEventPlannerSnapshotHistory.map((entry) => (
+                    <option key={`planner-version-${entry.version}`} value={String(entry.version)}>
+                      {interpolateText(t("event_planner_version_option"), {
+                        version: entry.version,
+                        date: entry.generatedAt ? new Date(entry.generatedAt).toLocaleString() : "-"
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </details>
           ) : null}
         </div>
         <div className={`button-row event-planner-head-actions ${standalone ? "event-planner-head-actions-standalone" : ""}`}>
@@ -533,9 +572,13 @@ export function HostPlanView({
         </article>
       )}
       <div className="event-planner-mobile-footer">
-        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)} disabled={isGenerating}>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
+          <Icon name="edit" className="icon icon-sm" />
+          {t("event_planner_action_context")}
+        </button>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
           <Icon name="sparkle" className="icon icon-sm" />
-          {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
+          {isGeneratingAll ? t("event_planner_generating_all") : t("event_planner_action_regenerate")}
         </button>
         <button className="btn btn-sm" type="button" onClick={handleExportEventPlannerShoppingList} disabled={isGenerating}>
           <Icon name="mail" className="icon icon-sm" />

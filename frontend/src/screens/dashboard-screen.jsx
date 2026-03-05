@@ -225,14 +225,6 @@ function getConversionSourceLabel(t, source) {
   return t("host_conversion_source_email");
 }
 
-function getConversionMatchLabel(t, conversion) {
-  const source = getConversionSource(conversion);
-  if (source === "google") {
-    return t("host_converted_match_google");
-  }
-  return conversion?.matched_by === "phone" ? t("host_converted_match_phone") : t("host_converted_match_email");
-}
-
 function getMapEmbedUrl(lat, lng) {
   if (typeof lat !== "number" || typeof lng !== "number") {
     return "";
@@ -2417,6 +2409,7 @@ function DashboardScreen({
   const [eventPlannerRegenerationByEventIdByTab, setEventPlannerRegenerationByEventIdByTab] = useState({});
   const [eventPlannerContextOverridesByEventId, setEventPlannerContextOverridesByEventId] = useState({});
   const [eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId] = useState({});
+  const [eventPlannerSnapshotHistoryByEventId, setEventPlannerSnapshotHistoryByEventId] = useState({});
   const [eventPlannerGenerationByEventId, setEventPlannerGenerationByEventId] = useState({});
   const [isEventPlannerContextOpen, setIsEventPlannerContextOpen] = useState(false);
   const [eventPlannerContextFocusField, setEventPlannerContextFocusField] = useState("");
@@ -5038,6 +5031,12 @@ function DashboardScreen({
     }
     return eventPlannerSnapshotsByEventId[selectedEventDetail.id] || null;
   }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id]);
+  const selectedEventPlannerSnapshotHistory = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return [];
+    }
+    return eventPlannerSnapshotHistoryByEventId[selectedEventDetail.id] || [];
+  }, [eventPlannerSnapshotHistoryByEventId, selectedEventDetail?.id]);
   const selectedEventPlannerGenerationState = useMemo(() => {
     if (!selectedEventDetail?.id) {
       return null;
@@ -5053,6 +5052,10 @@ function DashboardScreen({
       date: formatDate(selectedEventPlannerSnapshotState.generatedAt, language, t("no_date"))
     });
   }, [selectedEventPlannerSnapshotState, language, t]);
+  const selectedEventPlannerSnapshotVersion = useMemo(
+    () => Number(selectedEventPlannerSnapshotState?.version || 0),
+    [selectedEventPlannerSnapshotState?.version]
+  );
   const eventPlannerContextDraftSignals = useMemo(
     () => applyPlannerOverrides(selectedEventPlannerContext, selectedEventInsights, eventPlannerContextDraft),
     [selectedEventPlannerContext, selectedEventInsights, eventPlannerContextDraft]
@@ -6020,18 +6023,42 @@ function DashboardScreen({
     setGuests(guestsData || []);
     setInvitations(invitationsData || []);
     const latestPlannerByEventId = {};
+    const plannerHistoryByEventId = {};
     for (const row of eventPlannerRows) {
       const eventId = String(row?.event_id || "").trim();
-      if (!eventId || latestPlannerByEventId[eventId]) {
+      if (!eventId) {
         continue;
       }
       const snapshotState = getHostPlanStateFromSnapshot(row?.plan_snapshot);
       if (!snapshotState) {
         continue;
       }
-      latestPlannerByEventId[eventId] = snapshotState;
+      if (!latestPlannerByEventId[eventId]) {
+        latestPlannerByEventId[eventId] = snapshotState;
+      }
+      const currentHistory = plannerHistoryByEventId[eventId] || [];
+      const hasSameVersion = currentHistory.some((item) => Number(item.version) === Number(snapshotState.version));
+      if (!hasSameVersion) {
+        currentHistory.push({
+          version: Number(snapshotState.version || 0),
+          generatedAt: String(snapshotState.generatedAt || ""),
+          scope: String(snapshotState?.modelMeta?.scope || "all"),
+          snapshotState
+        });
+      }
+      plannerHistoryByEventId[eventId] = currentHistory;
+    }
+    for (const eventId of Object.keys(plannerHistoryByEventId)) {
+      plannerHistoryByEventId[eventId].sort((a, b) => {
+        const versionDiff = Number(b.version || 0) - Number(a.version || 0);
+        if (versionDiff !== 0) {
+          return versionDiff;
+        }
+        return String(b.generatedAt || "").localeCompare(String(a.generatedAt || ""));
+      });
     }
     setEventPlannerSnapshotsByEventId(latestPlannerByEventId);
+    setEventPlannerSnapshotHistoryByEventId(plannerHistoryByEventId);
     const nextPlannerSeedByEventId = {};
     const nextPlannerSeedByEventIdByTab = {};
     const nextPlannerContextOverridesByEventId = {};
@@ -7419,6 +7446,27 @@ function DashboardScreen({
         ...prev,
         [eventId]: persistedState
       }));
+      setEventPlannerSnapshotHistoryByEventId((prev) => {
+        const currentHistory = Array.isArray(prev[eventId]) ? prev[eventId] : [];
+        const nextEntry = {
+          version: Number(persistedState.version || 0),
+          generatedAt: String(persistedState.generatedAt || ""),
+          scope: String(persistedState?.modelMeta?.scope || scope || "all"),
+          snapshotState: persistedState
+        };
+        const deduped = currentHistory.filter((item) => Number(item.version) !== Number(nextEntry.version));
+        const sorted = [nextEntry, ...deduped].sort((a, b) => {
+          const versionDiff = Number(b.version || 0) - Number(a.version || 0);
+          if (versionDiff !== 0) {
+            return versionDiff;
+          }
+          return String(b.generatedAt || "").localeCompare(String(a.generatedAt || ""));
+        });
+        return {
+          ...prev,
+          [eventId]: sorted
+        };
+      });
     },
     [
       language,
@@ -7532,6 +7580,55 @@ function DashboardScreen({
       }));
     }
   };
+  const handleRestoreEventPlannerSnapshot = useCallback(
+    (snapshotVersion) => {
+      if (!selectedEventDetail?.id) {
+        return;
+      }
+      const parsedVersion = Number(snapshotVersion || 0);
+      if (!Number.isFinite(parsedVersion) || parsedVersion <= 0) {
+        return;
+      }
+      const eventId = selectedEventDetail.id;
+      const historyRows = eventPlannerSnapshotHistoryByEventId[eventId] || [];
+      const targetRow = historyRows.find((item) => Number(item.version) === parsedVersion);
+      const targetSnapshotState = targetRow?.snapshotState;
+      if (!targetSnapshotState) {
+        return;
+      }
+
+      setEventPlannerSnapshotsByEventId((prev) => ({
+        ...prev,
+        [eventId]: targetSnapshotState
+      }));
+      setEventPlannerRegenerationByEventId((prev) => ({
+        ...prev,
+        [eventId]: Math.max(0, Number(targetSnapshotState.seedAll || 0))
+      }));
+      setEventPlannerRegenerationByEventIdByTab((prev) => ({
+        ...prev,
+        [eventId]: targetSnapshotState.seedByTab || {}
+      }));
+      setEventPlannerContextOverridesByEventId((prev) => ({
+        ...prev,
+        [eventId]:
+          targetSnapshotState.contextOverrides && typeof targetSnapshotState.contextOverrides === "object"
+            ? targetSnapshotState.contextOverrides
+            : {}
+      }));
+      setEventDetailShoppingCheckedByEventId((prev) => ({
+        ...prev,
+        [eventId]: []
+      }));
+      setEventPlannerShoppingFilter("all");
+      setInvitationMessage(
+        interpolateText(t("event_planner_version_restored"), {
+          version: Number(targetSnapshotState.version || parsedVersion)
+        })
+      );
+    },
+    [eventPlannerSnapshotHistoryByEventId, selectedEventDetail?.id, t]
+  );
   const handleOpenEventPlannerContext = (focusField = "") => {
     if (!selectedEventDetail?.id) {
       return;
@@ -12327,9 +12424,12 @@ function DashboardScreen({
                 selectedEventMealPlan={selectedEventMealPlan}
                 selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
                 selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
+                selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
+                selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
                 selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
                 handleOpenEventPlannerContext={handleOpenEventPlannerContext}
                 handleRegenerateEventPlanner={handleRegenerateEventPlanner}
+                handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
                 eventDetailPlannerTab={eventDetailPlannerTab}
                 handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
                 selectedEventDietTypesCount={selectedEventDietTypesCount}
@@ -13673,7 +13773,7 @@ function DashboardScreen({
                   </select>
                 </label>
               </div>
-              <div className="list-filter-tabs" role="group" aria-label={t("filter_contact")}>
+              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_contact")}>
                 {[
                   { key: "all", label: t("all_contacts") },
                   { key: "contact", label: t("contact_any") },
@@ -13747,7 +13847,9 @@ function DashboardScreen({
                         ...intolerancePreview,
                         ...medicalConditionPreview,
                         ...dietaryMedicalRestrictionPreview
-                      ]).slice(0, 4);
+                      ]);
+                      const healthPreviewVisible = healthPreview.slice(0, 2);
+                      const healthPreviewRemaining = Math.max(0, healthPreview.length - healthPreviewVisible.length);
                       return (
                       <li key={guestItem.id} className="list-table-row list-row-guest">
                         <div className="cell-main list-title-with-avatar">
@@ -13789,23 +13891,22 @@ function DashboardScreen({
                               {conversionSourceLabel}
                             </span>
                           ) : null}
-                          {healthPreview.length > 0 ? (
-                            <p className="item-meta">
-                              {healthPreview.map((item) => (
+                          {healthPreviewVisible.length > 0 ? (
+                            <p
+                              className="item-meta"
+                              title={healthPreview.join(", ")}
+                            >
+                              {healthPreviewVisible.map((item) => (
                                 <span key={`${guestItem.id}-${item}`} className="status-pill status-pending">
                                   {item}
                                 </span>
                               ))}
+                              {healthPreviewRemaining > 0 ? (
+                                <span className="status-pill status-pending">+{healthPreviewRemaining}</span>
+                              ) : null}
                             </p>
                           ) : (
                             <p className="item-meta">—</p>
-                          )}
-                          {conversion ? (
-                            <p className="item-meta">
-                              {getConversionMatchLabel(t, conversion)} · {conversion.converted_at ? formatDate(conversion.converted_at, language, t("no_date")) : t("no_date")}
-                            </p>
-                          ) : (
-                            <p className="item-meta">{t("host_pending_conversion_label")}</p>
                           )}
                         </div>
                         <div className="cell-guest-events cell-extra">
@@ -13820,6 +13921,67 @@ function DashboardScreen({
                             <Icon name="edit" className="icon icon-sm" />
                             <span>{t("edit_guest")}</span>
                           </button>
+                          <details className="list-actions-more list-actions-more-mobile">
+                            <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                              <Icon name="more_horizontal" className="icon icon-sm" />
+                            </summary>
+                            <div className="list-actions-more-menu" role="menu">
+                              <button
+                                className="btn btn-ghost btn-sm list-actions-more-item"
+                                type="button"
+                                onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
+                              >
+                                <Icon name="sparkle" className="icon icon-sm" />
+                                <span>{t("guest_advanced_title")}</span>
+                              </button>
+                              <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(guestItem)}>
+                                <Icon name="link" className="icon icon-sm" />
+                                <span>{t("merge_guest_action")}</span>
+                              </button>
+                              {guestItem.email || guestItem.phone ? (
+                                <button
+                                  className="btn btn-ghost btn-sm list-actions-more-item"
+                                  type="button"
+                                  onClick={() => handleCopyHostSignupLink(guestItem)}
+                                  disabled={Boolean(conversion)}
+                                >
+                                  <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
+                                  <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
+                                </button>
+                              ) : null}
+                              {guestItem.email || guestItem.phone ? (
+                                <button
+                                  className="btn btn-ghost btn-sm list-actions-more-item"
+                                  type="button"
+                                  onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
+                                  disabled={Boolean(conversion)}
+                                >
+                                  <Icon name="message" className="icon icon-sm" />
+                                  <span>{t("host_invite_whatsapp_action")}</span>
+                                </button>
+                              ) : null}
+                              {guestItem.email || guestItem.phone ? (
+                                <button
+                                  className="btn btn-ghost btn-sm list-actions-more-item"
+                                  type="button"
+                                  onClick={() => handleShareHostSignupLink(guestItem, "email")}
+                                  disabled={Boolean(conversion)}
+                                >
+                                  <Icon name="mail" className="icon icon-sm" />
+                                  <span>{t("host_invite_email_action")}</span>
+                                </button>
+                              ) : null}
+                              <button
+                                className="btn btn-danger btn-sm list-actions-more-item"
+                                type="button"
+                                onClick={() => handleRequestDeleteGuest(guestItem)}
+                                disabled={isDeletingGuestId === guestItem.id}
+                              >
+                                <Icon name="x" className="icon icon-sm" />
+                                <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
+                              </button>
+                            </div>
+                          </details>
                         </div>
                         <div className="button-row item-actions cell-actions list-row-actions list-row-actions-guest">
                           <div className="list-row-actions-main">
@@ -13946,7 +14108,7 @@ function DashboardScreen({
             ) : null}
 
             {guestsWorkspace === "detail" ? (
-            <section className="panel panel-wide detail-panel">
+            <section className="panel panel-wide detail-panel detail-panel-guest">
               <p className="detail-breadcrumb">
                 <button className="text-link-btn breadcrumb-link" type="button" onClick={() => openWorkspace("guests", "latest")}>
                   {t("latest_guests_title")}
@@ -13988,7 +14150,7 @@ function DashboardScreen({
                   </div>
                 </div>
                 {selectedGuestDetail ? (
-                  <div className="button-row detail-head-actions">
+                  <div className="button-row detail-head-actions detail-head-actions-guest">
                     <button
                       className="btn btn-ghost btn-sm"
                       type="button"
@@ -14001,19 +14163,26 @@ function DashboardScreen({
                       <Icon name="edit" className="icon icon-sm" />
                       {t("guest_detail_edit_action")}
                     </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenMergeGuest(selectedGuestDetail)}>
-                      <Icon name="link" className="icon icon-sm" />
-                      {t("merge_guest_action")}
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      type="button"
-                      onClick={() => handleRequestDeleteGuest(selectedGuestDetail)}
-                      disabled={isDeletingGuestId === selectedGuestDetail.id}
-                    >
-                      <Icon name="x" className="icon icon-sm" />
-                      {isDeletingGuestId === selectedGuestDetail.id ? t("deleting") : t("delete_guest")}
-                    </button>
+                    <details className="list-actions-more">
+                      <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                        <Icon name="more_horizontal" className="icon icon-sm" />
+                      </summary>
+                      <div className="list-actions-more-menu" role="menu">
+                        <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(selectedGuestDetail)}>
+                          <Icon name="link" className="icon icon-sm" />
+                          <span>{t("merge_guest_action")}</span>
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm list-actions-more-item"
+                          type="button"
+                          onClick={() => handleRequestDeleteGuest(selectedGuestDetail)}
+                          disabled={isDeletingGuestId === selectedGuestDetail.id}
+                        >
+                          <Icon name="x" className="icon icon-sm" />
+                          <span>{isDeletingGuestId === selectedGuestDetail.id ? t("deleting") : t("delete_guest")}</span>
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 ) : null}
               </div>
@@ -14021,21 +14190,7 @@ function DashboardScreen({
                 <p className="hint">{t("guest_detail_empty")}</p>
               ) : (
                 <>
-                  <article className="detail-guest-hero">
-                    <div className="list-title-with-avatar">
-                      <span className="list-avatar">
-                        {getInitials(
-                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest"),
-                          "IN"
-                        )}
-                      </span>
-                      <div>
-                        <p className="item-title">
-                          {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
-                        </p>
-                        <p className="item-meta">{selectedGuestDetail.email || selectedGuestDetail.phone || "-"}</p>
-                      </div>
-                    </div>
+                  <article className="detail-guest-hero detail-guest-hero-kpis">
                     <div className="detail-kpi-row detail-kpi-row-guest">
                       <article className="detail-kpi-card">
                         <p className="item-meta">{t("nav_events")}</p>
@@ -14067,53 +14222,60 @@ function DashboardScreen({
                 </div>
                 <div className="detail-layout detail-layout-guest">
                   <article className="detail-card detail-card-guest-contact">
-                    <p className="item-title">
-                      {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
-                    </p>
-                    <p className="item-meta">{selectedGuestDetail.email || selectedGuestDetail.phone || "-"}</p>
-                    {selectedGuestDetail.relationship ? (
-                      <p className="item-meta">
-                        {t("field_relationship")}:{" "}
-                        {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
-                      </p>
-                    ) : null}
-                    {(selectedGuestDetail.city || selectedGuestDetail.country) ? (
-                      <p className="item-meta">
-                        {[selectedGuestDetail.city, selectedGuestDetail.country].filter(Boolean).join(", ")}
-                      </p>
-                    ) : null}
-                    {selectedGuestDetailConversion ? (
-                      <p className="item-meta">
-                        <span className="status-pill status-host-converted">{t("host_converted_badge")}</span>{" "}
-                        <span
-                          className={`status-pill ${
-                            getConversionSource(selectedGuestDetailConversion) === "google"
-                              ? "status-host-conversion-source-google"
-                              : "status-host-conversion-source-default"
-                          }`}
-                        >
-                          {getConversionSourceLabel(t, getConversionSource(selectedGuestDetailConversion))}
-                        </span>
-                      </p>
-                    ) : null}
-                    {selectedGuestDetailConversion?.converted_at ? (
-                      <p className="item-meta">
-                        {t("host_conversion_date_label")}{" "}
-                        {formatDate(selectedGuestDetailConversion.converted_at, language, t("no_date"))}
-                      </p>
-                    ) : null}
-                    <div className="button-row">
+                    <div className="detail-guest-contact-head">
+                      <span className="list-avatar detail-guest-contact-avatar">
+                        {getInitials(
+                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest"),
+                          "IN"
+                        )}
+                      </span>
+                      <div>
+                        <p className="item-title">
+                          {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
+                        </p>
+                        <p className="item-meta">{selectedGuestDetail.email || selectedGuestDetail.phone || "-"}</p>
+                      </div>
+                    </div>
+                    <div className="detail-guest-contact-meta">
+                      {selectedGuestDetail.relationship ? (
+                        <p className="item-meta">
+                          {t("field_relationship")}:{" "}
+                          {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
+                        </p>
+                      ) : null}
+                      {(selectedGuestDetail.city || selectedGuestDetail.country) ? (
+                        <p className="item-meta">
+                          {[selectedGuestDetail.city, selectedGuestDetail.country].filter(Boolean).join(", ")}
+                        </p>
+                      ) : null}
+                      {selectedGuestDetailConversion ? (
+                        <p className="item-meta">
+                          <span className="status-pill status-host-converted">{t("host_converted_badge")}</span>{" "}
+                          <span
+                            className={`status-pill ${
+                              getConversionSource(selectedGuestDetailConversion) === "google"
+                                ? "status-host-conversion-source-google"
+                                : "status-host-conversion-source-default"
+                            }`}
+                          >
+                            {getConversionSourceLabel(t, getConversionSource(selectedGuestDetailConversion))}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="item-meta">
+                          <span className="status-pill status-host-candidate">{t("host_potential_badge")}</span>
+                        </p>
+                      )}
+                      {selectedGuestDetailConversion?.converted_at ? (
+                        <p className="item-meta">
+                          {t("host_conversion_date_label")}{" "}
+                          {formatDate(selectedGuestDetailConversion.converted_at, language, t("no_date"))}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="button-row guest-contact-actions">
                       <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() => handleLinkProfileGuestToGlobal(selectedGuestDetail.id)}
-                        disabled={isLinkingGlobalGuest}
-                      >
-                        <Icon name="shield" className="icon icon-sm" />
-                        {isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
+                        className="btn btn-sm"
                         type="button"
                         onClick={() =>
                           openInvitationCreate({
@@ -14134,6 +14296,44 @@ function DashboardScreen({
                         <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="icon icon-sm" />
                         {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
                       </button>
+                      <details className="list-actions-more guest-contact-actions-more">
+                        <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
+                          <Icon name="more_horizontal" className="icon icon-sm" />
+                        </summary>
+                        <div className="list-actions-more-menu" role="menu">
+                          <button
+                            className="btn btn-ghost btn-sm list-actions-more-item"
+                            type="button"
+                            onClick={() => handleLinkProfileGuestToGlobal(selectedGuestDetail.id)}
+                            disabled={isLinkingGlobalGuest}
+                          >
+                            <Icon name="shield" className="icon icon-sm" />
+                            <span>{isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}</span>
+                          </button>
+                          {selectedGuestDetail.email || selectedGuestDetail.phone ? (
+                            <button
+                              className="btn btn-ghost btn-sm list-actions-more-item"
+                              type="button"
+                              onClick={() => handleShareHostSignupLink(selectedGuestDetail, "whatsapp")}
+                              disabled={Boolean(selectedGuestDetailConversion)}
+                            >
+                              <Icon name="message" className="icon icon-sm" />
+                              <span>{t("host_invite_whatsapp_action")}</span>
+                            </button>
+                          ) : null}
+                          {selectedGuestDetail.email || selectedGuestDetail.phone ? (
+                            <button
+                              className="btn btn-ghost btn-sm list-actions-more-item"
+                              type="button"
+                              onClick={() => handleShareHostSignupLink(selectedGuestDetail, "email")}
+                              disabled={Boolean(selectedGuestDetailConversion)}
+                            >
+                              <Icon name="mail" className="icon icon-sm" />
+                              <span>{t("host_invite_email_action")}</span>
+                            </button>
+                          ) : null}
+                        </div>
+                      </details>
                     </div>
                   </article>
 
