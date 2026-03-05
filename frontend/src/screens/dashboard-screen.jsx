@@ -2696,6 +2696,7 @@ function DashboardScreen({
   const [importContactsSort, setImportContactsSort] = useState("priority");
   const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
   const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
+  const [approvedLowConfidenceMergeIds, setApprovedLowConfidenceMergeIds] = useState([]);
   const [importContactsPage, setImportContactsPage] = useState(1);
   const [importContactsPageSize, setImportContactsPageSize] = useState(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
   const [importContactsMessage, setImportContactsMessage] = useState("");
@@ -3072,11 +3073,22 @@ function DashboardScreen({
         .map((reasonCode) => t(`contact_import_match_reason_${reasonCode}`))
         .filter(Boolean)
         .join(" · ");
+      const previewId = fingerprint ? `fp:${fingerprint}` : `idx:${index}`;
+      const requiresMergeApproval = Boolean(
+        duplicateExisting &&
+          willMerge &&
+          duplicateMergeConfidence === "low" &&
+          !approvedLowConfidenceMergeIds.includes(previewId)
+      );
       const existingGuestName =
         duplicateExisting && existingGuest
           ? `${existingGuest.first_name || ""} ${existingGuest.last_name || ""}`.trim() || t("field_guest")
           : "";
-      const canImport = Boolean((firstName || email || phone) && !duplicateInPreview && (!duplicateExisting || willMerge));
+      const canImport = Boolean(
+        (firstName || email || phone) &&
+          !duplicateInPreview &&
+          (!duplicateExisting || (willMerge && !requiresMergeApproval))
+      );
       const hasDualChannel = Boolean(normalizeEmailKey(email) && normalizePhoneKey(phone));
       const captureScore = calculateImportContactCaptureScore({
         firstName,
@@ -3091,7 +3103,6 @@ function DashboardScreen({
         groups
       });
       const potentialLevel = getImportPotentialLevel(captureScore);
-      const previewId = fingerprint ? `fp:${fingerprint}` : `idx:${index}`;
       return {
         previewId,
         fingerprint,
@@ -3120,11 +3131,19 @@ function DashboardScreen({
         duplicateReasonCodes,
         duplicateReasonLabel,
         duplicateMergeConfidence,
+        requiresMergeApproval,
         willMerge,
         canImport
       };
     });
-  }, [findExistingGuestForContact, importContactsPreview, importDuplicateMode, ownerGuestCandidate?.id, t]);
+  }, [
+    approvedLowConfidenceMergeIds,
+    findExistingGuestForContact,
+    importContactsPreview,
+    importDuplicateMode,
+    ownerGuestCandidate?.id,
+    t
+  ]);
   const importContactsGroupOptions = useMemo(
     () =>
       uniqueValues(
@@ -3363,6 +3382,13 @@ function DashboardScreen({
     setSelectedImportContactIds(defaultIds);
   }, [importContactsReady]);
   useEffect(() => {
+    setApprovedLowConfidenceMergeIds((prev) => {
+      const validIds = new Set(importContactsAnalysis.map((item) => item.previewId));
+      const next = prev.filter((id) => validIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [importContactsAnalysis]);
+  useEffect(() => {
     setImportContactsPage(1);
   }, [
     importContactsSearch,
@@ -3429,6 +3455,7 @@ function DashboardScreen({
     setImportContactsSort("priority");
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
+    setApprovedLowConfidenceMergeIds([]);
     setImportContactsPage(1);
     setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
@@ -8260,6 +8287,7 @@ function DashboardScreen({
     const parsedContacts = Array.isArray(contacts) ? contacts : [];
     setImportContactsPreview(tagImportedContacts(parsedContacts, source));
     setImportDuplicateMode("skip");
+    setApprovedLowConfidenceMergeIds([]);
     if (!keepDraft) {
       setImportContactsDraft("");
     }
@@ -8695,6 +8723,7 @@ function DashboardScreen({
     setImportContactsSort("priority");
     setImportDuplicateMode("skip");
     setSelectedImportContactIds([]);
+    setApprovedLowConfidenceMergeIds([]);
     setImportContactsPage(1);
     setImportContactsPageSize(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
     setImportContactsMessage("");
@@ -8822,12 +8851,10 @@ function DashboardScreen({
 
   const getSmartImportMergeSelection = (items) => {
     const duplicateCandidates = items.filter((item) => item.duplicateExisting && !item.duplicateInPreview);
-    const safeCandidates = duplicateCandidates.filter(
-      (item) => item.duplicateMergeConfidence === "high" || item.duplicateMergeConfidence === "medium"
-    );
+    const safeCandidates = duplicateCandidates.filter((item) => item.canImport);
     return {
       duplicateCandidates,
-      selectedCandidates: safeCandidates.length > 0 ? safeCandidates : duplicateCandidates
+      selectedCandidates: safeCandidates
     };
   };
 
@@ -8835,6 +8862,7 @@ function DashboardScreen({
     const nextMode = nextModeInput === "merge" ? "merge" : "skip";
     setImportDuplicateMode(nextMode);
     if (nextMode !== "merge") {
+      setApprovedLowConfidenceMergeIds([]);
       return;
     }
     const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
@@ -8846,6 +8874,30 @@ function DashboardScreen({
       interpolateText(t("contact_import_merge_smart_selected"), {
         selected: selectedCandidates.length,
         total: duplicateCandidates.length
+      })
+    );
+  };
+
+  const handleApproveLowConfidenceMergeContact = (previewId) => {
+    if (!previewId) {
+      return;
+    }
+    setImportDuplicateMode("merge");
+    setApprovedLowConfidenceMergeIds((prev) => (prev.includes(previewId) ? prev : [...prev, previewId]));
+  };
+
+  const handleApproveAllLowConfidenceMergeContacts = () => {
+    setImportDuplicateMode("merge");
+    const pendingIds = importContactsFiltered
+      .filter((item) => item.duplicateExisting && item.duplicateMergeConfidence === "low" && !item.duplicateInPreview)
+      .map((item) => item.previewId);
+    if (pendingIds.length === 0) {
+      return;
+    }
+    setApprovedLowConfidenceMergeIds((prev) => uniqueValues([...prev, ...pendingIds]));
+    setImportContactsMessage(
+      interpolateText(t("contact_import_merge_low_approved"), {
+        count: pendingIds.length
       })
     );
   };
@@ -13084,6 +13136,9 @@ function DashboardScreen({
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
                       {t("contact_import_select_merge_safe")}
                     </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleApproveAllLowConfidenceMergeContacts}>
+                      {t("contact_import_merge_approve_all_low")}
+                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
                       {t("contact_import_select_filtered_ready")}
                     </button>
@@ -13152,11 +13207,29 @@ function DashboardScreen({
                                 {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
                               </small>
                             ) : null}
+                            {contactItem.requiresMergeApproval ? (
+                              <small className="import-merge-warning">
+                                {t("contact_import_merge_requires_approval")}
+                              </small>
+                            ) : null}
                             {contactItem.duplicateExisting ? (
                               <small>
                                 {t("contact_import_merge_confidence_label")}:{" "}
                                 {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
                               </small>
+                            ) : null}
+                            {contactItem.requiresMergeApproval ? (
+                              <button
+                                className="btn btn-ghost btn-sm import-merge-approve-btn"
+                                type="button"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  handleApproveLowConfidenceMergeContact(contactItem.previewId);
+                                }}
+                              >
+                                {t("contact_import_merge_approve_contact")}
+                              </button>
                             ) : null}
                           </span>
                         </label>
@@ -15711,6 +15784,9 @@ function DashboardScreen({
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
                         {t("contact_import_select_merge_safe")}
                       </button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleApproveAllLowConfidenceMergeContacts}>
+                        {t("contact_import_merge_approve_all_low")}
+                      </button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
                         {t("contact_import_select_page_ready")}
                       </button>
@@ -15782,6 +15858,11 @@ function DashboardScreen({
                                     {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
                                   </span>
                                 ) : null}
+                                {contactItem.requiresMergeApproval ? (
+                                  <span className="item-meta import-preview-target import-merge-warning">
+                                    {t("contact_import_merge_requires_approval")}
+                                  </span>
+                                ) : null}
                                 {contactItem.duplicateExisting ? (
                                   <span className="import-preview-target">
                                     <span
@@ -15793,6 +15874,19 @@ function DashboardScreen({
                                       {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
                                     </span>
                                   </span>
+                                ) : null}
+                                {contactItem.requiresMergeApproval ? (
+                                  <button
+                                    className="btn btn-ghost btn-sm import-merge-approve-btn"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      handleApproveLowConfidenceMergeContact(contactItem.previewId);
+                                    }}
+                                  >
+                                    {t("contact_import_merge_approve_contact")}
+                                  </button>
                                 ) : null}
                               </span>
                             </li>
