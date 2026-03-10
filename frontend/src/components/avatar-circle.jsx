@@ -1,50 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import React from "react";
 
-function toInitials(label, fallback = "LG") {
-  const parts = String(label || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) {
-    return fallback;
-  }
-  return parts
-    .slice(0, 2)
-    .map((item) => item[0]?.toUpperCase() || "")
-    .join("");
-}
-
-export function AvatarCircle({
-  label = "",
-  imageUrl = "",
-  fallback = "LG",
-  className = "",
-  title = "",
-  alt = "",
-  size = 40
-}) {
-  const [hasError, setHasError] = useState(false);
-  const normalizedImageUrl = String(imageUrl || "").trim();
-  const initials = useMemo(() => toInitials(label, fallback), [label, fallback]);
-  const showImage = normalizedImageUrl && !hasError;
-
-  useEffect(() => {
-    setHasError(false);
-  }, [normalizedImageUrl]);
+export function AvatarCircle({ label, fallback, imageUrl, size = 40, className = "", onClick }) {
+  // Calculamos el tamaño de la fuente dinámicamente según el tamaño del avatar
+  const sizeStyle = {
+    width: size,
+    height: size,
+    minWidth: size,
+    minHeight: size,
+    fontSize: size * 0.38
+  };
 
   return (
-    <span className={className} aria-hidden="true" title={title || label || initials} style={{ width: size, height: size }}>
-      {showImage ? (
-        <img
-          className="avatar-image"
-          src={normalizedImageUrl}
-          alt={alt || label || initials}
-          loading="lazy"
-          onError={() => setHasError(true)}
-        />
+    <div
+      onClick={onClick}
+      title={label}
+      // CLAVES APPLE: rounded-full (círculo perfecto), sombra suave, degradado de fondo y borde sutil
+      className={`relative flex items-center justify-center rounded-full bg-gradient-to-b from-gray-50 to-gray-200 dark:from-gray-700 dark:to-gray-800 text-gray-700 dark:text-gray-200 font-bold tracking-tight shadow-sm border border-black/10 dark:border-white/10 overflow-hidden select-none ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''} ${className}`}
+      style={sizeStyle}
+    >
+      {imageUrl ? (
+        <img src={imageUrl} alt={label} className="w-full h-full object-cover rounded-full" />
       ) : (
-        initials
+        <span>{fallback}</span>
       )}
-    </span>
+    </div>
   );
 }

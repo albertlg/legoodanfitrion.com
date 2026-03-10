@@ -1,3 +1,4 @@
+import React from "react";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
@@ -136,35 +137,40 @@ export function EventDetailView({
     typeof selectedEventDetail?.location_lat === "number" && typeof selectedEventDetail?.location_lng === "number"
       ? `https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`
       : selectedEventDetail?.location_address
-      ? `https://www.google.com/maps?q=${encodeURIComponent(selectedEventDetail.location_address)}`
-      : "";
+        ? `https://www.google.com/maps?q=${encodeURIComponent(selectedEventDetail.location_address)}`
+        : "";
   const eventSatelliteEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 17);
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
 
   return (
-    <section className={`panel panel-wide detail-panel ${isPlanWorkspace ? "detail-panel-plan" : ""}`}>
-      <div className="detail-breadcrumb detail-breadcrumb-row">
-        <button className="btn btn-ghost btn-sm detail-breadcrumb-pill" type="button" onClick={() => openWorkspace("events", "latest")}>
-          <Icon name="arrow_left" className="icon icon-sm" />
+    <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
+
+      {/* Breadcrumb */}
+      <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+        <button className="flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors" type="button" onClick={() => openWorkspace("events", "latest")}>
+          <Icon name="arrow_left" className="w-3.5 h-3.5" />
           {t("latest_events_title")}
         </button>
         {eventsWorkspace === "plan" ? (
           <>
-            <span className="detail-breadcrumb-sep">/</span>
-            <button className="text-link-btn breadcrumb-link" type="button" onClick={handleBackToEventDetail}>
+            <span>/</span>
+            <button className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate max-w-[150px] sm:max-w-xs" type="button" onClick={handleBackToEventDetail}>
               {selectedEventDetail?.title || t("event_detail_title")}
             </button>
-            <span className="detail-breadcrumb-sep">/</span>
-            <span>{t("event_planner_title")}</span>
+            <span>/</span>
+            <span className="text-gray-900 dark:text-white">{t("event_planner_title")}</span>
           </>
         ) : null}
       </div>
+
+      {/* Hero Cover (Solo si no estamos en Plan) */}
       {selectedEventDetail && !isPlanWorkspace ? (
-        <article className="event-detail-cover" aria-label={t("event_detail_cover_title")}>
+        <article className="relative w-full h-48 sm:h-64 md:h-72 rounded-2xl overflow-hidden shadow-inner group" aria-label={t("event_detail_cover_title")}>
           {eventSatelliteCoverEmbedUrl ? (
             <iframe
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               title={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
               src={eventSatelliteCoverEmbedUrl}
               loading="lazy"
@@ -172,92 +178,102 @@ export function EventDetailView({
             />
           ) : (
             <img
+              className="absolute inset-0 w-full h-full object-cover"
               src={eventCoverImageUrl}
               alt={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
               loading="lazy"
             />
           )}
-          <div className="event-detail-cover-overlay">
-            <div className="event-detail-cover-badges">
-              <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-5 sm:p-6 md:p-8">
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border shadow-sm ${statusClass(selectedEventDetail.status)}`}>
+                {statusText(t, selectedEventDetail.status)}
+              </span>
               {selectedEventDetail.event_type ? (
-                <span className="status-pill status-maybe">
+                <span className="px-2.5 py-1 bg-white/20 backdrop-blur-md text-white border border-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-sm">
                   {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
                 </span>
               ) : null}
             </div>
-            <p className="event-detail-cover-title">{selectedEventDetail.title || t("event_detail_title")}</p>
-            <div className="event-detail-cover-meta">
-              <span>
-                <Icon name="calendar" className="icon icon-xs" />
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight mb-3 drop-shadow-md">
+              {selectedEventDetail.title || t("event_detail_title")}
+            </h2>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-white/90">
+              <span className="flex items-center gap-1.5 drop-shadow-sm">
+                <Icon name="calendar" className="w-4 h-4" />
                 {eventDateLabel}
               </span>
-              <span>
-                <Icon name="clock" className="icon icon-xs" />
+              <span className="flex items-center gap-1.5 drop-shadow-sm">
+                <Icon name="clock" className="w-4 h-4" />
                 {eventTimeLabel}
               </span>
-              <span>
-                <Icon name="location" className="icon icon-xs" />
-                {eventPlaceLabel}
+              <span className="flex items-center gap-1.5 drop-shadow-sm">
+                <Icon name="location" className="w-4 h-4" />
+                <span className="truncate max-w-[200px] sm:max-w-sm">{eventPlaceLabel}</span>
               </span>
             </div>
           </div>
         </article>
       ) : null}
+
+      {/* Cabecera para Vista Plan (o fallback si no hay hero) */}
       {!isPlanWorkspace ? (
-        <div className={`detail-head ${hasEventHeroCover ? "detail-head-event-actions" : "detail-head-rich"}`}>
+        <div className={`flex flex-col sm:flex-row flex-wrap justify-between items-start sm:items-center gap-4 ${hasEventHeroCover ? "pt-2" : "border-b border-black/5 dark:border-white/10 pb-6"}`}>
           {!hasEventHeroCover ? (
-            <div className="detail-head-primary">
-              <div className="detail-head-title-row">
-                <h2 className="section-title detail-title">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+            <div className="flex flex-col gap-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white truncate">{selectedEventDetail?.title || t("event_detail_title")}</h2>
                 {selectedEventDetail ? (
-                  <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
                 ) : null}
               </div>
-              <div className="detail-meta-inline">
-                <span>
-                  <Icon name="calendar" className="icon icon-sm" />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1.5">
+                  <Icon name="calendar" className="w-3.5 h-3.5" />
                   {eventDateLabel}
                 </span>
-                <span>
-                  <Icon name="clock" className="icon icon-sm" />
+                <span className="flex items-center gap-1.5">
+                  <Icon name="clock" className="w-3.5 h-3.5" />
                   {eventTimeLabel}
                 </span>
-                <span>
-                  <Icon name="location" className="icon icon-sm" />
-                  {eventPlaceLabel}
+                <span className="flex items-center gap-1.5">
+                  <Icon name="location" className="w-3.5 h-3.5" />
+                  <span className="truncate max-w-[250px]">{eventPlaceLabel}</span>
                 </span>
               </div>
             </div>
           ) : null}
+
+          {/* Acciones principales de la Ficha */}
           {selectedEventDetail ? (
-            <div className="button-row detail-head-actions detail-head-actions-compact detail-head-actions-event">
-              <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
-                <Icon name="sparkle" className="icon icon-sm" />
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
+              <button className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/30 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center" type="button" onClick={() => handleOpenEventPlan("ambience")}>
+                <Icon name="sparkle" className="w-4 h-4" />
                 {t("event_plan_cta_action")}
               </button>
-              <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
-                <Icon name="edit" className="icon icon-sm" />
+              <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
+                <Icon name="edit" className="w-4 h-4" />
                 {t("event_detail_edit_action")}
               </button>
-              <details className="list-actions-more">
-                <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
-                  <Icon name="more_horizontal" className="icon icon-sm" />
-                </summary>
-                <div className="list-actions-more-menu" role="menu">
+
+              <div className="relative group">
+                <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center" aria-label={t("open_menu")} title={t("open_menu")}>
+                  <Icon name="more_horizontal" className="w-4 h-4" />
+                </button>
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
                   {selectedEventDetailPrimaryShare?.url ? (
                     <a
-                      className="btn btn-ghost btn-sm list-actions-more-item"
+                      className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 transition-colors"
                       href={selectedEventDetailPrimaryShare.url}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <Icon name="mail" className="icon icon-sm" />
+                      <Icon name="mail" className="w-3.5 h-3.5" />
                       <span>{t("open_rsvp")}</span>
                     </a>
                   ) : (
                     <button
-                      className="btn btn-ghost btn-sm list-actions-more-item"
+                      className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2 transition-colors"
                       type="button"
                       onClick={() =>
                         openInvitationCreate({
@@ -266,359 +282,386 @@ export function EventDetailView({
                         })
                       }
                     >
-                      <Icon name="mail" className="icon icon-sm" />
+                      <Icon name="mail" className="w-3.5 h-3.5 text-blue-500" />
                       <span>{t("event_detail_create_invitation_action")}</span>
                     </button>
                   )}
                 </div>
-              </details>
+              </div>
             </div>
           ) : null}
         </div>
       ) : null}
+
+      {/* KPIs Row */}
       {selectedEventDetail && eventsWorkspace === "detail" ? (
-        <div className="detail-kpi-row">
-          <article className="detail-kpi-card">
-            <p className="item-meta">{t("event_detail_total_invites")}</p>
-            <p className="item-title">{selectedEventDetailInvitations.length}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("event_detail_total_invites")}</p>
+            <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{selectedEventDetailInvitations.length}</p>
           </article>
-          <article className="detail-kpi-card">
-            <p className="item-meta">{t("status_yes")}</p>
-            <p className="item-title">{selectedEventDetailStatusCounts.yes}</p>
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_yes")}</p>
+            <p className="text-2xl font-black text-green-600 dark:text-green-400 leading-none">{selectedEventDetailStatusCounts.yes}</p>
           </article>
-          <article className="detail-kpi-card">
-            <p className="item-meta">{t("status_pending")}</p>
-            <p className="item-title">{selectedEventDetailStatusCounts.pending}</p>
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_pending")}</p>
+            <p className="text-2xl font-black text-yellow-600 dark:text-yellow-400 leading-none">{selectedEventDetailStatusCounts.pending}</p>
           </article>
-          <article className="detail-kpi-card">
-            <p className="item-meta">{t("status_no")}</p>
-            <p className="item-title">{selectedEventDetailStatusCounts.no}</p>
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_no")}</p>
+            <p className="text-2xl font-black text-red-600 dark:text-red-400 leading-none">{selectedEventDetailStatusCounts.no}</p>
           </article>
         </div>
       ) : null}
+
       <InlineMessage text={invitationMessage} />
+
+      {/* Contenido Principal Grid */}
       {!selectedEventDetail ? (
-        <p className="hint">{t("event_detail_empty")}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 italic text-center p-8">{t("event_detail_empty")}</p>
       ) : (
-        <div className={`detail-layout detail-layout-event ${eventsWorkspace === "plan" ? "detail-layout-event-plan-only" : ""}`}>
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-event-overview">
-              {!hasEventHeroCover ? <p className="item-title">{selectedEventDetail.title}</p> : null}
-              <p className="item-meta">
-                {t("status")}: <span className={`status-pill ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
-              </p>
-              {selectedEventDetail.event_type ? (
-                <p className="item-meta">
-                  {t("field_event_type")}: {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
-                </p>
-              ) : null}
-              <p className="item-meta">
-                {t("date")}: {formatDate(selectedEventDetail.start_at, language, t("no_date"))}
-              </p>
-              {selectedEventDetail.location_name ? <p className="item-meta">{t("field_place")}: {selectedEventDetail.location_name}</p> : null}
-              {selectedEventDetail.location_address ? (
-                <p className="item-meta">{t("field_address")}: {selectedEventDetail.location_address}</p>
-              ) : null}
-              {selectedEventDetail.description ? (
-                <p className="item-meta">{t("field_event_description")}: {selectedEventDetail.description}</p>
-              ) : null}
-              <div className="detail-badge-row">
-                <span className={`status-pill ${selectedEventDetail.allow_plus_one ? "status-yes" : "status-draft"}`}>
-                  {t("event_setting_allow_plus_one")}: {selectedEventDetail.allow_plus_one ? t("status_yes") : t("status_no")}
-                </span>
-                <span className={`status-pill ${selectedEventDetail.auto_reminders ? "status-yes" : "status-draft"}`}>
-                  {t("event_setting_auto_reminders")}: {selectedEventDetail.auto_reminders ? t("status_yes") : t("status_no")}
-                </span>
-                <span className="status-pill status-maybe">
-                  {t("event_setting_dress_code")}: {t(`event_dress_code_${normalizeEventDressCode(selectedEventDetail.dress_code)}`)}
-                </span>
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("event_setting_playlist_mode")}: {t(`event_playlist_mode_${normalizeEventPlaylistMode(selectedEventDetail.playlist_mode)}`)}
-                </span>
-              </div>
-              <div className="button-row">
-                {selectedEventDetail.location_lat != null && selectedEventDetail.location_lng != null ? (
-                  <a
-                    className="btn btn-ghost btn-sm"
-                    href={`https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {t("map_open_external")}
-                  </a>
-                ) : null}
-              </div>
-            </article>
-          ) : null}
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-event-rsvp">
-              <p className="item-title">{t("event_detail_rsvp_summary")}</p>
-              <div className="detail-badge-row">
-                <span className="status-pill status-pending">{t("status_pending")}: {selectedEventDetailStatusCounts.pending}</span>
-                <span className="status-pill status-yes">{t("status_yes")}: {selectedEventDetailStatusCounts.yes}</span>
-                <span className="status-pill status-no">{t("status_no")}: {selectedEventDetailStatusCounts.no}</span>
-                <span className="status-pill status-maybe">{t("status_maybe")}: {selectedEventDetailStatusCounts.maybe}</span>
-              </div>
-              <p className="hint">
-                {t("event_detail_total_invites")} {selectedEventDetailInvitations.length}
-              </p>
-              {selectedEventDetailInvitations.length === 0 ? <p className="hint">{t("event_detail_no_invites")}</p> : null}
-            </article>
-          ) : null}
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-event-checklist">
-              <p className="item-title">{t("event_detail_checklist_title")}</p>
-              <ul className="checklist-list">
-                {selectedEventChecklist.map((item) => (
-                  <li key={item.key} className="checklist-item">
-                    <span className={`status-pill ${item.done ? "status-yes" : "status-pending"}`}>
-                      {item.done ? t("status_yes") : t("status_pending")}
-                    </span>
-                    <span>{item.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ) : null}
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-event-alerts">
-              <p className="item-title">{t("event_detail_alerts_title")}</p>
-              <p className="item-meta">
-                {t("status_yes")}: {selectedEventHealthAlertsConfirmedCount} · {t("status_pending")}:{" "}
-                {selectedEventHealthAlertsPendingCount}
-              </p>
-              {selectedEventHealthAlerts.length > 0 ? (
-                <ul className="list recommendation-list">
-                  {selectedEventHealthAlerts.map((alertItem) => (
-                    <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`}>
-                      <strong>{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="hint">{t("event_detail_alerts_empty")}</p>
-              )}
-            </article>
-          ) : null}
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-event-plan-cta">
-              <div className="event-plan-cta">
-                <div className="event-plan-cta-head">
-                  <span className="event-plan-cta-title">
-                    <Icon name="sparkle" className="icon icon-sm" />
-                    {t("event_plan_cta_title")}
-                  </span>
-                  <span className="status-pill status-host-conversion-source-default">{t("event_planner_ai_badge")}</span>
-                </div>
-                <p className="item-meta">{t("event_plan_cta_hint")}</p>
-                <button className="btn btn-sm" type="button" onClick={() => handleOpenEventPlan("ambience")}>
-                  {t("event_plan_cta_action")}
-                </button>
-              </div>
-            </article>
-          ) : null}
-
-          {eventsWorkspace === "plan" ? (
-            <HostPlanView
-              standalone
-              selectedEventTitle={selectedEventDetail?.title || t("event_detail_title")}
-              selectedEventDateLabel={eventDateLabel}
-              selectedEventTimeLabel={eventTimeLabel}
-              selectedEventPlaceLabel={eventPlaceLabel}
-              eventPlannerSectionRef={eventPlannerSectionRef}
-              t={t}
-              interpolateText={interpolateText}
-              selectedEventMealPlan={selectedEventMealPlan}
-              selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
-              selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
-              selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
-              selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
-              selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
-              selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
-              selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
-              selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
-              language={language}
-              handleOpenEventPlannerContext={handleOpenEventPlannerContext}
-              handleRegenerateEventPlanner={handleRegenerateEventPlanner}
-              handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
-              eventDetailPlannerTab={eventDetailPlannerTab}
-              handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
-              selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
-              selectedEventDietTypesCount={selectedEventDietTypesCount}
-              selectedEventAllergiesCount={selectedEventAllergiesCount}
-              selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
-              selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
-              selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
-              selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
-              selectedEventRestrictionsCount={selectedEventRestrictionsCount}
-              selectedEventIntolerancesCount={selectedEventIntolerancesCount}
-              selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
-              selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
-              handleEventPlannerTabChange={handleEventPlannerTabChange}
-              selectedEventShoppingTotalIngredients={selectedEventShoppingTotalIngredients}
-              selectedEventEstimatedCostRange={selectedEventEstimatedCostRange}
-              selectedEventShoppingProgress={selectedEventShoppingProgress}
-              selectedEventShoppingItems={selectedEventShoppingItems}
-              selectedEventShoppingCheckedSet={selectedEventShoppingCheckedSet}
-              handleCopySelectedEventShoppingChecklist={handleCopySelectedEventShoppingChecklist}
-              handleMarkAllEventPlannerShoppingItems={handleMarkAllEventPlannerShoppingItems}
-              handleClearEventPlannerShoppingCheckedItems={handleClearEventPlannerShoppingCheckedItems}
-              eventPlannerShoppingFilter={eventPlannerShoppingFilter}
-              setEventPlannerShoppingFilter={setEventPlannerShoppingFilter}
-              selectedEventShoppingCounts={selectedEventShoppingCounts}
-              selectedEventShoppingGroupsFiltered={selectedEventShoppingGroupsFiltered}
-              handleToggleEventPlannerShoppingItem={handleToggleEventPlannerShoppingItem}
-              selectedEventHostPlaybook={selectedEventHostPlaybook}
-              handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
-              handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
-            />
-          ) : null}
+        <div className={`flex flex-col lg:grid ${eventsWorkspace === "plan" ? "grid-cols-1" : "grid-cols-12"} gap-6`}>
 
           {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-map detail-card-event-location-photo">
-              <p className="item-title">{t("event_detail_location_photo_title")}</p>
-              <div className="event-location-photo" aria-label={t("event_detail_location_photo_title")}>
-                {eventSatelliteEmbedUrl ? (
-                  <iframe
-                    title={interpolateText(t("event_detail_location_photo_alt"), { place: eventPlaceLabel })}
-                    src={eventSatelliteEmbedUrl}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                ) : (
-                  <img
-                    src={eventCoverImageUrl}
-                    alt={interpolateText(t("event_detail_location_photo_alt"), { place: eventPlaceLabel })}
-                    loading="lazy"
-                  />
-                )}
-              </div>
-              <p className="item-meta">{eventPlaceLabel}</p>
-              {eventMapsExternalUrl ? (
-                <div className="button-row">
-                  <a className="btn btn-ghost btn-sm" href={eventMapsExternalUrl} target="_blank" rel="noreferrer">
-                    {t("map_open_external")}
-                  </a>
-                </div>
-              ) : null}
-            </article>
-          ) : null}
+            <>
+              {/* Columna Izquierda (7/12) */}
+              <div className="col-span-12 lg:col-span-7 flex flex-col gap-6">
 
-          {eventsWorkspace === "detail" && typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
-            <article className="detail-card detail-card-map detail-card-event-map">
-              <p className="item-title">{t("map_preview_title")}</p>
-              <div className="map-preview" aria-label={t("map_preview_title")}>
-                <iframe
-                  title={t("map_preview_title")}
-                  src={getMapEmbedUrl(selectedEventDetail.location_lat, selectedEventDetail.location_lng)}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
-            </article>
-          ) : null}
+                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                  {!hasEventHeroCover ? <p className="text-lg font-black text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
 
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-wide detail-card-event-guests">
-              <p className="item-title">{t("event_detail_guest_list_title")}</p>
-              {selectedEventDetailGuests.length === 0 ? (
-                <p className="hint">{t("event_detail_no_invites")}</p>
-              ) : (
-                <div className="detail-table-shell">
-                  <div className="detail-table-head detail-table-head-event-guests" aria-hidden="true">
-                    <span>{t("field_guest")}</span>
-                    <span>{t("email")}</span>
-                    <span>{t("status")}</span>
-                    <span>+1</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+                    {selectedEventDetail.event_type ? (
+                      <p className="text-xs flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_event_type")}</span>
+                        <strong className="text-gray-900 dark:text-white">{toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}</strong>
+                      </p>
+                    ) : null}
+                    <p className="text-xs flex flex-col gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("date")}</span>
+                      <strong className="text-gray-900 dark:text-white">{formatDate(selectedEventDetail.start_at, language, t("no_date"))}</strong>
+                    </p>
+                    {selectedEventDetail.location_name ? (
+                      <p className="text-xs flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_place")}</span>
+                        <strong className="text-gray-900 dark:text-white">{selectedEventDetail.location_name}</strong>
+                      </p>
+                    ) : null}
+                    {selectedEventDetail.location_address ? (
+                      <p className="text-xs flex flex-col gap-1 sm:col-span-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_address")}</span>
+                        <span className="text-gray-900 dark:text-white">{selectedEventDetail.location_address}</span>
+                      </p>
+                    ) : null}
+                    {selectedEventDetail.description ? (
+                      <p className="text-xs flex flex-col gap-1 sm:col-span-2 mt-2 pt-3 border-t border-black/5 dark:border-white/10">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_event_description")}</span>
+                        <span className="text-gray-700 dark:text-gray-300 leading-relaxed">{selectedEventDetail.description}</span>
+                      </p>
+                    ) : null}
                   </div>
-                  <ul className="list detail-table-list detail-table-list-event-guests">
-                    {selectedEventDetailGuests.map((row) => {
-                      const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
-                      const rowGuestLabel = row.name || t("field_guest");
-                      return (
-                        <li key={row.invitation.id} className="detail-table-row detail-table-row-event-guests">
-                          <div className="cell-main list-title-with-avatar">
-                            <AvatarCircle
-                              className="list-avatar list-avatar-sm"
-                              label={rowGuestLabel}
-                              fallback="IN"
-                              imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
-                              size={30}
-                            />
-                            <button
-                              className="text-link-btn invitation-linked-name"
-                              type="button"
-                              onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
-                            >
-                              {rowGuestLabel}
-                            </button>
-                          </div>
-                          <p className="item-meta cell-meta">{row.contact}</p>
-                          <p className="item-meta cell-meta">
-                            <span className={`status-pill ${statusClass(row.invitation.status)}`}>
-                              {statusText(t, row.invitation.status)}
-                            </span>
-                          </p>
-                          <div className="cell-meta detail-table-actions">
-                            <span className="item-meta">-</span>
-                            <button
-                              className="btn btn-ghost btn-sm btn-icon-only"
-                              type="button"
-                              onClick={() => {
-                                const prepared = handlePrepareInvitationShare(row.invitation);
-                                if (prepared?.whatsappUrl) {
-                                  window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
-                                }
-                              }}
-                              aria-label={t("invitation_send_message_action")}
-                              title={t("invitation_send_message_action")}
-                            >
-                              <Icon name="message" className="icon icon-sm" />
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm btn-icon-only"
-                              type="button"
-                              onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
-                              aria-label={t("delete_invitation")}
-                              title={t("delete_invitation")}
-                            >
-                              <Icon name="x" className="icon icon-sm" />
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
+
+                  <div className="flex flex-wrap gap-2 mt-2 pt-4 border-t border-black/5 dark:border-white/10">
+                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${selectedEventDetail.allow_plus_one ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400"}`}>
+                      {t("event_setting_allow_plus_one")}: {selectedEventDetail.allow_plus_one ? t("status_yes") : t("status_no")}
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${selectedEventDetail.auto_reminders ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400"}`}>
+                      {t("event_setting_auto_reminders")}: {selectedEventDetail.auto_reminders ? t("status_yes") : t("status_no")}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400">
+                      {t("event_setting_dress_code")}: {t(`event_dress_code_${normalizeEventDressCode(selectedEventDetail.dress_code)}`)}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400">
+                      {t("event_setting_playlist_mode")}: {t(`event_playlist_mode_${normalizeEventPlaylistMode(selectedEventDetail.playlist_mode)}`)}
+                    </span>
+                  </div>
+
+                  {selectedEventDetail.location_lat != null && selectedEventDetail.location_lng != null ? (
+                    <div className="flex mt-2">
+                      <a className="bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-300 font-bold py-2 px-4 rounded-xl transition-all text-xs flex items-center gap-2" href={`https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`} target="_blank" rel="noreferrer">
+                        <Icon name="location" className="w-3.5 h-3.5" />
+                        {t("map_open_external")}
+                      </a>
+                    </div>
+                  ) : null}
+                </article>
+
+                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 overflow-hidden">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Icon name="users" className="w-4 h-4 text-blue-500" />
+                    {t("event_detail_guest_list_title")}
+                  </p>
+
+                  {selectedEventDetailGuests.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic p-4 text-center">{t("event_detail_no_invites")}</p>
+                  ) : (
+                    <div className="w-full">
+                      <table className="w-full text-left border-collapse block sm:table">
+                        <thead className="hidden sm:table-header-group">
+                          <tr>
+                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
+                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")}</th>
+                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
+                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="block sm:table-row-group divide-y-0 sm:divide-y divide-black/5 dark:divide-white/5">
+                          {selectedEventDetailGuests.map((row) => {
+                            const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
+                            const rowGuestLabel = row.name || t("field_guest");
+                            return (
+                              <tr key={row.invitation.id} className="block sm:table-row flex flex-col mb-3 sm:mb-0 p-4 sm:p-0 rounded-xl sm:rounded-none border border-black/5 dark:border-white/5 sm:border-transparent bg-white/40 dark:bg-white/5 sm:bg-transparent shadow-sm sm:shadow-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
+                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle">
+                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("field_guest")}</span>
+                                  <div className="flex items-center gap-3">
+                                    <AvatarCircle
+                                      className="flex-shrink-0"
+                                      label={rowGuestLabel}
+                                      fallback="IN"
+                                      imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
+                                      size={32}
+                                    />
+                                    <button
+                                      className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left truncate max-w-[150px]"
+                                      type="button"
+                                      onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
+                                    >
+                                      {rowGuestLabel}
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle">
+                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("email")}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px] inline-block" title={row.contact}>
+                                    {row.contact}
+                                  </span>
+                                </td>
+                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle">
+                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status")}</span>
+                                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border shadow-sm w-fit ${statusClass(row.invitation.status)}`}>
+                                    {statusText(t, row.invitation.status)}
+                                  </span>
+                                </td>
+                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-none sm:border-none align-middle text-right">
+                                  <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity mt-2 sm:mt-0">
+                                    <button
+                                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                                      type="button"
+                                      onClick={() => {
+                                        const prepared = handlePrepareInvitationShare(row.invitation);
+                                        if (prepared?.whatsappUrl) {
+                                          window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+                                        }
+                                      }}
+                                      aria-label={t("invitation_send_message_action")}
+                                      title={t("invitation_send_message_action")}
+                                    >
+                                      <Icon name="message" className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                      type="button"
+                                      onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
+                                      aria-label={t("delete_invitation")}
+                                      title={t("delete_invitation")}
+                                    >
+                                      <Icon name="x" className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </article>
+
+                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Icon name="clock" className="w-4 h-4 text-gray-500" />
+                    {t("recent_activity_title")}
+                  </p>
+                  {selectedEventRsvpTimeline.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic text-center p-4">{t("recent_activity_empty")}</p>
+                  ) : (
+                    <div className="relative pl-3 mt-2">
+                      <div className="absolute top-2 bottom-2 left-[15px] w-px bg-black/10 dark:bg-white/10"></div>
+                      <ul className="flex flex-col gap-5 relative z-10">
+                        {selectedEventRsvpTimeline.map((item) => (
+                          <li key={item.id} className="flex gap-4 items-start">
+                            <span className={`w-2.5 h-2.5 rounded-full mt-1.5 ring-4 ring-white dark:ring-gray-900 shrink-0 ${statusClass(item.status).replace('text-', 'bg-').replace('border-', 'bg-') || 'bg-gray-400'}`} />
+                            <div className="flex flex-col gap-1">
+                              <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                {item.name}
+                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${statusClass(item.status)}`}>{statusText(t, item.status)}</span>
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {item.isResponse ? t("event_detail_timeline_response") : t("event_detail_timeline_sent")} · {formatDate(item.date, language, t("no_date"))}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </article>
+
+              </div>
+
+              {/* Columna Derecha (5/12) */}
+              <div className="col-span-12 lg:col-span-5 flex flex-col gap-6">
+
+                {/* AI Planner Banner */}
+                <article className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl p-5 shadow-lg flex flex-col gap-4 text-white">
+                  <div className="flex justify-between items-start">
+                    <span className="flex items-center gap-2 text-sm font-black">
+                      <Icon name="sparkle" className="w-5 h-5 text-yellow-300" />
+                      {t("event_plan_cta_title")}
+                    </span>
+                    <span className="px-2.5 py-1 bg-white/20 backdrop-blur-md border border-white/30 rounded-lg text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                      {t("event_planner_ai_badge")}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-white/90 leading-relaxed">{t("event_plan_cta_hint")}</p>
+                  <button className="bg-white text-blue-700 hover:bg-gray-50 font-bold py-2.5 px-4 rounded-xl transition-all text-xs w-full shadow-md flex justify-center items-center gap-2 mt-1" type="button" onClick={() => handleOpenEventPlan("ambience")}>
+                    {t("event_plan_cta_action")}
+                    <Icon name="arrow_right" className="w-3.5 h-3.5" />
+                  </button>
+                </article>
+
+                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Icon name="check" className="w-4 h-4 text-green-500" />
+                    {t("event_detail_checklist_title")}
+                  </p>
+                  <ul className="flex flex-col gap-2.5">
+                    {selectedEventChecklist.map((item) => (
+                      <li key={item.key} className="flex items-center gap-3 p-2 hover:bg-white/40 dark:hover:bg-white/5 rounded-lg transition-colors">
+                        <span className={`flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${item.done ? "bg-green-100 text-green-600 dark:bg-green-900/30" : "bg-gray-100 text-gray-400 dark:bg-gray-800"}`}>
+                          <Icon name={item.done ? "check" : "clock"} className="w-3 h-3" />
+                        </span>
+                        <span className={`text-xs font-medium ${item.done ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>{item.label}</span>
+                      </li>
+                    ))}
                   </ul>
-                </div>
-              )}
-            </article>
+                </article>
+
+                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Icon name="shield" className="w-4 h-4 text-red-500" />
+                      {t("event_detail_alerts_title")}
+                    </p>
+                    <div className="flex gap-2">
+                      <span className="px-2 py-0.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-md text-[10px] font-bold shadow-sm" title={t("status_yes")}>
+                        {selectedEventHealthAlertsConfirmedCount}
+                      </span>
+                      <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 rounded-md text-[10px] font-bold shadow-sm" title={t("status_pending")}>
+                        {selectedEventHealthAlertsPendingCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedEventHealthAlerts.length > 0 ? (
+                    <ul className="flex flex-col gap-2">
+                      {selectedEventHealthAlerts.map((alertItem) => (
+                        <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2 bg-red-50/50 dark:bg-red-900/10 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+                          <Icon name="shield" className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                          <span>
+                            <strong className="text-red-700 dark:text-red-400">{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-gray-500 italic text-center p-4 bg-black/5 dark:bg-white/5 rounded-xl">{t("event_detail_alerts_empty")}</p>
+                  )}
+                </article>
+
+                {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
+                  <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Icon name="location" className="w-4 h-4 text-blue-500" />
+                      {t("map_preview_title")}
+                    </p>
+                    <div className="w-full h-48 rounded-xl overflow-hidden shadow-inner border border-black/5 dark:border-white/10" aria-label={t("map_preview_title")}>
+                      <iframe
+                        title={t("map_preview_title")}
+                        className="w-full h-full"
+                        src={getMapEmbedUrl(selectedEventDetail.location_lat, selectedEventDetail.location_lng)}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+                  </article>
+                ) : null}
+
+              </div>
+            </>
           ) : null}
 
-          {eventsWorkspace === "detail" ? (
-            <article className="detail-card detail-card-wide detail-card-event-activity">
-              <p className="item-title">{t("recent_activity_title")}</p>
-              {selectedEventRsvpTimeline.length === 0 ? (
-                <p className="hint">{t("recent_activity_empty")}</p>
-              ) : (
-                <ul className="timeline-list">
-                  {selectedEventRsvpTimeline.map((item) => (
-                    <li key={item.id} className="timeline-item">
-                      <span className={`timeline-dot ${statusClass(item.status)}`} />
-                      <div className="timeline-content">
-                        <p className="item-title">
-                          {item.name} - <span className={`status-pill ${statusClass(item.status)}`}>{statusText(t, item.status)}</span>
-                        </p>
-                        <p className="item-meta">
-                          {item.isResponse ? t("event_detail_timeline_response") : t("event_detail_timeline_sent")} - {" "}
-                          {formatDate(item.date, language, t("no_date"))}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
+          {/* VISTA PLANNER (Ocupa todo el grid) */}
+          {eventsWorkspace === "plan" ? (
+            <div className="col-span-1">
+              <HostPlanView
+                standalone
+                selectedEventTitle={selectedEventDetail?.title || t("event_detail_title")}
+                selectedEventDateLabel={eventDateLabel}
+                selectedEventTimeLabel={eventTimeLabel}
+                selectedEventPlaceLabel={eventPlaceLabel}
+                eventPlannerSectionRef={eventPlannerSectionRef}
+                t={t}
+                interpolateText={interpolateText}
+                selectedEventMealPlan={selectedEventMealPlan}
+                selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
+                selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
+                selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
+                selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
+                selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
+                selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
+                selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
+                selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
+                language={language}
+                handleOpenEventPlannerContext={handleOpenEventPlannerContext}
+                handleRegenerateEventPlanner={handleRegenerateEventPlanner}
+                handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
+                eventDetailPlannerTab={eventDetailPlannerTab}
+                handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
+                selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
+                selectedEventDietTypesCount={selectedEventDietTypesCount}
+                selectedEventAllergiesCount={selectedEventAllergiesCount}
+                selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
+                selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
+                selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
+                selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
+                selectedEventRestrictionsCount={selectedEventRestrictionsCount}
+                selectedEventIntolerancesCount={selectedEventIntolerancesCount}
+                selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
+                selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
+                handleEventPlannerTabChange={handleEventPlannerTabChange}
+                selectedEventShoppingTotalIngredients={selectedEventShoppingTotalIngredients}
+                selectedEventEstimatedCostRange={selectedEventEstimatedCostRange}
+                selectedEventShoppingProgress={selectedEventShoppingProgress}
+                selectedEventShoppingItems={selectedEventShoppingItems}
+                selectedEventShoppingCheckedSet={selectedEventShoppingCheckedSet}
+                handleCopySelectedEventShoppingChecklist={handleCopySelectedEventShoppingChecklist}
+                handleMarkAllEventPlannerShoppingItems={handleMarkAllEventPlannerShoppingItems}
+                handleClearEventPlannerShoppingCheckedItems={handleClearEventPlannerShoppingCheckedItems}
+                eventPlannerShoppingFilter={eventPlannerShoppingFilter}
+                setEventPlannerShoppingFilter={setEventPlannerShoppingFilter}
+                selectedEventShoppingCounts={selectedEventShoppingCounts}
+                selectedEventShoppingGroupsFiltered={selectedEventShoppingGroupsFiltered}
+                handleToggleEventPlannerShoppingItem={handleToggleEventPlannerShoppingItem}
+                selectedEventHostPlaybook={selectedEventHostPlaybook}
+                handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
+                handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
+              />
+            </div>
           ) : null}
+
         </div>
       )}
     </section>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HostProfileView } from "./dashboard/components/host-profile-view";
 import { AvatarCircle } from "../components/avatar-circle";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
@@ -6,8 +7,17 @@ import { FieldMeta } from "../components/field-meta";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { EventPlannerContextModal } from "./dashboard/components/event-planner-context-modal";
+import { DashboardLayout } from "../components/layout/DashboardLayout";
+import { DashboardOverview } from "../components/dashboard/DashboardOverview";
 import { EventDetailView } from "./dashboard/components/event-detail-view";
 import { EventsListView } from "./dashboard/components/events-list-view";
+import { EventBuilderView } from './dashboard/components/event-builder-view';
+import { GuestDetailView } from './dashboard/components/guest-detail-view';
+import { GuestsListView } from "./dashboard/components/guests-list-view";
+import { GuestBuilderView } from './dashboard/components/guest-builder-view';
+
+import { InvitationsListView } from "./dashboard/components/invitations-list-view";
+import { InvitationBuilderView } from './dashboard/components/invitation-builder-view';
 import {
   CATALOGS,
   getCatalogLabels,
@@ -30,2277 +40,62 @@ import {
 import { supabase } from "../lib/supabaseClient";
 import { validateEventForm, validateGuestForm, validateInvitationForm } from "../lib/validation";
 
-const GUEST_AVATAR_STORAGE_BUCKET = String(import.meta.env.VITE_SUPABASE_GUEST_AVATAR_BUCKET || "guest-avatars").trim() || "guest-avatars";
-const GUEST_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+// --- NUEVOS IMPORTS DE HELPERS (LA MAGIA DEL ORDEN) ---
+import {
+  GUEST_AVATAR_STORAGE_BUCKET, GUEST_AVATAR_MAX_BYTES, VIEW_CONFIG, EVENTS_PAGE_SIZE_DEFAULT,
+  GUESTS_PAGE_SIZE_DEFAULT, PAGE_SIZE_OPTIONS, IMPORT_PREVIEW_PAGE_SIZE_DEFAULT,
+  IMPORT_PREVIEW_PAGE_SIZE_OPTIONS, IMPORT_CONTACTS_SORT_OPTIONS, IMPORT_WIZARD_STEP_TOTAL,
+  INVITATIONS_PAGE_SIZE_DEFAULT, INVITATION_BULK_SEGMENTS, GUEST_PROFILE_VIEW_TABS,
+  GUEST_ADVANCED_EDIT_TABS, EVENT_PLANNER_VIEW_TABS, EVENT_PLANNER_SHOPPING_FILTERS,
+  GUEST_ADVANCED_PRIORITY_SECTION_MAP, GUEST_ADVANCED_ERROR_FIELDS_BY_TAB, DASHBOARD_PREFS_KEY_PREFIX,
+  EVENT_SETTINGS_STORAGE_KEY_PREFIX, GUEST_GEO_CACHE_KEY_PREFIX, EVENT_DRESS_CODE_OPTIONS,
+  EVENT_PLAYLIST_OPTIONS, CITY_OPTIONS_BY_LANGUAGE, COUNTRY_OPTIONS_BY_LANGUAGE, WORKSPACE_ITEMS,
+  EVENT_TEMPLATE_DEFINITIONS, GUEST_ADVANCED_INITIAL_STATE
+} from "../lib/constants";
+
+import {
+  toNullable, toIsoDateTime, toLocalDateTimeInput, getSuggestedEventDateTime, formatDate,
+  formatShortDate, formatLongDate, formatTimeLabel, formatRelativeDate, normalizeIsoDate,
+  getNextBirthdaySummary, getBirthdayEventDateTime, interpolateText, normalizeLookupValue,
+  getInitials, uniqueValues, toList, splitListInput, listToInput, isBlankValue
+} from "../lib/formatters";
+
+import {
+  normalizeEmailKey, normalizePhoneKey, getMergedFieldValue, formatMergeReviewValue,
+  buildGuestFingerprint, buildGuestNameKey, buildGuestFullNameKey, buildGuestMatchingKeys,
+  getImportDuplicateReasonCodes, getImportDuplicateMergeConfidence, getImportDuplicateMergeConfidenceStatusClass,
+  buildGuestDuplicateMatchScore, mergeUniqueListValues, normalizeImportSource, tagImportedContacts,
+  deriveGuestNameFromContact, toContactGroupsList, calculateImportContactCaptureScore,
+  getImportPotentialLevel, deriveRelationshipCodeFromContact, splitFullName, normalizeDeviceContact,
+  readImageFileAsDataUrl, isDataImageUrl, extensionFromMimeType, uploadGuestAvatarToStorage,
+  getGuestAvatarUrl, getGuestPhotoValue, translateCatalogInputList, toPetAllergyLabel,
+  toPetAllergyLabels, buildCatalogLookupSet, INTOLERANCE_LOOKUP_SET, MEDICAL_CONDITION_LOOKUP_SET,
+  DIETARY_MEDICAL_LOOKUP_SET, splitLegacyHealthSignalsFromIntolerances, normalizeSensitiveRecord,
+  hasGuestHealthAlerts, buildHostInvitePayload, inferGlobalSharePreset, applyGlobalSharePreset,
+  formatGlobalShareEventType, getGlobalShareVisibleScopes
+} from "../lib/guest-helpers";
+
+import {
+  EVENT_TYPE_TO_PLANNER_PRESET, EVENT_TYPE_TO_DEFAULT_HOUR, statusText, statusClass,
+  getConversionSource, getConversionSourceLabel, getMapEmbedUrl, normalizeEventDressCode,
+  normalizeEventPlaylistMode, normalizeEventSettings, hasEventSettingsColumns,
+  getSuggestedEventSettingsFromInsights, buildHostingPlaybookActions, rotateValues,
+  isAlcoholicDrink, rankItemsWithKeywords, buildPlannerHealthProfile, parseEventDurationHours,
+  buildEventPlannerContext, buildEventMealPlan, applyPlannerOverrides, buildEventPlannerPromptBundle,
+  buildEventHostPlaybook
+} from "../lib/event-planner-helpers";
+
+import {
+  isCompatibilityError, isMissingRelationError, isMissingDbFeatureError, readEventSettingsCache,
+  writeEventSettingsCache, readGuestGeoCache, writeGuestGeoCache, toSelectedPlaceFromLocationPair,
+  mergeOptionsWithSelected, normalizeDashboardRouteState, encodePathSegment, buildDashboardPathFromState,
+  isSpecificEventDetailPath, isSpecificGuestDetailPath, isSpecificGuestAdvancedEditPath,
+  isGenericEventPath, isGenericGuestPath, isNewGuestAdvancedPath, shouldPreserveSpecificPath
+} from "../lib/system-helpers";
 
-function toNullable(value) {
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
-
-function toIsoDateTime(localDateTime) {
-  if (!localDateTime) {
-    return null;
-  }
-  const date = new Date(localDateTime);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function toLocalDateTimeInput(dateText) {
-  if (!dateText) {
-    return "";
-  }
-  const date = new Date(dateText);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const timezoneOffsetMinutes = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - timezoneOffsetMinutes * 60000);
-  return localDate.toISOString().slice(0, 16);
-}
-
-function getSuggestedEventDateTime(defaultHour = 19) {
-  const date = new Date();
-  date.setDate(date.getDate() + 7);
-  date.setHours(defaultHour, 0, 0, 0);
-  return toLocalDateTimeInput(date.toISOString());
-}
-
-function formatDate(dateText, language, fallbackText) {
-  if (!dateText) {
-    return fallbackText;
-  }
-  try {
-    return new Date(dateText).toLocaleString(language);
-  } catch {
-    return new Date(dateText).toLocaleString();
-  }
-}
-
-function formatShortDate(dateText, language, fallbackText) {
-  if (!dateText) {
-    return fallbackText;
-  }
-  try {
-    return new Date(dateText).toLocaleDateString(language, { day: "2-digit", month: "2-digit" });
-  } catch {
-    return new Date(dateText).toLocaleDateString();
-  }
-}
-
-function formatLongDate(dateText, language, fallbackText) {
-  if (!dateText) {
-    return fallbackText;
-  }
-  try {
-    return new Date(dateText).toLocaleDateString(language, { day: "2-digit", month: "long", year: "numeric" });
-  } catch {
-    return new Date(dateText).toLocaleDateString();
-  }
-}
-
-function formatTimeLabel(dateText, language, fallbackText) {
-  if (!dateText) {
-    return fallbackText;
-  }
-  try {
-    return new Date(dateText).toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return new Date(dateText).toLocaleTimeString();
-  }
-}
-
-function formatRelativeDate(dateText, language, fallbackText) {
-  if (!dateText) {
-    return fallbackText;
-  }
-  const date = new Date(dateText);
-  if (Number.isNaN(date.getTime())) {
-    return fallbackText;
-  }
-  const diffMs = date.getTime() - Date.now();
-  const diffMinutes = Math.round(diffMs / 60000);
-  if (Math.abs(diffMinutes) < 1) {
-    return fallbackText;
-  }
-  const rtf = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
-  if (Math.abs(diffMinutes) < 60) {
-    return rtf.format(diffMinutes, "minute");
-  }
-  const diffHours = Math.round(diffMinutes / 60);
-  if (Math.abs(diffHours) < 24) {
-    return rtf.format(diffHours, "hour");
-  }
-  const diffDays = Math.round(diffHours / 24);
-  return rtf.format(diffDays, "day");
-}
-
-function normalizeIsoDate(value) {
-  const raw = String(value || "").trim();
-  if (!raw) {
-    return "";
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const parsed = new Date(`${raw}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? "" : raw;
-  }
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-  return parsed.toISOString().slice(0, 10);
-}
-
-function getNextBirthdaySummary(dateText, language) {
-  const normalized = normalizeIsoDate(dateText);
-  if (!normalized) {
-    return null;
-  }
-  const [year, month, day] = normalized.split("-").map((item) => Number(item));
-  if (!year || !month || !day) {
-    return null;
-  }
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let nextBirthday = new Date(today.getFullYear(), month - 1, day);
-  if (nextBirthday < today) {
-    nextBirthday = new Date(today.getFullYear() + 1, month - 1, day);
-  }
-  const diffDays = Math.max(0, Math.round((nextBirthday.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)));
-  return {
-    dateLabel: nextBirthday.toLocaleDateString(language, { day: "2-digit", month: "long", year: "numeric" }),
-    diffDays
-  };
-}
-
-function getBirthdayEventDateTime(dateText, defaultHour = 20) {
-  const normalized = normalizeIsoDate(dateText);
-  if (!normalized) {
-    return "";
-  }
-  const [year, month, day] = normalized.split("-").map((item) => Number(item));
-  if (!year || !month || !day) {
-    return "";
-  }
-  const now = new Date();
-  let nextBirthday = new Date(now.getFullYear(), month - 1, day, defaultHour, 0, 0, 0);
-  if (nextBirthday.getTime() < now.getTime()) {
-    nextBirthday = new Date(now.getFullYear() + 1, month - 1, day, defaultHour, 0, 0, 0);
-  }
-  return toLocalDateTimeInput(nextBirthday.toISOString());
-}
-
-function interpolateText(template, values = {}) {
-  let output = String(template || "");
-  for (const [key, value] of Object.entries(values)) {
-    output = output.replaceAll(`{${key}}`, String(value ?? ""));
-  }
-  return output;
-}
-
-function statusText(t, status) {
-  return t(`status_${String(status || "").toLowerCase()}`);
-}
-
-function statusClass(status) {
-  return `status-${String(status || "").toLowerCase()}`;
-}
-
-function getConversionSource(conversion) {
-  if (!conversion) {
-    return "";
-  }
-  const normalizedSource = String(conversion.conversion_source || "")
-    .trim()
-    .toLowerCase();
-  if (normalizedSource === "google" || normalizedSource === "email" || normalizedSource === "phone") {
-    return normalizedSource;
-  }
-  return conversion.matched_by === "phone" ? "phone" : "email";
-}
-
-function getConversionSourceLabel(t, source) {
-  if (source === "google") {
-    return t("host_conversion_source_google");
-  }
-  if (source === "phone") {
-    return t("host_conversion_source_phone");
-  }
-  return t("host_conversion_source_email");
-}
-
-function getMapEmbedUrl(lat, lng) {
-  if (typeof lat !== "number" || typeof lng !== "number") {
-    return "";
-  }
-  return `https://www.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
-}
-
-function getSuggestedEventSettingsFromInsights(eventInsights) {
-  const relationshipCodes = Array.isArray(eventInsights?.relationshipCodes) ? eventInsights.relationshipCodes : [];
-  const experienceTypeCodes = Array.isArray(eventInsights?.experienceTypeCodes) ? eventInsights.experienceTypeCodes : [];
-  const consideredGuestsCount = Number(eventInsights?.consideredGuestsCount || 0);
-  const musicCount = Array.isArray(eventInsights?.musicGenres) ? eventInsights.musicGenres.length : 0;
-
-  const dressCode = experienceTypeCodes.some((code) => ["celebration", "party", "romantic_date"].includes(code))
-    ? "elegant"
-    : experienceTypeCodes.some((code) => ["bbq", "movie_night", "book_club"].includes(code))
-    ? "casual"
-    : "none";
-
-  const allowPlusOne =
-    consideredGuestsCount >= 8 ||
-    relationshipCodes.some((code) => ["friends", "family", "romantic"].includes(String(code || "").toLowerCase()));
-  const autoReminders = consideredGuestsCount >= 6 || eventInsights?.timingRecommendation === "start_with_buffer";
-  const playlistMode = musicCount >= 3 ? "spotify_collaborative" : musicCount >= 1 ? "collaborative" : "host_only";
-
-  return {
-    allowPlusOne,
-    autoReminders,
-    dressCode,
-    playlistMode
-  };
-}
-
-function buildHostingPlaybookActions(eventInsights, t, options = {}) {
-  if (!eventInsights?.hasData) {
-    return [];
-  }
-  const eventContext = options?.eventContext || {};
-  const eventDetail = options?.eventDetail || {};
-  const attendance = options?.statusCounts || {};
-  const pendingCount = Number(attendance.pending || 0);
-  const allowPlusOne = Boolean(eventContext.allowPlusOne ?? eventDetail.allow_plus_one);
-  const autoReminders = Boolean(eventContext.autoReminders ?? eventDetail.auto_reminders);
-  const dressCodeKey = normalizeEventDressCode(eventContext.dressCode ?? eventDetail.dress_code);
-  const playlistModeKey = normalizeEventPlaylistMode(eventContext.playlistMode ?? eventDetail.playlist_mode);
-  const locationLabel = String(eventDetail.location_name || eventDetail.location_address || "").trim();
-  const actions = [];
-  if (Array.isArray(eventInsights.avoidItems) && eventInsights.avoidItems.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_health"), {
-        items: eventInsights.avoidItems.slice(0, 5).join(", ")
-      })
-    );
-  }
-  if (Array.isArray(eventInsights.foodSuggestions) && eventInsights.foodSuggestions.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_menu"), {
-        items: eventInsights.foodSuggestions.slice(0, 4).join(", ")
-      })
-    );
-  }
-  if (Array.isArray(eventInsights.drinkSuggestions) && eventInsights.drinkSuggestions.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_drinks"), {
-        items: eventInsights.drinkSuggestions.slice(0, 4).join(", ")
-      })
-    );
-  }
-  if (Array.isArray(eventInsights.musicGenres) && eventInsights.musicGenres.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_music"), {
-        items: eventInsights.musicGenres.slice(0, 3).join(", ")
-      })
-    );
-  }
-  if (Array.isArray(eventInsights.decorColors) && eventInsights.decorColors.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_decor"), {
-        items: eventInsights.decorColors.slice(0, 3).join(", ")
-      })
-    );
-  }
-  if (Array.isArray(eventInsights.icebreakers) && eventInsights.icebreakers.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_icebreaker"), {
-        items: eventInsights.icebreakers.slice(0, 3).join(", ")
-      })
-    );
-  }
-  if (Array.isArray(eventInsights.tabooTopics) && eventInsights.tabooTopics.length > 0) {
-    actions.push(
-      interpolateText(t("smart_hosting_action_taboo"), {
-        items: eventInsights.tabooTopics.slice(0, 3).join(", ")
-      })
-    );
-  }
-  actions.push(
-    eventInsights.timingRecommendation === "start_with_buffer"
-      ? t("smart_hosting_action_timing_buffer")
-      : t("smart_hosting_action_timing_on_time")
-  );
-  if (pendingCount > 0) {
-    actions.push(`${t("event_setting_auto_reminders")}: ${autoReminders ? t("status_yes") : t("status_no")}.`);
-  }
-  if (allowPlusOne) {
-    actions.push(`${t("event_setting_allow_plus_one")}: ${t("status_yes")}.`);
-  }
-  actions.push(`${t("event_setting_dress_code")}: ${t(`event_dress_code_${dressCodeKey}`)}.`);
-  actions.push(`${t("event_setting_playlist_mode")}: ${t(`event_playlist_mode_${playlistModeKey}`)}.`);
-  if (locationLabel) {
-    actions.push(`${t("field_place")}: ${locationLabel}.`);
-  }
-  return actions.slice(0, 6);
-}
-
-function rotateValues(values, shift = 0) {
-  const source = Array.isArray(values) ? values.filter(Boolean) : [];
-  if (source.length === 0) {
-    return [];
-  }
-  const normalizedShift = ((Math.trunc(shift) % source.length) + source.length) % source.length;
-  if (normalizedShift === 0) {
-    return source;
-  }
-  return [...source.slice(normalizedShift), ...source.slice(0, normalizedShift)];
-}
-
-function isAlcoholicDrink(value) {
-  const normalized = normalizeLookupValue(value);
-  return ["wine", "vino", "beer", "cerveza", "whisky", "whiskey", "gin", "vodka", "rum", "cocktail", "cava"].some((term) =>
-    normalized.includes(term)
-  );
-}
-
-function rankItemsWithKeywords(items, keywords = [], contextText = "") {
-  let options = {};
-  if (contextText && typeof contextText === "object") {
-    options = contextText;
-    contextText = "";
-  }
-  const normalizedKeywords = uniqueValues(keywords).map((item) => normalizeLookupValue(item)).filter(Boolean);
-  const normalizedContext = normalizeLookupValue(contextText);
-  const normalizedAvoidKeywords = uniqueValues(options?.avoidKeywords || [])
-    .map((item) => normalizeLookupValue(item))
-    .filter(Boolean);
-  const preferNonAlcohol = Boolean(options?.preferNonAlcohol);
-  return [...items].sort((a, b) => {
-    const aNormalized = normalizeLookupValue(a);
-    const bNormalized = normalizeLookupValue(b);
-    const scoreItem = (normalizedItem) => {
-      let score = 0;
-      for (const keyword of normalizedKeywords) {
-        if (normalizedItem.includes(keyword)) {
-          score += 3;
-        }
-      }
-      if (normalizedContext && normalizedItem && normalizedContext.includes(normalizedItem)) {
-        score += 2;
-      }
-      for (const avoidKeyword of normalizedAvoidKeywords) {
-        if (avoidKeyword && normalizedItem.includes(avoidKeyword)) {
-          score -= 4;
-        }
-      }
-      if (preferNonAlcohol && isAlcoholicDrink(normalizedItem)) {
-        score -= 3;
-      }
-      return score;
-    };
-    return scoreItem(bNormalized) - scoreItem(aNormalized);
-  });
-}
-
-function buildPlannerHealthProfile(eventInsights = {}) {
-  const healthSignals = uniqueValues([
-    ...(Array.isArray(eventInsights?.avoidItems) ? eventInsights.avoidItems : []),
-    ...(Array.isArray(eventInsights?.medicalConditions) ? eventInsights.medicalConditions : []),
-    ...(Array.isArray(eventInsights?.dietaryMedicalRestrictions) ? eventInsights.dietaryMedicalRestrictions : [])
-  ]);
-  const normalizedSignals = normalizeLookupValue(healthSignals.join(" "));
-  const avoidKeywords = new Set();
-
-  const addKeywords = (items) => {
-    for (const item of items) {
-      const normalized = normalizeLookupValue(item);
-      if (normalized) {
-        avoidKeywords.add(normalized);
-      }
-    }
-  };
-
-  addKeywords(healthSignals);
-
-  if (/(lact|dairy|leche|milk|queso|cheese|cream|nata)/.test(normalizedSignals)) {
-    addKeywords(["lactose", "dairy", "milk", "cheese", "cream", "nata"]);
-  }
-  if (/(gluten|celiac|celiaco|celiac)/.test(normalizedSignals)) {
-    addKeywords(["gluten", "bread", "pasta", "flour", "harina"]);
-  }
-  if (/(diabet|insulin|sugar|azucar|glycemic|glucem)/.test(normalizedSignals)) {
-    addKeywords(["sugar", "sweet", "cake", "dessert", "caramel", "chocolate", "syrup"]);
-  }
-  if (/(hipertens|hypertens|sodium|salt|sal|renal|kidney|cardiac|corazon|heart)/.test(normalizedSignals)) {
-    addKeywords(["salt", "salty", "cured", "smoked", "sausage", "chips", "fried"]);
-  }
-
-  return {
-    avoidKeywords: Array.from(avoidKeywords),
-    preferNonAlcohol: /(diabet|insulin|hypertens|renal|kidney|liver|hepatic|medic|pregnan|embaraz)/.test(normalizedSignals)
-  };
-}
-
-const EVENT_TYPE_TO_PLANNER_PRESET = {
-  bbq: "bbq",
-  calcotada: "bbq",
-  brunch: "brunch",
-  esmorzar_de_forquilla: "brunch",
-  family_lunch: "brunch",
-  book_club: "bookclub",
-  movie_night: "movie",
-  romantic_date: "romantic",
-  celebration: "celebration",
-  party: "celebration",
-  after_school_reunion: "celebration",
-  cocktail: "celebration",
-  tasting_session: "celebration",
-  networking: "social",
-  afterwork: "social",
-  merienda_cena: "social",
-  outdoor_meetup: "social",
-  jam_session: "social",
-  picnic: "social",
-  dinner: "social"
-};
-
-const EVENT_TYPE_TO_DEFAULT_HOUR = {
-  bbq: 14,
-  calcotada: 14,
-  brunch: 12,
-  esmorzar_de_forquilla: 11,
-  family_lunch: 13,
-  book_club: 19,
-  movie_night: 21,
-  romantic_date: 21,
-  celebration: 20,
-  party: 21,
-  after_school_reunion: 19,
-  cocktail: 20,
-  tasting_session: 20,
-  networking: 19,
-  afterwork: 19,
-  merienda_cena: 19,
-  outdoor_meetup: 17,
-  jam_session: 20,
-  picnic: 13,
-  dinner: 21
-};
-
-function parseEventDurationHours(sourceText, preset, momentKey) {
-  const normalized = normalizeLookupValue(sourceText);
-  const explicitHours = normalized.match(/\b(\d{1,2})\s*(h|hr|hrs|hora|horas)\b/);
-  if (explicitHours) {
-    const parsed = Number(explicitHours[1]);
-    if (Number.isFinite(parsed)) {
-      return Math.max(2, Math.min(12, Math.round(parsed)));
-    }
-  }
-  let fallback =
-    preset === "brunch"
-      ? 3
-      : preset === "bbq"
-      ? 5
-      : preset === "movie"
-      ? 4
-      : preset === "bookclub"
-      ? 3
-      : preset === "romantic"
-      ? 4
-      : preset === "celebration"
-      ? 5
-      : 4;
-  if (momentKey === "night" && (preset === "celebration" || preset === "movie")) {
-    fallback += 1;
-  }
-  return Math.max(2, Math.min(10, fallback));
-}
-
-function buildEventPlannerContext(eventItem, language, t) {
-  const source = eventItem || {};
-  const title = String(source.title || "").trim();
-  const description = String(source.description || "").trim();
-  const locationName = String(source.location_name || "").trim();
-  const locationAddress = String(source.location_address || "").trim();
-  const allowPlusOne = Boolean(source.allow_plus_one ?? source.allowPlusOne);
-  const autoReminders = Boolean(source.auto_reminders ?? source.autoReminders);
-  const dressCode = normalizeEventDressCode(source.dress_code ?? source.dressCode);
-  const playlistMode = normalizeEventPlaylistMode(source.playlist_mode ?? source.playlistMode);
-  const eventTypeCode = toCatalogCode("experience_type", source.event_type) || normalizeLookupValue(source.event_type);
-  const searchText = normalizeLookupValue(`${title} ${description} ${locationName} ${locationAddress}`);
-  const parsedStart = source.start_at ? new Date(source.start_at) : null;
-  const defaultHourFromType = EVENT_TYPE_TO_DEFAULT_HOUR[eventTypeCode] ?? 19;
-  const hour = parsedStart && !Number.isNaN(parsedStart.getTime()) ? parsedStart.getHours() : defaultHourFromType;
-  const momentKey = hour < 12 ? "morning" : hour < 18 ? "afternoon" : hour < 22 ? "evening" : "night";
-  const toneKey = ["formal", "elegant"].includes(normalizeLookupValue(source.dress_code)) ? "formal" : "casual";
-
-  let preset = EVENT_TYPE_TO_PLANNER_PRESET[eventTypeCode] || "social";
-  if (!EVENT_TYPE_TO_PLANNER_PRESET[eventTypeCode]) {
-    if (
-      ["bbq", "barbecue", "barbacoa"].some((value) => eventTypeCode.includes(value)) ||
-      ["calçot", "calcot", "barbac", "brasa", "parrill", "asado"].some((value) => searchText.includes(value))
-    ) {
-      preset = "bbq";
-    } else if (
-      ["brunch", "desayuno", "esmorzar", "breakfast"].some((value) => searchText.includes(value)) ||
-      eventTypeCode.includes("brunch") ||
-      (momentKey === "morning" && !eventTypeCode.includes("movie"))
-    ) {
-      preset = "brunch";
-    } else if (
-      ["romantic", "pareja", "valentin", "anniversary", "aniversari", "aniversario", "date"].some((value) =>
-        searchText.includes(value)
-      ) ||
-      eventTypeCode.includes("romantic")
-    ) {
-      preset = "romantic";
-    } else if (
-      ["party", "celebration", "cumple", "festa", "fiesta", "birthday"].some((value) => searchText.includes(value)) ||
-      eventTypeCode.includes("celebration") ||
-      eventTypeCode.includes("party")
-    ) {
-      preset = "celebration";
-    } else if (
-      ["movie", "cinema", "cine", "serie", "film"].some((value) => searchText.includes(value)) ||
-      eventTypeCode.includes("movie")
-    ) {
-      preset = "movie";
-    } else if (["book club", "club de lectura", "lectura", "llibre", "book"].some((value) => searchText.includes(value))) {
-      preset = "bookclub";
-    }
-  }
-
-  let budgetKey = "medium";
-  if (
-    ["low cost", "budget", "cheap", "econom", "barat", "barato", "caser", "potluck"].some((value) =>
-      searchText.includes(value)
-    )
-  ) {
-    budgetKey = "low";
-  } else if (
-    toneKey === "formal" ||
-    ["premium", "gourmet", "lux", "lujo", "elegan", "vip", "alta gama"].some((value) => searchText.includes(value))
-  ) {
-    budgetKey = "high";
-  }
-
-  const durationHours = parseEventDurationHours(
-    `${title} ${description} ${locationName} ${locationAddress} ${source.event_type || ""}`,
-    preset,
-    momentKey
-  );
-
-  const eventTypeLabel =
-    toCatalogLabel("experience_type", source.event_type, language) ||
-    title ||
-    t(`event_planner_style_${preset}`);
-
-  return {
-    preset,
-    momentKey,
-    toneKey,
-    budgetKey,
-    durationHours,
-    allowPlusOne,
-    autoReminders,
-    dressCode,
-    playlistMode,
-    hour,
-    searchText,
-    summary: `${eventTypeLabel} · ${t(`event_planner_moment_${momentKey}`)} · ${t(`event_planner_tone_${toneKey}`)} · ${t(
-      `event_planner_budget_${budgetKey}`
-    )} · ${interpolateText(t("event_planner_duration_hours"), { count: durationHours })}`
-  };
-}
-
-function buildEventMealPlan(eventInsights, eventContext, t, variantSeed = 0) {
-  const context = eventContext || {
-    preset: "social",
-    momentKey: "evening",
-    toneKey: "casual",
-    budgetKey: "medium",
-    durationHours: 4,
-    searchText: "",
-    summary: ""
-  };
-  const guestCount = Math.max(1, Number(eventInsights?.consideredGuestsCount || 0));
-  const durationHours = Math.max(2, Math.min(12, Number(context.durationHours || 4)));
-  const budgetKey = ["low", "medium", "high"].includes(context.budgetKey) ? context.budgetKey : "medium";
-  const plannerHealthProfile = buildPlannerHealthProfile(eventInsights);
-  const isHostedAtVenue = /restaurant|restaur|hotel|bar|thefork|local|sala/.test(String(context.searchText || ""));
-  const foodBase = uniqueValues(
-    Array.isArray(eventInsights?.foodSuggestions) ? eventInsights.foodSuggestions : []
-  );
-  const drinkBase = uniqueValues(
-    Array.isArray(eventInsights?.drinkSuggestions) ? eventInsights.drinkSuggestions : []
-  );
-  const avoidBase = uniqueValues(
-    Array.isArray(eventInsights?.avoidItems) ? eventInsights.avoidItems : []
-  );
-  const rotationSeed = Math.max(0, Number(variantSeed || 0));
-
-  const contextKeywords = {
-    bbq: ["bbq", "barbac", "brasa", "grill", "smoked", "asado", "parrill"],
-    brunch: ["brunch", "toast", "huev", "egg", "croissant", "pancake", "avocado"],
-    romantic: ["romantic", "trufa", "truffle", "candle", "gourmet", "chocolate"],
-    celebration: ["celebr", "party", "fest", "cake", "sharing", "tapas"],
-    movie: ["movie", "snack", "nacho", "pizza", "popcorn", "dip"],
-    bookclub: ["book", "tea", "quiche", "salad", "light", "tart"],
-    social: ["sharing", "seasonal", "mix", "table"]
-  };
-  const toneKeywords =
-    context.toneKey === "formal"
-      ? ["gourmet", "wine", "pairing", "seasonal", "chef"]
-      : ["sharing", "casual", "tapas", "comfort"];
-  const momentKeywords =
-    context.momentKey === "morning"
-      ? ["breakfast", "coffee", "toast", "fruit"]
-      : context.momentKey === "afternoon"
-      ? ["light", "fresh", "salad", "tea"]
-      : context.momentKey === "night"
-      ? ["dinner", "warm", "cocktail", "pairing"]
-      : ["sunset", "snack", "mix"];
-  const presetKeywords = uniqueValues([...(contextKeywords[context.preset] || contextKeywords.social), ...toneKeywords, ...momentKeywords]);
-  const rankedFood = rankItemsWithKeywords(foodBase, presetKeywords, context.searchText, {
-    avoidKeywords: plannerHealthProfile.avoidKeywords
-  });
-  const rankedDrink = rankItemsWithKeywords(drinkBase, presetKeywords, context.searchText, {
-    avoidKeywords: plannerHealthProfile.avoidKeywords,
-    preferNonAlcohol: plannerHealthProfile.preferNonAlcohol
-  }).sort((a, b) => {
-    if (plannerHealthProfile.preferNonAlcohol) {
-      return Number(isAlcoholicDrink(a)) - Number(isAlcoholicDrink(b));
-    }
-    if (context.momentKey === "morning" || context.momentKey === "afternoon") {
-      return Number(isAlcoholicDrink(a)) - Number(isAlcoholicDrink(b));
-    }
-    if (context.momentKey === "night") {
-      return Number(isAlcoholicDrink(b)) - Number(isAlcoholicDrink(a));
-    }
-    return 0;
-  });
-
-  const contextualizePrimary = (item) => {
-    const base = String(item || "").trim();
-    if (!base) {
-      return base;
-    }
-    if (context.preset === "social") {
-      return base;
-    }
-    return interpolateText(t("event_planner_context_item_template"), {
-      style: t(`event_planner_style_${context.preset}`),
-      item: base
-    });
-  };
-
-  const pickSectionItems = ({ primaryItem, pool, fallback, count, seedOffset = 0 }) => {
-    const rotatedPool = rotateValues(pool, rotationSeed + seedOffset);
-    return uniqueValues([primaryItem, ...rotatedPool, ...fallback]).slice(0, count).filter(Boolean);
-  };
-
-  const fallbackFood = [t("event_menu_fallback_food_1"), t("event_menu_fallback_food_2")];
-  const fallbackDessert = [t("event_planner_fallback_dessert_1"), t("event_planner_fallback_dessert_2")];
-  const fallbackDrink = [t("event_menu_fallback_drink_1"), t("event_menu_fallback_drink_2")];
-
-  const menuItems = rankedFood.length > 0 ? rankedFood : fallbackFood;
-  const drinkItems = rankedDrink.length > 0 ? rankedDrink : fallbackDrink;
-
-  const isLongEvent = durationHours >= 5;
-  const isLargeGroup = guestCount >= 16;
-  const starterCount = Math.min(
-    4,
-    (context.preset === "celebration" || context.preset === "bbq" ? 3 : 2) + (isLongEvent || isLargeGroup ? 1 : 0)
-  );
-  const mainCount = Math.min(4, (context.preset === "bbq" ? 3 : 2) + (isLargeGroup ? 1 : 0));
-  const dessertCount = Math.min(
-    4,
-    (context.preset === "romantic" || context.preset === "celebration" ? 3 : 2) + (isLongEvent ? 1 : 0)
-  );
-  const drinkCount = Math.min(
-    4,
-    (context.preset === "celebration" || context.preset === "bbq" ? 3 : 2) +
-      (isLongEvent ? 1 : 0) +
-      (context.momentKey === "night" ? 1 : 0)
-  );
-
-  const durationFactor = durationHours >= 6 ? 1.26 : durationHours >= 5 ? 1.16 : durationHours <= 3 ? 0.9 : 1;
-  const guestLoadFactor = guestCount >= 30 ? 1.18 : guestCount >= 16 ? 1.08 : guestCount <= 6 ? 0.92 : 1;
-  const locationFactor = isHostedAtVenue ? 0.82 : 1;
-  const quantityFactor = durationFactor * guestLoadFactor * locationFactor;
-
-  const menuSections = [
-    {
-      id: "starters",
-      title: t("event_planner_section_starters"),
-      items: pickSectionItems({
-        primaryItem: contextualizePrimary(menuItems[0] || t("event_menu_fallback_food_1")),
-        pool: menuItems,
-        fallback: [t("event_planner_fallback_starter_2"), ...fallbackFood],
-        count: starterCount,
-        seedOffset: 0
-      })
-    },
-    {
-      id: "main",
-      title: t("event_planner_section_main"),
-      items: pickSectionItems({
-        primaryItem: contextualizePrimary(menuItems[1] || menuItems[0] || t("event_menu_fallback_food_2")),
-        pool: menuItems,
-        fallback: [t("event_planner_fallback_main_2"), ...fallbackFood],
-        count: mainCount,
-        seedOffset: 2
-      })
-    },
-    {
-      id: "desserts",
-      title: t("event_planner_section_desserts"),
-      items: pickSectionItems({
-        primaryItem: contextualizePrimary(menuItems[2] || t("event_planner_fallback_dessert_1")),
-        pool: menuItems,
-        fallback: fallbackDessert,
-        count: dessertCount,
-        seedOffset: 4
-      })
-    },
-    {
-      id: "drinks",
-      title: t("event_planner_section_drinks"),
-      items: pickSectionItems({
-        primaryItem: contextualizePrimary(drinkItems[0] || t("event_menu_fallback_drink_1")),
-        pool: drinkItems,
-        fallback: fallbackDrink,
-        count: drinkCount,
-        seedOffset: 1
-      })
-    }
-  ];
-
-  const hasLactoseRestriction = avoidBase.some((item) => {
-    const normalized = normalizeLookupValue(item);
-    return normalized.includes("lact") || normalized.includes("dairy") || normalized.includes("lactic");
-  });
-
-  const shoppingGroups = [
-    {
-      id: "vegetables",
-      title: t("event_planner_group_vegetables"),
-      items: [
-        {
-          id: `vegetables-seasonal-${rotationSeed}`,
-          name: t("event_planner_item_seasonal_vegetables"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * 0.3 * quantityFactor))} kg`
-        },
-        {
-          id: `vegetables-leaves-${rotationSeed}`,
-          name: t("event_planner_item_leafy_mix"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * 0.2 * quantityFactor))} uds`
-        }
-      ]
-    },
-    {
-      id: "protein",
-      title: t("event_planner_group_protein"),
-      items: [
-        {
-          id: `protein-main-${rotationSeed}`,
-          name: menuSections[1].items[0] || t("event_planner_fallback_main_2"),
-          quantity: `${Math.max(
-            2,
-            Math.ceil(guestCount * (context.preset === "bbq" ? 0.44 : 0.35) * quantityFactor)
-          )} ${t("event_planner_quantity_portions")}`
-        },
-        {
-          id: `protein-secondary-${rotationSeed}`,
-          name: menuSections[1].items[1] || menuSections[0].items[0] || t("event_menu_fallback_food_2"),
-          quantity: `${Math.max(
-            2,
-            Math.ceil(guestCount * (context.preset === "bbq" ? 0.3 : 0.25) * quantityFactor)
-          )} ${t("event_planner_quantity_portions")}`
-        }
-      ]
-    },
-    {
-      id: "dairy",
-      title: t("event_planner_group_dairy"),
-      items: [
-        {
-          id: `dairy-dessert-${rotationSeed}`,
-          name: menuSections[2].items[0] || t("event_planner_fallback_dessert_1"),
-          quantity: `${Math.max(2, Math.ceil(guestCount * 0.22 * quantityFactor))} ${t("event_planner_quantity_portions")}`,
-          warning: hasLactoseRestriction ? t("event_planner_warning_lactose") : ""
-        }
-      ]
-    },
-    {
-      id: "drinks",
-      title: t("event_planner_group_drinks"),
-      items: rotateValues(drinkItems, rotationSeed).slice(0, 3).map((item, index) => ({
-        id: `drinks-${index + 1}-${rotationSeed}`,
-        name: item,
-        quantity: `${Math.max(
-          2,
-          Math.ceil(guestCount * (context.momentKey === "night" ? 0.8 : 0.62) * quantityFactor)
-        )} ${t("event_planner_quantity_units")}`
-      }))
-    }
-  ];
-
-  const recipeCards = menuSections.map((sectionItem, index) => ({
-    id: `${sectionItem.id}-${index + 1}`,
-    title: sectionItem.title,
-    subtitle: sectionItem.items[0] || t("smart_hosting_no_data"),
-    note: interpolateText(t("event_menu_recipe_card_note"), {
-      portions: Math.max(4, Math.ceil(guestCount * 0.9))
-    })
-  }));
-
-  const shoppingChecklist = shoppingGroups.flatMap((groupItem) =>
-    groupItem.items.map((item) =>
-      interpolateText(t("event_planner_shopping_line"), {
-        group: groupItem.title,
-        item: item.name,
-        quantity: item.quantity
-      })
-    )
-  );
-
-  if (avoidBase.length > 0) {
-    shoppingChecklist.push(
-      interpolateText(t("event_menu_shopping_avoid_item"), {
-        items: avoidBase.slice(0, 6).join(", ")
-      })
-    );
-  }
-
-  shoppingChecklist.push(
-    eventInsights?.timingRecommendation === "start_with_buffer"
-      ? t("event_menu_shopping_timing_buffer")
-      : t("event_menu_shopping_timing_on_time")
-  );
-
-  const contextCostFactor =
-    context.preset === "romantic"
-      ? 11.6
-      : context.preset === "celebration"
-      ? 10.1
-      : context.preset === "bbq"
-      ? 9.2
-      : context.preset === "brunch"
-      ? 7.2
-      : 8.4;
-  const budgetFactor = budgetKey === "low" ? 0.86 : budgetKey === "high" ? 1.22 : 1;
-  const toneFactor = context.toneKey === "formal" ? 1.08 : 1;
-  const durationCostFactor = durationHours >= 6 ? 1.22 : durationHours >= 5 ? 1.14 : durationHours <= 3 ? 0.9 : 1;
-  const estimatedCost = Math.max(
-    28,
-    Math.round(
-      guestCount * contextCostFactor * budgetFactor * toneFactor * durationCostFactor * (isHostedAtVenue ? 0.9 : 1) +
-        avoidBase.length * 1.8
-    )
-  );
-
-  const contextSummary = interpolateText(t("event_planner_context_summary_template"), {
-    style: t(`event_planner_style_${context.preset}`),
-    moment: t(`event_planner_moment_${context.momentKey}`),
-    tone: t(`event_planner_tone_${context.toneKey}`),
-    budget: t(`event_planner_budget_${budgetKey}`),
-    duration: interpolateText(t("event_planner_duration_hours"), { count: durationHours }),
-    guests: interpolateText(t("event_planner_guests_count"), { count: guestCount })
-  });
-
-  return {
-    menuSections,
-    shoppingGroups,
-    estimatedCost,
-    restrictions: avoidBase.slice(0, 8),
-    contextSummary,
-    recipeCards,
-    shoppingChecklist
-  };
-}
-
-function applyPlannerOverrides(baseContext, baseInsights, overrides = {}) {
-  const parseListValue = (value) =>
-    uniqueValues(
-      String(value || "")
-        .split(/[\n,;]+/)
-        .map((item) => String(item || "").trim())
-        .filter(Boolean)
-    );
-  const parseBooleanValue = (value) => {
-    if (typeof value === "boolean") {
-      return value;
-    }
-    const normalized = String(value || "").trim().toLowerCase();
-    if (["true", "1", "yes", "si"].includes(normalized)) {
-      return true;
-    }
-    if (["false", "0", "no"].includes(normalized)) {
-      return false;
-    }
-    return null;
-  };
-  const context = {
-    ...(baseContext || {}),
-    ...(overrides.preset ? { preset: String(overrides.preset).trim() } : {}),
-    ...(overrides.momentKey ? { momentKey: String(overrides.momentKey).trim() } : {}),
-    ...(overrides.toneKey ? { toneKey: String(overrides.toneKey).trim() } : {}),
-    ...(overrides.budgetKey ? { budgetKey: String(overrides.budgetKey).trim() } : {})
-  };
-  if (overrides.durationHours != null && String(overrides.durationHours).trim() !== "") {
-    const parsedDuration = Number(overrides.durationHours);
-    if (Number.isFinite(parsedDuration)) {
-      context.durationHours = Math.max(2, Math.min(12, Math.round(parsedDuration)));
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(overrides, "allowPlusOne")) {
-    const parsed = parseBooleanValue(overrides.allowPlusOne);
-    if (parsed != null) {
-      context.allowPlusOne = parsed;
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(overrides, "autoReminders")) {
-    const parsed = parseBooleanValue(overrides.autoReminders);
-    if (parsed != null) {
-      context.autoReminders = parsed;
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(overrides, "dressCode")) {
-    context.dressCode = normalizeEventDressCode(overrides.dressCode);
-  }
-  if (Object.prototype.hasOwnProperty.call(overrides, "playlistMode")) {
-    context.playlistMode = normalizeEventPlaylistMode(overrides.playlistMode);
-  }
-
-  const listKeys = [
-    "foodSuggestions",
-    "drinkSuggestions",
-    "avoidItems",
-    "medicalConditions",
-    "dietaryMedicalRestrictions",
-    "musicGenres",
-    "decorColors",
-    "icebreakers",
-    "tabooTopics"
-  ];
-  const insights = { ...(baseInsights || {}) };
-  for (const key of listKeys) {
-    if (Object.prototype.hasOwnProperty.call(overrides, key)) {
-      insights[key] = parseListValue(overrides[key]);
-    }
-  }
-  insights.medicalConditions = uniqueValues(insights.medicalConditions || []);
-  insights.dietaryMedicalRestrictions = uniqueValues(insights.dietaryMedicalRestrictions || []);
-  insights.avoidItems = uniqueValues([
-    ...(insights.avoidItems || []),
-    ...insights.medicalConditions,
-    ...insights.dietaryMedicalRestrictions
-  ]);
-  if (Object.prototype.hasOwnProperty.call(overrides, "additionalInstructions")) {
-    insights.additionalInstructions = String(overrides.additionalInstructions || "").trim();
-  }
-
-  return { context, insights };
-}
-
-function buildEventPlannerPromptBundle({
-  eventDetail,
-  eventContext,
-  eventInsights,
-  statusCounts,
-  criticalRestrictions,
-  healthAlerts,
-  t
-}) {
-  const eventItem = eventDetail || {};
-  const attendance = statusCounts || { yes: 0, no: 0, maybe: 0, pending: 0 };
-  const totalInvitations = Math.max(
-    0,
-    Number(attendance.yes || 0) + Number(attendance.no || 0) + Number(attendance.maybe || 0) + Number(attendance.pending || 0)
-  );
-  const normalizedContext = eventContext || {};
-  const effectiveAllowPlusOne =
-    typeof normalizedContext.allowPlusOne === "boolean"
-      ? normalizedContext.allowPlusOne
-      : Boolean(eventItem.allow_plus_one);
-  const effectiveAutoReminders =
-    typeof normalizedContext.autoReminders === "boolean"
-      ? normalizedContext.autoReminders
-      : Boolean(eventItem.auto_reminders);
-  const effectiveDressCode = normalizeEventDressCode(normalizedContext.dressCode ?? eventItem.dress_code);
-  const effectivePlaylistMode = normalizeEventPlaylistMode(normalizedContext.playlistMode ?? eventItem.playlist_mode);
-  const payload = {
-    event: {
-      id: String(eventItem.id || ""),
-      title: String(eventItem.title || ""),
-      status: String(eventItem.status || ""),
-      eventType: String(eventItem.event_type || ""),
-      description: String(eventItem.description || ""),
-      startAtIso: String(eventItem.start_at || ""),
-      locationName: String(eventItem.location_name || ""),
-      locationAddress: String(eventItem.location_address || ""),
-      settings: {
-        allowPlusOne: effectiveAllowPlusOne,
-        autoReminders: effectiveAutoReminders,
-        dressCode: effectiveDressCode,
-        playlistMode: effectivePlaylistMode,
-        dressCodeLabel: t(`event_dress_code_${effectiveDressCode}`),
-        playlistModeLabel: t(`event_playlist_mode_${effectivePlaylistMode}`)
-      }
-    },
-    context: {
-      stylePreset: String(normalizedContext.preset || "social"),
-      moment: String(normalizedContext.momentKey || "evening"),
-      tone: String(normalizedContext.toneKey || "casual"),
-      budget: String(normalizedContext.budgetKey || "medium"),
-      durationHours: Number(normalizedContext.durationHours || 4)
-    },
-    attendance: {
-      totalInvitations,
-      confirmed: Number(attendance.yes || 0),
-      pending: Number(attendance.pending || 0),
-      maybe: Number(attendance.maybe || 0),
-      declined: Number(attendance.no || 0),
-      acceptanceRate: totalInvitations > 0 ? Math.round((Number(attendance.yes || 0) / totalInvitations) * 100) : 0
-    },
-    preferenceSignals: {
-      guestCountAnalyzed: Number(eventInsights?.consideredGuestsCount || 0),
-      relationships: uniqueValues(eventInsights?.relationshipMix || []).slice(0, 6),
-      preferredExperiences: uniqueValues(eventInsights?.experienceTypes || []).slice(0, 6),
-      preferredMoments: uniqueValues(eventInsights?.dayMoments || []).slice(0, 4),
-      foodSuggestions: uniqueValues(eventInsights?.foodSuggestions || []).slice(0, 10),
-      drinkSuggestions: uniqueValues(eventInsights?.drinkSuggestions || []).slice(0, 10),
-      musicGenres: uniqueValues(eventInsights?.musicGenres || []).slice(0, 8),
-      decorColors: uniqueValues(eventInsights?.decorColors || []).slice(0, 8),
-      icebreakers: uniqueValues(eventInsights?.icebreakers || []).slice(0, 10),
-      tabooTopics: uniqueValues(eventInsights?.tabooTopics || []).slice(0, 8),
-      avoidItems: uniqueValues(eventInsights?.avoidItems || []).slice(0, 12),
-      medicalConditions: uniqueValues(eventInsights?.medicalConditions || []).slice(0, 8),
-      dietaryMedicalRestrictions: uniqueValues(eventInsights?.dietaryMedicalRestrictions || []).slice(0, 8)
-    },
-    health: {
-      criticalRestrictions: uniqueValues(criticalRestrictions || []).slice(0, 10),
-      alerts: (healthAlerts || []).slice(0, 8).map((item) => ({
-        guestName: String(item?.guestName || ""),
-        avoid: uniqueValues(item?.avoid || []).slice(0, 6)
-      }))
-    },
-    hostInstructions: String(eventInsights?.additionalInstructions || "").trim()
-  };
-
-  const prompt = [
-    t("event_planner_prompt_intro"),
-    "",
-    "INPUT_JSON",
-    JSON.stringify(payload, null, 2),
-    "",
-    t("event_planner_prompt_output_contract")
-  ].join("\n");
-
-  return { payload, prompt };
-}
-
-function buildEventHostPlaybook({
-  eventDetail,
-  eventContext,
-  eventInsights,
-  statusCounts,
-  criticalRestrictions,
-  healthAlerts,
-  variantSeed = 0,
-  language,
-  t
-}) {
-  const eventItem = eventDetail || {};
-  const context = eventContext || {};
-  const attendance = statusCounts || { yes: 0, no: 0, maybe: 0, pending: 0 };
-  const title = String(eventItem.title || t("field_event"));
-  const confirmed = Number(attendance.yes || 0);
-  const pending = Number(attendance.pending || 0);
-  const maybe = Number(attendance.maybe || 0);
-  const declined = Number(attendance.no || 0);
-  const total = Math.max(0, confirmed + pending + maybe + declined);
-  const acceptanceRate = total > 0 ? Math.round((confirmed / total) * 100) : 0;
-  const pendingRate = total > 0 ? pending / total : 0;
-  const startLabel = formatLongDate(eventItem.start_at, language, t("no_date"));
-  const startTime = formatTimeLabel(eventItem.start_at, language, t("no_date"));
-  const allowPlusOne = typeof context.allowPlusOne === "boolean" ? context.allowPlusOne : Boolean(eventItem.allow_plus_one);
-  const autoReminders = typeof context.autoReminders === "boolean" ? context.autoReminders : Boolean(eventItem.auto_reminders);
-  const dressCodeKey = normalizeEventDressCode(context.dressCode ?? eventItem.dress_code);
-  const playlistModeKey = normalizeEventPlaylistMode(context.playlistMode ?? eventItem.playlist_mode);
-  const dressCodeLabel = t(`event_dress_code_${dressCodeKey}`);
-  const playlistModeLabel = t(`event_playlist_mode_${playlistModeKey}`);
-  const plusOneEstimated = allowPlusOne ? Math.max(0, Math.round((confirmed + maybe) * 0.35)) : 0;
-  const expectedGuestsWithPlusOne = confirmed + maybe + plusOneEstimated;
-  const drinkHighlights = rotateValues(uniqueValues(eventInsights?.drinkSuggestions || []), variantSeed).slice(0, 4);
-  const menuHighlights = rotateValues(uniqueValues(eventInsights?.foodSuggestions || []), variantSeed + 1).slice(0, 4);
-  const musicHighlights = rotateValues(uniqueValues(eventInsights?.musicGenres || []), variantSeed + 2).slice(0, 4);
-  const decorHighlights = rotateValues(uniqueValues(eventInsights?.decorColors || []), variantSeed + 3).slice(0, 4);
-  const icebreakers = rotateValues(uniqueValues(eventInsights?.icebreakers || []), variantSeed + 4).slice(0, 5);
-  const tabooTopics = rotateValues(uniqueValues(eventInsights?.tabooTopics || []), variantSeed + 5).slice(0, 4);
-  const actionableItems = rotateValues(
-    buildHostingPlaybookActions(eventInsights, t, {
-      eventContext: context,
-      eventDetail: eventItem,
-      statusCounts: attendance
-    }),
-    variantSeed
-  ).slice(0, 6);
-
-  const timeline = [
-    {
-      id: "phase-prep",
-      title: t("event_planner_host_timeline_pre_title"),
-      detail: interpolateText(t("event_planner_host_timeline_pre_detail"), {
-        pending,
-        date: startLabel
-      }) + ` ${t("event_setting_auto_reminders")}: ${autoReminders ? t("status_yes") : t("status_no")}.`
-    },
-    {
-      id: "phase-final",
-      title: t("event_planner_host_timeline_final_title"),
-      detail: interpolateText(t("event_planner_host_timeline_final_detail"), {
-        menu: menuHighlights.slice(0, 2).join(", ") || t("smart_hosting_no_data")
-      }) +
-        (allowPlusOne
-          ? ` ${interpolateText(t("event_planner_host_risk_capacity_detail"), {
-              expected: expectedGuestsWithPlusOne
-            })}`
-          : "")
-    },
-    {
-      id: "phase-live",
-      title: t("event_planner_host_timeline_live_title"),
-      detail: interpolateText(t("event_planner_host_timeline_live_detail"), {
-        time: startTime,
-        style: t(`event_planner_style_${context.preset || "social"}`)
-      }) + ` ${t("event_setting_dress_code")}: ${dressCodeLabel}.`
-    },
-    {
-      id: "phase-followup",
-      title: t("event_planner_host_timeline_followup_title"),
-      detail: t("event_planner_host_timeline_followup_detail")
-    }
-  ];
-
-  const ambience = uniqueValues([
-    musicHighlights.length
-      ? interpolateText(t("event_planner_host_ambience_music"), { items: musicHighlights.join(", ") })
-      : "",
-    decorHighlights.length
-      ? interpolateText(t("event_planner_host_ambience_decor"), { items: decorHighlights.join(", ") })
-      : "",
-    drinkHighlights.length
-      ? interpolateText(t("event_planner_host_ambience_drinks"), { items: drinkHighlights.slice(0, 3).join(", ") })
-      : "",
-    interpolateText(t("event_planner_host_ambience_tone"), { value: t(`event_planner_tone_${context.toneKey || "casual"}`) }),
-    `${t("event_setting_playlist_mode")}: ${playlistModeLabel}.`,
-    `${t("event_setting_allow_plus_one")}: ${allowPlusOne ? t("status_yes") : t("status_no")}.`
-  ]).filter(Boolean);
-
-  const conversation = uniqueValues([
-    icebreakers.length
-      ? interpolateText(t("event_planner_host_conversation_openers"), { items: icebreakers.slice(0, 3).join(", ") })
-      : "",
-    tabooTopics.length
-      ? interpolateText(t("event_planner_host_conversation_taboo"), { items: tabooTopics.join(", ") })
-      : "",
-    interpolateText(t("event_planner_host_conversation_relationships"), {
-      items: uniqueValues(eventInsights?.relationshipMix || []).slice(0, 3).join(", ") || t("smart_hosting_no_data")
-    })
-  ]).filter(Boolean);
-
-  const messages = [
-    {
-      id: "pending",
-      title: t("event_planner_host_message_pending_title"),
-      text: interpolateText(t("event_planner_host_message_pending_template"), {
-        event: title,
-        date: startLabel,
-        time: startTime
-      }) + (allowPlusOne ? ` ${t("rsvp_plus_one_question")}` : "")
-    },
-    {
-      id: "confirmed",
-      title: t("event_planner_host_message_confirmed_title"),
-      text: interpolateText(t("event_planner_host_message_confirmed_template"), {
-        event: title
-      }) + ` ${t("event_setting_dress_code")}: ${dressCodeLabel}. ${t("event_setting_playlist_mode")}: ${playlistModeLabel}.`
-    },
-    {
-      id: "followup",
-      title: t("event_planner_host_message_followup_title"),
-      text: interpolateText(t("event_planner_host_message_followup_template"), {
-        event: title
-      })
-    }
-  ];
-
-  const riskHealthItems = uniqueValues([
-    ...(Array.isArray(criticalRestrictions) ? criticalRestrictions : []),
-    ...(Array.isArray(healthAlerts) ? healthAlerts.flatMap((item) => item?.avoid || []) : []),
-    ...(Array.isArray(eventInsights?.medicalConditions) ? eventInsights.medicalConditions : []),
-    ...(Array.isArray(eventInsights?.dietaryMedicalRestrictions) ? eventInsights.dietaryMedicalRestrictions : [])
-  ]).slice(0, 8);
-
-  const risks = [];
-  if (riskHealthItems.length > 0) {
-    risks.push({
-      id: "risk-health",
-      level: "status-no",
-      label: t("event_planner_host_risk_health_title"),
-      detail: interpolateText(t("event_planner_host_risk_health_detail"), {
-        items: riskHealthItems.slice(0, 5).join(", ")
-      })
-    });
-  }
-  if (pendingRate >= 0.35 || (pending > 0 && !autoReminders)) {
-    risks.push({
-      id: "risk-rsvp",
-      level: pending > 0 && !autoReminders ? "status-no" : "status-pending",
-      label: t("event_planner_host_risk_rsvp_title"),
-      detail: interpolateText(t("event_planner_host_risk_rsvp_detail"), {
-        pending,
-        total
-      }) + (pending > 0 && !autoReminders ? ` ${t("event_setting_auto_reminders")}: ${t("status_no")}.` : "")
-    });
-  }
-  if (allowPlusOne && plusOneEstimated >= 2) {
-    risks.push({
-      id: "risk-capacity",
-      level: "status-maybe",
-      label: t("event_planner_host_risk_capacity_title"),
-      detail: interpolateText(t("event_planner_host_risk_capacity_detail"), {
-        expected: expectedGuestsWithPlusOne
-      })
-    });
-  }
-  if (playlistModeKey === "host_only" && musicHighlights.length >= 3) {
-    risks.push({
-      id: "risk-playlist",
-      level: "status-pending",
-      label: t("event_planner_host_risk_playlist_title"),
-      detail: interpolateText(t("event_planner_host_risk_playlist_detail"), {
-        count: musicHighlights.length
-      })
-    });
-  }
-  if (eventInsights?.timingRecommendation === "start_with_buffer") {
-    risks.push({
-      id: "risk-timing",
-      level: "status-maybe",
-      label: t("event_planner_host_risk_timing_title"),
-      detail: t("event_planner_host_risk_timing_detail")
-    });
-  }
-  if (healthAlerts.length === 0 && pendingRate < 0.2) {
-    risks.push({
-      id: "risk-none",
-      level: "status-yes",
-      label: t("event_planner_host_risk_none_title"),
-      detail: t("event_planner_host_risk_none_detail")
-    });
-  }
-
-  return {
-    acceptanceRate,
-    actionableItems,
-    timeline,
-    ambience,
-    conversation,
-    messages,
-    risks
-  };
-}
-
-function buildHostInvitePayload(guestItem, t) {
-  const guestLabel = `${guestItem?.first_name || ""} ${guestItem?.last_name || ""}`.trim() || t("field_guest");
-  const signupUrl = buildAppUrl(
-    `/login?invite_guest=${encodeURIComponent(String(guestItem?.id || ""))}&invite_source=host`
-  );
-  const inviteText = interpolateText(t("host_invite_message_template"), {
-    guest: guestLabel,
-    url: signupUrl
-  });
-  const inviteSubject = interpolateText(t("host_invite_email_subject"), {
-    guest: guestLabel
-  });
-  const guestEmail = String(guestItem?.email || "").trim();
-  return {
-    guestLabel,
-    signupUrl,
-    inviteText,
-    inviteSubject,
-    whatsappUrl: `https://wa.me/?text=${encodeURIComponent(inviteText)}`,
-    emailUrl: `mailto:${guestEmail}?subject=${encodeURIComponent(inviteSubject)}&body=${encodeURIComponent(inviteText)}`
-  };
-}
-
-function hasGuestHealthAlerts(sensitiveItem) {
-  return (
-    toList(sensitiveItem?.allergies).length > 0 ||
-    toList(sensitiveItem?.intolerances).length > 0 ||
-    toList(sensitiveItem?.pet_allergies).length > 0 ||
-    toList(sensitiveItem?.medical_conditions).length > 0 ||
-    toList(sensitiveItem?.dietary_medical_restrictions).length > 0
-  );
-}
-
-function buildCatalogLookupSet(field) {
-  const options = Array.isArray(CATALOGS?.[field]) ? CATALOGS[field] : [];
-  const lookup = new Set();
-  for (const option of options) {
-    lookup.add(normalizeLookupValue(option?.code || ""));
-    for (const label of Object.values(option?.labels || {})) {
-      lookup.add(normalizeLookupValue(label));
-    }
-    for (const alias of option?.aliases || []) {
-      lookup.add(normalizeLookupValue(alias));
-    }
-  }
-  return lookup;
-}
-
-const INTOLERANCE_LOOKUP_SET = buildCatalogLookupSet("intolerance");
-const MEDICAL_CONDITION_LOOKUP_SET = buildCatalogLookupSet("medical_condition");
-const DIETARY_MEDICAL_LOOKUP_SET = buildCatalogLookupSet("dietary_medical_restriction");
-
-function splitLegacyHealthSignalsFromIntolerances(intolerances = []) {
-  const medicalConditions = [];
-  const dietaryMedicalRestrictions = [];
-  const filteredIntolerances = [];
-
-  for (const rawValue of toList(intolerances)) {
-    const normalized = normalizeLookupValue(rawValue);
-    const isKnownIntolerance = INTOLERANCE_LOOKUP_SET.has(normalized);
-    const isKnownMedicalCondition = MEDICAL_CONDITION_LOOKUP_SET.has(normalized);
-    const isKnownDietaryMedical = DIETARY_MEDICAL_LOOKUP_SET.has(normalized);
-
-    if (isKnownMedicalCondition && !isKnownIntolerance) {
-      medicalConditions.push(toCatalogCode("medical_condition", rawValue));
-      continue;
-    }
-    if (isKnownDietaryMedical && !isKnownIntolerance) {
-      dietaryMedicalRestrictions.push(toCatalogCode("dietary_medical_restriction", rawValue));
-      continue;
-    }
-    filteredIntolerances.push(toCatalogCode("intolerance", rawValue));
-  }
-
-  return {
-    intolerances: uniqueValues(filteredIntolerances),
-    medicalConditions: uniqueValues(medicalConditions),
-    dietaryMedicalRestrictions: uniqueValues(dietaryMedicalRestrictions)
-  };
-}
-
-function normalizeSensitiveRecord(rawSensitiveItem) {
-  const source = rawSensitiveItem || {};
-  const allergies = uniqueValues(toList(source.allergies).map((item) => toCatalogCode("allergy", item)));
-  const petAllergies = uniqueValues(toList(source.pet_allergies).map((item) => toCatalogCode("pet", item)));
-  const intolerances = uniqueValues(toList(source.intolerances).map((item) => toCatalogCode("intolerance", item)));
-  const medicalConditions = uniqueValues(
-    toList(source.medical_conditions).map((item) => toCatalogCode("medical_condition", item))
-  );
-  const dietaryMedicalRestrictions = uniqueValues(
-    toList(source.dietary_medical_restrictions).map((item) => toCatalogCode("dietary_medical_restriction", item))
-  );
-
-  if (medicalConditions.length > 0 || dietaryMedicalRestrictions.length > 0) {
-    return {
-      ...source,
-      allergies,
-      intolerances,
-      pet_allergies: petAllergies,
-      medical_conditions: medicalConditions,
-      dietary_medical_restrictions: dietaryMedicalRestrictions
-    };
-  }
-
-  const legacySplit = splitLegacyHealthSignalsFromIntolerances(source.intolerances || []);
-  return {
-    ...source,
-    allergies,
-    intolerances: legacySplit.intolerances,
-    pet_allergies: petAllergies,
-    medical_conditions: legacySplit.medicalConditions,
-    dietary_medical_restrictions: legacySplit.dietaryMedicalRestrictions
-  };
-}
-
-const VIEW_CONFIG = [
-  { key: "overview", icon: "sparkle", labelKey: "nav_overview" },
-  { key: "events", icon: "calendar", labelKey: "nav_events" },
-  { key: "guests", icon: "user", labelKey: "nav_guests" },
-  { key: "invitations", icon: "mail", labelKey: "nav_invitations" }
-];
-const EVENTS_PAGE_SIZE_DEFAULT = 5;
-const GUESTS_PAGE_SIZE_DEFAULT = 10;
-const PAGE_SIZE_OPTIONS = [5, 10, 20];
-const IMPORT_PREVIEW_PAGE_SIZE_DEFAULT = 20;
-const IMPORT_PREVIEW_PAGE_SIZE_OPTIONS = [10, 20, 50];
-const IMPORT_CONTACTS_SORT_OPTIONS = ["priority", "score_desc", "score_asc", "name_asc", "name_desc"];
-const IMPORT_WIZARD_STEP_TOTAL = 4;
-const INVITATIONS_PAGE_SIZE_DEFAULT = 8;
-const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensitive", "no_invites", "converted_hosts"];
-const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
-const GUEST_ADVANCED_EDIT_TABS = ["identity", "food", "lifestyle", "conversation", "health"];
-const EVENT_PLANNER_VIEW_TABS = ["menu", "shopping", "ambience", "timings", "communication", "risks"];
-const EVENT_PLANNER_SHOPPING_FILTERS = ["all", "pending", "done"];
-const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
-  diet: "food",
-  menu: "food",
-  drink: "food",
-  health: "health",
-  music: "lifestyle",
-  moment: "lifestyle",
-  talk: "conversation",
-  birthday: "identity"
-};
-const GUEST_ADVANCED_ERROR_FIELDS_BY_TAB = {
-  identity: [
-    "firstName",
-    "lastName",
-    "email",
-    "phone",
-    "contact",
-    "relationship",
-    "city",
-    "country",
-    "address",
-    "postalCode",
-    "stateRegion",
-    "company",
-    "twitter",
-    "instagram",
-    "linkedIn"
-  ],
-  health: ["sensitiveConsent"]
-};
-const DASHBOARD_PREFS_KEY_PREFIX = "legood-dashboard-prefs";
-const EVENT_SETTINGS_STORAGE_KEY_PREFIX = "legood-event-settings";
-const GUEST_GEO_CACHE_KEY_PREFIX = "legood-guest-geocode";
-const EVENT_DRESS_CODE_OPTIONS = ["none", "casual", "elegant", "formal", "themed"];
-const EVENT_PLAYLIST_OPTIONS = ["host_only", "collaborative", "spotify_collaborative"];
-const CITY_OPTIONS_BY_LANGUAGE = {
-  es: ["Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao", "Lisboa", "París"],
-  ca: ["Barcelona", "Madrid", "Valencia", "Sevilla", "Bilbao", "Lisboa", "París"],
-  en: ["Barcelona", "Madrid", "Valencia", "Seville", "Bilbao", "Lisbon", "Paris"],
-  fr: ["Barcelone", "Madrid", "Valence", "Seville", "Bilbao", "Lisbonne", "Paris"],
-  it: ["Barcellona", "Madrid", "Valencia", "Siviglia", "Bilbao", "Lisbona", "Parigi"]
-};
-const COUNTRY_OPTIONS_BY_LANGUAGE = {
-  es: ["España", "Andorra", "Francia", "Portugal", "Italia", "Reino Unido"],
-  ca: ["Espanya", "Andorra", "França", "Portugal", "Itàlia", "Regne Unit"],
-  en: ["Spain", "Andorra", "France", "Portugal", "Italy", "United Kingdom"],
-  fr: ["Espagne", "Andorre", "France", "Portugal", "Italie", "Royaume-Uni"],
-  it: ["Spagna", "Andorra", "Francia", "Portogallo", "Italia", "Regno Unito"]
-};
-const WORKSPACE_ITEMS = {
-  events: [
-    { key: "hub", icon: "sparkle", labelKey: "workspace_folders" },
-    { key: "create", icon: "calendar", labelKey: "create_event_title", descriptionKey: "help_event_form" },
-    { key: "latest", icon: "calendar", labelKey: "latest_events_title", descriptionKey: "workspace_events_latest_desc" },
-    { key: "detail", icon: "eye", labelKey: "event_detail_title", descriptionKey: "workspace_events_detail_desc" },
-    { key: "plan", icon: "sparkle", labelKey: "event_planner_title", descriptionKey: "event_planner_hint" },
-    { key: "insights", icon: "sparkle", labelKey: "smart_hosting_title", descriptionKey: "smart_hosting_hint" }
-  ],
-  guests: [
-    { key: "hub", icon: "sparkle", labelKey: "workspace_folders" },
-    { key: "create", icon: "user", labelKey: "create_guest_title", descriptionKey: "help_guest_form" },
-    { key: "latest", icon: "user", labelKey: "latest_guests_title", descriptionKey: "workspace_guests_latest_desc" },
-    { key: "detail", icon: "eye", labelKey: "guest_detail_title", descriptionKey: "workspace_guests_detail_desc" }
-  ],
-  invitations: [
-    { key: "hub", icon: "sparkle", labelKey: "workspace_folders" },
-    { key: "create", icon: "mail", labelKey: "create_invitation_title", descriptionKey: "help_invitation_form" },
-    { key: "latest", icon: "mail", labelKey: "latest_invitations_title", descriptionKey: "workspace_invitations_latest_desc" }
-  ]
-};
-
-const EVENT_TEMPLATE_DEFINITIONS = [
-  { key: "bbq", titleKey: "event_template_title_bbq", typeCode: "bbq", defaultHour: 14, dressCode: "casual", playlistMode: "host_only", allowPlusOne: true },
-  { key: "calcotada", titleKey: "event_template_title_calcotada", typeCode: "calcotada", defaultHour: 14, dressCode: "casual", playlistMode: "host_only", allowPlusOne: true },
-  { key: "esmorzar_forquilla", titleKey: "event_template_title_esmorzar_forquilla", typeCode: "esmorzar_de_forquilla", defaultHour: 11, dressCode: "casual", playlistMode: "host_only", allowPlusOne: true },
-  { key: "brunch", titleKey: "event_template_title_brunch", typeCode: "brunch", defaultHour: 12, dressCode: "none", playlistMode: "collaborative", allowPlusOne: true },
-  { key: "family_lunch", titleKey: "event_template_title_family_lunch", typeCode: "family_lunch", defaultHour: 14, dressCode: "none", playlistMode: "host_only", allowPlusOne: true },
-  { key: "cocktail", titleKey: "event_template_title_cocktail", typeCode: "cocktail", defaultHour: 20, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
-  { key: "outdoor_meetup", titleKey: "event_template_title_outdoor_meetup", typeCode: "outdoor_meetup", defaultHour: 17, dressCode: "casual", playlistMode: "collaborative", allowPlusOne: true },
-  { key: "merienda_cena", titleKey: "event_template_title_merienda_cena", typeCode: "merienda_cena", defaultHour: 19, dressCode: "none", playlistMode: "collaborative", allowPlusOne: true },
-  { key: "book_club", titleKey: "event_template_title_book_club", typeCode: "book_club", defaultHour: 19, dressCode: "none", playlistMode: "collaborative", allowPlusOne: true },
-  { key: "after_school_reunion", titleKey: "event_template_title_after_school_reunion", typeCode: "after_school_reunion", defaultHour: 19, dressCode: "casual", playlistMode: "collaborative", allowPlusOne: true },
-  { key: "party", titleKey: "event_template_title_party", typeCode: "party", defaultHour: 21, dressCode: "themed", playlistMode: "spotify_collaborative", allowPlusOne: true },
-  { key: "networking", titleKey: "event_template_title_networking", typeCode: "networking", defaultHour: 19, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
-  { key: "tasting_session", titleKey: "event_template_title_tasting_session", typeCode: "tasting_session", defaultHour: 20, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
-  { key: "anniversary", titleKey: "event_template_title_anniversary", typeCode: "celebration", defaultHour: 20, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: true },
-  { key: "date_night", titleKey: "event_template_title_date_night", typeCode: "romantic_date", defaultHour: 21, dressCode: "elegant", playlistMode: "host_only", allowPlusOne: false }
-];
 function getWorkspaceItemsByView(viewKey, includeHub = true) {
   const workspaceItems = WORKSPACE_ITEMS[viewKey] || [];
   return includeHub ? workspaceItems : workspaceItems.filter((item) => item.key !== "hub");
-}
-
-const GUEST_ADVANCED_INITIAL_STATE = {
-  address: "",
-  postalCode: "",
-  stateRegion: "",
-  company: "",
-  birthday: "",
-  twitter: "",
-  instagram: "",
-  linkedIn: "",
-  lastMeetAt: "",
-  experienceTypes: "",
-  preferredGuestRelationships: "",
-  preferredDayMoments: "",
-  periodicity: "",
-  cuisineTypes: "",
-  dietType: "",
-  tastingPreferences: "",
-  foodLikes: "",
-  foodDislikes: "",
-  drinkLikes: "",
-  drinkDislikes: "",
-  allergies: "",
-  intolerances: "",
-  petAllergies: "",
-  medicalConditions: "",
-  dietaryMedicalRestrictions: "",
-  pets: "",
-  musicGenres: "",
-  favoriteColor: "",
-  books: "",
-  movies: "",
-  series: "",
-  sports: "",
-  teamFan: "",
-  punctuality: "",
-  lastTalkTopic: "",
-  tabooTopics: "",
-  sensitiveConsent: false
-};
-
-function normalizeEventDressCode(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return EVENT_DRESS_CODE_OPTIONS.includes(normalized) ? normalized : "none";
-}
-
-function normalizeEventPlaylistMode(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return EVENT_PLAYLIST_OPTIONS.includes(normalized) ? normalized : "host_only";
-}
-
-function normalizeEventSettings(input = {}) {
-  return {
-    description: String(input?.description || "").trim(),
-    allow_plus_one: Boolean(input?.allow_plus_one ?? input?.allowPlusOne),
-    auto_reminders: Boolean(input?.auto_reminders ?? input?.autoReminders),
-    dress_code: normalizeEventDressCode(input?.dress_code ?? input?.dressCode),
-    playlist_mode: normalizeEventPlaylistMode(input?.playlist_mode ?? input?.playlistMode)
-  };
-}
-
-function hasEventSettingsColumns(row) {
-  if (!row || typeof row !== "object") {
-    return false;
-  }
-  return ["description", "allow_plus_one", "auto_reminders", "dress_code", "playlist_mode"].some((key) =>
-    Object.prototype.hasOwnProperty.call(row, key)
-  );
-}
-
-function readEventSettingsCache(userId) {
-  if (typeof window === "undefined" || !userId) {
-    return {};
-  }
-  const key = `${EVENT_SETTINGS_STORAGE_KEY_PREFIX}:${userId}`;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return {};
-    }
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeEventSettingsCache(userId, nextCache) {
-  if (typeof window === "undefined" || !userId) {
-    return;
-  }
-  const key = `${EVENT_SETTINGS_STORAGE_KEY_PREFIX}:${userId}`;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(nextCache || {}));
-  } catch {
-    // Ignore localStorage write errors (private mode/quota).
-  }
-}
-
-function readGuestGeoCache(userId) {
-  if (typeof window === "undefined" || !userId) {
-    return {};
-  }
-  const key = `${GUEST_GEO_CACHE_KEY_PREFIX}:${userId}`;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return {};
-    }
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeGuestGeoCache(userId, nextCache) {
-  if (typeof window === "undefined" || !userId) {
-    return;
-  }
-  const key = `${GUEST_GEO_CACHE_KEY_PREFIX}:${userId}`;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(nextCache || {}));
-  } catch {
-    // Ignore localStorage write errors.
-  }
-}
-
-function normalizeLookupValue(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function normalizeEmailKey(value) {
-  const email = String(value || "").trim().toLowerCase();
-  return email.includes("@") ? email : "";
-}
-
-function normalizePhoneKey(value) {
-  const phone = String(value || "")
-    .replace(/[^\d+]/g, "")
-    .trim();
-  if (!phone) {
-    return "";
-  }
-  const normalized = phone.startsWith("+") ? `+${phone.slice(1).replace(/\D/g, "")}` : phone.replace(/\D/g, "");
-  return normalized.length >= 7 ? normalized : "";
-}
-
-function isBlankValue(value) {
-  if (value == null) {
-    return true;
-  }
-  if (typeof value === "string") {
-    return value.trim() === "";
-  }
-  return false;
-}
-
-function getMergedFieldValue(existingValue, incomingValue) {
-  if (!isBlankValue(existingValue) || isBlankValue(incomingValue)) {
-    return undefined;
-  }
-  return String(incomingValue).trim();
-}
-
-function formatMergeReviewValue(value) {
-  if (value == null) {
-    return "—";
-  }
-  const normalized = String(value).trim();
-  return normalized || "—";
-}
-
-function buildGuestFingerprint({ firstName, lastName, email, phone }) {
-  const emailKey = normalizeEmailKey(email);
-  const phoneKey = normalizePhoneKey(phone);
-  if (emailKey || phoneKey) {
-    return `${emailKey}|${phoneKey}`;
-  }
-  const firstKey = normalizeLookupValue(firstName);
-  const lastKey = normalizeLookupValue(lastName);
-  if (firstKey || lastKey) {
-    return `name:${firstKey}|${lastKey}`;
-  }
-  return "";
-}
-
-function buildGuestNameKey(firstName, lastName) {
-  const firstKey = normalizeLookupValue(firstName);
-  const lastKey = normalizeLookupValue(lastName);
-  if (!firstKey && !lastKey) {
-    return "";
-  }
-  return `${firstKey}|${lastKey}`;
-}
-
-function buildGuestFullNameKey(firstName, lastName) {
-  const fullName = String([firstName, lastName].filter(Boolean).join(" ") || "")
-    .trim()
-    .replace(/\s+/g, " ");
-  return normalizeLookupValue(fullName);
-}
-
-function buildGuestMatchingKeys({ firstName, lastName, email, phone }) {
-  const keys = [];
-  const emailKey = normalizeEmailKey(email);
-  const phoneKey = normalizePhoneKey(phone);
-  const nameKey = buildGuestNameKey(firstName, lastName);
-  const fullNameKey = buildGuestFullNameKey(firstName, lastName);
-  if (emailKey) {
-    keys.push(`email:${emailKey}`);
-  }
-  if (phoneKey) {
-    keys.push(`phone:${phoneKey}`);
-  }
-  if (nameKey) {
-    keys.push(`name:${nameKey}`);
-  }
-  if (fullNameKey) {
-    keys.push(`fullname:${fullNameKey}`);
-  }
-  if (emailKey || phoneKey) {
-    keys.push(`contact:${emailKey}|${phoneKey}`);
-  }
-  return uniqueValues(keys);
-}
-
-function getImportDuplicateReasonCodes({ firstName, lastName, email, phone, existingGuest, ownerGuestId }) {
-  if (!existingGuest) {
-    return [];
-  }
-  const reasons = [];
-  const existingEmailKey = normalizeEmailKey(existingGuest.email);
-  const existingPhoneKey = normalizePhoneKey(existingGuest.phone);
-  const incomingEmailKey = normalizeEmailKey(email);
-  const incomingPhoneKey = normalizePhoneKey(phone);
-  const existingNameKey = buildGuestNameKey(existingGuest.first_name, existingGuest.last_name);
-  const incomingNameKey = buildGuestNameKey(firstName, lastName);
-  const existingFullNameKey = buildGuestFullNameKey(existingGuest.first_name, existingGuest.last_name);
-  const incomingFullNameKey = buildGuestFullNameKey(firstName, lastName);
-
-  if (ownerGuestId && existingGuest.id === ownerGuestId) {
-    reasons.push("owner");
-  }
-  if (incomingEmailKey && existingEmailKey && incomingEmailKey === existingEmailKey) {
-    reasons.push("email");
-  }
-  if (incomingPhoneKey && existingPhoneKey && incomingPhoneKey === existingPhoneKey) {
-    reasons.push("phone");
-  }
-  if (incomingFullNameKey && existingFullNameKey && incomingFullNameKey === existingFullNameKey) {
-    reasons.push("full_name");
-  } else if (incomingNameKey && existingNameKey && incomingNameKey === existingNameKey) {
-    reasons.push("name");
-  }
-
-  return uniqueValues(reasons);
-}
-
-function getImportDuplicateMergeConfidence(reasonCodes) {
-  const reasons = Array.isArray(reasonCodes) ? reasonCodes : [];
-  if (reasons.some((item) => item === "owner" || item === "email" || item === "phone")) {
-    return "high";
-  }
-  if (reasons.includes("full_name")) {
-    return "medium";
-  }
-  if (reasons.includes("name")) {
-    return "low";
-  }
-  return "low";
-}
-
-function getImportDuplicateMergeConfidenceStatusClass(confidence) {
-  if (confidence === "high") {
-    return "status-yes";
-  }
-  if (confidence === "medium") {
-    return "status-maybe";
-  }
-  return "status-event-draft";
-}
-
-function buildGuestDuplicateMatchScore(sourceGuest, targetGuest) {
-  if (!sourceGuest?.id || !targetGuest?.id || sourceGuest.id === targetGuest.id) {
-    return -1;
-  }
-  let score = 0;
-  const sourceEmail = normalizeEmailKey(sourceGuest.email || "");
-  const targetEmail = normalizeEmailKey(targetGuest.email || "");
-  const sourcePhone = normalizePhoneKey(sourceGuest.phone || "");
-  const targetPhone = normalizePhoneKey(targetGuest.phone || "");
-  const sourceNameKey = buildGuestNameKey(sourceGuest.first_name, sourceGuest.last_name);
-  const targetNameKey = buildGuestNameKey(targetGuest.first_name, targetGuest.last_name);
-
-  if (sourceEmail && targetEmail && sourceEmail === targetEmail) {
-    score += 8;
-  }
-  if (sourcePhone && targetPhone && sourcePhone === targetPhone) {
-    score += 8;
-  }
-  if (sourceNameKey && targetNameKey && sourceNameKey === targetNameKey) {
-    score += 4;
-  }
-  if (sourceGuest.city && targetGuest.city && normalizeLookupValue(sourceGuest.city) === normalizeLookupValue(targetGuest.city)) {
-    score += 2;
-  }
-  if (
-    sourceGuest.country &&
-    targetGuest.country &&
-    normalizeLookupValue(sourceGuest.country) === normalizeLookupValue(targetGuest.country)
-  ) {
-    score += 2;
-  }
-  return score;
-}
-
-function mergeUniqueListValues(primaryValues, secondaryValues) {
-  return uniqueValues([...(Array.isArray(primaryValues) ? primaryValues : []), ...(Array.isArray(secondaryValues) ? secondaryValues : [])]);
-}
-
-function normalizeImportSource(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (normalized === "google" || normalized === "device" || normalized === "paste") {
-    return normalized;
-  }
-  return "file";
-}
-
-function tagImportedContacts(items, source) {
-  const normalizedSource = normalizeImportSource(source);
-  return (Array.isArray(items) ? items : []).map((item) => ({
-    ...(item || {}),
-    importSource: normalizedSource
-  }));
-}
-
-function deriveGuestNameFromContact(contact) {
-  const normalizedFirstName = String(contact?.firstName || "").trim();
-  if (normalizedFirstName) {
-    return normalizedFirstName;
-  }
-  const emailKey = normalizeEmailKey(contact?.email || "");
-  if (emailKey) {
-    return emailKey.split("@")[0];
-  }
-  const phoneKey = normalizePhoneKey(contact?.phone || "");
-  if (phoneKey) {
-    return phoneKey.slice(-6);
-  }
-  return "";
-}
-
-function toContactGroupsList(contact) {
-  if (Array.isArray(contact?.groups)) {
-    return uniqueValues(contact.groups);
-  }
-  const raw = String(contact?.groups || "").trim();
-  if (!raw) {
-    return [];
-  }
-  return uniqueValues(
-    raw
-      .split(/[|,]/g)
-      .map((item) => String(item || "").trim())
-      .filter(Boolean)
-  );
-}
-
-function calculateImportContactCaptureScore(contact) {
-  let score = 0;
-  if (String(contact?.firstName || "").trim() || String(contact?.lastName || "").trim()) {
-    score += 15;
-  }
-  if (normalizeEmailKey(contact?.email || "")) {
-    score += 24;
-  }
-  if (normalizePhoneKey(contact?.phone || "")) {
-    score += 24;
-  }
-  if (String(contact?.city || "").trim()) {
-    score += 7;
-  }
-  if (String(contact?.country || "").trim()) {
-    score += 6;
-  }
-  if (String(contact?.address || "").trim()) {
-    score += 8;
-  }
-  if (normalizeIsoDate(contact?.birthday)) {
-    score += 6;
-  }
-  if (String(contact?.company || "").trim()) {
-    score += 4;
-  }
-  if (toContactGroupsList(contact).length > 0) {
-    score += 6;
-  }
-  return Math.max(0, Math.min(100, score));
-}
-
-function getImportPotentialLevel(score) {
-  const safeScore = Number(score) || 0;
-  if (safeScore >= 70) {
-    return "high";
-  }
-  if (safeScore >= 45) {
-    return "medium";
-  }
-  return "low";
-}
-
-function deriveRelationshipCodeFromContact(contact) {
-  const direct = toCatalogCode("relationship", contact?.relationship || "");
-  if (direct) {
-    return direct;
-  }
-  const groups = toContactGroupsList(contact);
-  for (const groupItem of groups) {
-    const groupCode = toCatalogCode("relationship", groupItem);
-    if (groupCode) {
-      return groupCode;
-    }
-  }
-  return "";
-}
-
-function splitFullName(rawName) {
-  const normalized = String(rawName || "")
-    .trim()
-    .replace(/\s+/g, " ");
-  if (!normalized) {
-    return { firstName: "", lastName: "" };
-  }
-  const parts = normalized.split(" ");
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: "" };
-  }
-  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
-}
-
-function normalizeDeviceContact(rawContact) {
-  const fullName = Array.isArray(rawContact?.name) ? rawContact.name[0] || "" : rawContact?.name || "";
-  const { firstName, lastName } = splitFullName(fullName);
-  const addressRaw = Array.isArray(rawContact?.address) ? rawContact.address[0] || null : rawContact?.address || null;
-  const addressObject = typeof addressRaw === "object" && addressRaw !== null ? addressRaw : null;
-  const addressFromObject = addressObject
-    ? [addressObject.addressLine, addressObject.streetAddress].flat().filter(Boolean).join(", ")
-    : "";
-  const fallbackAddress = typeof addressRaw === "string" ? addressRaw : "";
-  return {
-    firstName,
-    lastName,
-    email: Array.isArray(rawContact?.email) ? rawContact.email[0] || "" : rawContact?.email || "",
-    phone: Array.isArray(rawContact?.tel) ? rawContact.tel[0] || "" : rawContact?.tel || "",
-    relationship: "",
-    city: String(addressObject?.city || addressObject?.locality || "").trim(),
-    country: String(addressObject?.country || addressObject?.countryName || "").trim(),
-    address: String(addressFromObject || fallbackAddress || "").trim(),
-    company: "",
-    postalCode: String(addressObject?.postalCode || "").trim(),
-    stateRegion: String(addressObject?.region || addressObject?.state || "").trim(),
-    photoUrl: Array.isArray(rawContact?.icon) ? String(rawContact.icon[0] || "").trim() : String(rawContact?.icon || "").trim(),
-    groups: []
-  };
-}
-
-function readImageFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve("");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("image_read_failed"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function isDataImageUrl(value) {
-  return /^data:image\/[-+.\w]+;base64,/i.test(String(value || "").trim());
-}
-
-function extensionFromMimeType(mimeType) {
-  const normalized = String(mimeType || "").toLowerCase();
-  if (normalized.includes("png")) {
-    return "png";
-  }
-  if (normalized.includes("webp")) {
-    return "webp";
-  }
-  if (normalized.includes("gif")) {
-    return "gif";
-  }
-  if (normalized.includes("svg")) {
-    return "svg";
-  }
-  return "jpg";
-}
-
-async function uploadGuestAvatarToStorage({ dataUrl, userId, guestId }) {
-  if (!supabase || !userId || !guestId || !isDataImageUrl(dataUrl)) {
-    return { url: "", error: null };
-  }
-  try {
-    const response = await fetch(dataUrl);
-    const blob = await response.blob();
-    if (!blob || blob.size === 0) {
-      return { url: "", error: new Error("empty_image_blob") };
-    }
-    if (blob.size > GUEST_AVATAR_MAX_BYTES) {
-      return { url: "", error: new Error("avatar_too_large") };
-    }
-    const extension = extensionFromMimeType(blob.type || "");
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
-    const objectPath = `${userId}/${guestId}/${fileName}`;
-    const uploadResult = await supabase.storage.from(GUEST_AVATAR_STORAGE_BUCKET).upload(objectPath, blob, {
-      upsert: true,
-      cacheControl: "3600",
-      contentType: blob.type || undefined
-    });
-    if (uploadResult.error) {
-      return { url: "", error: uploadResult.error };
-    }
-    const publicResult = supabase.storage.from(GUEST_AVATAR_STORAGE_BUCKET).getPublicUrl(objectPath);
-    const publicUrl = String(publicResult?.data?.publicUrl || "").trim();
-    if (!publicUrl) {
-      return { url: "", error: new Error("avatar_public_url_missing") };
-    }
-    return { url: publicUrl, error: null };
-  } catch (error) {
-    return { url: "", error: error instanceof Error ? error : new Error(String(error || "avatar_upload_failed")) };
-  }
-}
-
-function getInitials(value, fallback = "LG") {
-  const parts = String(value || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) {
-    return fallback;
-  }
-  return parts
-    .slice(0, 2)
-    .map((item) => item[0]?.toUpperCase() || "")
-    .join("");
-}
-
-function getGuestAvatarUrl(guestItem, fallbackLabel = "") {
-  if (!guestItem && !fallbackLabel) {
-    return "";
-  }
-  const preferredImageUrl = getGuestPhotoValue(guestItem);
-  if (preferredImageUrl) {
-    return preferredImageUrl;
-  }
-  return "";
-}
-
-function getGuestPhotoValue(guestItem) {
-  return [guestItem?.avatar_url, guestItem?.photo_url, guestItem?.image_url, guestItem?.picture]
-    .map((item) => String(item || "").trim())
-    .find(Boolean) || "";
-}
-
-function uniqueValues(values) {
-  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
-}
-
-function toList(value) {
-  if (!value) {
-    return [];
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
-  }
-  return String(value)
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function splitListInput(value) {
-  return uniqueValues(String(value || "").split(","));
-}
-
-function listToInput(value) {
-  return toNullable(Array.isArray(value) ? value.join(", ") : String(value || "")) || "";
-}
-
-function translateCatalogInputList(field, rawList, language) {
-  return listToInput(toCatalogLabels(field, splitListInput(rawList), language));
-}
-
-function toPetAllergyLabel(value, language) {
-  const raw = String(value || "").trim();
-  if (!raw) {
-    return "";
-  }
-  const petLabel = toCatalogLabel("pet", raw, language);
-  if (petLabel !== raw) {
-    return petLabel;
-  }
-  return toCatalogLabel("allergy", raw, language);
-}
-
-function toPetAllergyLabels(values, language) {
-  return uniqueValues((Array.isArray(values) ? values : [values]).map((value) => toPetAllergyLabel(value, language)));
-}
-
-function isCompatibilityError(error, fragments = []) {
-  const message = String(error?.message || "").toLowerCase();
-  if (error?.code === "42703" || error?.code === "42p01") {
-    return true;
-  }
-  return fragments.some((fragment) => message.includes(String(fragment).toLowerCase()));
-}
-
-function isMissingRelationError(error, relationName) {
-  const message = String(error?.message || "").toLowerCase();
-  const relation = String(relationName || "").toLowerCase();
-  return error?.code === "42p01" || (relation ? message.includes(relation) : false);
-}
-
-function isMissingDbFeatureError(error, fragments = []) {
-  const message = String(error?.message || "").toLowerCase();
-  if (error?.code === "42p01" || error?.code === "42703" || error?.code === "42883") {
-    return true;
-  }
-  return fragments.some((fragment) => message.includes(String(fragment || "").toLowerCase()));
-}
-
-function inferGlobalSharePreset(draft) {
-  const status = String(draft?.status || "inactive").toLowerCase();
-  if (status !== "active") {
-    return "private";
-  }
-  const allowIdentity = Boolean(draft?.allow_identity);
-  const allowFood = Boolean(draft?.allow_food);
-  const allowLifestyle = Boolean(draft?.allow_lifestyle);
-  const allowConversation = Boolean(draft?.allow_conversation);
-  const allowHealth = Boolean(draft?.allow_health);
-  if (allowIdentity && allowFood && !allowLifestyle && !allowConversation && !allowHealth) {
-    return "basic";
-  }
-  return "custom";
-}
-
-function applyGlobalSharePreset(draft, preset) {
-  const base = {
-    status: String(draft?.status || "inactive").toLowerCase(),
-    allow_identity: Boolean(draft?.allow_identity),
-    allow_food: Boolean(draft?.allow_food),
-    allow_lifestyle: Boolean(draft?.allow_lifestyle),
-    allow_conversation: Boolean(draft?.allow_conversation),
-    allow_health: Boolean(draft?.allow_health)
-  };
-  if (preset === "private") {
-    return {
-      ...base,
-      status: "revoked",
-      allow_identity: false,
-      allow_food: false,
-      allow_lifestyle: false,
-      allow_conversation: false,
-      allow_health: false
-    };
-  }
-  if (preset === "basic") {
-    return {
-      ...base,
-      status: "active",
-      allow_identity: true,
-      allow_food: true,
-      allow_lifestyle: false,
-      allow_conversation: false,
-      allow_health: false
-    };
-  }
-  return {
-    ...base,
-    status: "active"
-  };
-}
-
-function formatGlobalShareEventType(t, eventType) {
-  const normalizedType = String(eventType || "").trim().toLowerCase();
-  if (normalizedType === "share_granted") {
-    return t("global_profile_history_share_granted");
-  }
-  if (normalizedType === "share_revoked") {
-    return t("global_profile_history_share_revoked");
-  }
-  if (normalizedType === "health_consent_granted") {
-    return t("global_profile_history_health_granted");
-  }
-  if (normalizedType === "health_consent_revoked") {
-    return t("global_profile_history_health_revoked");
-  }
-  if (normalizedType === "data_validated") {
-    return t("global_profile_history_data_validated");
-  }
-  return t("global_profile_history_unknown");
-}
-
-function getGlobalShareVisibleScopes(draft, t) {
-  if (String(draft?.status || "").toLowerCase() !== "active") {
-    return [];
-  }
-  const scopes = [];
-  if (draft?.allow_identity) {
-    scopes.push(t("global_profile_scope_identity"));
-  }
-  if (draft?.allow_food) {
-    scopes.push(t("global_profile_scope_food"));
-  }
-  if (draft?.allow_lifestyle) {
-    scopes.push(t("global_profile_scope_lifestyle"));
-  }
-  if (draft?.allow_conversation) {
-    scopes.push(t("global_profile_scope_conversation"));
-  }
-  if (draft?.allow_health) {
-    scopes.push(t("global_profile_scope_health"));
-  }
-  return scopes;
-}
-
-function toSelectedPlaceFromLocationPair(pair, formattedAddress) {
-  if (!pair) {
-    return null;
-  }
-  const lat = typeof pair.lat === "number" ? pair.lat : null;
-  const lng = typeof pair.lng === "number" ? pair.lng : null;
-  const placeId = pair.placeId || null;
-  const normalizedAddress = String(formattedAddress || pair.address || "").trim();
-  if (!placeId && lat === null && lng === null && !normalizedAddress) {
-    return null;
-  }
-  return {
-    placeId,
-    formattedAddress: normalizedAddress,
-    lat,
-    lng
-  };
-}
-
-function mergeOptionsWithSelected(options, value) {
-  return uniqueValues([...(options || []), ...splitListInput(value)]);
 }
 
 function MultiSelectField({ id, label, value, options, onChange, helpText, t }) {
@@ -2468,190 +263,6 @@ function GeoPointsMapPanel({ mapsStatus, mapsError, points, title, hint, emptyTe
   );
 }
 
-function normalizeDashboardRouteState(appRoute) {
-  const next = {
-    activeView: "overview",
-    eventsWorkspace: "latest",
-    guestsWorkspace: "latest",
-    invitationsWorkspace: "latest",
-    selectedEventDetailId: "",
-    eventPlannerTab: "menu",
-    selectedGuestDetailId: "",
-    guestProfileViewTab: "general",
-    guestAdvancedEditTab: "identity",
-    importWizardSource: ""
-  };
-  if (!appRoute || typeof appRoute !== "object") {
-    return next;
-  }
-
-  const view = String(appRoute.view || "").trim();
-  if (!["overview", "profile", "events", "guests", "invitations"].includes(view)) {
-    return next;
-  }
-  next.activeView = view;
-
-  const workspace = String(appRoute.workspace || "").trim();
-  if (view === "events") {
-    if (["latest", "create", "detail", "plan", "insights"].includes(workspace)) {
-      next.eventsWorkspace = workspace;
-    }
-    next.selectedEventDetailId = String(appRoute.eventId || "").trim();
-    const nextEventPlannerTab = String(appRoute.eventPlannerTab || "").trim().toLowerCase();
-    if (EVENT_PLANNER_VIEW_TABS.includes(nextEventPlannerTab)) {
-      next.eventPlannerTab = nextEventPlannerTab;
-    }
-  }
-  if (view === "guests") {
-    if (["latest", "create", "detail"].includes(workspace)) {
-      next.guestsWorkspace = workspace;
-    }
-    next.selectedGuestDetailId = String(appRoute.guestId || "").trim();
-    const nextGuestProfileTab = String(appRoute.guestProfileTab || "").trim().toLowerCase();
-    if (GUEST_PROFILE_VIEW_TABS.includes(nextGuestProfileTab)) {
-      next.guestProfileViewTab = nextGuestProfileTab;
-    }
-    const nextGuestAdvancedTab = String(appRoute.guestAdvancedTab || "").trim().toLowerCase();
-    if (GUEST_ADVANCED_EDIT_TABS.includes(nextGuestAdvancedTab)) {
-      next.guestAdvancedEditTab = nextGuestAdvancedTab;
-    }
-    const nextImportWizardSource = String(appRoute.importWizardSource || "")
-      .trim()
-      .toLowerCase();
-    if (["csv", "gmail", "mobile"].includes(nextImportWizardSource)) {
-      next.importWizardSource = nextImportWizardSource;
-    }
-  }
-  if (view === "invitations") {
-    if (["latest", "create"].includes(workspace)) {
-      next.invitationsWorkspace = workspace;
-    }
-  }
-  return next;
-}
-
-function encodePathSegment(segment) {
-  return encodeURIComponent(String(segment || "").trim());
-}
-
-function buildDashboardPathFromState({
-  activeView,
-  eventsWorkspace,
-  guestsWorkspace,
-  invitationsWorkspace,
-  selectedEventDetailId,
-  eventPlannerTab,
-  selectedGuestDetailId,
-  guestProfileViewTab,
-  guestAdvancedEditTab,
-  editingGuestId,
-  routeEventDetailId,
-  routeEventPlannerTab,
-  routeGuestDetailId
-}) {
-  if (activeView === "overview") {
-    return "/app";
-  }
-  if (activeView === "profile") {
-    return "/profile";
-  }
-  if (activeView === "events") {
-    const effectiveEventDetailId = String(selectedEventDetailId || routeEventDetailId || "").trim();
-    const effectiveEventPlannerTab = EVENT_PLANNER_VIEW_TABS.includes(String(eventPlannerTab || "").trim().toLowerCase())
-      ? String(eventPlannerTab || "").trim().toLowerCase()
-      : EVENT_PLANNER_VIEW_TABS.includes(String(routeEventPlannerTab || "").trim().toLowerCase())
-      ? String(routeEventPlannerTab || "").trim().toLowerCase()
-      : "menu";
-    if (eventsWorkspace === "create") {
-      return "/app/events/new";
-    }
-    if (eventsWorkspace === "insights") {
-      return "/app/events/insights";
-    }
-    if (eventsWorkspace === "plan" && effectiveEventDetailId) {
-      return `/app/events/${encodePathSegment(effectiveEventDetailId)}/plan/${encodePathSegment(effectiveEventPlannerTab)}`;
-    }
-    if (eventsWorkspace === "detail" && effectiveEventDetailId) {
-      return `/app/events/${encodePathSegment(effectiveEventDetailId)}`;
-    }
-    return "/app/events";
-  }
-  if (activeView === "guests") {
-    const effectiveGuestDetailId = String(selectedGuestDetailId || routeGuestDetailId || "").trim();
-    if (guestsWorkspace === "create") {
-      const tab = String(guestAdvancedEditTab || "identity").trim().toLowerCase();
-      const safeTab = GUEST_ADVANCED_EDIT_TABS.includes(tab) ? tab : "identity";
-      const editableGuestId = String(editingGuestId || routeGuestDetailId || "").trim();
-      if (editableGuestId) {
-        return `/app/guests/${encodePathSegment(editableGuestId)}/edit/advanced/${encodePathSegment(safeTab)}`;
-      }
-      return `/app/guests/new/advanced/${encodePathSegment(safeTab)}`;
-    }
-    if (guestsWorkspace === "detail" && effectiveGuestDetailId) {
-      const tab = String(guestProfileViewTab || "general").trim().toLowerCase();
-      if (tab && tab !== "general" && GUEST_PROFILE_VIEW_TABS.includes(tab)) {
-        return `/app/guests/${encodePathSegment(effectiveGuestDetailId)}/${encodePathSegment(tab)}`;
-      }
-      return `/app/guests/${encodePathSegment(effectiveGuestDetailId)}`;
-    }
-    return "/app/guests";
-  }
-  if (activeView === "invitations") {
-    if (invitationsWorkspace === "create") {
-      return "/app/invitations/new";
-    }
-    return "/app/invitations";
-  }
-  return "/app";
-}
-
-function isSpecificEventDetailPath(pathname) {
-  return /^\/app\/events\/[^/]+(?:\/plan\/(?:menu|shopping|ambience|timings|communication|risks)|\/(?:menu|shopping|ambience|timings|communication|risks))?$/.test(
-    String(pathname || "").trim()
-  );
-}
-
-function isSpecificGuestDetailPath(pathname) {
-  return /^\/app\/guests\/[^/]+(?:\/(?:general|food|lifestyle|conversation|health|history))?$/.test(
-    String(pathname || "").trim()
-  );
-}
-
-function isSpecificGuestAdvancedEditPath(pathname) {
-  return /^\/app\/guests\/[^/]+\/edit\/advanced\/[^/]+$/.test(String(pathname || "").trim());
-}
-
-function isGenericEventPath(pathname) {
-  return String(pathname || "").trim() === "/app/events";
-}
-
-function isGenericGuestPath(pathname) {
-  return String(pathname || "").trim() === "/app/guests";
-}
-
-function isNewGuestAdvancedPath(pathname) {
-  return /^\/app\/guests\/new\/advanced\/[^/]+$/.test(String(pathname || "").trim());
-}
-
-function shouldPreserveSpecificPath(currentPath, nextPath) {
-  const current = String(currentPath || "").trim();
-  const next = String(nextPath || "").trim();
-  if (!current || !next || current === next) {
-    return false;
-  }
-
-  if (isSpecificEventDetailPath(current) && isGenericEventPath(next)) {
-    return true;
-  }
-  if (isSpecificGuestDetailPath(current) && isGenericGuestPath(next)) {
-    return true;
-  }
-  if (isSpecificGuestAdvancedEditPath(current) && (isGenericGuestPath(next) || isNewGuestAdvancedPath(next))) {
-    return true;
-  }
-  return false;
-}
-
 function DashboardScreen({
   t,
   language,
@@ -2673,8 +284,6 @@ function DashboardScreen({
   );
   const [activeView, setActiveView] = useState(initialRouteState.activeView);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [mobileExpandedView, setMobileExpandedView] = useState(initialRouteState.activeView);
-  const [mobileMenuDepth, setMobileMenuDepth] = useState("root");
   const [eventsWorkspace, setEventsWorkspace] = useState(initialRouteState.eventsWorkspace);
   const [guestsWorkspace, setGuestsWorkspace] = useState(initialRouteState.guestsWorkspace);
   const [invitationsWorkspace, setInvitationsWorkspace] = useState(initialRouteState.invitationsWorkspace);
@@ -2899,39 +508,11 @@ function DashboardScreen({
     deleteTarget?.type === "event"
       ? isDeletingEventId === deleteTarget.item?.id
       : deleteTarget?.type === "guest"
-      ? isDeletingGuestId === deleteTarget.item?.id
-      : deleteTarget?.type === "invitation"
-      ? isDeletingInvitationId === deleteTarget.item?.id
-      : false;
-  const getWorkspaceForView = useCallback(
-    (viewKey) =>
-      viewKey === "events"
-        ? eventsWorkspace
-        : viewKey === "guests"
-        ? guestsWorkspace
-        : viewKey === "invitations"
-        ? invitationsWorkspace
-        : "latest",
-    [eventsWorkspace, guestsWorkspace, invitationsWorkspace]
-  );
-  const mobileMenuItems = useMemo(
-    () =>
-      VIEW_CONFIG.map((item) => ({
-        ...item,
-        workspaceItems: getWorkspaceItemsByView(item.key, true)
-      })),
-    []
-  );
-  const mobilePanelItem =
-    mobileMenuItems.find((item) => item.key === mobileExpandedView) ||
-    mobileMenuItems.find((item) => item.key === activeView) ||
-    null;
-  const mobilePanelWorkspaceItems = mobilePanelItem?.workspaceItems || [];
-  const mobilePanelWorkspace = mobilePanelItem ? getWorkspaceForView(mobilePanelItem.key) : "hub";
-  const mobilePanelWorkspaceItem =
-    mobilePanelWorkspaceItems.find((workspaceItem) => workspaceItem.key === mobilePanelWorkspace) ||
-    mobilePanelWorkspaceItems[0] ||
-    null;
+        ? isDeletingGuestId === deleteTarget.item?.id
+        : deleteTarget?.type === "invitation"
+          ? isDeletingInvitationId === deleteTarget.item?.id
+          : false;
+
   const guestProfileTabs = useMemo(
     () => [
       { key: "general", label: t("guest_profile_tab_general") },
@@ -3038,7 +619,7 @@ function DashboardScreen({
         const isOwnerByPhone = Boolean(phoneKey && ownerPhoneKey && phoneKey === ownerPhoneKey);
         const isOwnerByName = Boolean(
           (nameKey && ownerNameKeys.exact && nameKey === ownerNameKeys.exact) ||
-            (fullNameKey && ownerNameKeys.full && fullNameKey === ownerNameKeys.full)
+          (fullNameKey && ownerNameKeys.full && fullNameKey === ownerNameKeys.full)
         );
         if (isOwnerByEmail || isOwnerByPhone || isOwnerByName) {
           return ownerGuestCandidate;
@@ -3185,9 +766,9 @@ function DashboardScreen({
       const previewId = fingerprint ? `fp:${fingerprint}` : `idx:${index}`;
       const requiresMergeApproval = Boolean(
         duplicateExisting &&
-          willMerge &&
-          duplicateMergeConfidence === "low" &&
-          !approvedLowConfidenceMergeIds.includes(previewId)
+        willMerge &&
+        duplicateMergeConfidence === "low" &&
+        !approvedLowConfidenceMergeIds.includes(previewId)
       );
       const existingGuestName =
         duplicateExisting && existingGuest
@@ -3195,8 +776,8 @@ function DashboardScreen({
           : "";
       const canImport = Boolean(
         (firstName || email || phone) &&
-          !duplicateInPreview &&
-          (!duplicateExisting || (willMerge && !requiresMergeApproval))
+        !duplicateInPreview &&
+        (!duplicateExisting || (willMerge && !requiresMergeApproval))
       );
       const hasDualChannel = Boolean(normalizeEmailKey(email) && normalizePhoneKey(phone));
       const captureScore = calculateImportContactCaptureScore({
@@ -3743,10 +1324,10 @@ function DashboardScreen({
         label: t("field_allergies"),
         done: Boolean(
           toList(sensitiveItem.allergies).length ||
-            toList(sensitiveItem.intolerances).length ||
-            toList(sensitiveItem.pet_allergies).length ||
-            toList(sensitiveItem.medical_conditions).length ||
-            toList(sensitiveItem.dietary_medical_restrictions).length
+          toList(sensitiveItem.intolerances).length ||
+          toList(sensitiveItem.pet_allergies).length ||
+          toList(sensitiveItem.medical_conditions).length ||
+          toList(sensitiveItem.dietary_medical_restrictions).length
         )
       },
       {
@@ -3754,9 +1335,9 @@ function DashboardScreen({
         label: t("field_food"),
         done: Boolean(
           toList(preferenceItem.food_likes).length ||
-            toList(preferenceItem.food_dislikes).length ||
-            toList(preferenceItem.drink_likes).length ||
-            toList(preferenceItem.drink_dislikes).length
+          toList(preferenceItem.food_dislikes).length ||
+          toList(preferenceItem.drink_likes).length ||
+          toList(preferenceItem.drink_dislikes).length
         )
       },
       {
@@ -3812,23 +1393,6 @@ function DashboardScreen({
     }
     return Math.round((convertedHostGuestsCount / hostPotentialGuestsCount) * 100);
   }, [convertedHostGuestsCount, hostPotentialGuestsCount]);
-  const conversionBySource = useMemo(() => {
-    const totals = { email: 0, phone: 0, google: 0 };
-    for (const guestItem of guests) {
-      if (!guestItem.email && !guestItem.phone) {
-        continue;
-      }
-      const conversion = guestHostConversionById[guestItem.id];
-      if (!conversion) {
-        continue;
-      }
-      const source = getConversionSource(conversion);
-      if (source === "google" || source === "phone" || source === "email") {
-        totals[source] += 1;
-      }
-    }
-    return totals;
-  }, [guests, guestHostConversionById]);
   const conversionWindowCounts = useMemo(() => {
     const now = Date.now();
     const limits = {
@@ -4173,10 +1737,10 @@ function DashboardScreen({
           invitationItem.status === "yes"
             ? "activity_rsvp_yes"
             : invitationItem.status === "no"
-            ? "activity_rsvp_no"
-            : invitationItem.status === "maybe"
-            ? "activity_rsvp_maybe"
-            : "activity_rsvp_pending";
+              ? "activity_rsvp_no"
+              : invitationItem.status === "maybe"
+                ? "activity_rsvp_maybe"
+                : "activity_rsvp_pending";
         return {
           id: `inv-response-${invitationItem.id}`,
           at: invitationItem.responded_at,
@@ -4443,8 +2007,8 @@ function DashboardScreen({
         label: t("guest_advanced_section_food"),
         done: Boolean(
           guestAdvanced.dietType ||
-            splitListInput(guestAdvanced.foodLikes).length ||
-            splitListInput(guestAdvanced.drinkLikes).length
+          splitListInput(guestAdvanced.foodLikes).length ||
+          splitListInput(guestAdvanced.drinkLikes).length
         )
       },
       {
@@ -4452,10 +2016,10 @@ function DashboardScreen({
         label: t("guest_advanced_section_health"),
         done: Boolean(
           splitListInput(guestAdvanced.allergies).length ||
-            splitListInput(guestAdvanced.intolerances).length ||
-            splitListInput(guestAdvanced.petAllergies).length ||
-            splitListInput(guestAdvanced.medicalConditions).length ||
-            splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
+          splitListInput(guestAdvanced.intolerances).length ||
+          splitListInput(guestAdvanced.petAllergies).length ||
+          splitListInput(guestAdvanced.medicalConditions).length ||
+          splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
         )
       },
       {
@@ -4463,8 +2027,8 @@ function DashboardScreen({
         label: t("guest_advanced_section_lifestyle"),
         done: Boolean(
           splitListInput(guestAdvanced.musicGenres).length ||
-            splitListInput(guestAdvanced.sports).length ||
-            splitListInput(guestAdvanced.preferredDayMoments).length
+          splitListInput(guestAdvanced.sports).length ||
+          splitListInput(guestAdvanced.preferredDayMoments).length
         )
       },
       {
@@ -4485,10 +2049,10 @@ function DashboardScreen({
         label: t("field_allergies"),
         done: Boolean(
           splitListInput(guestAdvanced.allergies).length ||
-            splitListInput(guestAdvanced.intolerances).length ||
-            splitListInput(guestAdvanced.petAllergies).length ||
-            splitListInput(guestAdvanced.medicalConditions).length ||
-            splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
+          splitListInput(guestAdvanced.intolerances).length ||
+          splitListInput(guestAdvanced.petAllergies).length ||
+          splitListInput(guestAdvanced.medicalConditions).length ||
+          splitListInput(guestAdvanced.dietaryMedicalRestrictions).length
         )
       },
       { key: "menu", label: t("field_food_likes"), done: Boolean(splitListInput(guestAdvanced.foodLikes).length) },
@@ -4949,9 +2513,9 @@ function DashboardScreen({
         done:
           mapsStatus === "ready" && normalizedAddress
             ? Boolean(
-                selectedPlace?.placeId ||
-                  (typeof selectedPlace?.lat === "number" && typeof selectedPlace?.lng === "number")
-              )
+              selectedPlace?.placeId ||
+              (typeof selectedPlace?.lat === "number" && typeof selectedPlace?.lng === "number")
+            )
             : Boolean(normalizedAddress)
       },
       { phase: "publish", done: publishReady },
@@ -5661,9 +3225,9 @@ function DashboardScreen({
     const hasHealthAlerts = selectedEventHealthAlerts.length > 0;
     const hasAdvancedConfig = Boolean(
       selectedEventSettings.allow_plus_one ||
-        selectedEventSettings.auto_reminders ||
-        selectedEventSettings.dress_code !== "none" ||
-        selectedEventSettings.playlist_mode !== "host_only"
+      selectedEventSettings.auto_reminders ||
+      selectedEventSettings.dress_code !== "none" ||
+      selectedEventSettings.playlist_mode !== "host_only"
     );
     return [
       { key: "date", done: hasDate, label: t("event_check_date") },
@@ -6500,11 +4064,11 @@ function DashboardScreen({
     if (eventsError || guestsError || invitationsError || hostProfileError || eventPlannerError) {
       setDashboardError(
         eventsError?.message ||
-          guestsError?.message ||
-          invitationsError?.message ||
-          hostProfileError?.message ||
-          eventPlannerError?.message ||
-          t("error_load_data")
+        guestsError?.message ||
+        invitationsError?.message ||
+        hostProfileError?.message ||
+        eventPlannerError?.message ||
+        t("error_load_data")
       );
       return;
     }
@@ -6590,17 +4154,17 @@ function DashboardScreen({
       const settingsFromCache = normalizeEventSettings(cachedEventSettingsById[eventItem.id] || {});
       const rowHasAnyValue = Boolean(
         settingsFromRow.description ||
-          settingsFromRow.allow_plus_one ||
-          settingsFromRow.auto_reminders ||
-          settingsFromRow.dress_code !== "none" ||
-          settingsFromRow.playlist_mode !== "host_only"
+        settingsFromRow.allow_plus_one ||
+        settingsFromRow.auto_reminders ||
+        settingsFromRow.dress_code !== "none" ||
+        settingsFromRow.playlist_mode !== "host_only"
       );
       const cacheHasAnyValue = Boolean(
         settingsFromCache.description ||
-          settingsFromCache.allow_plus_one ||
-          settingsFromCache.auto_reminders ||
-          settingsFromCache.dress_code !== "none" ||
-          settingsFromCache.playlist_mode !== "host_only"
+        settingsFromCache.allow_plus_one ||
+        settingsFromCache.auto_reminders ||
+        settingsFromCache.dress_code !== "none" ||
+        settingsFromCache.playlist_mode !== "host_only"
       );
       const shouldUseCache = !hasEventSettingsColumns(eventItem) || (!rowHasAnyValue && cacheHasAnyValue);
       const effectiveSettings = shouldUseCache ? settingsFromCache : settingsFromRow;
@@ -6732,7 +4296,7 @@ function DashboardScreen({
     const routeEventId = isEventRoute ? String(appRoute?.eventId || "").trim() : "";
     const routePlannerTab =
       appRoute?.workspace === "plan" &&
-      EVENT_PLANNER_VIEW_TABS.includes(String(appRoute?.eventPlannerTab || "").trim().toLowerCase())
+        EVENT_PLANNER_VIEW_TABS.includes(String(appRoute?.eventPlannerTab || "").trim().toLowerCase())
         ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
         : "menu";
     if (selectedEventDetail?.id && routeEventId && selectedEventDetail.id === routeEventId && appRoute?.workspace === "plan") {
@@ -6893,7 +4457,6 @@ function DashboardScreen({
   useEffect(() => {
     const nextRoute = normalizeDashboardRouteState(appRoute);
     setActiveView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
-    setMobileExpandedView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
     if (nextRoute.activeView === "events") {
       setEventsWorkspace((prev) => (prev === nextRoute.eventsWorkspace ? prev : nextRoute.eventsWorkspace));
       setEventDetailPlannerTab((prev) => (prev === nextRoute.eventPlannerTab ? prev : nextRoute.eventPlannerTab));
@@ -7101,11 +4664,11 @@ function DashboardScreen({
     setSelectedGuestAddressPlace(
       guestItem.address
         ? {
-            placeId: null,
-            formattedAddress: guestItem.address,
-            lat: null,
-            lng: null
-          }
+          placeId: null,
+          formattedAddress: guestItem.address,
+          lat: null,
+          lng: null
+        }
         : null
     );
     setGuestAddressPredictions([]);
@@ -7288,9 +4851,6 @@ function DashboardScreen({
         ) {
           setInvitationsWorkspace(parsed.invitationsWorkspace === "hub" ? "latest" : parsed.invitationsWorkspace);
         }
-        if (typeof parsed?.mobileExpandedView === "string" && validViews.includes(parsed.mobileExpandedView)) {
-          setMobileExpandedView(parsed.mobileExpandedView);
-        }
       }
       if (typeof parsed?.bulkInvitationSegment === "string" && INVITATION_BULK_SEGMENTS.includes(parsed.bulkInvitationSegment)) {
         setBulkInvitationSegment(parsed.bulkInvitationSegment);
@@ -7323,7 +4883,6 @@ function DashboardScreen({
       eventsWorkspace,
       guestsWorkspace,
       invitationsWorkspace,
-      mobileExpandedView,
       bulkInvitationSegment
     };
     window.localStorage.setItem(prefsStorageKey, JSON.stringify(payload));
@@ -7345,7 +4904,6 @@ function DashboardScreen({
     eventsWorkspace,
     guestsWorkspace,
     invitationsWorkspace,
-    mobileExpandedView,
     bulkInvitationSegment,
     prefsReady,
     prefsStorageKey
@@ -7568,16 +5126,11 @@ function DashboardScreen({
 
   const closeMobileMenu = () => {
     setIsMenuOpen(false);
-    setMobileMenuDepth("root");
   };
 
   const toggleMobileMenu = () => {
     setIsMenuOpen((prev) => {
       const next = !prev;
-      if (next) {
-        setMobileExpandedView(activeView);
-        setMobileMenuDepth("root");
-      }
       return next;
     });
   };
@@ -7596,7 +5149,6 @@ function DashboardScreen({
     }
     setActiveView(viewKey);
     setWorkspaceByView(viewKey, workspaceKey);
-    setMobileExpandedView(viewKey);
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7635,11 +5187,11 @@ function DashboardScreen({
       setSelectedGuestAddressPlace(
         linkedGuest.address
           ? {
-              placeId: null,
-              formattedAddress: linkedGuest.address,
-              lat: null,
-              lng: null
-            }
+            placeId: null,
+            formattedAddress: linkedGuest.address,
+            lat: null,
+            lng: null
+          }
           : null
       );
     } else {
@@ -7664,7 +5216,6 @@ function DashboardScreen({
     markUserNavigationIntent();
     syncHostGuestProfileForm();
     setActiveView("profile");
-    setMobileExpandedView("overview");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7680,7 +5231,6 @@ function DashboardScreen({
     setEventDetailPlannerTab("menu");
     setActiveView("events");
     setEventsWorkspace("detail");
-    setMobileExpandedView("events");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7699,7 +5249,6 @@ function DashboardScreen({
     setEventDetailPlannerTab(normalizedTab);
     setActiveView("events");
     setEventsWorkspace("plan");
-    setMobileExpandedView("events");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7715,7 +5264,6 @@ function DashboardScreen({
     setGuestProfileViewTab("general");
     setActiveView("guests");
     setGuestsWorkspace("detail");
-    setMobileExpandedView("guests");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7765,7 +5313,6 @@ function DashboardScreen({
     if (messageKey) {
       setInvitationMessage(t(messageKey));
     }
-    setMobileExpandedView("invitations");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7773,7 +5320,6 @@ function DashboardScreen({
   const changeView = (nextView) => {
     markUserNavigationIntent();
     setActiveView(nextView);
-    setMobileExpandedView(nextView);
     if (nextView === "events" || nextView === "guests" || nextView === "invitations") {
       setWorkspaceByView(nextView, "latest");
     }
@@ -7781,23 +5327,6 @@ function DashboardScreen({
     closeMobileMenu();
   };
 
-  const handleOpenMobileSectionPanel = (viewKey, hasChildren) => {
-    markUserNavigationIntent();
-    if (!hasChildren) {
-      changeView(viewKey);
-      return;
-    }
-    setActiveView(viewKey);
-    setMobileExpandedView(viewKey);
-    setMobileMenuDepth("sub");
-  };
-
-  useEffect(() => {
-    if (isMenuOpen) {
-      setMobileExpandedView(activeView);
-      setMobileMenuDepth("root");
-    }
-  }, [isMenuOpen, activeView]);
 
   useEffect(() => {
     if (!isNotificationMenuOpen) {
@@ -8369,7 +5898,6 @@ function DashboardScreen({
     setSelectedEventDetailId(selectedEventDetail.id);
     setActiveView("events");
     setEventsWorkspace("detail");
-    setMobileExpandedView("events");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -8439,11 +5967,11 @@ function DashboardScreen({
     setSelectedPlace(
       eventItem.location_address || eventItem.location_place_id || eventItem.location_lat != null || eventItem.location_lng != null
         ? {
-            placeId: eventItem.location_place_id || null,
-            formattedAddress: eventItem.location_address || "",
-            lat: typeof eventItem.location_lat === "number" ? eventItem.location_lat : null,
-            lng: typeof eventItem.location_lng === "number" ? eventItem.location_lng : null
-          }
+          placeId: eventItem.location_place_id || null,
+          formattedAddress: eventItem.location_address || "",
+          lat: typeof eventItem.location_lat === "number" ? eventItem.location_lat : null,
+          lng: typeof eventItem.location_lng === "number" ? eventItem.location_lng : null
+        }
         : null
     );
     setAddressPredictions([]);
@@ -8581,13 +6109,13 @@ function DashboardScreen({
       const fallbackResult = isEditingEvent
         ? await supabase.from("events").update(fallbackPayload).eq("id", editingEventId).eq("host_user_id", session.user.id)
         : await supabase
-            .from("events")
-            .insert({
-              ...fallbackPayload,
-              host_user_id: session.user.id
-            })
-            .select("id")
-            .single();
+          .from("events")
+          .insert({
+            ...fallbackPayload,
+            host_user_id: session.user.id
+          })
+          .select("id")
+          .single();
       error = fallbackResult.error;
       if (!isEditingEvent) {
         savedEventId = fallbackResult.data?.id || savedEventId;
@@ -9606,9 +7134,8 @@ function DashboardScreen({
     setPendingImportMergeSelectedFieldKeys([]);
     setPendingImportMergeApprovalPreviewId("");
     setImportContactsMessage(
-      `${t("contact_import_done")} ${importedCount}. ${t("contact_import_merged")} ${mergedCount}. ${t("contact_import_skipped")} ${skippedCount}. ${
-        failedCount > 0 ? `${t("contact_import_failed")} ${failedCount}.` : ""
-      }`.trim()
+      `${t("contact_import_done")} ${importedCount}. ${t("contact_import_merged")} ${mergedCount}. ${t("contact_import_skipped")} ${skippedCount}. ${failedCount > 0 ? `${t("contact_import_failed")} ${failedCount}.` : ""
+        }`.trim()
     );
     const summary = {
       imported: importedCount,
@@ -9716,10 +7243,10 @@ function DashboardScreen({
     const existingGuest = selfGuestCandidate;
     let guestResult = existingGuest?.id
       ? await supabase
-          .from("guests")
-          .update(guestPayload)
-          .eq("id", existingGuest.id)
-          .eq("host_user_id", session.user.id)
+        .from("guests")
+        .update(guestPayload)
+        .eq("id", existingGuest.id)
+        .eq("host_user_id", session.user.id)
       : await supabase.from("guests").insert(guestPayload);
 
     if (
@@ -9728,10 +7255,10 @@ function DashboardScreen({
     ) {
       guestResult = existingGuest?.id
         ? await supabase
-            .from("guests")
-            .update(fallbackGuestPayload)
-            .eq("id", existingGuest.id)
-            .eq("host_user_id", session.user.id)
+          .from("guests")
+          .update(fallbackGuestPayload)
+          .eq("id", existingGuest.id)
+          .eq("host_user_id", session.user.id)
         : await supabase.from("guests").insert(fallbackGuestPayload);
     }
 
@@ -9973,14 +7500,14 @@ function DashboardScreen({
         mode === "pause"
           ? { ...currentDraft, status: "revoked" }
           : {
-              ...currentDraft,
-              status: "revoked",
-              allow_identity: false,
-              allow_food: false,
-              allow_lifestyle: false,
-              allow_conversation: false,
-              allow_health: false
-            };
+            ...currentDraft,
+            status: "revoked",
+            allow_identity: false,
+            allow_food: false,
+            allow_lifestyle: false,
+            allow_conversation: false,
+            allow_health: false
+          };
 
       const result = await supabase.rpc("set_my_global_profile_share", {
         p_grantee_user_id: hostId,
@@ -10035,11 +7562,11 @@ function DashboardScreen({
     setSelectedGuestAddressPlace(
       guestItem.address
         ? {
-            placeId: null,
-            formattedAddress: guestItem.address,
-            lat: null,
-            lng: null
-          }
+          placeId: null,
+          formattedAddress: guestItem.address,
+          lat: null,
+          lng: null
+        }
         : null
     );
     setGuestAddressPredictions([]);
@@ -10083,7 +7610,6 @@ function DashboardScreen({
       return;
     }
     handleStartEditGuest(guestItem, { openAdvanced: true });
-    setMobileExpandedView("guests");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -10248,9 +7774,9 @@ function DashboardScreen({
       const fallbackResult = isEditingGuest
         ? await supabase.from("guests").update(fallbackPayload).eq("id", editingGuestId).eq("host_user_id", session.user.id)
         : await supabase.from("guests").insert({
-            ...fallbackPayload,
-            host_user_id: session.user.id
-          }).select("id").single();
+          ...fallbackPayload,
+          host_user_id: session.user.id
+        }).select("id").single();
       error = fallbackResult.error;
       if (!isEditingGuest) {
         savedGuestId = fallbackResult.data?.id || "";
@@ -11486,1400 +9012,229 @@ function DashboardScreen({
   const contextualCreateAction =
     activeView === "overview" || activeView === "events"
       ? {
-          icon: "calendar",
-          label: t("quick_create_event"),
-          onClick: () => openWorkspace("events", "create")
-        }
+        icon: "calendar",
+        label: t("quick_create_event"),
+        onClick: () => openWorkspace("events", "create")
+      }
       : activeView === "guests"
-      ? {
+        ? {
           icon: "user",
           label: t("quick_create_guest"),
           onClick: () => openWorkspace("guests", "create")
         }
-      : activeView === "invitations"
-      ? {
-          icon: "mail",
-          label: t("quick_create_invitation"),
-          onClick: () => openWorkspace("invitations", "create")
-        }
-      : null;
+        : activeView === "invitations"
+          ? {
+            icon: "mail",
+            label: t("quick_create_invitation"),
+            onClick: () => openWorkspace("invitations", "create")
+          }
+          : null;
   const contextualSecondaryAction =
     activeView === "invitations" && invitationsWorkspace === "latest"
       ? {
-          icon: "message",
-          label: t("invitation_bulk_title"),
-          onClick: openInvitationBulkWorkspace
-        }
+        icon: "message",
+        label: t("invitation_bulk_title"),
+        onClick: openInvitationBulkWorkspace
+      }
       : activeView === "guests" && guestsWorkspace === "latest"
-      ? {
+        ? {
           icon: "link",
           label: t("contact_import_title"),
           onClick: handleOpenImportWizard
         }
-      : null;
+        : null;
   const hideDashboardHeader =
     (activeView === "events" && ["detail", "plan"].includes(eventsWorkspace)) ||
     (activeView === "guests" && guestsWorkspace === "detail");
 
   return (
-    <main className="page dashboard-page">
-      <section className="card app-card dashboard-shell">
-        {!hideDashboardHeader ? (
-          <header className="app-header dashboard-header">
-            <div className="dashboard-header-main">
-              <div className="brand-header brand-header-compact dashboard-mobile-brand">
-                <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
-                <p className="eyebrow">{t("app_name")}</p>
-              </div>
-              <div className="dashboard-context">
-                {sectionHeader.eyebrow ? <p className="eyebrow">{sectionHeader.eyebrow}</p> : null}
-                <h1 className="dashboard-context-title">{sectionHeader.title}</h1>
-                {sectionHeader.subtitle ? <p className="hero-text dashboard-context-subtitle">{sectionHeader.subtitle}</p> : null}
-              </div>
-            </div>
-            <div className="header-actions dashboard-header-actions">
-              <button
-                className="hamburger-btn mobile-only"
-                type="button"
-                aria-label={t("open_menu")}
-                aria-expanded={isMenuOpen}
-                aria-controls="mobile-menu"
-                onClick={toggleMobileMenu}
-              >
-                <span />
-                <span />
-                <span />
-              </button>
-              {contextualCreateAction ? (
-                <div className="dashboard-quick-actions">
-                  {contextualSecondaryAction ? (
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={contextualSecondaryAction.onClick}>
-                      <Icon name={contextualSecondaryAction.icon} className="icon icon-sm" />
-                      {contextualSecondaryAction.label}
-                    </button>
-                  ) : null}
-                  <button className="btn btn-sm" type="button" onClick={contextualCreateAction.onClick}>
-                    <Icon name={contextualCreateAction.icon} className="icon icon-sm" />
-                    {contextualCreateAction.label}
-                  </button>
-                </div>
-              ) : null}
-              <div className="dashboard-notification-menu" ref={notificationMenuRef}>
-                <button
-                  className={`icon-notification-btn ${isNotificationMenuOpen ? "active" : ""}`}
-                  type="button"
-                  aria-label={interpolateText(t("notifications_button_label"), { count: unreadNotificationCount })}
-                  aria-haspopup="menu"
-                  aria-expanded={isNotificationMenuOpen}
-                  onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
-                >
-                  <Icon name="bell" className="icon icon-sm" />
-                  {unreadNotificationCount > 0 ? (
-                    <span className="notification-count-badge" aria-hidden="true">
-                      {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                    </span>
-                  ) : null}
-                </button>
-                {isNotificationMenuOpen ? (
-                  <div className="dashboard-notification-dropdown" role="menu" aria-label={t("notifications_title")}>
-                    <div className="dashboard-notification-head">
-                      <p className="item-title">{t("notifications_title")}</p>
-                      <span className="status-pill status-pending">
-                        {interpolateText(t("notifications_unread"), { count: unreadNotificationCount })}
-                      </span>
-                    </div>
-                    {recentActivityItems.length === 0 ? (
-                      <p className="hint">{t("notifications_empty")}</p>
-                    ) : (
-                      <ul className="dashboard-notification-list">
-                        {recentActivityItems.slice(0, 6).map((activityItem) => (
-                          <li key={`head-${activityItem.id}`} className="dashboard-notification-item">
-                            <span className={`status-pill ${statusClass(activityItem.status)}`}>
-                              <Icon name={activityItem.icon} className="icon icon-xs" />
-                            </span>
-                            <div>
-                              <p className="item-title">{activityItem.title}</p>
-                              <p className="item-meta">
-                                {activityItem.meta} · {activityItem.timeLabel}
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("invitations", "latest")}>
-                        {t("notifications_open_invitations")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "latest")}>
-                        {t("notifications_open_events")}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </header>
-        ) : null}
+    <DashboardLayout
+      hideHeader={hideDashboardHeader}
+      t={t}
+      themeMode={themeMode}
+      setThemeMode={setThemeMode}
+      language={language}
+      setLanguage={setLanguage}
+      session={session}
+      onSignOut={onSignOut}
+      hostDisplayName={hostDisplayName}
+      hostInitials={hostInitials}
+      hostAvatarUrl={hostAvatarUrl}
+      unreadNotificationCount={unreadNotificationCount}
+      isNotificationMenuOpen={isNotificationMenuOpen}
+      setIsNotificationMenuOpen={setIsNotificationMenuOpen}
+      recentActivityItems={recentActivityItems}
+      activeView={activeView}
+      changeView={changeView}
+      VIEW_CONFIG={VIEW_CONFIG}
+      isMenuOpen={isMenuOpen}
+      toggleMobileMenu={toggleMobileMenu}
+      closeMobileMenu={closeMobileMenu}
+      contextualCreateAction={contextualCreateAction}
+      contextualSecondaryAction={contextualSecondaryAction}
+      openHostProfile={openHostProfile}
+      notificationMenuRef={notificationMenuRef}
+      statusClass={statusClass}
+      sectionHeader={sectionHeader}
+      interpolateText={interpolateText}
+    >
+      {/* Decorative blobs for glassmorphism layout background */}
+      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
+      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/10 dark:bg-purple-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
 
-        <nav className="dashboard-nav desktop-only" aria-label={t("nav_sections")}>
-          <div className="dashboard-nav-top">
-            <div className="dashboard-nav-brand" aria-hidden="true">
-              <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
-              <span className="dashboard-nav-brand-copy">
-                <span className="dashboard-nav-brand-name">{t("app_name")}</span>
-                <span className="dashboard-nav-brand-role">{t("panel_title")}</span>
-              </span>
-            </div>
-            <p className="dashboard-nav-title">{t("nav_sections")}</p>
-          </div>
-          <div className="dashboard-nav-links">
-            {VIEW_CONFIG.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`nav-btn ${activeView === item.key ? "active" : ""}`}
-                onClick={() => changeView(item.key)}
-              >
-                <Icon name={item.icon} className="icon" />
-                {t(item.labelKey)}
-              </button>
-            ))}
-          </div>
-          <div className="dashboard-nav-footer">
-            <Controls
-              themeMode={themeMode}
-              setThemeMode={setThemeMode}
-              language={language}
-              setLanguage={setLanguage}
-              t={t}
-            />
-            <div className="session-box session-box-sidebar">
-              <AvatarCircle
-                className="session-avatar"
-                label={hostDisplayName}
-                fallback={hostInitials}
-                imageUrl={hostAvatarUrl}
-                size={38}
-              />
-              <div className="session-meta">
-                <p className="session-label">{t("active_session")}</p>
-                <button
-                  type="button"
-                  className="session-value session-link"
-                  onClick={openHostProfile}
-                  title={t("session_open_profile")}
-                >
-                  {hostDisplayName}
-                </button>
-                <p className="session-email">{session?.user?.email || "-"}</p>
-              </div>
-              <button className="btn btn-ghost btn-sm" type="button" onClick={onSignOut}>
-                {t("sign_out")}
-              </button>
-            </div>
-          </div>
-        </nav>
+      {dashboardError ? <InlineMessage type="error" text={dashboardError} /> : null}
 
-        <div className={`mobile-menu-overlay ${isMenuOpen ? "open" : ""}`} onClick={closeMobileMenu} />
-        <aside id="mobile-menu" className={`mobile-menu ${isMenuOpen ? "open" : ""}`} aria-hidden={!isMenuOpen}>
-          <div className="mobile-menu-header">
-            <p className="item-title">{t("nav_sections")}</p>
-            <button className="btn btn-ghost" type="button" onClick={closeMobileMenu}>
-              {t("close_menu")}
-            </button>
-          </div>
-          <nav className="mobile-nav-panels" aria-label={t("nav_sections")}>
-            <div className={`mobile-nav-track ${mobileMenuDepth === "sub" ? "show-sub" : ""}`}>
-              <section className="mobile-panel mobile-panel-root" aria-hidden={mobileMenuDepth === "sub"}>
-                <div className="mobile-nav-list">
-                  {mobileMenuItems.map((item) => {
-                    const hasChildren = item.workspaceItems.length > 0;
-                    const isActiveSection = activeView === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        className={`nav-btn mobile-panel-trigger ${isActiveSection ? "active" : ""}`}
-                        onClick={() => handleOpenMobileSectionPanel(item.key, hasChildren)}
-                      >
-                        <span className="mobile-nav-group-label">
-                          <Icon name={item.icon} className="icon" />
-                          {t(item.labelKey)}
-                        </span>
-                        {hasChildren ? <Icon name="chevron_down" className="icon icon-xs mobile-panel-next" /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
+      {activeView === "overview" ? (
+        <DashboardOverview
+          t={t}
+          openWorkspace={openWorkspace}
+          events={events}
+          latestEventPreview={latestEventPreview}
+          guests={guests}
+          latestGuestPreview={latestGuestPreview}
+          invitations={invitations}
+          pendingInvites={pendingInvites}
+          pendingInvitationPreview={pendingInvitationPreview}
+          respondedInvitesRate={respondedInvitesRate}
+          respondedInvites={respondedInvites}
+          answeredInvitationPreview={answeredInvitationPreview}
+          upcomingEventsPreview={upcomingEventsPreview}
+          openEventDetail={openEventDetail}
+          interpolateText={interpolateText}
+          statusClass={statusClass}
+          statusText={statusText}
+          hostDisplayName={hostDisplayName}
+          hostInitials={hostInitials}
+          hostAvatarUrl={hostAvatarUrl}
+          convertedHostRate={convertedHostRate}
+          hostMemberSinceLabel={hostMemberSinceLabel}
+          hostRatingScore={hostRatingScore}
+          recentActivityItems={recentActivityItems}
+          hostPotentialGuestsCount={hostPotentialGuestsCount}
+          invitedPotentialHostsCount={invitedPotentialHostsCount}
+          convertedHostGuestsCount={convertedHostGuestsCount}
+          conversionWindowCounts={conversionWindowCounts}
+          conversionTrend14d={conversionTrend14d}
+          conversionTrendMax={conversionTrendMax}
+        />
+      ) : null}
 
-              <section className="mobile-panel mobile-panel-sub" aria-hidden={mobileMenuDepth !== "sub"}>
-                <div className="mobile-subnav mobile-subnav-panel">
-                  <div className="mobile-subnav-header">
-                    <button
-                      className="btn btn-ghost btn-sm workspace-back-btn"
-                      type="button"
-                      onClick={() => setMobileMenuDepth("root")}
-                    >
-                      <Icon name="arrow_left" className="icon icon-sm" />
-                      {t("mobile_back_sections")}
-                    </button>
-                    {mobilePanelWorkspace !== "hub" ? (
-                      <button
-                        className="btn btn-ghost btn-sm workspace-back-btn"
-                        type="button"
-                        onClick={() => openWorkspace(mobilePanelItem?.key || activeView, "hub")}
-                      >
-                        <Icon name="folder" className="icon icon-sm" />
-                        {t("workspace_back_to_folders")}
-                      </button>
-                    ) : null}
-                  </div>
-                  <p className="mobile-subnav-breadcrumb">
-                    <Icon name="folder" className="icon icon-sm" />
-                    {t("workspace_path_prefix")}: {t(mobilePanelItem?.labelKey || "nav_sections")} /{" "}
-                    {t(mobilePanelWorkspaceItem?.labelKey || "workspace_folders")}
-                  </p>
-                  <div className="mobile-subnav-list">
-                    {mobilePanelWorkspaceItems.map((workspaceItem) => (
-                      <button
-                        key={workspaceItem.key}
-                        type="button"
-                        className={`nav-btn nav-btn-sm ${
-                          activeView === mobilePanelItem?.key && mobilePanelWorkspace === workspaceItem.key ? "active" : ""
-                        }`}
-                        onClick={() => openWorkspace(mobilePanelItem?.key || activeView, workspaceItem.key)}
-                      >
-                        <Icon name={workspaceItem.icon} className="icon icon-sm" />
-                        {t(workspaceItem.labelKey)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            </div>
-          </nav>
-          <div className="mobile-menu-footer">
-            {contextualCreateAction ? (
-              <div className="mobile-menu-create-actions">
-                <button className="btn btn-sm" type="button" onClick={contextualCreateAction.onClick}>
-                  <Icon name={contextualCreateAction.icon} className="icon icon-sm" />
-                  {contextualCreateAction.label}
-                </button>
-              </div>
-            ) : null}
-            <Controls
-              themeMode={themeMode}
-              setThemeMode={setThemeMode}
-              language={language}
-              setLanguage={setLanguage}
-              t={t}
-            />
-            <div className="session-box session-box-mobile">
-              <AvatarCircle
-                className="session-avatar"
-                label={hostDisplayName}
-                fallback={hostInitials}
-                imageUrl={hostAvatarUrl}
-                size={38}
-              />
-              <div className="session-meta">
-                <p className="session-label">{t("active_session")}</p>
-                <button
-                  type="button"
-                  className="session-value session-link"
-                  onClick={openHostProfile}
-                  title={t("session_open_profile")}
-                >
-                  {hostDisplayName}
-                </button>
-                <p className="session-email">{session?.user?.email || "-"}</p>
-              </div>
-              <button className="btn btn-ghost btn-sm" type="button" onClick={onSignOut}>
-                {t("sign_out")}
-              </button>
-            </div>
-          </div>
-        </aside>
+      {activeView === "profile" ? (
+        <HostProfileView
+          interpolateText={interpolateText}
+          formatRelativeDate={formatRelativeDate}
+          normalizeLookupValue={normalizeLookupValue}
+          t={t}
+          language={language}
+          session={session}
+          isProfileGuestLinked={isProfileGuestLinked}
+          hostGuestProfilePercent={hostGuestProfilePercent}
+          hostGuestProfileCompletedCount={hostGuestProfileCompletedCount}
+          hostGuestProfileTotalCount={hostGuestProfileTotalCount}
+          hostGuestProfileSignals={hostGuestProfileSignals}
+          profileLinkedGuestId={profileLinkedGuestId}
+          openGuestAdvancedEditor={openGuestAdvancedEditor}
+          syncHostGuestProfileForm={syncHostGuestProfileForm}
+          isGlobalProfileClaimed={isGlobalProfileClaimed}
+          isGlobalProfileFeatureReady={isGlobalProfileFeatureReady}
+          handleClaimGlobalProfile={handleClaimGlobalProfile}
+          isClaimingGlobalProfile={isClaimingGlobalProfile}
+          handleLinkProfileGuestToGlobal={handleLinkProfileGuestToGlobal}
+          isLinkingGlobalGuest={isLinkingGlobalGuest}
+          handleLinkAllGuestsToGlobalProfiles={handleLinkAllGuestsToGlobalProfiles}
+          isLinkingAllGlobalGuests={isLinkingAllGlobalGuests}
+          globalShareTargetsVisible={globalShareTargetsVisible}
+          handleApplyGlobalShareAction={handleApplyGlobalShareAction}
+          isPausingGlobalShares={isPausingGlobalShares}
+          isRevokingGlobalShares={isRevokingGlobalShares}
+          globalProfileId={globalProfileId}
+          globalShareActiveCount={globalShareActiveCount}
+          globalShareSelfTargetCount={globalShareSelfTargetCount}
+          globalShareDraftByHostId={globalShareDraftByHostId}
+          inferGlobalSharePreset={inferGlobalSharePreset}
+          statusClass={statusClass}
+          handleApplyGlobalSharePreset={handleApplyGlobalSharePreset}
+          handleChangeGlobalShareDraft={handleChangeGlobalShareDraft}
+          previewGlobalShareHostId={previewGlobalShareHostId}
+          setPreviewGlobalShareHostId={setPreviewGlobalShareHostId}
+          handleRequestSaveGlobalShare={handleRequestSaveGlobalShare}
+          savingGlobalShareHostId={savingGlobalShareHostId}
+          globalShareHistoryItems={globalShareHistoryItems}
+          isLoadingGlobalShareHistory={isLoadingGlobalShareHistory}
+          formatGlobalShareEventType={formatGlobalShareEventType}
+          globalProfileMessage={globalProfileMessage}
+          isIntegrationDebugEnabled={isIntegrationDebugEnabled}
+          integrationChecksTotal={integrationChecksTotal}
+          integrationChecksOkCount={integrationChecksOkCount}
+          isIntegrationPanelOpen={isIntegrationPanelOpen}
+          setIsIntegrationPanelOpen={setIsIntegrationPanelOpen}
+          loadIntegrationStatusData={loadIntegrationStatusData}
+          isLoadingIntegrationStatus={isLoadingIntegrationStatus}
+          integrationStatus={integrationStatus}
+          integrationShareTargetCount={integrationShareTargetCount}
+          integrationSelfTargetCount={integrationSelfTargetCount}
+          integrationChecks={integrationChecks}
+          integrationStatusMessage={integrationStatusMessage}
+          handleSaveHostProfile={handleSaveHostProfile}
+          hostProfileName={hostProfileName}
+          setHostProfileName={setHostProfileName}
+          hostProfilePhone={hostProfilePhone}
+          setHostProfilePhone={setHostProfilePhone}
+          hostProfileCity={hostProfileCity}
+          setHostProfileCity={setHostProfileCity}
+          hostProfileCountry={hostProfileCountry}
+          setHostProfileCountry={setHostProfileCountry}
+          hostProfileRelationship={hostProfileRelationship}
+          setHostProfileRelationship={setHostProfileRelationship}
+          relationshipOptions={relationshipOptions}
+          cityOptions={cityOptions}
+          countryOptions={countryOptions}
+          isSavingHostProfile={isSavingHostProfile}
+          hostProfileMessage={hostProfileMessage}
+          handleSaveGuest={handleSaveGuest}
+          guestFirstName={guestFirstName}
+          setGuestFirstName={setGuestFirstName}
+          guestErrors={guestErrors}
+          guestLastName={guestLastName}
+          setGuestLastName={setGuestLastName}
+          guestPhotoUrl={guestPhotoUrl}
+          guestPhotoInputValue={guestPhotoInputValue}
+          handleGuestPhotoUrlChange={handleGuestPhotoUrlChange}
+          handleGuestPhotoFileChange={handleGuestPhotoFileChange}
+          handleRemoveGuestPhoto={handleRemoveGuestPhoto}
+          guestEmail={guestEmail}
+          guestPhone={guestPhone}
+          setGuestPhone={setGuestPhone}
+          guestRelationship={guestRelationship}
+          setGuestRelationship={setGuestRelationship}
+          guestCity={guestCity}
+          setGuestCity={setGuestCity}
+          guestCountry={guestCountry}
+          setGuestCountry={setGuestCountry}
+          guestAdvanced={guestAdvanced}
+          setGuestAdvancedField={setGuestAdvancedField}
+          selectedGuestAddressPlace={selectedGuestAddressPlace}
+          setSelectedGuestAddressPlace={setSelectedGuestAddressPlace}
+          mapsStatus={mapsStatus}
+          mapsError={mapsError}
+          isGuestAddressLoading={isGuestAddressLoading}
+          guestAddressPredictions={guestAddressPredictions}
+          handleSelectGuestAddressPrediction={handleSelectGuestAddressPrediction}
+          isSavingGuest={isSavingGuest}
+          isEditingGuest={isEditingGuest}
+          guestMessage={guestMessage}
+          openGuestDetail={openGuestDetail}
+          openWorkspace={openWorkspace}
+        />
+      ) : null}
 
-        <nav className="mobile-bottom-nav" aria-label={t("nav_sections")}>
-          {VIEW_CONFIG.map((item) => (
-            <button
-              key={`mobile-bottom-${item.key}`}
-              type="button"
-              className={`mobile-bottom-nav-btn ${activeView === item.key ? "active" : ""}`}
-              onClick={() => changeView(item.key)}
-              aria-current={activeView === item.key ? "page" : undefined}
-            >
-              <Icon name={item.icon} className="icon" />
-              <span>{t(item.labelKey)}</span>
-            </button>
-          ))}
-        </nav>
-
-        <InlineMessage type="error" text={dashboardError} />
-
-        {activeView === "overview" ? (
-          <section className="overview-grid view-transition">
-            <div className="overview-kpi-grid">
-              <article
-                className="panel kpi-card is-interactive"
-                tabIndex={0}
-                role="button"
-                onClick={() => openWorkspace("events", "latest")}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openWorkspace("events", "latest");
-                  }
-                }}
-              >
-                <div className="kpi-card-head">
-                  <p className="hint">{t("kpi_events")}</p>
-                  <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="calendar" className="icon" />
-                  </span>
-                </div>
-                <p className="kpi-value">{events.length}</p>
-                <p className="kpi-inline-meta">{latestEventPreview[0]?.meta || t("kpi_latest_events")}</p>
-              </article>
-              <article
-                className="panel kpi-card is-interactive"
-                tabIndex={0}
-                role="button"
-                onClick={() => openWorkspace("guests", "latest")}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openWorkspace("guests", "latest");
-                  }
-                }}
-              >
-                <div className="kpi-card-head">
-                  <p className="hint">{t("kpi_guests")}</p>
-                  <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="user" className="icon" />
-                  </span>
-                </div>
-                <p className="kpi-value">{guests.length}</p>
-                <p className="kpi-inline-meta">{latestGuestPreview[0]?.main || t("kpi_latest_guests")}</p>
-              </article>
-              <article
-                className="panel kpi-card is-interactive"
-                tabIndex={0}
-                role="button"
-                onClick={() => openWorkspace("invitations", "latest")}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openWorkspace("invitations", "latest");
-                  }
-                }}
-              >
-                <div className="kpi-card-head">
-                  <p className="hint">{t("latest_invitations_title")}</p>
-                  <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="mail" className="icon" />
-                  </span>
-                </div>
-                <p className="kpi-value">{invitations.length}</p>
-                <p className="kpi-inline-meta">
-                  {pendingInvitationPreview[0]?.main || `${t("kpi_pending_rsvp")}: ${pendingInvites}`}
-                </p>
-              </article>
-              <article
-                className="panel kpi-card is-interactive"
-                tabIndex={0}
-                role="button"
-                onClick={() => openWorkspace("invitations", "latest")}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openWorkspace("invitations", "latest");
-                  }
-                }}
-              >
-                <div className="kpi-card-head">
-                  <p className="hint">{t("kpi_answered_rsvp")}</p>
-                  <span className="kpi-card-icon" aria-hidden="true">
-                    <Icon name="check" className="icon" />
-                  </span>
-                </div>
-                <p className="kpi-value">{respondedInvitesRate}%</p>
-                <p className="kpi-inline-meta">
-                  {answeredInvitationPreview[0]?.main || `${t("kpi_answered_rsvp")}: ${respondedInvites}`}
-                </p>
-              </article>
-            </div>
-            <div className="overview-secondary-grid">
-              <article className="panel overview-upcoming-panel">
-                <div className="overview-upcoming-head">
-                  <div>
-                    <h2 className="section-title">
-                      <Icon name="calendar" className="icon" />
-                      {t("overview_upcoming_title")}
-                    </h2>
-                    <p className="field-help">{t("overview_upcoming_hint")}</p>
-                  </div>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "latest")}>
-                    {t("overview_upcoming_open")}
-                  </button>
-                </div>
-                {upcomingEventsPreview.length === 0 ? (
-                  <p className="hint">{t("overview_upcoming_empty")}</p>
-                ) : (
-                  <ul className="overview-upcoming-list">
-                    {upcomingEventsPreview.map((eventItem) => (
-                      <li
-                        key={`upcoming-${eventItem.id}`}
-                        className={`overview-upcoming-item ${statusClass(eventItem.status)}`}
-                        tabIndex={0}
-                        role="button"
-                        onClick={() => openEventDetail(eventItem.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openEventDetail(eventItem.id);
-                          }
-                        }}
-                      >
-                        <div className="overview-upcoming-main">
-                          <p className="item-title">{eventItem.title}</p>
-                          <p className="item-meta">
-                            {eventItem.date} · {interpolateText(t("overview_upcoming_guests"), { count: eventItem.guests })}
-                          </p>
-                        </div>
-                        <div className="overview-upcoming-meta">
-                          <span className={`status-pill ${statusClass(eventItem.status)}`}>{statusText(t, eventItem.status)}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-              <div className="overview-side-stack">
-                <article className="panel host-rating-panel">
-                  <div className="host-profile-snapshot">
-                    <AvatarCircle
-                      className="session-avatar"
-                      label={hostDisplayName}
-                      fallback={hostInitials}
-                      imageUrl={hostAvatarUrl}
-                      size={38}
-                    />
-                    <div>
-                      <p className="item-title">{hostDisplayName}</p>
-                      <p className="field-help">{t("panel_title")}</p>
-                    </div>
-                  </div>
-                  <div className="host-rating-metrics">
-                    <p className="item-meta">
-                      <span>{t("host_rating_metric_completed")}</span>
-                      <strong>{events.filter((eventItem) => eventItem.status === "completed").length}</strong>
-                    </p>
-                    <p className="item-meta">
-                      <span>{t("host_rating_metric_response")}</span>
-                      <strong>{respondedInvitesRate}%</strong>
-                    </p>
-                    <p className="item-meta">
-                      <span>{t("host_rating_metric_growth")}</span>
-                      <strong>{convertedHostRate}%</strong>
-                    </p>
-                    <p className="item-meta">
-                      <span>{t("host_rating_since_label")}</span>
-                      <strong>{hostMemberSinceLabel}</strong>
-                    </p>
-                  </div>
-                  <p className="host-rating-score-inline">
-                    <Icon name="star" className="icon icon-sm" /> {hostRatingScore}/5
-                  </p>
-                </article>
-                <article className="panel recent-activity-panel">
-                  <h2 className="section-title">
-                    <Icon name="bell" className="icon" />
-                    {t("recent_activity_title")}
-                  </h2>
-                  <p className="field-help">{t("recent_activity_hint")}</p>
-                  {recentActivityItems.length === 0 ? (
-                    <p className="hint">{t("recent_activity_empty")}</p>
-                  ) : (
-                    <ul className="recent-activity-list">
-                      {recentActivityItems.slice(0, 6).map((activityItem) => (
-                        <li key={activityItem.id} className="recent-activity-item">
-                          <span className={`status-pill ${statusClass(activityItem.status)}`}>
-                            <Icon name={activityItem.icon} className="icon icon-xs" />
-                          </span>
-                          <div>
-                            <p className="item-title">{activityItem.title}</p>
-                            <p className="item-meta">{activityItem.meta}</p>
-                            <p className="hint">{activityItem.timeLabel}</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </article>
-              </div>
-            </div>
-            <article className="panel growth-panel">
-              <h2 className="section-title">
-                <Icon name="trend" className="icon" />
-                {t("growth_analytics_title")}
-              </h2>
-              <p className="field-help">{t("growth_analytics_hint")}</p>
-              <div className="growth-funnel-grid">
-                <article className="growth-metric-card">
-                  <p className="hint">{t("growth_funnel_potential")}</p>
-                  <p className="kpi-value">{hostPotentialGuestsCount}</p>
-                </article>
-                <article className="growth-metric-card">
-                  <p className="hint">{t("growth_funnel_invited")}</p>
-                  <p className="kpi-value">{invitedPotentialHostsCount}</p>
-                </article>
-                <article className="growth-metric-card">
-                  <p className="hint">{t("growth_funnel_converted")}</p>
-                  <p className="kpi-value">{convertedHostGuestsCount}</p>
-                </article>
-                <article className="growth-metric-card">
-                  <p className="hint">{t("growth_funnel_rate")}</p>
-                  <p className="kpi-value">{convertedHostRate}%</p>
-                </article>
-              </div>
-              <div className="growth-window-row">
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("growth_window_7d")} {conversionWindowCounts.d7}
-                </span>
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("growth_window_30d")} {conversionWindowCounts.d30}
-                </span>
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("growth_window_90d")} {conversionWindowCounts.d90}
-                </span>
-              </div>
-              <div className="growth-source-row">
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("host_conversion_source_email")}: {conversionBySource.email}
-                </span>
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("host_conversion_source_phone")}: {conversionBySource.phone}
-                </span>
-                <span className="status-pill status-host-conversion-source-google">
-                  {t("host_conversion_source_google")}: {conversionBySource.google}
-                </span>
-              </div>
-              <div className="growth-trend-chart" role="img" aria-label={t("growth_trend_14d_label")}>
-                {conversionTrend14d.map((bucket) => {
-                  const heightPercent = Math.max(8, Math.round((bucket.count / conversionTrendMax) * 100));
-                  return (
-                    <div key={bucket.key} className="growth-trend-column">
-                      <span className="growth-trend-value">{bucket.count}</span>
-                      <span className="growth-trend-bar" style={{ height: `${heightPercent}%` }} />
-                      <span className="growth-trend-label">{bucket.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </article>
-            <article className="panel overview-footnote-panel">
-              <h2 className="section-title">
-                <Icon name="sparkle" className="icon" />
-                {t("hint_accessibility")}
-              </h2>
-              <p className="field-help">{t("overview_help")}</p>
-              <p className="field-help">{t("content_translation_note")}</p>
-            </article>
-          </section>
-        ) : null}
-
-        {activeView === "profile" ? (
-          <section className="workspace-shell profile-shell view-transition">
-            <article className="panel profile-summary-card">
-              <div className="profile-summary-header">
-                <div>
-                  <h3 className="section-title">
-                    <Icon name="sparkle" className="icon" />
-                    {t("host_profile_completeness_title")}
-                  </h3>
-                  <p className="field-help">{t("host_profile_completeness_hint")}</p>
-                </div>
-                <span className={`status-pill ${isProfileGuestLinked ? "status-yes" : "status-pending"}`}>
-                  {isProfileGuestLinked ? t("host_profile_completeness_linked") : t("host_profile_completeness_unlinked")}
-                </span>
-              </div>
-              {isProfileGuestLinked ? (
-                <>
-                  <div
-                    className={`list-progress-track ${
-                      hostGuestProfilePercent >= 70
-                        ? "progress-high"
-                        : hostGuestProfilePercent >= 35
-                        ? "progress-medium"
-                        : "progress-low"
-                    }`}
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={hostGuestProfilePercent}
-                  >
-                    <span style={{ width: `${hostGuestProfilePercent}%` }} />
-                  </div>
-                  <p className="item-meta">
-                    {interpolateText(t("host_profile_completeness_progress"), {
-                      done: hostGuestProfileCompletedCount,
-                      total: hostGuestProfileTotalCount,
-                      percent: hostGuestProfilePercent
-                    })}
-                  </p>
-                  <div className="profile-summary-signals">
-                    {hostGuestProfileSignals.map((signalItem) => (
-                      <span key={signalItem.key} className={`status-pill ${signalItem.done ? "status-yes" : "status-draft"}`}>
-                        {signalItem.label}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p className="hint">{t("host_profile_completeness_unlinked_hint")}</p>
-              )}
-              <div className="button-row">
-                {isProfileGuestLinked ? (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => openGuestAdvancedEditor(profileLinkedGuestId)}
-                  >
-                    {t("host_profile_open_advanced_action")}
-                  </button>
-                ) : null}
-                <button className="btn btn-ghost btn-sm" type="button" onClick={syncHostGuestProfileForm}>
-                  {t("host_profile_guest_sync")}
-                </button>
-              </div>
-            </article>
-
-            <article className="panel profile-summary-card">
-              <div className="profile-summary-header">
-                <div>
-                  <h3 className="section-title">
-                    <Icon name="shield" className="icon" />
-                    {t("global_profile_title")}
-                  </h3>
-                  <p className="field-help">{t("global_profile_hint")}</p>
-                </div>
-                <span className={`status-pill ${isGlobalProfileClaimed ? "status-yes" : "status-pending"}`}>
-                  {isGlobalProfileClaimed ? t("global_profile_status_claimed") : t("global_profile_status_not_claimed")}
-                </span>
-              </div>
-              {!isGlobalProfileFeatureReady ? (
-                <p className="hint">{t("global_profile_feature_pending")}</p>
-              ) : (
-                <>
-                  <p className="hint">{t("global_profile_privacy_intro")}</p>
-                  <article className="recommendation-card global-share-value-card">
-                    <p className="item-title">{t("global_profile_value_title")}</p>
-                    <p className="field-help">
-                      {interpolateText(t("global_profile_value_hint"), { percent: hostGuestProfilePercent })}
-                    </p>
-                    <ul className="list recommendation-list">
-                      <li>{t("global_profile_value_benefit_1")}</li>
-                      <li>{t("global_profile_value_benefit_2")}</li>
-                      <li>{t("global_profile_value_benefit_3")}</li>
-                    </ul>
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => openWorkspace("events", "insights")}>
-                        {t("global_profile_value_action_insights")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() =>
-                          isProfileGuestLinked ? openGuestAdvancedEditor(profileLinkedGuestId) : syncHostGuestProfileForm()
-                        }
-                      >
-                        {isProfileGuestLinked
-                          ? t("global_profile_value_action_profile")
-                          : t("global_profile_value_action_link_profile")}
-                      </button>
-                    </div>
-                  </article>
-                  <div className="button-row">
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleClaimGlobalProfile} disabled={isClaimingGlobalProfile}>
-                      {isClaimingGlobalProfile ? t("global_profile_claiming") : t("global_profile_claim_action")}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => handleLinkProfileGuestToGlobal(profileLinkedGuestId)}
-                      disabled={isLinkingGlobalGuest || !isProfileGuestLinked}
-                    >
-                      {isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_self_action")}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={handleLinkAllGuestsToGlobalProfiles}
-                      disabled={isLinkingAllGlobalGuests}
-                    >
-                      {isLinkingAllGlobalGuests ? t("global_profile_linking_all") : t("global_profile_link_all_action")}
-                    </button>
-                  </div>
-                  {globalShareTargetsVisible.length > 0 ? (
-                    <div className="button-row">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() => handleApplyGlobalShareAction("pause")}
-                        disabled={isPausingGlobalShares || isRevokingGlobalShares}
-                      >
-                        {isPausingGlobalShares ? t("global_profile_share_bulk_pausing") : t("global_profile_share_bulk_pause")}
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        type="button"
-                        onClick={() => handleApplyGlobalShareAction("revoke_all")}
-                        disabled={isRevokingGlobalShares || isPausingGlobalShares}
-                      >
-                        {isRevokingGlobalShares
-                          ? t("global_profile_share_bulk_revoking")
-                          : t("global_profile_share_bulk_revoke_all")}
-                      </button>
-                    </div>
-                  ) : null}
-                  <p className="hint">
-                    {isGlobalProfileClaimed
-                      ? interpolateText(t("global_profile_id_hint"), { id: globalProfileId })
-                      : t("global_profile_claim_hint")}
-                  </p>
-                  <div className="profile-summary-signals">
-                    <span className="status-pill status-host-conversion-source-default">
-                      {t("global_profile_share_targets_count")} {globalShareTargetsVisible.length}
-                    </span>
-                    <span className="status-pill status-host-conversion-source-default">
-                      {t("global_profile_share_active_count")} {globalShareActiveCount}
-                    </span>
-                  </div>
-                  {globalShareSelfTargetCount > 0 ? (
-                    <p className="hint">{t("global_profile_share_self_hidden_hint")}</p>
-                  ) : null}
-                  {globalShareTargetsVisible.length > 0 ? (
-                    <div className="global-share-grid">
-                      {globalShareTargetsVisible.map((targetItem) => {
-                        const hostId = targetItem.host_user_id;
-                        const shareDraft = globalShareDraftByHostId[hostId] || {
-                          status: "inactive",
-                          allow_identity: false,
-                          allow_food: false,
-                          allow_lifestyle: false,
-                          allow_conversation: false,
-                          allow_health: false
-                        };
-                        const appliedPreset = inferGlobalSharePreset(shareDraft);
-                        return (
-                          <article key={hostId} className="recommendation-card global-share-card">
-                            <div className="profile-linkage-row">
-                              <div>
-                                <p className="item-title">{targetItem.host_name || t("host_default_name")}</p>
-                                <p className="item-meta">{targetItem.host_email || hostId}</p>
-                              </div>
-                              <span className={`status-pill ${statusClass(shareDraft.status)}`}>
-                                {String(shareDraft.status || "").toLowerCase() === "active"
-                                  ? t("status_active")
-                                  : t("status_revoked")}
-                              </span>
-                            </div>
-                            <p className="hint">
-                              {t("global_profile_link_count_hint")} {targetItem.link_count || 0}
-                            </p>
-                            <p className="item-meta">{t("global_profile_share_level_label")}</p>
-                            <div className="share-preset-row">
-                              <button
-                                className={`multi-chip ${appliedPreset === "basic" ? "active" : ""}`}
-                                type="button"
-                                onClick={() => handleApplyGlobalSharePreset(hostId, "basic")}
-                              >
-                                {t("global_profile_share_preset_basic")}
-                              </button>
-                              <button
-                                className={`multi-chip ${appliedPreset === "custom" ? "active" : ""}`}
-                                type="button"
-                                onClick={() => handleApplyGlobalSharePreset(hostId, "custom")}
-                              >
-                                {t("global_profile_share_preset_custom")}
-                              </button>
-                              <button
-                                className={`multi-chip ${appliedPreset === "private" ? "active" : ""}`}
-                                type="button"
-                                onClick={() => handleApplyGlobalSharePreset(hostId, "private")}
-                              >
-                                {t("global_profile_share_preset_private")}
-                              </button>
-                            </div>
-                            {appliedPreset === "custom" ? (
-                              <div className="global-share-permissions">
-                                <label className="event-setting-toggle">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(shareDraft.allow_identity)}
-                                    onChange={(event) =>
-                                      handleChangeGlobalShareDraft(hostId, "allow_identity", event.target.checked)
-                                    }
-                                  />
-                                  {t("global_profile_scope_identity")}
-                                </label>
-                                <label className="event-setting-toggle">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(shareDraft.allow_food)}
-                                    onChange={(event) => handleChangeGlobalShareDraft(hostId, "allow_food", event.target.checked)}
-                                  />
-                                  {t("global_profile_scope_food")}
-                                </label>
-                                <label className="event-setting-toggle">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(shareDraft.allow_lifestyle)}
-                                    onChange={(event) =>
-                                      handleChangeGlobalShareDraft(hostId, "allow_lifestyle", event.target.checked)
-                                    }
-                                  />
-                                  {t("global_profile_scope_lifestyle")}
-                                </label>
-                                <label className="event-setting-toggle">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(shareDraft.allow_conversation)}
-                                    onChange={(event) =>
-                                      handleChangeGlobalShareDraft(hostId, "allow_conversation", event.target.checked)
-                                    }
-                                  />
-                                  {t("global_profile_scope_conversation")}
-                                </label>
-                                <label className="event-setting-toggle">
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(shareDraft.allow_health)}
-                                    onChange={(event) =>
-                                      handleChangeGlobalShareDraft(hostId, "allow_health", event.target.checked)
-                                    }
-                                  />
-                                  {t("global_profile_scope_health")}
-                                </label>
-                              </div>
-                            ) : null}
-                            <div className="button-row">
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                type="button"
-                                onClick={() =>
-                                  setPreviewGlobalShareHostId((prev) => (prev === hostId ? "" : hostId))
-                                }
-                              >
-                                {previewGlobalShareHostId === hostId
-                                  ? t("global_profile_preview_hide")
-                                  : t("global_profile_preview_show")}
-                              </button>
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                type="button"
-                                onClick={() => handleRequestSaveGlobalShare(hostId)}
-                                disabled={savingGlobalShareHostId === hostId}
-                              >
-                                {savingGlobalShareHostId === hostId
-                                  ? t("global_profile_share_saving")
-                                  : t("global_profile_share_save_action")}
-                              </button>
-                            </div>
-                            {previewGlobalShareHostId === hostId ? (
-                              <div className="global-share-preview">
-                                <p className="item-meta">{t("global_profile_preview_title")}</p>
-                                <ul className="integration-check-list">
-                                  {[
-                                    ["allow_identity", t("global_profile_scope_identity")],
-                                    ["allow_food", t("global_profile_scope_food")],
-                                    ["allow_lifestyle", t("global_profile_scope_lifestyle")],
-                                    ["allow_conversation", t("global_profile_scope_conversation")],
-                                    ["allow_health", t("global_profile_scope_health")]
-                                  ].map(([fieldKey, label]) => (
-                                    <li key={`${hostId}-${fieldKey}`} className="integration-check-item">
-                                      <span className="item-meta">{label}</span>
-                                      <span
-                                        className={`status-pill ${
-                                          Boolean(shareDraft[fieldKey]) && String(shareDraft.status || "") === "active"
-                                            ? "status-yes"
-                                            : "status-no"
-                                        }`}
-                                      >
-                                        <Icon
-                                          name={
-                                            Boolean(shareDraft[fieldKey]) && String(shareDraft.status || "") === "active"
-                                              ? "check"
-                                              : "x"
-                                          }
-                                          className="icon icon-xs"
-                                        />
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="hint">{t("global_profile_share_targets_empty")}</p>
-                  )}
-                  <div className="global-share-history">
-                    <h4 className="item-title">{t("global_profile_history_title")}</h4>
-                    <p className="field-help">{t("global_profile_history_hint")}</p>
-                    {isLoadingGlobalShareHistory ? (
-                      <p className="hint">{t("global_profile_history_loading")}</p>
-                    ) : globalShareHistoryItems.length === 0 ? (
-                      <p className="hint">{t("global_profile_history_empty")}</p>
-                    ) : (
-                      <ul className="integration-check-list">
-                        {globalShareHistoryItems.map((entry) => (
-                          <li key={entry.id} className="integration-check-item">
-                            <div>
-                              <p className="item-meta">{entry.hostName}</p>
-                              <p className="hint">{entry.hostEmail}</p>
-                            </div>
-                            <div>
-                              <span className="status-pill status-host-conversion-source-default">
-                                {formatGlobalShareEventType(t, entry.event_type)}
-                              </span>
-                              <p className="hint">
-                                {formatRelativeDate(entry.created_at, language, t("no_date"))}
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </>
-              )}
-              <InlineMessage text={globalProfileMessage} />
-            </article>
-
-            {isIntegrationDebugEnabled ? (
-            <article className="panel profile-summary-card">
-              <div className="profile-summary-header">
-                <div>
-                  <h3 className="section-title">
-                    <Icon name="trend" className="icon" />
-                    {t("integration_status_title")}
-                  </h3>
-                  <p className="field-help">{t("integration_status_hint")}</p>
-                </div>
-                <span
-                  className={`status-pill ${
-                    integrationChecksTotal > 0 && integrationChecksOkCount === integrationChecksTotal ? "status-yes" : "status-pending"
-                  }`}
-                >
-                  {integrationChecksOkCount}/{integrationChecksTotal || 0}
-                </span>
-              </div>
-              <div className="button-row">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  type="button"
-                  onClick={() => setIsIntegrationPanelOpen((prev) => !prev)}
-                >
-                  {isIntegrationPanelOpen ? t("integration_status_hide") : t("integration_status_show")}
-                </button>
-                {isIntegrationPanelOpen ? (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={loadIntegrationStatusData}
-                    disabled={isLoadingIntegrationStatus}
-                  >
-                    {isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_refresh")}
-                  </button>
-                ) : null}
-              </div>
-              {isIntegrationPanelOpen ? (
-                integrationStatus ? (
-                  <>
-                    <p className="hint">
-                      {interpolateText(t("integration_status_checks_label"), {
-                        ok: integrationChecksOkCount,
-                        total: integrationChecksTotal
-                      })}
-                    </p>
-                    <div className="profile-summary-signals">
-                      <span className="status-pill status-host-conversion-source-default">
-                        {interpolateText(t("integration_status_profile_id"), {
-                          id: String(integrationStatus.global_profile_id || "—")
-                        })}
-                      </span>
-                      <span className="status-pill status-host-conversion-source-default">
-                        {interpolateText(t("integration_status_share_targets"), { count: integrationShareTargetCount })}
-                      </span>
-                      <span className={`status-pill ${integrationSelfTargetCount > 0 ? "status-no" : "status-yes"}`}>
-                        {interpolateText(t("integration_status_self_targets"), { count: integrationSelfTargetCount })}
-                      </span>
-                    </div>
-                    <ul className="integration-check-list">
-                      {integrationChecks.map((checkItem) => (
-                        <li key={checkItem.key} className="integration-check-item">
-                          <span className="item-meta">{checkItem.label}</span>
-                          <span className={`status-pill ${checkItem.ok ? "status-yes" : "status-no"}`}>
-                            {checkItem.ok ? t("integration_status_check_ok") : t("integration_status_check_missing")}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p className="hint">{isLoadingIntegrationStatus ? t("integration_status_loading") : t("integration_status_empty")}</p>
-                )
-              ) : (
-                <>
-                  <p className="hint">
-                    {interpolateText(t("integration_status_collapsed_hint"), {
-                      ok: integrationChecksOkCount,
-                      total: integrationChecksTotal
-                    })}
-                  </p>
-                  <div className="profile-summary-signals">
-                    <span className={`status-pill ${integrationSelfTargetCount > 0 ? "status-no" : "status-yes"}`}>
-                      {interpolateText(t("integration_status_self_targets"), { count: integrationSelfTargetCount })}
-                    </span>
-                  </div>
-                </>
-              )}
-              <InlineMessage text={integrationStatusMessage} />
-            </article>
-            ) : null}
-
-            <div className="profile-grid">
-              <form className="panel form-grid host-profile-panel" onSubmit={handleSaveHostProfile} noValidate>
-                <h3 className="section-title">
-                  <Icon name="user" className="icon" />
-                  {t("host_profile_title")}
-                </h3>
-                <p className="field-help">{t("host_profile_hint")}</p>
-
-                <label>
-                  <span className="label-title">{t("field_full_name")}</span>
-                  <input
-                    type="text"
-                    value={hostProfileName}
-                    onChange={(event) => setHostProfileName(event.target.value)}
-                    placeholder={t("placeholder_full_name")}
-                  />
-                </label>
-                <label>
-                  <span className="label-title">
-                    <Icon name="mail" className="icon icon-sm" />
-                    {t("email")}
-                  </span>
-                  <input type="email" value={session?.user?.email || ""} readOnly />
-                  <FieldMeta helpText={t("host_profile_email_readonly")} />
-                </label>
-                <label>
-                  <span className="label-title">
-                    <Icon name="phone" className="icon icon-sm" />
-                    {t("field_phone")}
-                  </span>
-                  <input
-                    type="tel"
-                    value={hostProfilePhone}
-                    onChange={(event) => setHostProfilePhone(event.target.value)}
-                    placeholder={t("placeholder_phone")}
-                  />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_city")}</span>
-                  <input
-                    type="text"
-                    value={hostProfileCity}
-                    onChange={(event) => setHostProfileCity(event.target.value)}
-                    placeholder={t("placeholder_city")}
-                    list="host-city-options"
-                  />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_country")}</span>
-                  <input
-                    type="text"
-                    value={hostProfileCountry}
-                    onChange={(event) => setHostProfileCountry(event.target.value)}
-                    placeholder={t("placeholder_country")}
-                    list="host-country-options"
-                  />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_relationship")}</span>
-                  <select value={hostProfileRelationship} onChange={(event) => setHostProfileRelationship(event.target.value)}>
-                    <option value="">{t("select_option_prompt")}</option>
-                    {relationshipOptions.map((optionValue) => (
-                      <option key={optionValue} value={optionValue}>
-                        {optionValue}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <datalist id="host-city-options">
-                  {cityOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue} />
-                  ))}
-                </datalist>
-                <datalist id="host-country-options">
-                  {countryOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue} />
-                  ))}
-                </datalist>
-
-                <div className="button-row">
-                  <button className="btn" type="submit" disabled={isSavingHostProfile}>
-                    {isSavingHostProfile ? t("host_profile_saving") : t("host_profile_save")}
-                  </button>
-                </div>
-                <FieldMeta helpText={t("host_profile_sync_hint")} />
-                <InlineMessage text={hostProfileMessage} />
-              </form>
-
-              <form className="panel form-grid host-profile-panel" onSubmit={handleSaveGuest} noValidate>
-                <div className="profile-linkage-row">
-                  <h3 className="section-title">
-                    <Icon name="user" className="icon" />
-                    {t("host_profile_guest_title")}
-                  </h3>
-                  <span className={`status-pill ${isProfileGuestLinked ? "status-yes" : "status-pending"}`}>
-                    {isProfileGuestLinked ? t("host_profile_guest_linked") : t("host_profile_guest_unlinked")}
-                  </span>
-                </div>
-                <p className="field-help">{t("host_profile_guest_hint")}</p>
-
-                <label>
-                  <span className="label-title">{t("field_first_name")} *</span>
-                  <input
-                    type="text"
-                    value={guestFirstName}
-                    onChange={(event) => setGuestFirstName(event.target.value)}
-                    placeholder={t("placeholder_first_name")}
-                    aria-invalid={Boolean(guestErrors.firstName)}
-                  />
-                  <FieldMeta errorText={guestErrors.firstName ? t(guestErrors.firstName) : ""} />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_last_name")}</span>
-                  <input
-                    type="text"
-                    value={guestLastName}
-                    onChange={(event) => setGuestLastName(event.target.value)}
-                    placeholder={t("placeholder_last_name")}
-                    aria-invalid={Boolean(guestErrors.lastName)}
-                  />
-                  <FieldMeta errorText={guestErrors.lastName ? t(guestErrors.lastName) : ""} />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_guest_photo")}</span>
-                  <div className="guest-photo-input-row">
-                    <AvatarCircle
-                      className="list-avatar guest-photo-preview"
-                      label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
-                      fallback="IN"
-                      imageUrl={guestPhotoUrl}
-                      size={44}
-                    />
-                    <input
-                      type="url"
-                      value={guestPhotoInputValue}
-                      onChange={(event) => handleGuestPhotoUrlChange(event.target.value)}
-                      placeholder={t("placeholder_guest_photo")}
-                    />
-                  </div>
-                  <div className="button-row guest-photo-actions">
-                    <label className="btn btn-ghost btn-sm guest-photo-upload-btn">
-                      {t("guest_photo_upload")}
-                      <input type="file" accept="image/*" onChange={handleGuestPhotoFileChange} />
-                    </label>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleRemoveGuestPhoto} disabled={!guestPhotoUrl}>
-                      {t("guest_photo_remove")}
-                    </button>
-                  </div>
-                  <FieldMeta helpText={t("guest_photo_hint")} />
-                </label>
-                <label>
-                  <span className="label-title">
-                    <Icon name="mail" className="icon icon-sm" />
-                    {t("email")}
-                  </span>
-                  <input type="email" value={guestEmail || session?.user?.email || ""} readOnly />
-                  <FieldMeta helpText={t("host_profile_guest_email_hint")} />
-                </label>
-                <label>
-                  <span className="label-title">
-                    <Icon name="phone" className="icon icon-sm" />
-                    {t("field_phone")}
-                  </span>
-                  <input
-                    type="tel"
-                    value={guestPhone}
-                    onChange={(event) => setGuestPhone(event.target.value)}
-                    placeholder={t("placeholder_phone")}
-                    aria-invalid={Boolean(guestErrors.phone)}
-                  />
-                  <FieldMeta errorText={guestErrors.phone ? t(guestErrors.phone) : ""} />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_relationship")}</span>
-                  <input
-                    type="text"
-                    value={guestRelationship}
-                    onChange={(event) => setGuestRelationship(event.target.value)}
-                    placeholder={t("placeholder_relationship")}
-                    list="profile-guest-relationship-options"
-                    aria-invalid={Boolean(guestErrors.relationship)}
-                  />
-                  <FieldMeta errorText={guestErrors.relationship ? t(guestErrors.relationship) : ""} />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_city")}</span>
-                  <input
-                    type="text"
-                    value={guestCity}
-                    onChange={(event) => setGuestCity(event.target.value)}
-                    placeholder={t("placeholder_city")}
-                    list="profile-guest-city-options"
-                    aria-invalid={Boolean(guestErrors.city)}
-                  />
-                  <FieldMeta errorText={guestErrors.city ? t(guestErrors.city) : ""} />
-                </label>
-                <label>
-                  <span className="label-title">{t("field_country")}</span>
-                  <input
-                    type="text"
-                    value={guestCountry}
-                    onChange={(event) => setGuestCountry(event.target.value)}
-                    placeholder={t("placeholder_country")}
-                    list="profile-guest-country-options"
-                    aria-invalid={Boolean(guestErrors.country)}
-                  />
-                  <FieldMeta errorText={guestErrors.country ? t(guestErrors.country) : ""} />
-                </label>
-                <label>
-                  <span className="label-title">
-                    <Icon name="location" className="icon icon-sm" />
-                    {t("field_address")}
-                  </span>
-                  <input
-                    type="text"
-                    value={guestAdvanced.address}
-                    onChange={(event) => {
-                      setGuestAdvancedField("address", event.target.value);
-                      if (
-                        selectedGuestAddressPlace &&
-                        normalizeLookupValue(event.target.value) !==
-                          normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)
-                      ) {
-                        setSelectedGuestAddressPlace(null);
-                      }
-                    }}
-                    placeholder={t("placeholder_address")}
-                    aria-invalid={Boolean(guestErrors.address)}
-                    autoComplete="off"
-                  />
-                  <FieldMeta
-                    helpText={
-                      mapsStatus === "ready"
-                        ? t("address_google_hint")
-                        : mapsStatus === "loading"
-                        ? t("address_google_loading")
-                        : mapsStatus === "error"
-                        ? `${t("address_google_error")} ${mapsError}`
-                        : t("address_google_unconfigured")
-                    }
-                    errorText={guestErrors.address ? t(guestErrors.address) : ""}
-                  />
-                  {mapsStatus === "ready" && guestAdvanced.address.trim().length >= 4 ? (
-                    <ul className="prediction-list" role="listbox" aria-label={t("address_suggestions")}>
-                      {isGuestAddressLoading ? <li className="prediction-item hint">{t("address_searching")}</li> : null}
-                      {!isGuestAddressLoading && guestAddressPredictions.length === 0 ? (
-                        <li className="prediction-item hint">{t("address_no_matches")}</li>
-                      ) : null}
-                      {guestAddressPredictions.map((prediction) => (
-                        <li key={prediction.place_id}>
-                          <button
-                            type="button"
-                            className="prediction-item"
-                            onClick={() => handleSelectGuestAddressPrediction(prediction)}
-                          >
-                            <Icon name="location" className="icon icon-sm" />
-                            {prediction.description}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {selectedGuestAddressPlace?.placeId ? <p className="field-success">{t("address_validated")}</p> : null}
-                </label>
-
-                <datalist id="profile-guest-relationship-options">
-                  {relationshipOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue} />
-                  ))}
-                </datalist>
-                <datalist id="profile-guest-city-options">
-                  {cityOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue} />
-                  ))}
-                </datalist>
-                <datalist id="profile-guest-country-options">
-                  {countryOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue} />
-                  ))}
-                </datalist>
-
-                <div className="button-row">
-                  <button className="btn" type="submit" disabled={isSavingGuest}>
-                    {isSavingGuest
-                      ? isEditingGuest
-                        ? t("updating_guest")
-                        : t("saving_guest")
-                      : isEditingGuest
-                      ? t("update_guest")
-                      : t("save_guest")}
-                  </button>
-                  <button className="btn btn-ghost" type="button" onClick={syncHostGuestProfileForm}>
-                    {t("host_profile_guest_sync")}
-                  </button>
-                  {isProfileGuestLinked ? (
-                    <button
-                      className="btn btn-ghost"
-                      type="button"
-                      onClick={() => openGuestAdvancedEditor(profileLinkedGuestId)}
-                    >
-                      {t("host_profile_open_advanced_action")}
-                    </button>
-                  ) : null}
-                  {isProfileGuestLinked ? (
-                    <button className="btn btn-ghost" type="button" onClick={() => openGuestDetail(profileLinkedGuestId)}>
-                      {t("view_guest_detail_action")}
-                    </button>
-                  ) : null}
-                </div>
-                <FieldMeta helpText={t("host_profile_guest_save_hint")} />
-                <InlineMessage text={guestMessage} />
-              </form>
-            </div>
-          </section>
-        ) : null}
-
-        {activeView === "events" ? (
-          <section className="workspace-shell view-transition">
-            {eventsWorkspace === "hub" ? (
-              <div className="workspace-card-grid">
-                {WORKSPACE_ITEMS.events
-                  .filter((item) => !["hub", "create", "plan"].includes(item.key))
-                  .map((workspaceItem) => (
+      {activeView === "events" ? (
+        <section className="workspace-shell view-transition">
+          {eventsWorkspace === "hub" ? (
+            <div className="workspace-card-grid">
+              {WORKSPACE_ITEMS.events
+                .filter((item) => !["hub", "create", "plan"].includes(item.key))
+                .map((workspaceItem) => (
                   <article key={workspaceItem.key} className="workspace-card">
                     <div className="workspace-card-icon">
                       <Icon name={workspaceItem.icon} className="icon" />
@@ -12897,784 +9252,947 @@ function DashboardScreen({
                     </button>
                   </article>
                 ))}
-              </div>
-            ) : (
-              <div key={`events-${eventsWorkspace}`} className="dashboard-grid single-section workspace-content">
-            {eventsWorkspace === "create" ? (
-            <form className="panel form-grid event-builder-form" onSubmit={handleSaveEvent} noValidate>
-              <div className="event-builder-shell">
-                <div className="event-builder-main">
-                  <section className="event-template-strip" aria-label={t("event_templates_title")}>
-                    <p className="label-title">
-                      <Icon name="sparkle" className="icon icon-sm" />
-                      {t("event_templates_title")}
-                    </p>
-                    <p className="field-help">{t("event_templates_hint")}</p>
-                    <div className="event-template-buttons">
-                      {eventTemplates.map((templateItem) => (
-                        <button
-                          key={templateItem.key}
-                          type="button"
-                          className={`btn btn-ghost btn-sm ${activeEventTemplateKey === templateItem.key ? "active" : ""}`}
-                          aria-pressed={activeEventTemplateKey === templateItem.key}
-                          onClick={() => handleApplyEventTemplate(templateItem.key)}
-                        >
-                          {t(templateItem.titleKey)}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
+            </div>
+          ) : (
+            <div key={`events-${eventsWorkspace}`} className="dashboard-grid single-section workspace-content">
+              {eventsWorkspace === "create" ? (
+                <EventBuilderView
+                  t={t}
+                  language={language}
+                  timezone={timezone}
+                  handleSaveEvent={handleSaveEvent}
+                  isSavingEvent={isSavingEvent}
+                  isEditingEvent={isEditingEvent}
+                  handleCancelEditEvent={handleCancelEditEvent}
+                  eventTemplates={eventTemplates}
+                  activeEventTemplateKey={activeEventTemplateKey}
+                  handleApplyEventTemplate={handleApplyEventTemplate}
+                  eventTitle={eventTitle}
+                  setEventTitle={setEventTitle}
+                  eventErrors={eventErrors}
+                  eventDescription={eventDescription}
+                  setEventDescription={setEventDescription}
+                  eventType={eventType}
+                  setEventType={setEventType}
+                  eventTypeOptions={eventTypeOptions}
+                  eventStatus={eventStatus}
+                  setEventStatus={setEventStatus}
+                  eventStartAt={eventStartAt}
+                  setEventStartAt={setEventStartAt}
+                  eventLocationName={eventLocationName}
+                  setEventLocationName={setEventLocationName}
+                  eventLocationAddress={eventLocationAddress}
+                  setEventLocationAddress={setEventLocationAddress}
+                  mapsStatus={mapsStatus}
+                  mapsError={mapsError}
+                  addressPredictions={addressPredictions}
+                  isAddressLoading={isAddressLoading}
+                  handleSelectAddressPrediction={handleSelectAddressPrediction}
+                  selectedPlace={selectedPlace}
+                  getMapEmbedUrl={getMapEmbedUrl}
+                  eventPhaseProgress={eventPhaseProgress}
+                  invitationCountForEditingEvent={invitationCountForEditingEvent}
+                  editingEventId={editingEventId}
+                  eventAllowPlusOne={eventAllowPlusOne}
+                  setEventAllowPlusOne={setEventAllowPlusOne}
+                  eventAutoReminders={eventAutoReminders}
+                  setEventAutoReminders={setEventAutoReminders}
+                  eventDressCode={eventDressCode}
+                  setEventDressCode={setEventDressCode}
+                  eventPlaylistMode={eventPlaylistMode}
+                  setEventPlaylistMode={setEventPlaylistMode}
+                  eventBuilderPlaybookActions={eventBuilderPlaybookActions}
+                  handleApplySuggestedEventSettings={handleApplySuggestedEventSettings}
+                  eventBuilderMealPlan={eventBuilderMealPlan}
+                  handleCopyEventBuilderShoppingChecklist={handleCopyEventBuilderShoppingChecklist}
+                  locationNameOptions={locationNameOptions}
+                  locationAddressOptions={locationAddressOptions}
+                  eventMessage={eventMessage}
+                />
+              ) : null}
 
-                  <section className="event-phase-section">
-                    <h3>{t("event_phase_planning")}</h3>
+              {eventsWorkspace === "latest" ? (
+                <EventsListView
+                  t={t}
+                  eventSearch={eventSearch}
+                  setEventSearch={setEventSearch}
+                  eventSort={eventSort}
+                  setEventSort={setEventSort}
+                  eventPageSize={eventPageSize}
+                  setEventPageSize={setEventPageSize}
+                  eventsPageSizeDefault={EVENTS_PAGE_SIZE_DEFAULT}
+                  pageSizeOptions={PAGE_SIZE_OPTIONS}
+                  eventStatusFilter={eventStatusFilter}
+                  setEventStatusFilter={setEventStatusFilter}
+                  eventStatusCounts={eventStatusCounts}
+                  filteredEvents={filteredEvents}
+                  pagedEvents={pagedEvents}
+                  eventInvitationSummaryByEventId={eventInvitationSummaryByEventId}
+                  openEventDetail={openEventDetail}
+                  openEventPlanById={openEventPlanById}
+                  handleStartEditEvent={handleStartEditEvent}
+                  handleRequestDeleteEvent={handleRequestDeleteEvent}
+                  isDeletingEventId={isDeletingEventId}
+                  toCatalogLabel={toCatalogLabel}
+                  formatDate={formatDate}
+                  language={language}
+                  statusClass={statusClass}
+                  statusText={statusText}
+                  eventPage={eventPage}
+                  eventTotalPages={eventTotalPages}
+                  setEventPage={setEventPage}
+                  mapsStatus={mapsStatus}
+                  mapsError={mapsError}
+                  orderedEventMapPoints={orderedEventMapPoints}
+                  GeoPointsMapPanel={GeoPointsMapPanel}
+                />
+              ) : null}
 
+              {eventsWorkspace === "detail" || eventsWorkspace === "plan" ? (
+                <EventDetailView
+                  eventsWorkspace={eventsWorkspace}
+                  openWorkspace={openWorkspace}
+                  handleBackToEventDetail={handleBackToEventDetail}
+                  selectedEventDetail={selectedEventDetail}
+                  t={t}
+                  statusClass={statusClass}
+                  statusText={statusText}
+                  formatLongDate={formatLongDate}
+                  language={language}
+                  formatTimeLabel={formatTimeLabel}
+                  handleOpenEventPlan={handleOpenEventPlan}
+                  handleStartEditEvent={handleStartEditEvent}
+                  selectedEventDetailPrimaryShare={selectedEventDetailPrimaryShare}
+                  openInvitationCreate={openInvitationCreate}
+                  selectedEventDetailInvitations={selectedEventDetailInvitations}
+                  selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
+                  invitationMessage={invitationMessage}
+                  toCatalogLabel={toCatalogLabel}
+                  formatDate={formatDate}
+                  normalizeEventDressCode={normalizeEventDressCode}
+                  normalizeEventPlaylistMode={normalizeEventPlaylistMode}
+                  selectedEventChecklist={selectedEventChecklist}
+                  selectedEventHealthAlerts={selectedEventHealthAlerts}
+                  selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
+                  selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
+                  eventPlannerSectionRef={eventPlannerSectionRef}
+                  interpolateText={interpolateText}
+                  selectedEventMealPlan={selectedEventMealPlan}
+                  selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
+                  selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
+                  selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
+                  selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
+                  selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
+                  selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
+                  selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
+                  selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
+                  handleOpenEventPlannerContext={handleOpenEventPlannerContext}
+                  handleRegenerateEventPlanner={handleRegenerateEventPlanner}
+                  handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
+                  eventDetailPlannerTab={eventDetailPlannerTab}
+                  handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
+                  selectedEventDietTypesCount={selectedEventDietTypesCount}
+                  selectedEventAllergiesCount={selectedEventAllergiesCount}
+                  selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
+                  selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
+                  selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
+                  selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
+                  selectedEventRestrictionsCount={selectedEventRestrictionsCount}
+                  selectedEventIntolerancesCount={selectedEventIntolerancesCount}
+                  handleEventPlannerTabChange={handleEventPlannerTabChange}
+                  selectedEventShoppingTotalIngredients={selectedEventShoppingTotalIngredients}
+                  selectedEventEstimatedCostRange={selectedEventEstimatedCostRange}
+                  selectedEventShoppingProgress={selectedEventShoppingProgress}
+                  selectedEventShoppingItems={selectedEventShoppingItems}
+                  selectedEventShoppingCheckedSet={selectedEventShoppingCheckedSet}
+                  handleCopySelectedEventShoppingChecklist={handleCopySelectedEventShoppingChecklist}
+                  handleMarkAllEventPlannerShoppingItems={handleMarkAllEventPlannerShoppingItems}
+                  handleClearEventPlannerShoppingCheckedItems={handleClearEventPlannerShoppingCheckedItems}
+                  eventPlannerShoppingFilter={eventPlannerShoppingFilter}
+                  setEventPlannerShoppingFilter={setEventPlannerShoppingFilter}
+                  selectedEventShoppingCounts={selectedEventShoppingCounts}
+                  selectedEventShoppingGroupsFiltered={selectedEventShoppingGroupsFiltered}
+                  handleToggleEventPlannerShoppingItem={handleToggleEventPlannerShoppingItem}
+                  selectedEventHostPlaybook={selectedEventHostPlaybook}
+                  handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
+                  handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
+                  getMapEmbedUrl={getMapEmbedUrl}
+                  getGuestAvatarUrl={getGuestAvatarUrl}
+                  selectedEventDetailGuests={selectedEventDetailGuests}
+                  openGuestDetail={openGuestDetail}
+                  handlePrepareInvitationShare={handlePrepareInvitationShare}
+                  handleRequestDeleteInvitation={handleRequestDeleteInvitation}
+                  selectedEventRsvpTimeline={selectedEventRsvpTimeline}
+                />
+              ) : null}
+
+              {eventsWorkspace === "insights" ? (
+                <section className="panel panel-wide">
+                  {events.length > 0 ? (
                     <label>
-                      <span className="label-title">{t("field_title")} *</span>
-                      <input
-                        type="text"
-                        value={eventTitle}
-                        onChange={(event) => setEventTitle(event.target.value)}
-                        placeholder={t("placeholder_event_title")}
-                        aria-invalid={Boolean(eventErrors.title)}
-                      />
-                      <FieldMeta errorText={eventErrors.title ? t(eventErrors.title) : ""} />
-                    </label>
-
-                    <label>
-                      <span className="label-title">{t("field_event_description")}</span>
-                      <textarea
-                        rows={4}
-                        value={eventDescription}
-                        onChange={(event) => setEventDescription(event.target.value)}
-                        placeholder={t("placeholder_event_description")}
-                        aria-invalid={Boolean(eventErrors.description)}
-                      />
-                      <FieldMeta
-                        helpText={t("event_description_help")}
-                        errorText={eventErrors.description ? t(eventErrors.description) : ""}
-                      />
-                    </label>
-
-                    <label>
-                      <span className="label-title">{t("field_event_type")}</span>
-                      <select
-                        value={eventType}
-                        onChange={(event) => setEventType(event.target.value)}
-                        aria-invalid={Boolean(eventErrors.eventType)}
-                      >
-                        <option value="">{t("select_option_prompt")}</option>
-                        {eventTypeOptions.map((optionValue) => (
-                          <option key={optionValue} value={optionValue}>
-                            {optionValue}
+                      <span className="label-title">{t("smart_hosting_event_select")}</span>
+                      <select value={insightsEventId} onChange={(event) => setInsightsEventId(event.target.value)}>
+                        {events.map((eventItem) => (
+                          <option key={eventItem.id} value={eventItem.id}>
+                            {eventItem.title}
                           </option>
                         ))}
                       </select>
-                      <FieldMeta errorText={eventErrors.eventType ? t(eventErrors.eventType) : ""} />
                     </label>
-
-                    <label>
-                      <span className="label-title">{t("field_event_status")}</span>
-                      <select value={eventStatus} onChange={(event) => setEventStatus(event.target.value)}>
-                        <option value="draft">{t("status_draft")}</option>
-                        <option value="published">{t("status_published")}</option>
-                        <option value="completed">{t("status_completed")}</option>
-                        <option value="cancelled">{t("status_cancelled")}</option>
-                      </select>
-                      <FieldMeta helpText={t("event_status_help")} />
-                    </label>
-                  </section>
-
-                  <section className="event-phase-section">
-                    <h3>{t("event_phase_logistics")}</h3>
-
-                    <label>
-                      <span className="label-title">
-                        <Icon name="calendar" className="icon icon-sm" />
-                        {t("field_datetime")}
-                      </span>
-                      <input type="datetime-local" value={eventStartAt} onChange={(event) => setEventStartAt(event.target.value)} />
-                    </label>
-
-                    <label>
-                      <span className="label-title">
-                        <Icon name="location" className="icon icon-sm" />
-                        {t("field_place")}
-                      </span>
-                      <input
-                        type="text"
-                        value={eventLocationName}
-                        onChange={(event) => {
-                          const nextValue = event.target.value;
-                          setEventLocationName(nextValue);
-                          setEventErrors((prev) => ({ ...prev, locationName: undefined }));
-                          setEventMessage("");
-                          const match = findUniqueLocationByName(nextValue);
-                          if (!match?.address) {
-                            return;
-                          }
-                          setEventLocationAddress(match.address);
-                          setAddressPredictions([]);
-                          const placeFromKnownLocation = toSelectedPlaceFromLocationPair(match, match.address);
-                          if (placeFromKnownLocation) {
-                            setSelectedPlace(placeFromKnownLocation);
-                          }
-                        }}
-                        placeholder={t("placeholder_place")}
-                        list="event-place-options"
-                        aria-invalid={Boolean(eventErrors.locationName)}
-                      />
-                      <FieldMeta errorText={eventErrors.locationName ? t(eventErrors.locationName) : ""} />
-                    </label>
-
-                    <label>
-                      <span className="label-title">
-                        <Icon name="location" className="icon icon-sm" />
-                        {t("field_address")}
-                      </span>
-                      <input
-                        type="text"
-                        value={eventLocationAddress}
-                        onChange={(event) => {
-                          const nextValue = event.target.value;
-                          setEventLocationAddress(nextValue);
-                          setEventErrors((prev) => ({ ...prev, locationAddress: undefined }));
-                          setEventMessage("");
-                          const matchedByAddress = findUniqueLocationByAddress(nextValue);
-                          if (matchedByAddress?.name) {
-                            setEventLocationName(matchedByAddress.name);
-                          }
-                          if (
-                            selectedPlace &&
-                            normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedPlace.formattedAddress)
-                          ) {
-                            setSelectedPlace(null);
-                          }
-                          const placeFromKnownLocation = toSelectedPlaceFromLocationPair(matchedByAddress, nextValue);
-                          if (placeFromKnownLocation) {
-                            setSelectedPlace(placeFromKnownLocation);
-                          }
-                        }}
-                        placeholder={t("placeholder_address")}
-                        aria-invalid={Boolean(eventErrors.locationAddress)}
-                        autoComplete="off"
-                        list="event-address-options"
-                      />
-                      <FieldMeta
-                        helpText={
-                          mapsStatus === "ready"
-                            ? t("address_google_hint")
-                            : mapsStatus === "loading"
-                            ? t("address_google_loading")
-                            : mapsStatus === "error"
-                            ? `${t("address_google_error")} ${mapsError}`
-                            : t("address_google_unconfigured")
-                        }
-                        errorText={eventErrors.locationAddress ? t(eventErrors.locationAddress) : ""}
-                      />
-                      {mapsStatus === "ready" && eventLocationAddress.trim().length >= 4 ? (
-                        <ul className="prediction-list" role="listbox" aria-label={t("address_suggestions")}>
-                          {isAddressLoading ? <li className="prediction-item hint">{t("address_searching")}</li> : null}
-                          {!isAddressLoading && addressPredictions.length === 0 ? (
-                            <li className="prediction-item hint">{t("address_no_matches")}</li>
-                          ) : null}
-                          {addressPredictions.map((prediction) => (
-                            <li key={prediction.place_id}>
-                              <button
-                                type="button"
-                                className="prediction-item"
-                                onClick={() => handleSelectAddressPrediction(prediction)}
-                              >
-                                <Icon name="location" className="icon icon-sm" />
-                                {prediction.description}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {selectedPlace?.placeId ? (
-                        <p className="field-success">{t("address_validated")}</p>
-                      ) : null}
-                    </label>
-
-                    {typeof selectedPlace?.lat === "number" && typeof selectedPlace?.lng === "number" ? (
-                      <div className="map-preview" aria-label={t("map_preview_title")}>
-                        <iframe
-                          title={t("map_preview_title")}
-                          src={getMapEmbedUrl(selectedPlace.lat, selectedPlace.lng)}
-                          loading="lazy"
-                          referrerPolicy="no-referrer-when-downgrade"
-                        />
-                      </div>
-                    ) : null}
-                  </section>
-
+                  ) : null}
                   <p className="hint">
-                    {t("timezone_detected")}: {timezone}
+                    {t("smart_hosting_scope_label")}:{" "}
+                    {eventInsights.scope === "event" ? t("smart_hosting_scope_event") : t("smart_hosting_scope_all")} -{" "}
+                    {t("smart_hosting_considered_guests")}: {eventInsights.consideredGuestsCount}
                   </p>
-                </div>
+                  {eventInsights.hasData ? (
+                    <div className="stack-md">
+                      <div className="insights-grid">
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_food")}</p>
+                          <p className="item-meta">
+                            {eventInsights.foodSuggestions.length > 0
+                              ? eventInsights.foodSuggestions.join(", ")
+                              : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_drink")}</p>
+                          <p className="item-meta">
+                            {eventInsights.drinkSuggestions.length > 0
+                              ? eventInsights.drinkSuggestions.join(", ")
+                              : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_avoid")}</p>
+                          <p className="item-meta">
+                            {eventInsights.avoidItems.length > 0 ? eventInsights.avoidItems.join(", ") : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_decor")}</p>
+                          <p className="item-meta">
+                            {eventInsights.decorColors.length > 0
+                              ? eventInsights.decorColors.join(", ")
+                              : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_music")}</p>
+                          <p className="item-meta">
+                            {eventInsights.musicGenres.length > 0
+                              ? eventInsights.musicGenres.join(", ")
+                              : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_icebreakers")}</p>
+                          <p className="item-meta">
+                            {eventInsights.icebreakers.length > 0
+                              ? eventInsights.icebreakers.join(", ")
+                              : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_taboo")}</p>
+                          <p className="item-meta">
+                            {eventInsights.tabooTopics.length > 0
+                              ? eventInsights.tabooTopics.join(", ")
+                              : t("smart_hosting_no_data")}
+                          </p>
+                        </article>
+                        <article className="insight-card">
+                          <p className="item-title">{t("smart_hosting_timing")}</p>
+                          <p className="item-meta">
+                            {eventInsights.timingRecommendation === "start_with_buffer"
+                              ? t("smart_hosting_timing_buffer")
+                              : t("smart_hosting_timing_on_time")}
+                          </p>
+                        </article>
+                      </div>
+                      <article className="recommendation-card">
+                        <p className="item-title">{t("smart_hosting_playbook_title")}</p>
+                        <p className="field-help">{t("smart_hosting_playbook_hint")}</p>
+                        {insightsPlaybookActions.length > 0 ? (
+                          <ul className="list recommendation-list">
+                            {insightsPlaybookActions.map((item, index) => (
+                              <li key={`${index}-${item}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="hint">{t("smart_hosting_empty")}</p>
+                        )}
+                      </article>
+                    </div>
+                  ) : (
+                    <p className="hint">{t("smart_hosting_empty")}</p>
+                  )}
+                </section>
+              ) : null}
+            </div>
+          )}
+        </section>
+      ) : null}
 
-                <aside className="event-builder-aside">
-                  <section className="event-builder-actions">
-                    <div className="button-row event-builder-button-row">
-                      <button className="btn" type="submit" disabled={isSavingEvent}>
-                        {isSavingEvent
-                          ? isEditingEvent
-                            ? t("updating_event")
-                            : t("saving_event")
-                          : isEditingEvent
-                          ? t("update_event")
-                          : t("save_event")}
+      {activeView === "guests" ? (
+        <section className="workspace-shell view-transition">
+          {guestsWorkspace === "hub" ? (
+            <div className="workspace-card-grid">
+              {WORKSPACE_ITEMS.guests.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
+                <article key={workspaceItem.key} className="workspace-card">
+                  <div className="workspace-card-icon">
+                    <Icon name={workspaceItem.icon} className="icon" />
+                  </div>
+                  <div className="workspace-card-content">
+                    <h3>{t(workspaceItem.labelKey)}</h3>
+                    <p>{t(workspaceItem.descriptionKey)}</p>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={() => openWorkspace("guests", workspaceItem.key)}
+                  >
+                    {t("workspace_open")}
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div key={`guests-${guestsWorkspace}`} className="dashboard-grid single-section workspace-content">
+              {guestsWorkspace === "create" ? (
+                <GuestBuilderView
+                  t={t}
+                  language={language}
+                  canUseDeviceContacts={canUseDeviceContacts}
+                  contactPickerUnsupportedReason={contactPickerUnsupportedReason}
+                  handleFillGuestFromDeviceContact={handleFillGuestFromDeviceContact}
+                  openFileImportFallback={openFileImportFallback}
+                  contactImportDetailsRef={contactImportDetailsRef}
+                  handlePickDeviceContacts={handlePickDeviceContacts}
+                  handleImportGoogleContacts={handleImportGoogleContacts}
+                  isImportingGoogleContacts={isImportingGoogleContacts}
+                  canUseGoogleContacts={canUseGoogleContacts}
+                  contactImportFileInputRef={contactImportFileInputRef}
+                  handleImportContactsFile={handleImportContactsFile}
+                  importContactsDraft={importContactsDraft}
+                  setImportContactsDraft={setImportContactsDraft}
+                  handlePreviewContactsFromDraft={handlePreviewContactsFromDraft}
+                  handleClearImportContacts={handleClearImportContacts}
+                  importContactsAnalysis={importContactsAnalysis}
+                  importContactsReady={importContactsReady}
+                  importContactsSelectedReady={importContactsSelectedReady}
+                  importContactsStatusSummary={importContactsStatusSummary}
+                  importDuplicateMode={importDuplicateMode}
+                  handleImportDuplicateModeChange={handleImportDuplicateModeChange}
+                  importContactsSearch={importContactsSearch}
+                  setImportContactsSearch={setImportContactsSearch}
+                  importContactsGroupFilter={importContactsGroupFilter}
+                  setImportContactsGroupFilter={setImportContactsGroupFilter}
+                  importContactsGroupOptions={importContactsGroupOptions}
+                  importContactsPotentialFilter={importContactsPotentialFilter}
+                  setImportContactsPotentialFilter={setImportContactsPotentialFilter}
+                  importContactsSourceFilter={importContactsSourceFilter}
+                  setImportContactsSourceFilter={setImportContactsSourceFilter}
+                  importContactsSort={importContactsSort}
+                  setImportContactsSort={setImportContactsSort}
+                  IMPORT_CONTACTS_SORT_OPTIONS={IMPORT_CONTACTS_SORT_OPTIONS}
+                  importContactsPageSize={importContactsPageSize}
+                  setImportContactsPageSize={setImportContactsPageSize}
+                  IMPORT_PREVIEW_PAGE_SIZE_DEFAULT={IMPORT_PREVIEW_PAGE_SIZE_DEFAULT}
+                  IMPORT_PREVIEW_PAGE_SIZE_OPTIONS={IMPORT_PREVIEW_PAGE_SIZE_OPTIONS}
+                  handleSelectSuggestedImportContacts={handleSelectSuggestedImportContacts}
+                  handleSelectAllReadyImportContacts={handleSelectAllReadyImportContacts}
+                  handleSelectHighPotentialImportContacts={handleSelectHighPotentialImportContacts}
+                  handleSelectDualChannelImportContacts={handleSelectDualChannelImportContacts}
+                  handleSelectDuplicateMergeImportContacts={handleSelectDuplicateMergeImportContacts}
+                  handleApproveAllLowConfidenceMergeContacts={handleApproveAllLowConfidenceMergeContacts}
+                  handleSelectFilteredReadyImportContacts={handleSelectFilteredReadyImportContacts}
+                  handleSelectCurrentImportPageReady={handleSelectCurrentImportPageReady}
+                  handleSelectOnlyNewImportContacts={handleSelectOnlyNewImportContacts}
+                  handleClearReadyImportContactsSelection={handleClearReadyImportContactsSelection}
+                  importContactsSuggested={importContactsSuggested}
+                  interpolateText={interpolateText}
+                  pagedImportContacts={pagedImportContacts}
+                  selectedImportContactIds={selectedImportContactIds}
+                  toggleImportContactSelection={toggleImportContactSelection}
+                  handleOpenLowConfidenceMergeReview={handleOpenLowConfidenceMergeReview}
+                  importContactsFiltered={importContactsFiltered}
+                  importContactsPage={importContactsPage}
+                  importContactsTotalPages={importContactsTotalPages}
+                  setImportContactsPage={setImportContactsPage}
+                  handleImportContacts={handleImportContacts}
+                  isImportingContacts={isImportingContacts}
+                  importContactsMessage={importContactsMessage}
+                  handleSaveGuest={handleSaveGuest}
+                  guestFirstName={guestFirstName}
+                  setGuestFirstName={setGuestFirstName}
+                  guestErrors={guestErrors}
+                  guestLastName={guestLastName}
+                  setGuestLastName={setGuestLastName}
+                  guestPhotoUrl={guestPhotoUrl}
+                  guestPhotoInputValue={guestPhotoInputValue}
+                  handleGuestPhotoUrlChange={handleGuestPhotoUrlChange}
+                  handleGuestPhotoFileChange={handleGuestPhotoFileChange}
+                  handleRemoveGuestPhoto={handleRemoveGuestPhoto}
+                  guestEmail={guestEmail}
+                  setGuestEmail={setGuestEmail}
+                  guestPhone={guestPhone}
+                  setGuestPhone={setGuestPhone}
+                  guestRelationship={guestRelationship}
+                  setGuestRelationship={setGuestRelationship}
+                  relationshipOptions={relationshipOptions}
+                  guestCity={guestCity}
+                  setGuestCity={setGuestCity}
+                  guestCountry={guestCountry}
+                  setGuestCountry={setGuestCountry}
+                  guestAdvanced={guestAdvanced}
+                  setGuestAdvancedField={setGuestAdvancedField}
+                  guestAdvancedProfileCompleted={guestAdvancedProfileCompleted}
+                  guestAdvancedProfileSignals={guestAdvancedProfileSignals}
+                  guestAdvancedProfilePercent={guestAdvancedProfilePercent}
+                  guestNextBirthday={guestNextBirthday}
+                  handleCreateBirthdayEventFromGuest={handleCreateBirthdayEventFromGuest}
+                  scrollToGuestAdvancedSection={scrollToGuestAdvancedSection}
+                  guestPriorityCompleted={guestPriorityCompleted}
+                  guestPriorityTotal={guestPriorityTotal}
+                  guestPriorityPercent={guestPriorityPercent}
+                  guestPriorityMissing={guestPriorityMissing}
+                  getGuestAdvancedSectionFromPriorityKey={getGuestAdvancedSectionFromPriorityKey}
+                  handleOpenGuestAdvancedPriority={handleOpenGuestAdvancedPriority}
+                  guestAdvancedDetailsRef={guestAdvancedDetailsRef}
+                  guestAdvancedToolbarRef={guestAdvancedToolbarRef}
+                  guestAdvancedEditTabs={guestAdvancedEditTabs}
+                  guestAdvancedSignalsBySection={guestAdvancedSignalsBySection}
+                  guestAdvancedEditTab={guestAdvancedEditTab}
+                  guestAdvancedCurrentStep={guestAdvancedCurrentStep}
+                  guestAdvancedCurrentTabLabel={guestAdvancedCurrentTabLabel}
+                  guestAdvancedCurrentChecklistDone={guestAdvancedCurrentChecklistDone}
+                  guestAdvancedCurrentChecklistTotal={guestAdvancedCurrentChecklistTotal}
+                  guestAdvancedCurrentChecklist={guestAdvancedCurrentChecklist}
+                  isSavingGuest={isSavingGuest}
+                  guestLastSavedLabel={guestLastSavedLabel}
+                  handleGoToPreviousGuestAdvancedSection={handleGoToPreviousGuestAdvancedSection}
+                  guestAdvancedPrevTab={guestAdvancedPrevTab}
+                  handleSaveGuestDraft={handleSaveGuestDraft}
+                  handleSaveAndGoNextPendingGuestAdvancedSection={handleSaveAndGoNextPendingGuestAdvancedSection}
+                  guestAdvancedNextPendingTab={guestAdvancedNextPendingTab}
+                  guestAdvancedNextPendingLabel={guestAdvancedNextPendingLabel}
+                  handleGoToNextGuestAdvancedSection={handleGoToNextGuestAdvancedSection}
+                  guestAdvancedNextTab={guestAdvancedNextTab}
+                  handleGoToFirstPendingGuestAdvancedSection={handleGoToFirstPendingGuestAdvancedSection}
+                  guestAdvancedFirstPendingTab={guestAdvancedFirstPendingTab}
+                  guestAdvancedFirstPendingLabel={guestAdvancedFirstPendingLabel}
+                  guestAdvancedSectionRefs={guestAdvancedSectionRefs}
+                  setGuestErrors={setGuestErrors}
+                  setGuestMessage={setGuestMessage}
+                  selectedGuestAddressPlace={selectedGuestAddressPlace}
+                  normalizeLookupValue={normalizeLookupValue}
+                  setSelectedGuestAddressPlace={setSelectedGuestAddressPlace}
+                  mapsStatus={mapsStatus}
+                  mapsError={mapsError}
+                  isGuestAddressLoading={isGuestAddressLoading}
+                  guestAddressPredictions={guestAddressPredictions}
+                  handleSelectGuestAddressPrediction={handleSelectGuestAddressPrediction}
+                  eventTypeOptions={eventTypeOptions}
+                  handleAdvancedMultiSelectChange={handleAdvancedMultiSelectChange}
+                  dietTypeOptions={dietTypeOptions}
+                  tastingPreferenceOptions={tastingPreferenceOptions}
+                  drinkOptions={drinkOptions}
+                  musicGenreOptions={musicGenreOptions}
+                  colorOptions={colorOptions}
+                  sportOptions={sportOptions}
+                  dayMomentOptions={dayMomentOptions}
+                  periodicityOptions={periodicityOptions}
+                  punctualityOptions={punctualityOptions}
+                  cuisineTypeOptions={cuisineTypeOptions}
+                  petOptions={petOptions}
+                  allergyOptions={allergyOptions}
+                  intoleranceOptions={intoleranceOptions}
+                  petAllergyOptions={petAllergyOptions}
+                  medicalConditionOptions={medicalConditionOptions}
+                  dietaryMedicalRestrictionOptions={dietaryMedicalRestrictionOptions}
+                  cityOptions={cityOptions}
+                  countryOptions={countryOptions}
+                  isEditingGuest={isEditingGuest}
+                  handleCancelEditGuest={handleCancelEditGuest}
+                  guestMessage={guestMessage}
+                  MultiSelectField={MultiSelectField}
+                />
+              ) : null}
+
+              {guestsWorkspace === "latest" ? (
+                <GuestsListView
+                  t={t}
+                  language={language}
+                  guestSearch={guestSearch}
+                  setGuestSearch={setGuestSearch}
+                  guestSort={guestSort}
+                  setGuestSort={setGuestSort}
+                  guestPageSize={guestPageSize}
+                  setGuestPageSize={setGuestPageSize}
+                  PAGE_SIZE_OPTIONS={PAGE_SIZE_OPTIONS}
+                  GUESTS_PAGE_SIZE_DEFAULT={GUESTS_PAGE_SIZE_DEFAULT}
+                  guestContactFilter={guestContactFilter}
+                  setGuestContactFilter={setGuestContactFilter}
+                  filteredGuests={filteredGuests}
+                  pagedGuests={pagedGuests}
+                  hostPotentialGuestsCount={hostPotentialGuestsCount}
+                  convertedHostGuestsCount={convertedHostGuestsCount}
+                  pendingHostGuestsCount={pendingHostGuestsCount}
+                  guestMessage={guestMessage}
+                  guestHostConversionById={guestHostConversionById}
+                  getConversionSource={getConversionSource}
+                  getConversionSourceLabel={getConversionSourceLabel}
+                  guestEventCountByGuestId={guestEventCountByGuestId}
+                  guestSensitiveById={guestSensitiveById}
+                  toCatalogLabels={toCatalogLabels}
+                  uniqueValues={uniqueValues}
+                  toCatalogLabel={toCatalogLabel}
+                  getGuestAvatarUrl={getGuestAvatarUrl}
+                  openGuestDetail={openGuestDetail}
+                  handleStartEditGuest={handleStartEditGuest}
+                  handleOpenMergeGuest={handleOpenMergeGuest}
+                  handleCopyHostSignupLink={handleCopyHostSignupLink}
+                  handleShareHostSignupLink={handleShareHostSignupLink}
+                  handleRequestDeleteGuest={handleRequestDeleteGuest}
+                  isDeletingGuestId={isDeletingGuestId}
+                  guestPage={guestPage}
+                  guestTotalPages={guestTotalPages}
+                  setGuestPage={setGuestPage}
+                  mapsStatus={mapsStatus}
+                  mapsError={mapsError}
+                  orderedGuestMapPoints={orderedGuestMapPoints}
+                  GeoPointsMapPanel={GeoPointsMapPanel}
+                />
+              ) : null}
+
+              {guestsWorkspace === "detail" ? (
+                <GuestDetailView
+                  t={t}
+                  language={language}
+                  openWorkspace={openWorkspace}
+                  selectedGuestDetail={selectedGuestDetail}
+                  getGuestAvatarUrl={getGuestAvatarUrl}
+                  toCatalogLabel={toCatalogLabel}
+                  handleStartEditGuest={handleStartEditGuest}
+                  handleOpenMergeGuest={handleOpenMergeGuest}
+                  handleRequestDeleteGuest={handleRequestDeleteGuest}
+                  isDeletingGuestId={isDeletingGuestId}
+                  selectedGuestDetailInvitations={selectedGuestDetailInvitations}
+                  selectedGuestDetailStatusCounts={selectedGuestDetailStatusCounts}
+                  selectedGuestDetailRespondedRate={selectedGuestDetailRespondedRate}
+                  guestProfileTabs={guestProfileTabs}
+                  guestProfileViewTab={guestProfileViewTab}
+                  setGuestProfileViewTab={setGuestProfileViewTab}
+                  selectedGuestDetailConversion={selectedGuestDetailConversion}
+                  getConversionSource={getConversionSource}
+                  getConversionSourceLabel={getConversionSourceLabel}
+                  openInvitationCreate={openInvitationCreate}
+                  handleCopyHostSignupLink={handleCopyHostSignupLink}
+                  handleShareHostSignupLink={handleShareHostSignupLink}
+                  handleLinkProfileGuestToGlobal={handleLinkProfileGuestToGlobal}
+                  isLinkingGlobalGuest={isLinkingGlobalGuest}
+                  selectedGuestDetailNotes={selectedGuestDetailNotes}
+                  selectedGuestDetailTags={selectedGuestDetailTags}
+                  selectedGuestFoodGroups={selectedGuestFoodGroups}
+                  selectedGuestLifestyleGroups={selectedGuestLifestyleGroups}
+                  selectedGuestActiveTabRecommendations={selectedGuestActiveTabRecommendations}
+                  selectedGuestDetailPreference={selectedGuestDetailPreference}
+                  selectedGuestAllergyLabels={selectedGuestAllergyLabels}
+                  selectedGuestIntoleranceLabels={selectedGuestIntoleranceLabels}
+                  selectedGuestPetAllergyLabels={selectedGuestPetAllergyLabels}
+                  selectedGuestMedicalConditionLabels={selectedGuestMedicalConditionLabels}
+                  selectedGuestDietaryMedicalRestrictionLabels={selectedGuestDietaryMedicalRestrictionLabels}
+                  toList={toList}
+                  formatDate={formatDate}
+                  statusClass={statusClass}
+                  statusText={statusText}
+                  eventsById={eventsById}
+                  eventNamesById={eventNamesById}
+                  openEventDetail={openEventDetail}
+                />
+              ) : null}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {activeView === "invitations" ? (
+        <section className="workspace-shell view-transition">
+          {invitationsWorkspace === "hub" ? (
+            <div className="workspace-card-grid">
+              {WORKSPACE_ITEMS.invitations.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
+                <article key={workspaceItem.key} className="workspace-card">
+                  <div className="workspace-card-icon">
+                    <Icon name={workspaceItem.icon} className="icon" />
+                  </div>
+                  <div className="workspace-card-content">
+                    <h3>{t(workspaceItem.labelKey)}</h3>
+                    <p>{t(workspaceItem.descriptionKey)}</p>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={() => openWorkspace("invitations", workspaceItem.key)}
+                  >
+                    {t("workspace_open")}
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div key={`invitations-${invitationsWorkspace}`} className="dashboard-grid single-section workspace-content">
+              {invitationsWorkspace === "create" ? (
+                <InvitationBuilderView
+                  t={t}
+                  handleCreateInvitation={handleCreateInvitation}
+                  selectedEventId={selectedEventId}
+                  setSelectedEventId={setSelectedEventId}
+                  events={events}
+                  invitationErrors={invitationErrors}
+                  selectedGuestId={selectedGuestId}
+                  setSelectedGuestId={setSelectedGuestId}
+                  guests={guests}
+                  allGuestsAlreadyInvitedForSelectedEvent={allGuestsAlreadyInvitedForSelectedEvent}
+                  invitedGuestIdsForSelectedEvent={invitedGuestIdsForSelectedEvent}
+                  bulkInvitationSearch={bulkInvitationSearch}
+                  setBulkInvitationSearch={setBulkInvitationSearch}
+                  INVITATION_BULK_SEGMENTS={INVITATION_BULK_SEGMENTS}
+                  bulkInvitationSegment={bulkInvitationSegment}
+                  setBulkInvitationSegment={setBulkInvitationSegment}
+                  bulkSegmentCounts={bulkSegmentCounts}
+                  handleSelectVisibleBulkGuests={handleSelectVisibleBulkGuests}
+                  bulkFilteredGuests={bulkFilteredGuests}
+                  handleClearBulkGuests={handleClearBulkGuests}
+                  bulkInvitationGuestIds={bulkInvitationGuestIds}
+                  toggleBulkInvitationGuest={toggleBulkInvitationGuest}
+                  isCreatingInvitation={isCreatingInvitation}
+                  handleCreateBulkInvitations={handleCreateBulkInvitations}
+                  isCreatingBulkInvitations={isCreatingBulkInvitations}
+                  invitationMessage={invitationMessage}
+                  lastInvitationUrl={lastInvitationUrl}
+                  handleCopyInvitationLink={handleCopyInvitationLink}
+                  lastInvitationShareText={lastInvitationShareText}
+                  handleCopyInvitationMessage={handleCopyInvitationMessage}
+                  lastInvitationWhatsappUrl={lastInvitationWhatsappUrl}
+                  lastInvitationEmailUrl={lastInvitationEmailUrl}
+                />
+              ) : null}
+
+              {invitationsWorkspace === "latest" ? (
+                <InvitationsListView
+                  t={t}
+                  language={language}
+                  invitationSearch={invitationSearch}
+                  setInvitationSearch={setInvitationSearch}
+                  invitationSort={invitationSort}
+                  setInvitationSort={setInvitationSort}
+                  invitationPageSize={invitationPageSize}
+                  setInvitationPageSize={setInvitationPageSize}
+                  INVITATIONS_PAGE_SIZE_DEFAULT={INVITATIONS_PAGE_SIZE_DEFAULT}
+                  PAGE_SIZE_OPTIONS={PAGE_SIZE_OPTIONS}
+                  invitationEventFilter={invitationEventFilter}
+                  setInvitationEventFilter={setInvitationEventFilter}
+                  invitationEventOptions={invitationEventOptions}
+                  invitationStatusFilter={invitationStatusFilter}
+                  setInvitationStatusFilter={setInvitationStatusFilter}
+                  filteredInvitations={filteredInvitations}
+                  invitationMessage={invitationMessage}
+                  openWorkspace={openWorkspace}
+                  pagedInvitations={pagedInvitations}
+                  eventNamesById={eventNamesById}
+                  guestNamesById={guestNamesById}
+                  guestsById={guestsById}
+                  eventsById={eventsById}
+                  buildInvitationSharePayload={buildInvitationSharePayload}
+                  buildAppUrl={buildAppUrl}
+                  getGuestAvatarUrl={getGuestAvatarUrl}
+                  openGuestDetail={openGuestDetail}
+                  openEventDetail={openEventDetail}
+                  formatDate={formatDate}
+                  statusClass={statusClass}
+                  statusText={statusText}
+                  handlePrepareInvitationShare={handlePrepareInvitationShare}
+                  handleCopyInvitationLink={handleCopyInvitationLink}
+                  handleRequestDeleteInvitation={handleRequestDeleteInvitation}
+                  invitationPage={invitationPage}
+                  invitationTotalPages={invitationTotalPages}
+                  setInvitationPage={setInvitationPage}
+                />
+              ) : null}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {isImportWizardOpen ? (
+        <div className="import-wizard-overlay" onClick={handleCloseImportWizard}>
+          <section
+            className={`import-wizard-modal ${importWizardStep === 3 ? "is-wide" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-wizard-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="import-wizard-header">
+              <div>
+                <p className="item-meta">{importWizardStepLabel}</p>
+                <h3 id="import-wizard-title" className="item-title">
+                  {importWizardStepTitle}
+                </h3>
+                <p className="hint">{importWizardStepHint}</p>
+              </div>
+              <button
+                className="btn btn-ghost btn-sm btn-icon-only"
+                type="button"
+                onClick={handleCloseImportWizard}
+                aria-label={t("close_modal")}
+                title={t("close_modal")}
+              >
+                <Icon name="x" className="icon icon-sm" />
+              </button>
+            </header>
+
+            <div className="import-wizard-steps" role="list" aria-label={importWizardStepLabel}>
+              {Array.from({ length: IMPORT_WIZARD_STEP_TOTAL }).map((_, index) => {
+                const stepNumber = index + 1;
+                const isActive = importWizardStep === stepNumber;
+                const isDone = importWizardStep > stepNumber;
+                return (
+                  <span
+                    key={`wizard-step-${stepNumber}`}
+                    role="listitem"
+                    className={`import-wizard-step-pill ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}
+                  >
+                    {stepNumber}
+                  </span>
+                );
+              })}
+            </div>
+
+            <div className="import-wizard-body">
+              {importWizardStep === 1 ? (
+                <div className="import-source-grid">
+                  {importWizardSourceOptions.map((sourceItem) => (
+                    <button
+                      key={sourceItem.key}
+                      type="button"
+                      className={`import-source-card ${importWizardSource === sourceItem.key ? "active" : ""}`}
+                      onClick={() => setImportWizardSource(sourceItem.key)}
+                      aria-pressed={importWizardSource === sourceItem.key}
+                    >
+                      <span className="import-source-icon">
+                        <Icon name={sourceItem.icon} className="icon icon-sm" />
+                      </span>
+                      <span className="import-source-title-row">
+                        <span className="item-title">{sourceItem.title}</span>
+                        {sourceItem.isRecommended ? (
+                          <span className="import-source-recommended">{t("import_wizard_source_recommended")}</span>
+                        ) : null}
+                      </span>
+                      <span className="item-meta">{sourceItem.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {importWizardStep === 2 && isMobileImportExperience && importWizardSourceOptions.length > 1 ? (
+                <div className="import-source-switch" role="tablist" aria-label={t("import_wizard_step_1_title")}>
+                  {importWizardSourceOptions.map((sourceItem) => (
+                    <button
+                      key={`switch-${sourceItem.key}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={importWizardSource === sourceItem.key}
+                      className={`import-source-switch-btn ${importWizardSource === sourceItem.key ? "active" : ""}`}
+                      onClick={() => {
+                        setImportContactsMessage("");
+                        setImportWizardSource(sourceItem.key);
+                      }}
+                    >
+                      <Icon name={sourceItem.icon} className="icon icon-xs" />
+                      <span>{sourceItem.title}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {importWizardStep === 2 && importWizardSource === "csv" ? (
+                <div className="import-step-stack">
+                  <div
+                    className="import-drop-zone"
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "copy";
+                    }}
+                    onDrop={handleImportWizardDrop}
+                  >
+                    <Icon name="folder" className="icon" />
+                    <p className="item-title">{t("import_wizard_csv_drop_title")}</p>
+                    <p className="item-meta">{t("import_wizard_csv_drop_hint")}</p>
+                    <label className="btn btn-ghost btn-sm">
+                      {t("contact_import_open_file_button")}
+                      <input
+                        type="file"
+                        accept=".csv,.vcf,.vcard,text/csv,text/vcard"
+                        onChange={handleImportContactsFile}
+                        hidden
+                      />
+                    </label>
+                  </div>
+                  {importWizardUploadedFileName ? (
+                    <p className="field-success">
+                      <Icon name="check" className="icon icon-xs" /> {importWizardUploadedFileName}
+                    </p>
+                  ) : null}
+                  <label>
+                    <span className="label-title">{t("contact_import_paste_label")}</span>
+                    <textarea
+                      rows={3}
+                      value={importContactsDraft}
+                      onChange={(event) => setImportContactsDraft(event.target.value)}
+                      placeholder={t("contact_import_paste_placeholder")}
+                    />
+                  </label>
+                  <div className="button-row">
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handlePreviewContactsFromDraft}>
+                      {t("contact_import_preview_button")}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearImportContacts}>
+                      {t("contact_import_clear_button")}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {importWizardStep === 2 && importWizardSource === "gmail" ? (
+                <div className="import-step-stack">
+                  <button
+                    className="btn btn-sm"
+                    type="button"
+                    onClick={() => handleImportGoogleContacts({ fromWizard: true })}
+                    disabled={isImportingGoogleContacts || !canUseGoogleContacts}
+                  >
+                    <Icon name="mail" className="icon icon-sm" />
+                    {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
+                  </button>
+                  <p className="hint">{t("import_wizard_gmail_privacy_note")}</p>
+                  {!canUseGoogleContacts ? <p className="hint">{t("contact_import_google_unconfigured")}</p> : null}
+                  {importContactsAnalysis.length > 0 ? (
+                    <p className="field-success">
+                      {t("contact_import_preview_total")} {importContactsAnalysis.length}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {importWizardStep === 2 && importWizardSource === "mobile" ? (
+                <div className="import-step-stack">
+                  {canUseDeviceContacts ? (
+                    <article className="recommendation-card">
+                      <p className="item-title">{t("import_wizard_mobile_native_title")}</p>
+                      <p className="item-meta">{t("import_wizard_mobile_native_hint")}</p>
+                      <button
+                        className="btn btn-sm"
+                        type="button"
+                        onClick={() => handlePickDeviceContacts({ fromWizard: true })}
+                      >
+                        <Icon name="phone" className="icon icon-sm" />
+                        {t("contact_import_device_button")}
                       </button>
-                      {isEditingEvent ? (
-                        <button className="btn btn-ghost" type="button" onClick={handleCancelEditEvent}>
-                          {t("cancel_edit")}
+                    </article>
+                  ) : (
+                    <article className="recommendation-card warning">
+                      <p className="item-title">
+                        {isIOSDevice ? t("import_wizard_ios_recommendation_title") : t("import_wizard_mobile_fallback_title")}
+                      </p>
+                      <p className="item-meta">
+                        {isIOSDevice ? t("import_wizard_ios_recommendation_hint") : t("import_wizard_mobile_fallback_hint")}
+                      </p>
+                      <p className="hint">{contactPickerUnsupportedReason}</p>
+                      {isIOSDevice && canUseGoogleContacts ? (
+                        <button className="btn btn-sm" type="button" onClick={() => setImportWizardSource("gmail")}>
+                          <Icon name="mail" className="icon icon-sm" />
+                          {t("import_wizard_ios_use_google_action")}
                         </button>
                       ) : null}
-                    </div>
-                  </section>
-
-                  <section className="event-progress-strip" aria-label={t("event_progress_title")}>
-                    <div className="event-progress-header">
-                      <p className="label-title">{t("event_progress_title")}</p>
-                      <strong>{eventPhaseProgress.percent}%</strong>
-                    </div>
-                    <div
-                      className="event-progress-track"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={eventPhaseProgress.percent}
-                    >
-                      <span style={{ width: `${eventPhaseProgress.percent}%` }} />
-                    </div>
-                    <div className="event-phase-pills">
-                      {eventPhaseProgress.byPhase.map((phaseItem) => (
-                        <span key={phaseItem.key} className={`event-phase-pill ${phaseItem.done === phaseItem.total ? "done" : ""}`}>
-                          {t(`event_phase_${phaseItem.key}`)} {phaseItem.done}/{phaseItem.total}
-                        </span>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="event-phase-section event-phase-section-publish">
-                    <h3>{t("event_phase_publish")}</h3>
-                    <p className="field-help">{t("event_phase_publish_hint")}</p>
-                    {editingEventId ? (
-                      <p className="hint">
-                        {t("event_phase_publish_invites")} {invitationCountForEditingEvent}
-                      </p>
-                    ) : (
-                      <p className="hint">{t("event_phase_publish_after_save")}</p>
-                    )}
-                  </section>
-
-                  <section className="event-phase-section">
-                    <h3>{t("event_settings_title")}</h3>
-                    <p className="field-help">{t("event_settings_hint")}</p>
-                    <label className="event-setting-toggle">
-                      <input
-                        type="checkbox"
-                        checked={eventAllowPlusOne}
-                        onChange={(event) => setEventAllowPlusOne(event.target.checked)}
-                      />
-                      <span>{t("event_setting_allow_plus_one")}</span>
-                    </label>
-                    <label className="event-setting-toggle">
-                      <input
-                        type="checkbox"
-                        checked={eventAutoReminders}
-                        onChange={(event) => setEventAutoReminders(event.target.checked)}
-                      />
-                      <span>{t("event_setting_auto_reminders")}</span>
-                    </label>
-                    <label>
-                      <span className="label-title">{t("event_setting_dress_code")}</span>
-                      <select value={eventDressCode} onChange={(event) => setEventDressCode(event.target.value)}>
-                        <option value="none">{t("event_dress_code_none")}</option>
-                        <option value="casual">{t("event_dress_code_casual")}</option>
-                        <option value="elegant">{t("event_dress_code_elegant")}</option>
-                        <option value="formal">{t("event_dress_code_formal")}</option>
-                        <option value="themed">{t("event_dress_code_themed")}</option>
-                      </select>
-                      <FieldMeta errorText={eventErrors.dressCode ? t(eventErrors.dressCode) : ""} />
-                    </label>
-                    <label>
-                      <span className="label-title">{t("event_setting_playlist_mode")}</span>
-                      <select value={eventPlaylistMode} onChange={(event) => setEventPlaylistMode(event.target.value)}>
-                        <option value="host_only">{t("event_playlist_mode_host_only")}</option>
-                        <option value="collaborative">{t("event_playlist_mode_collaborative")}</option>
-                        <option value="spotify_collaborative">{t("event_playlist_mode_spotify_collaborative")}</option>
-                      </select>
-                      <FieldMeta errorText={eventErrors.playlistMode ? t(eventErrors.playlistMode) : ""} />
-                    </label>
-                  </section>
-
-                  <section className="event-phase-section">
-                    <h3>{t("smart_hosting_playbook_title")}</h3>
-                    <p className="field-help">{t("smart_hosting_playbook_hint")}</p>
-                    {eventBuilderPlaybookActions.length > 0 ? (
-                      <ul className="list recommendation-list">
-                        {eventBuilderPlaybookActions.map((item, index) => (
-                          <li key={`${index}-${item}`}>{item}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="hint">{t("smart_hosting_empty")}</p>
-                    )}
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleApplySuggestedEventSettings}>
-                        {t("smart_hosting_apply_settings")}
-                      </button>
-                    </div>
-                  </section>
-
-                  <section className="event-phase-section">
-                    <h3>{t("event_menu_plan_title")}</h3>
-                    <p className="field-help">{t("event_menu_plan_hint")}</p>
-                    {eventBuilderMealPlan.recipeCards.length > 0 ? (
-                      <div className="event-menu-plan-grid">
-                        {eventBuilderMealPlan.recipeCards.map((recipeItem) => (
-                          <article key={recipeItem.id} className="event-menu-card">
-                            <p className="item-title">{recipeItem.title}</p>
-                            <p className="item-meta">{recipeItem.subtitle}</p>
-                            <p className="hint">{recipeItem.note}</p>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="hint">{t("event_menu_shopping_empty")}</p>
-                    )}
-                    <p className="item-title">{t("event_menu_shopping_title")}</p>
-                    {eventBuilderMealPlan.shoppingChecklist.length > 0 ? (
-                      <ul className="list recommendation-list event-shopping-list">
-                        {eventBuilderMealPlan.shoppingChecklist.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="hint">{t("event_menu_shopping_empty")}</p>
-                    )}
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleCopyEventBuilderShoppingChecklist}>
-                        <Icon name="check" className="icon icon-sm" />
-                        {t("event_menu_shopping_copy_action")}
-                      </button>
-                    </div>
-                  </section>
-
-                  <section className="event-phase-summary">
-                    <p className="label-title">{t("event_progress_title")}</p>
-                    <ul className="event-phase-summary-list">
-                      {eventPhaseProgress.byPhase.map((phaseItem) => {
-                        const isDone = phaseItem.done === phaseItem.total;
-                        return (
-                          <li key={`summary-${phaseItem.key}`} className={`event-phase-summary-item ${isDone ? "done" : ""}`}>
-                            <span className="event-phase-summary-dot" aria-hidden="true" />
-                            <span>{t(`event_phase_${phaseItem.key}`)}</span>
-                            <strong>
-                              {phaseItem.done}/{phaseItem.total}
-                            </strong>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-                </aside>
-              </div>
-
-              <datalist id="event-type-options">
-                {eventTypeOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-              <datalist id="event-place-options">
-                {locationNameOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-              <datalist id="event-address-options">
-                {locationAddressOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-              <InlineMessage text={eventMessage} />
-            </form>
-            ) : null}
-
-            {eventsWorkspace === "latest" ? (
-              <EventsListView
-                t={t}
-                eventSearch={eventSearch}
-                setEventSearch={setEventSearch}
-                eventSort={eventSort}
-                setEventSort={setEventSort}
-                eventPageSize={eventPageSize}
-                setEventPageSize={setEventPageSize}
-                eventsPageSizeDefault={EVENTS_PAGE_SIZE_DEFAULT}
-                pageSizeOptions={PAGE_SIZE_OPTIONS}
-                eventStatusFilter={eventStatusFilter}
-                setEventStatusFilter={setEventStatusFilter}
-                eventStatusCounts={eventStatusCounts}
-                filteredEvents={filteredEvents}
-                pagedEvents={pagedEvents}
-                eventInvitationSummaryByEventId={eventInvitationSummaryByEventId}
-                openEventDetail={openEventDetail}
-                openEventPlanById={openEventPlanById}
-                handleStartEditEvent={handleStartEditEvent}
-                handleRequestDeleteEvent={handleRequestDeleteEvent}
-                isDeletingEventId={isDeletingEventId}
-                toCatalogLabel={toCatalogLabel}
-                formatDate={formatDate}
-                language={language}
-                statusClass={statusClass}
-                statusText={statusText}
-                eventPage={eventPage}
-                eventTotalPages={eventTotalPages}
-                setEventPage={setEventPage}
-                mapsStatus={mapsStatus}
-                mapsError={mapsError}
-                orderedEventMapPoints={orderedEventMapPoints}
-                GeoPointsMapPanel={GeoPointsMapPanel}
-              />
-            ) : null}
-
-                        {eventsWorkspace === "detail" || eventsWorkspace === "plan" ? (
-              <EventDetailView
-                eventsWorkspace={eventsWorkspace}
-                openWorkspace={openWorkspace}
-                handleBackToEventDetail={handleBackToEventDetail}
-                selectedEventDetail={selectedEventDetail}
-                t={t}
-                statusClass={statusClass}
-                statusText={statusText}
-                formatLongDate={formatLongDate}
-                language={language}
-                formatTimeLabel={formatTimeLabel}
-                handleOpenEventPlan={handleOpenEventPlan}
-                handleStartEditEvent={handleStartEditEvent}
-                selectedEventDetailPrimaryShare={selectedEventDetailPrimaryShare}
-                openInvitationCreate={openInvitationCreate}
-                selectedEventDetailInvitations={selectedEventDetailInvitations}
-                selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
-                invitationMessage={invitationMessage}
-                toCatalogLabel={toCatalogLabel}
-                formatDate={formatDate}
-                normalizeEventDressCode={normalizeEventDressCode}
-                normalizeEventPlaylistMode={normalizeEventPlaylistMode}
-                selectedEventChecklist={selectedEventChecklist}
-                selectedEventHealthAlerts={selectedEventHealthAlerts}
-                selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
-                selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
-                eventPlannerSectionRef={eventPlannerSectionRef}
-                interpolateText={interpolateText}
-                selectedEventMealPlan={selectedEventMealPlan}
-                selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
-                selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
-                selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
-                selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
-                selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
-                selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
-                selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
-                selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
-                handleOpenEventPlannerContext={handleOpenEventPlannerContext}
-                handleRegenerateEventPlanner={handleRegenerateEventPlanner}
-                handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
-                eventDetailPlannerTab={eventDetailPlannerTab}
-                handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
-                selectedEventDietTypesCount={selectedEventDietTypesCount}
-                selectedEventAllergiesCount={selectedEventAllergiesCount}
-                selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
-                selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
-                selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
-                selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
-                selectedEventRestrictionsCount={selectedEventRestrictionsCount}
-                selectedEventIntolerancesCount={selectedEventIntolerancesCount}
-                handleEventPlannerTabChange={handleEventPlannerTabChange}
-                selectedEventShoppingTotalIngredients={selectedEventShoppingTotalIngredients}
-                selectedEventEstimatedCostRange={selectedEventEstimatedCostRange}
-                selectedEventShoppingProgress={selectedEventShoppingProgress}
-                selectedEventShoppingItems={selectedEventShoppingItems}
-                selectedEventShoppingCheckedSet={selectedEventShoppingCheckedSet}
-                handleCopySelectedEventShoppingChecklist={handleCopySelectedEventShoppingChecklist}
-                handleMarkAllEventPlannerShoppingItems={handleMarkAllEventPlannerShoppingItems}
-                handleClearEventPlannerShoppingCheckedItems={handleClearEventPlannerShoppingCheckedItems}
-                eventPlannerShoppingFilter={eventPlannerShoppingFilter}
-                setEventPlannerShoppingFilter={setEventPlannerShoppingFilter}
-                selectedEventShoppingCounts={selectedEventShoppingCounts}
-                selectedEventShoppingGroupsFiltered={selectedEventShoppingGroupsFiltered}
-                handleToggleEventPlannerShoppingItem={handleToggleEventPlannerShoppingItem}
-                selectedEventHostPlaybook={selectedEventHostPlaybook}
-                handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
-                handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
-                getMapEmbedUrl={getMapEmbedUrl}
-                getGuestAvatarUrl={getGuestAvatarUrl}
-                selectedEventDetailGuests={selectedEventDetailGuests}
-                openGuestDetail={openGuestDetail}
-                handlePrepareInvitationShare={handlePrepareInvitationShare}
-                handleRequestDeleteInvitation={handleRequestDeleteInvitation}
-                selectedEventRsvpTimeline={selectedEventRsvpTimeline}
-              />
-            ) : null}
-
-            {eventsWorkspace === "insights" ? (
-            <section className="panel panel-wide">
-              {events.length > 0 ? (
-                <label>
-                  <span className="label-title">{t("smart_hosting_event_select")}</span>
-                  <select value={insightsEventId} onChange={(event) => setInsightsEventId(event.target.value)}>
-                    {events.map((eventItem) => (
-                      <option key={eventItem.id} value={eventItem.id}>
-                        {eventItem.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              <p className="hint">
-                {t("smart_hosting_scope_label")}:{" "}
-                {eventInsights.scope === "event" ? t("smart_hosting_scope_event") : t("smart_hosting_scope_all")} -{" "}
-                {t("smart_hosting_considered_guests")}: {eventInsights.consideredGuestsCount}
-              </p>
-              {eventInsights.hasData ? (
-                <div className="stack-md">
-                  <div className="insights-grid">
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_food")}</p>
-                      <p className="item-meta">
-                        {eventInsights.foodSuggestions.length > 0
-                          ? eventInsights.foodSuggestions.join(", ")
-                          : t("smart_hosting_no_data")}
-                      </p>
                     </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_drink")}</p>
-                      <p className="item-meta">
-                        {eventInsights.drinkSuggestions.length > 0
-                          ? eventInsights.drinkSuggestions.join(", ")
-                          : t("smart_hosting_no_data")}
-                      </p>
-                    </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_avoid")}</p>
-                      <p className="item-meta">
-                        {eventInsights.avoidItems.length > 0 ? eventInsights.avoidItems.join(", ") : t("smart_hosting_no_data")}
-                      </p>
-                    </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_decor")}</p>
-                      <p className="item-meta">
-                        {eventInsights.decorColors.length > 0
-                          ? eventInsights.decorColors.join(", ")
-                          : t("smart_hosting_no_data")}
-                      </p>
-                    </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_music")}</p>
-                      <p className="item-meta">
-                        {eventInsights.musicGenres.length > 0
-                          ? eventInsights.musicGenres.join(", ")
-                          : t("smart_hosting_no_data")}
-                      </p>
-                    </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_icebreakers")}</p>
-                      <p className="item-meta">
-                        {eventInsights.icebreakers.length > 0
-                          ? eventInsights.icebreakers.join(", ")
-                          : t("smart_hosting_no_data")}
-                      </p>
-                    </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_taboo")}</p>
-                      <p className="item-meta">
-                        {eventInsights.tabooTopics.length > 0
-                          ? eventInsights.tabooTopics.join(", ")
-                          : t("smart_hosting_no_data")}
-                      </p>
-                    </article>
-                    <article className="insight-card">
-                      <p className="item-title">{t("smart_hosting_timing")}</p>
-                      <p className="item-meta">
-                        {eventInsights.timingRecommendation === "start_with_buffer"
-                          ? t("smart_hosting_timing_buffer")
-                          : t("smart_hosting_timing_on_time")}
-                      </p>
-                    </article>
-                  </div>
-                  <article className="recommendation-card">
-                    <p className="item-title">{t("smart_hosting_playbook_title")}</p>
-                    <p className="field-help">{t("smart_hosting_playbook_hint")}</p>
-                    {insightsPlaybookActions.length > 0 ? (
-                      <ul className="list recommendation-list">
-                        {insightsPlaybookActions.map((item, index) => (
-                          <li key={`${index}-${item}`}>{item}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="hint">{t("smart_hosting_empty")}</p>
-                    )}
-                  </article>
-                </div>
-              ) : (
-                <p className="hint">{t("smart_hosting_empty")}</p>
-              )}
-            </section>
-          ) : null}
-        </div>
-      )}
-    </section>
-  ) : null}
-
-        {activeView === "guests" ? (
-          <section className="workspace-shell view-transition">
-            {guestsWorkspace === "hub" ? (
-              <div className="workspace-card-grid">
-                {WORKSPACE_ITEMS.guests.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
-                  <article key={workspaceItem.key} className="workspace-card">
-                    <div className="workspace-card-icon">
-                      <Icon name={workspaceItem.icon} className="icon" />
+                  )}
+                  {!canUseDeviceContacts ? (
+                    <div className="import-mobile-qr-box">
+                      {importWizardQrDataUrl ? (
+                        <img src={importWizardQrDataUrl} alt={t("import_wizard_mobile_qr_alt")} />
+                      ) : (
+                        <div className="import-mobile-qr-fallback">
+                          <Icon name="phone" className="icon" />
+                          <span>{t("import_wizard_mobile_qr_hint")}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="workspace-card-content">
-                      <h3>{t(workspaceItem.labelKey)}</h3>
-                      <p>{t(workspaceItem.descriptionKey)}</p>
-                    </div>
+                  ) : null}
+                  {!canUseDeviceContacts ? <p className="item-meta">{t("import_wizard_mobile_qr_hint")}</p> : null}
+                  <div className="button-row">
                     <button
                       className="btn btn-ghost btn-sm"
                       type="button"
-                      onClick={() => openWorkspace("guests", workspaceItem.key)}
+                      onClick={handleShareImportWizardLink}
                     >
-                      {t("workspace_open")}
+                      <Icon name="message" className="icon icon-sm" />
+                      {t("import_wizard_mobile_share_action")}
                     </button>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div key={`guests-${guestsWorkspace}`} className="dashboard-grid single-section workspace-content">
-            {guestsWorkspace === "create" ? (
-            <form className="panel form-grid guest-create-form" onSubmit={handleSaveGuest} noValidate>
-              <p className="hint">{t("guest_host_potential_hint")}</p>
-
-              <section className="recommendation-card">
-                <p className="label-title">
-                  <Icon name="phone" className="icon icon-sm" />
-                  {t("contact_import_mobile_quick_title")}
-                </p>
-                <p className="field-help">
-                  {canUseDeviceContacts ? t("contact_import_mobile_quick_hint") : t("contact_import_mobile_quick_fallback")}
-                </p>
-                {!canUseDeviceContacts ? (
-                  <p className="hint">{contactPickerUnsupportedReason}</p>
-                ) : null}
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleFillGuestFromDeviceContact}
-                  >
-                    {t("contact_import_mobile_quick_button")}
-                  </button>
-                  {!canUseDeviceContacts ? (
-                    <button className="btn btn-sm" type="button" onClick={openFileImportFallback}>
-                      {t("contact_import_open_file_button")}
-                    </button>
+                    {!canUseDeviceContacts ? (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        type="button"
+                        onClick={() => handleImportGoogleContacts({ fromWizard: true })}
+                        disabled={isImportingGoogleContacts || !canUseGoogleContacts}
+                      >
+                        <Icon name="mail" className="icon icon-sm" />
+                        {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
+                      </button>
+                    ) : null}
+                  </div>
+                  {!isMobileImportExperience ? (
+                    <>
+                      <label>
+                        <span className="label-title">{t("email")}</span>
+                        <input
+                          type="email"
+                          value={importWizardShareEmail}
+                          onChange={(event) => setImportWizardShareEmail(event.target.value)}
+                          placeholder={t("placeholder_email")}
+                        />
+                      </label>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardEmailLink}>
+                        <Icon name="mail" className="icon icon-sm" />
+                        {t("import_wizard_mobile_email_action")}
+                      </button>
+                    </>
+                  ) : null}
+                  {!canUseDeviceContacts && !isMobileImportExperience ? (
+                    <details className="contact-import-fallback-details">
+                      <summary>{t("import_wizard_mobile_alternative_methods")}</summary>
+                      <div className="button-row">
+                        <label className="btn btn-ghost btn-sm">
+                          <Icon name="folder" className="icon icon-sm" />
+                          {t("contact_import_open_file_button")}
+                          <input
+                            type="file"
+                            accept=".csv,.vcf,.vcard,text/csv,text/vcard"
+                            onChange={handleImportContactsFile}
+                            hidden
+                          />
+                        </label>
+                      </div>
+                    </details>
                   ) : null}
                 </div>
-              </section>
+              ) : null}
 
-              <details ref={contactImportDetailsRef} className="advanced-form contact-import-box">
-                <summary>{t("contact_import_title")}</summary>
-                <p className="field-help">{t("contact_import_hint")}</p>
-                <p className="field-help">{t("contact_import_google_hint")}</p>
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handlePickDeviceContacts}
-                  >
-                    {t("contact_import_device_button")}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleImportGoogleContacts}
-                    disabled={isImportingGoogleContacts || !canUseGoogleContacts}
-                  >
-                    {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
-                  </button>
-                </div>
-                <p className="hint">
-                  {canUseDeviceContacts ? t("contact_import_device_supported") : t("contact_import_device_not_supported")}
-                </p>
-                {!canUseDeviceContacts ? <p className="hint">{contactPickerUnsupportedReason}</p> : null}
-                {!canUseGoogleContacts ? <p className="hint">{t("contact_import_google_unconfigured")}</p> : null}
-                <label>
-                  <span className="label-title">{t("contact_import_file_label")}</span>
-                  <input
-                    ref={contactImportFileInputRef}
-                    type="file"
-                    accept=".csv,.vcf,.vcard,text/csv,text/vcard"
-                    onChange={handleImportContactsFile}
-                  />
-                  <FieldMeta helpText={t("contact_import_file_help")} />
-                </label>
-                <label>
-                  <span className="label-title">{t("contact_import_paste_label")}</span>
-                  <textarea
-                    rows={4}
-                    value={importContactsDraft}
-                    onChange={(event) => setImportContactsDraft(event.target.value)}
-                    placeholder={t("contact_import_paste_placeholder")}
-                  />
-                </label>
-                <div className="button-row">
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={handlePreviewContactsFromDraft}>
-                    {t("contact_import_preview_button")}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearImportContacts}>
-                    {t("contact_import_clear_button")}
-                  </button>
-                </div>
-                {importContactsAnalysis.length > 0 ? (
-                  <div className="import-status-grid">
-                    <p className="hint">
-                      {t("contact_import_preview_total")} {importContactsAnalysis.length}. {t("contact_import_preview_ready")}{" "}
-                      {importContactsReady.length}. {t("contact_import_selected_ready")} {importContactsSelectedReady.length}.
-                    </p>
-                    <div className="import-status-pills" aria-label={t("contact_import_status_summary")}>
-                      <span className="status-pill status-event-published">
-                        {t("contact_import_status_ready")} {importContactsStatusSummary.ready}
-                      </span>
-                      <span className="status-pill status-yes">
-                        {t("contact_import_status_high_potential")} {importContactsStatusSummary.highPotential}
-                      </span>
-                      <span className="status-pill status-maybe">
-                        {t("contact_import_status_medium_potential")} {importContactsStatusSummary.mediumPotential}
-                      </span>
-                      <span className="status-pill status-draft">
-                        {t("contact_import_status_low_potential")} {importContactsStatusSummary.lowPotential}
-                      </span>
-                      <span className="status-pill status-invitation-pending">
-                        {t("contact_import_status_duplicate_existing")} {importContactsStatusSummary.duplicateExisting}
-                      </span>
-                      <span className="status-pill status-event-draft">
-                        {t("contact_import_status_duplicate_file")} {importContactsStatusSummary.duplicateInPreview}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
-                {importContactsAnalysis.length > 0 ? (
+              {importWizardStep === 3 ? (
+                <div className="import-step-stack">
                   <div className="list-tools">
-                    <label>
-                      <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
-                      <select
-                        value={importDuplicateMode}
-                        onChange={(event) => handleImportDuplicateModeChange(event.target.value)}
-                      >
-                        <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
-                        <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
-                      </select>
-                      <FieldMeta helpText={t("contact_import_duplicate_mode_hint")} />
-                    </label>
                     <label>
                       <span className="label-title">{t("search")}</span>
                       <input
@@ -13683,62 +10201,6 @@ function DashboardScreen({
                         onChange={(event) => setImportContactsSearch(event.target.value)}
                         placeholder={t("contact_import_filter_placeholder")}
                       />
-                    </label>
-                    <label>
-                      <span className="label-title">{t("contact_import_group_filter")}</span>
-                      <select
-                        value={importContactsGroupFilter}
-                        onChange={(event) => setImportContactsGroupFilter(event.target.value)}
-                      >
-                        <option value="all">{t("all_contacts")}</option>
-                        {importContactsGroupOptions.map((groupLabel) => (
-                          <option key={groupLabel} value={groupLabel}>
-                            {groupLabel}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span className="label-title">{t("contact_import_potential_filter_label")}</span>
-                      <select
-                        value={importContactsPotentialFilter}
-                        onChange={(event) => setImportContactsPotentialFilter(event.target.value)}
-                      >
-                        <option value="all">{t("contact_import_potential_all")}</option>
-                        <option value="high">{t("contact_import_potential_high")}</option>
-                        <option value="medium">{t("contact_import_potential_medium")}</option>
-                        <option value="low">{t("contact_import_potential_low")}</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span className="label-title">{t("contact_import_source_label")}</span>
-                      <select
-                        value={importContactsSourceFilter}
-                        onChange={(event) => setImportContactsSourceFilter(event.target.value)}
-                      >
-                        <option value="all">{t("contact_import_source_all")}</option>
-                        <option value="google">{t("contact_import_source_google")}</option>
-                        <option value="device">{t("contact_import_source_device")}</option>
-                        <option value="file">{t("contact_import_source_file")}</option>
-                        <option value="paste">{t("contact_import_source_paste")}</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span className="label-title">{t("contact_import_sort_label")}</span>
-                      <select
-                        value={importContactsSort}
-                        onChange={(event) =>
-                          setImportContactsSort(
-                            IMPORT_CONTACTS_SORT_OPTIONS.includes(event.target.value) ? event.target.value : "priority"
-                          )
-                        }
-                      >
-                        <option value="priority">{t("contact_import_sort_priority")}</option>
-                        <option value="score_desc">{t("contact_import_sort_score_desc")}</option>
-                        <option value="score_asc">{t("contact_import_sort_score_asc")}</option>
-                        <option value="name_asc">{t("contact_import_sort_name_asc")}</option>
-                        <option value="name_desc">{t("contact_import_sort_name_desc")}</option>
-                      </select>
                     </label>
                     <label>
                       <span className="label-title">{t("pagination_items_per_page")}</span>
@@ -13753,21 +10215,39 @@ function DashboardScreen({
                         ))}
                       </select>
                     </label>
+                    <label>
+                      <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
+                      <select
+                        value={importDuplicateMode}
+                        onChange={(event) => handleImportDuplicateModeChange(event.target.value)}
+                      >
+                        <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
+                        <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
+                      </select>
+                    </label>
                   </div>
-                ) : null}
-                {importContactsAnalysis.length > 0 ? (
+                  <div className="import-status-pills">
+                    <span className="status-pill status-event-published">
+                      {t("contact_import_preview_total")} {importContactsAnalysis.length}
+                    </span>
+                    <span className="status-pill status-yes">
+                      {t("contact_import_selected_ready")} {importContactsSelectedReady.length}
+                    </span>
+                    <span className="status-pill status-event-draft">
+                      {t("contact_import_preview_ready")} {importContactsReady.length}
+                    </span>
+                  </div>
+                  {importContactsDuplicateCount > 0 ? (
+                    <div className="recommendation-card warning import-wizard-alert">
+                      <p className="item-title">{t("import_wizard_duplicates_title")}</p>
+                      <p className="item-meta">
+                        {interpolateText(t("import_wizard_duplicates_hint"), { count: importContactsDuplicateCount })}
+                      </p>
+                    </div>
+                  ) : null}
                   <div className="button-row">
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectSuggestedImportContacts}>
                       {t("contact_import_select_suggested")}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
-                      {t("contact_import_select_all_ready")}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectHighPotentialImportContacts}>
-                      {t("contact_import_select_high_potential")}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDualChannelImportContacts}>
-                      {t("contact_import_select_dual_channel")}
                     </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
                       {t("contact_import_select_merge_safe")}
@@ -13775,3277 +10255,510 @@ function DashboardScreen({
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleApproveAllLowConfidenceMergeContacts}>
                       {t("contact_import_merge_approve_all_low")}
                     </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectFilteredReadyImportContacts}>
-                      {t("contact_import_select_filtered_ready")}
-                    </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
                       {t("contact_import_select_page_ready")}
                     </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectOnlyNewImportContacts}>
-                      {t("contact_import_select_new_only")}
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
+                      {t("contact_import_select_all_ready")}
                     </button>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearReadyImportContactsSelection}>
                       {t("contact_import_clear_selection")}
                     </button>
                   </div>
-                ) : null}
-                {importContactsAnalysis.length > 0 ? (
-                  <p className="hint">
-                    {interpolateText(t("contact_import_suggested_count"), {
-                      count: importContactsSuggested.length
-                    })}
-                  </p>
-                ) : null}
-                {importContactsAnalysis.length > 0 ? (
-                  <ul className="list import-preview-list">
-                    {pagedImportContacts.map((contactItem) => (
-                      <li key={contactItem.previewId}>
-                        <label className="bulk-guest-option import-contact-option">
-                          <input
-                            type="checkbox"
-                            checked={selectedImportContactIds.includes(contactItem.previewId)}
-                            disabled={!contactItem.canImport}
-                            onChange={() => toggleImportContactSelection(contactItem.previewId)}
-                          />
-                          <span>
-                            <strong>
+                  <div className="import-preview-table">
+                    <div className="import-preview-head">
+                      <span />
+                      <span>{t("field_full_name")}</span>
+                      <span>{t("email")}</span>
+                      <span>{t("field_phone")}</span>
+                      <span>{t("field_city")}</span>
+                      <span>{t("status")}</span>
+                    </div>
+                    <ul className="list import-preview-list import-preview-list-modal">
+                      {pagedImportContacts.map((contactItem) => {
+                        const statusText = contactItem.duplicateExisting
+                          ? contactItem.willMerge
+                            ? t("contact_import_status_duplicate_merge")
+                            : t("contact_import_status_duplicate_existing")
+                          : contactItem.duplicateInPreview
+                            ? t("contact_import_status_duplicate_file")
+                            : contactItem.potentialLevel === "high"
+                              ? t("contact_import_status_high_potential")
+                              : contactItem.potentialLevel === "medium"
+                                ? t("contact_import_status_medium_potential")
+                                : t("contact_import_status_ready");
+                        const statusClass = contactItem.duplicateExisting
+                          ? "status-invitation-pending"
+                          : contactItem.duplicateInPreview
+                            ? "status-event-draft"
+                            : contactItem.potentialLevel === "high"
+                              ? "status-yes"
+                              : contactItem.potentialLevel === "medium"
+                                ? "status-maybe"
+                                : "status-event-published";
+                        return (
+                          <li key={contactItem.previewId} className="import-preview-row">
+                            <span className="import-preview-cell import-preview-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={selectedImportContactIds.includes(contactItem.previewId)}
+                                disabled={!contactItem.canImport}
+                                onChange={() => toggleImportContactSelection(contactItem.previewId)}
+                              />
+                            </span>
+                            <span className="import-preview-cell import-preview-name">
                               {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
-                            </strong>
-                            <small>{contactItem.email || contactItem.phone || "-"}</small>
-                            <small>{[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}</small>
-                            {contactItem.birthday ? <small>{`${t("field_birthday")}: ${contactItem.birthday}`}</small> : null}
-                            <small>
-                              {t("contact_import_source_label")}: {t(`contact_import_source_${contactItem.importSource}`)}
-                            </small>
-                            <small>
-                              {t("contact_import_capture_score")}: {contactItem.captureScore}/100 ·{" "}
-                              {t(`contact_import_potential_${contactItem.potentialLevel}`)}
-                            </small>
-                            {contactItem.groups?.length ? (
-                              <small>{`${t("contact_import_group_filter")}: ${contactItem.groups.join(", ")}`}</small>
-                            ) : null}
-                            <small>
-                              {contactItem.duplicateExisting
-                                ? contactItem.willMerge
-                                  ? t("contact_import_status_duplicate_merge")
-                                  : t("contact_import_status_duplicate_existing")
-                                : contactItem.duplicateInPreview
-                                ? t("contact_import_status_duplicate_file")
-                                : t("contact_import_status_ready")}
-                            </small>
-                            {contactItem.duplicateExisting && contactItem.existingGuestName ? (
-                              <small>
-                                {t("merge_guest_target_label")}: {contactItem.existingGuestName}
-                              </small>
-                            ) : null}
-                            {contactItem.duplicateExisting && contactItem.duplicateReasonLabel ? (
-                              <small>
-                                {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
-                              </small>
-                            ) : null}
-                            {contactItem.requiresMergeApproval ? (
-                              <small className="import-merge-warning">
-                                {t("contact_import_merge_requires_approval")}
-                              </small>
-                            ) : null}
-                            {contactItem.duplicateExisting ? (
-                              <small>
-                                {t("contact_import_merge_confidence_label")}:{" "}
-                                {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
-                              </small>
-                            ) : null}
-                            {contactItem.requiresMergeApproval ? (
-                              <button
-                                className="btn btn-ghost btn-sm import-merge-approve-btn"
-                                type="button"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  handleOpenLowConfidenceMergeReview(contactItem.previewId);
-                                }}
-                              >
-                                {t("contact_import_merge_review_action")}
-                              </button>
-                            ) : null}
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {importContactsFiltered.length > 0 ? (
-                  <div className="pagination-row import-preview-pagination">
-                    <p className="hint">
-                      {t("pagination_page")} {Math.min(importContactsPage, importContactsTotalPages)}/{importContactsTotalPages}
-                    </p>
-                    <div className="button-row">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() => setImportContactsPage((prev) => Math.max(1, prev - 1))}
-                        disabled={importContactsPage <= 1}
-                      >
-                        {t("pagination_prev")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() => setImportContactsPage((prev) => Math.min(importContactsTotalPages, prev + 1))}
-                        disabled={importContactsPage >= importContactsTotalPages}
-                      >
-                        {t("pagination_next")}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="button-row">
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={handleImportContacts}
-                    disabled={isImportingContacts || importContactsSelectedReady.length === 0}
-                  >
-                    {isImportingContacts ? t("contact_import_importing") : t("contact_import_import_button")}
-                  </button>
-                </div>
-                <InlineMessage text={importContactsMessage} />
-              </details>
-
-              <label>
-                <span className="label-title">{t("field_first_name")} *</span>
-                <input
-                  type="text"
-                  value={guestFirstName}
-                  onChange={(event) => setGuestFirstName(event.target.value)}
-                  placeholder={t("placeholder_first_name")}
-                  aria-invalid={Boolean(guestErrors.firstName)}
-                />
-                <FieldMeta errorText={guestErrors.firstName ? t(guestErrors.firstName) : ""} />
-              </label>
-
-              <label>
-                <span className="label-title">{t("field_last_name")}</span>
-                <input
-                  type="text"
-                  value={guestLastName}
-                  onChange={(event) => setGuestLastName(event.target.value)}
-                  placeholder={t("placeholder_last_name")}
-                  aria-invalid={Boolean(guestErrors.lastName)}
-                />
-                <FieldMeta errorText={guestErrors.lastName ? t(guestErrors.lastName) : ""} />
-              </label>
-
-              <label>
-                <span className="label-title">{t("field_guest_photo")}</span>
-                <div className="guest-photo-input-row">
-                  <AvatarCircle
-                    className="list-avatar guest-photo-preview"
-                    label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
-                    fallback="IN"
-                    imageUrl={guestPhotoUrl}
-                    size={44}
-                  />
-                  <input
-                    type="url"
-                    value={guestPhotoInputValue}
-                    onChange={(event) => handleGuestPhotoUrlChange(event.target.value)}
-                    placeholder={t("placeholder_guest_photo")}
-                  />
-                </div>
-                <div className="button-row guest-photo-actions">
-                  <label className="btn btn-ghost btn-sm guest-photo-upload-btn">
-                    {t("guest_photo_upload")}
-                    <input type="file" accept="image/*" onChange={handleGuestPhotoFileChange} />
-                  </label>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={handleRemoveGuestPhoto} disabled={!guestPhotoUrl}>
-                    {t("guest_photo_remove")}
-                  </button>
-                </div>
-                <FieldMeta helpText={t("guest_photo_hint")} />
-              </label>
-
-              <label>
-                <span className="label-title">
-                  <Icon name="mail" className="icon icon-sm" />
-                  {t("email")}
-                </span>
-                <input
-                  type="email"
-                  value={guestEmail}
-                  onChange={(event) => setGuestEmail(event.target.value)}
-                  placeholder={t("placeholder_email")}
-                  aria-invalid={Boolean(guestErrors.email)}
-                />
-                <FieldMeta errorText={guestErrors.email ? t(guestErrors.email) : ""} />
-              </label>
-
-              <label>
-                <span className="label-title">
-                  <Icon name="phone" className="icon icon-sm" />
-                  {t("field_phone")}
-                </span>
-                <input
-                  type="tel"
-                  value={guestPhone}
-                  onChange={(event) => setGuestPhone(event.target.value)}
-                  placeholder={t("placeholder_phone")}
-                  aria-invalid={Boolean(guestErrors.phone)}
-                />
-                <FieldMeta
-                  helpText={t("hint_contact_required")}
-                  errorText={guestErrors.phone ? t(guestErrors.phone) : guestErrors.contact ? t(guestErrors.contact) : ""}
-                />
-              </label>
-
-              <label>
-                <span className="label-title">{t("field_relationship")}</span>
-                <select
-                  value={guestRelationship}
-                  onChange={(event) => setGuestRelationship(event.target.value)}
-                  aria-invalid={Boolean(guestErrors.relationship)}
-                >
-                  <option value="">{t("select_option_prompt")}</option>
-                  {relationshipOptions.map((optionValue) => (
-                    <option key={optionValue} value={optionValue}>
-                      {optionValue}
-                    </option>
-                  ))}
-                </select>
-                <FieldMeta errorText={guestErrors.relationship ? t(guestErrors.relationship) : ""} />
-              </label>
-
-              <label>
-                <span className="label-title">{t("field_city")}</span>
-                <input
-                  type="text"
-                  value={guestCity}
-                  onChange={(event) => setGuestCity(event.target.value)}
-                  placeholder={t("placeholder_city")}
-                  list="guest-city-options"
-                  aria-invalid={Boolean(guestErrors.city)}
-                />
-                <FieldMeta errorText={guestErrors.city ? t(guestErrors.city) : ""} />
-              </label>
-
-              <label>
-                <span className="label-title">{t("field_country")}</span>
-                <input
-                  type="text"
-                  value={guestCountry}
-                  onChange={(event) => setGuestCountry(event.target.value)}
-                  placeholder={t("placeholder_country")}
-                  list="guest-country-options"
-                  aria-invalid={Boolean(guestErrors.country)}
-                />
-                <FieldMeta errorText={guestErrors.country ? t(guestErrors.country) : ""} />
-              </label>
-
-              <section className="profile-capture-card">
-                <p className="item-title">
-                  <Icon name="sparkle" className="icon icon-sm" />
-                  {t("guest_profile_capture_title")}
-                </p>
-                <p className="field-help">{t("guest_profile_capture_hint")}</p>
-                <p className="item-meta">
-                  {interpolateText(t("guest_profile_capture_progress"), {
-                    done: guestAdvancedProfileCompleted,
-                    total: guestAdvancedProfileSignals.length,
-                    percent: guestAdvancedProfilePercent
-                  })}
-                </p>
-                <div className="progress-bar" aria-hidden="true">
-                  <span style={{ width: `${guestAdvancedProfilePercent}%` }} />
-                </div>
-                {guestNextBirthday ? (
-                  <p className="item-meta">
-                    {t("birthday_next_label")}: {guestNextBirthday.dateLabel} ({interpolateText(t("birthday_next_days"), { days: guestNextBirthday.diffDays })})
-                  </p>
-                ) : (
-                  <p className="item-meta">{t("birthday_unknown")}</p>
-                )}
-                <div className="button-row">
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={handleCreateBirthdayEventFromGuest}>
-                    <Icon name="calendar" className="icon icon-sm" />
-                    {t("birthday_event_create")}
-                  </button>
-                </div>
-                {guestAdvancedProfileSignals.some((item) => !item.done) ? (
-                  <div className="multi-chip-group">
-                    {guestAdvancedProfileSignals
-                      .filter((item) => !item.done)
-                      .map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          className="multi-chip"
-                          onClick={() => scrollToGuestAdvancedSection(item.key)}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="field-success">{t("guest_profile_capture_all_set")}</p>
-                )}
-              </section>
-
-              <section className="recommendation-card profile-priority-card">
-                <p className="item-title">
-                  <Icon name="sparkle" className="icon icon-sm" />
-                  {t("guest_profile_priority_title")}
-                </p>
-                <p className="field-help">{t("guest_profile_priority_hint")}</p>
-                <p className="item-meta">
-                  {interpolateText(t("guest_profile_priority_progress"), {
-                    done: guestPriorityCompleted,
-                    total: guestPriorityTotal,
-                    percent: guestPriorityPercent
-                  })}
-                </p>
-                <div className="progress-bar" aria-hidden="true">
-                  <span style={{ width: `${guestPriorityPercent}%` }} />
-                </div>
-                {guestPriorityMissing.length > 0 ? (
-                  <>
-                    <p className="hint">{t("guest_profile_priority_next_label")}</p>
-                    <div className="multi-chip-group">
-                      {guestPriorityMissing.slice(0, 5).map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          className="multi-chip"
-                          onClick={() => scrollToGuestAdvancedSection(getGuestAdvancedSectionFromPriorityKey(item.key))}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleOpenGuestAdvancedPriority}>
-                        {t("guest_profile_priority_open_action")}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="field-success">{t("guest_profile_capture_all_set")}</p>
-                )}
-              </section>
-
-              <details ref={guestAdvancedDetailsRef} className="advanced-form">
-                <summary>
-                  <span>{t("guest_advanced_title")}</span>
-                  <span className="advanced-summary-progress">{guestAdvancedProfilePercent}%</span>
-                </summary>
-                <p className="field-help">{t("guest_advanced_hint")}</p>
-                <div className="advanced-form-toolbar" ref={guestAdvancedToolbarRef}>
-                  <div className="profile-tabs advanced-profile-tabs" role="tablist" aria-label={t("guest_advanced_title")}>
-                    {guestAdvancedEditTabs.map((tabItem) => {
-                      const isCompleted = Boolean(guestAdvancedSignalsBySection[tabItem.key]?.done);
-                      const statusLabel = isCompleted ? t("status_completed") : t("status_pending");
-                      return (
-                        <button
-                          key={tabItem.key}
-                          type="button"
-                          role="tab"
-                          aria-selected={guestAdvancedEditTab === tabItem.key}
-                          aria-label={`${tabItem.label}. ${statusLabel}`}
-                          title={`${tabItem.label}. ${statusLabel}`}
-                          className={`profile-tab ${guestAdvancedEditTab === tabItem.key ? "active" : ""}`}
-                          onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
-                        >
-                          <span className="profile-tab-text">{tabItem.label}</span>
-                          <span className={`profile-tab-state ${isCompleted ? "is-done" : "is-pending"}`} aria-hidden="true">
-                            <Icon name={isCompleted ? "check" : "clock"} className="icon icon-xs" />
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="advanced-current-step" aria-live="polite">
-                    <span className="advanced-current-step-index">
-                      {guestAdvancedCurrentStep}/{guestAdvancedEditTabs.length}
-                    </span>
-                    <span className="advanced-current-step-label">{guestAdvancedCurrentTabLabel}</span>
-                  </p>
-                  <div className="advanced-checklist">
-                    <p className="item-meta">
-                      {interpolateText(t("guest_wizard_checklist_progress"), {
-                        done: guestAdvancedCurrentChecklistDone,
-                        total: guestAdvancedCurrentChecklistTotal
-                      })}
-                    </p>
-                    <div className="advanced-checklist-pills">
-                      {guestAdvancedCurrentChecklist.map((item) => (
-                        <span
-                          key={item.key}
-                          className={`advanced-checklist-pill ${item.done ? "is-done" : "is-pending"}`}
-                        >
-                          <Icon name={item.done ? "check" : "clock"} className="icon icon-xs" />
-                          {item.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="advanced-nav-row">
-                    <p className="item-meta">
-                      {interpolateText(t("guest_profile_capture_progress"), {
-                        done: guestAdvancedProfileCompleted,
-                        total: guestAdvancedEditTabs.length,
-                        percent: guestAdvancedProfilePercent
-                      })}
-                    </p>
-                    <p className="advanced-last-saved">
-                      <Icon name="clock" className="icon icon-xs" />
-                      <span className="advanced-last-saved-label">{t("guest_last_saved_label")}:</span>
-                      <span>{isSavingGuest ? t("guest_saving_draft") : guestLastSavedLabel}</span>
-                    </p>
-                    <div className="button-row advanced-nav-actions">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={handleGoToPreviousGuestAdvancedSection}
-                        disabled={!guestAdvancedPrevTab}
-                      >
-                        {t("pagination_prev")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSaveGuestDraft} disabled={isSavingGuest}>
-                        <Icon name="check" className="icon icon-sm" />
-                        {isSavingGuest ? t("guest_saving_draft") : t("guest_save_draft")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={handleSaveAndGoNextPendingGuestAdvancedSection}
-                        disabled={!guestAdvancedNextPendingTab || isSavingGuest}
-                        title={
-                          guestAdvancedNextPendingLabel
-                            ? `${t("guest_wizard_save_next_pending")} · ${guestAdvancedNextPendingLabel}`
-                            : t("guest_wizard_save_next_pending")
-                        }
-                      >
-                        <Icon name="sparkle" className="icon icon-sm" />
-                        {t("guest_wizard_save_next_pending")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={handleGoToNextGuestAdvancedSection}
-                        disabled={!guestAdvancedNextTab || isSavingGuest}
-                      >
-                        <Icon name="check" className="icon icon-sm" />
-                        {t("guest_wizard_validate_next")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={handleGoToFirstPendingGuestAdvancedSection}
-                        disabled={!guestAdvancedFirstPendingTab}
-                        title={
-                          guestAdvancedFirstPendingLabel
-                            ? `${t("guest_advanced_jump_pending")} ${guestAdvancedFirstPendingLabel}`
-                            : t("guest_advanced_jump_pending")
-                        }
-                      >
-                        <Icon name="sparkle" className="icon icon-sm" />
-                        {t("guest_advanced_jump_pending")}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="advanced-grid">
-                  {guestAdvancedEditTab === "identity" ? (
-                  <section className="advanced-section-block">
-                  <p
-                    className={`advanced-grid-heading ${guestAdvancedEditTab === "identity" ? "is-active" : ""}`}
-                    ref={(node) => {
-                      guestAdvancedSectionRefs.current.identity = node;
-                    }}
-                  >
-                    <Icon name="user" className="icon icon-sm" />
-                    {t("guest_advanced_section_identity")}
-                  </p>
-                  <label>
-                    <span className="label-title">{t("field_company")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.company}
-                      onChange={(event) => setGuestAdvancedField("company", event.target.value)}
-                      placeholder={t("placeholder_company")}
-                      aria-invalid={Boolean(guestErrors.company)}
-                    />
-                    <FieldMeta errorText={guestErrors.company ? t(guestErrors.company) : ""} />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_address")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.address}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setGuestAdvancedField("address", nextValue);
-                        setGuestErrors((prev) => ({ ...prev, address: undefined }));
-                        setGuestMessage("");
-                        if (
-                          selectedGuestAddressPlace &&
-                          normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)
-                        ) {
-                          setSelectedGuestAddressPlace(null);
-                        }
-                      }}
-                      placeholder={t("placeholder_address")}
-                      aria-invalid={Boolean(guestErrors.address)}
-                      autoComplete="off"
-                    />
-                    <FieldMeta
-                      helpText={
-                        mapsStatus === "ready"
-                          ? t("address_google_hint")
-                          : mapsStatus === "loading"
-                          ? t("address_google_loading")
-                          : mapsStatus === "error"
-                          ? `${t("address_google_error")} ${mapsError}`
-                          : t("address_google_unconfigured")
-                      }
-                      errorText={guestErrors.address ? t(guestErrors.address) : ""}
-                    />
-                    {mapsStatus === "ready" && guestAdvanced.address.trim().length >= 4 ? (
-                      <ul className="prediction-list" role="listbox" aria-label={t("address_suggestions")}>
-                        {isGuestAddressLoading ? <li className="prediction-item hint">{t("address_searching")}</li> : null}
-                        {!isGuestAddressLoading && guestAddressPredictions.length === 0 ? (
-                          <li className="prediction-item hint">{t("address_no_matches")}</li>
-                        ) : null}
-                        {guestAddressPredictions.map((prediction) => (
-                          <li key={prediction.place_id}>
-                            <button
-                              type="button"
-                              className="prediction-item"
-                              onClick={() => handleSelectGuestAddressPrediction(prediction)}
-                            >
-                              <Icon name="location" className="icon icon-sm" />
-                              {prediction.description}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {selectedGuestAddressPlace?.placeId ? (
-                      <p className="field-success">{t("address_validated")}</p>
-                    ) : null}
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_postal_code")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.postalCode}
-                      onChange={(event) => setGuestAdvancedField("postalCode", event.target.value)}
-                      placeholder={t("placeholder_postal_code")}
-                      aria-invalid={Boolean(guestErrors.postalCode)}
-                    />
-                    <FieldMeta errorText={guestErrors.postalCode ? t(guestErrors.postalCode) : ""} />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_state_region")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.stateRegion}
-                      onChange={(event) => setGuestAdvancedField("stateRegion", event.target.value)}
-                      placeholder={t("placeholder_state_region")}
-                      aria-invalid={Boolean(guestErrors.stateRegion)}
-                    />
-                    <FieldMeta errorText={guestErrors.stateRegion ? t(guestErrors.stateRegion) : ""} />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_birthday")}</span>
-                    <input
-                      type="date"
-                      value={guestAdvanced.birthday}
-                      onChange={(event) => setGuestAdvancedField("birthday", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_last_meet")}</span>
-                    <input
-                      type="date"
-                      value={guestAdvanced.lastMeetAt}
-                      onChange={(event) => setGuestAdvancedField("lastMeetAt", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">X / Twitter</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.twitter}
-                      onChange={(event) => setGuestAdvancedField("twitter", event.target.value)}
-                      placeholder="@usuario"
-                      aria-invalid={Boolean(guestErrors.twitter)}
-                    />
-                    <FieldMeta errorText={guestErrors.twitter ? t(guestErrors.twitter) : ""} />
-                  </label>
-                  <label>
-                    <span className="label-title">Instagram</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.instagram}
-                      onChange={(event) => setGuestAdvancedField("instagram", event.target.value)}
-                      placeholder="@usuario"
-                      aria-invalid={Boolean(guestErrors.instagram)}
-                    />
-                    <FieldMeta errorText={guestErrors.instagram ? t(guestErrors.instagram) : ""} />
-                  </label>
-                  <label>
-                    <span className="label-title">LinkedIn</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.linkedIn}
-                      onChange={(event) => setGuestAdvancedField("linkedIn", event.target.value)}
-                      placeholder="https://linkedin.com/in/..."
-                      aria-invalid={Boolean(guestErrors.linkedIn)}
-                    />
-                    <FieldMeta errorText={guestErrors.linkedIn ? t(guestErrors.linkedIn) : ""} />
-                  </label>
-                  </section>
-                  ) : null}
-                  {guestAdvancedEditTab === "food" ? (
-                  <section className="advanced-section-block">
-                  <p
-                    className={`advanced-grid-heading ${guestAdvancedEditTab === "food" ? "is-active" : ""}`}
-                    ref={(node) => {
-                      guestAdvancedSectionRefs.current.food = node;
-                    }}
-                  >
-                    <Icon name="sparkle" className="icon icon-sm" />
-                    {t("guest_advanced_section_food")}
-                  </p>
-                  <MultiSelectField
-                    id="guest-experience-types"
-                    label={t("field_experience_type")}
-                    value={guestAdvanced.experienceTypes}
-                    options={eventTypeOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("experienceTypes", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-preferred-relationships"
-                    label={t("field_relationship")}
-                    value={guestAdvanced.preferredGuestRelationships}
-                    options={relationshipOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredGuestRelationships", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <label>
-                    <span className="label-title">{t("field_diet_type")}</span>
-                    <select
-                      value={guestAdvanced.dietType}
-                      onChange={(event) => setGuestAdvancedField("dietType", event.target.value)}
-                    >
-                      <option value="">{t("select_option_prompt")}</option>
-                      {dietTypeOptions.map((optionValue) => (
-                        <option key={optionValue} value={optionValue}>
-                          {optionValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <MultiSelectField
-                    id="guest-tasting-preferences"
-                    label={t("field_tasting_preferences")}
-                    value={guestAdvanced.tastingPreferences}
-                    options={tastingPreferenceOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("tastingPreferences", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <label>
-                    <span className="label-title">{t("field_food_likes")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.foodLikes}
-                      onChange={(event) => setGuestAdvancedField("foodLikes", event.target.value)}
-                      placeholder={t("placeholder_list_comma")}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_food_dislikes")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.foodDislikes}
-                      onChange={(event) => setGuestAdvancedField("foodDislikes", event.target.value)}
-                      placeholder={t("placeholder_list_comma")}
-                    />
-                  </label>
-                  <MultiSelectField
-                    id="guest-drink-likes"
-                    label={t("field_drink_likes")}
-                    value={guestAdvanced.drinkLikes}
-                    options={drinkOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkLikes", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-drink-dislikes"
-                    label={t("field_drink_dislikes")}
-                    value={guestAdvanced.drinkDislikes}
-                    options={drinkOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkDislikes", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  </section>
-                  ) : null}
-                  {guestAdvancedEditTab === "lifestyle" ? (
-                  <section className="advanced-section-block">
-                  <p
-                    className={`advanced-grid-heading ${guestAdvancedEditTab === "lifestyle" ? "is-active" : ""}`}
-                    ref={(node) => {
-                      guestAdvancedSectionRefs.current.lifestyle = node;
-                    }}
-                  >
-                    <Icon name="star" className="icon icon-sm" />
-                    {t("guest_advanced_section_lifestyle")}
-                  </p>
-                  <MultiSelectField
-                    id="guest-music-genres"
-                    label={t("field_music_genres")}
-                    value={guestAdvanced.musicGenres}
-                    options={musicGenreOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("musicGenres", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <label>
-                    <span className="label-title">{t("field_favorite_color")}</span>
-                    <select
-                      value={guestAdvanced.favoriteColor}
-                      onChange={(event) => setGuestAdvancedField("favoriteColor", event.target.value)}
-                    >
-                      <option value="">{t("select_option_prompt")}</option>
-                      {colorOptions.map((optionValue) => (
-                        <option key={optionValue} value={optionValue}>
-                          {optionValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_books")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.books}
-                      onChange={(event) => setGuestAdvancedField("books", event.target.value)}
-                      placeholder={t("placeholder_list_comma")}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_movies")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.movies}
-                      onChange={(event) => setGuestAdvancedField("movies", event.target.value)}
-                      placeholder={t("placeholder_list_comma")}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_series")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.series}
-                      onChange={(event) => setGuestAdvancedField("series", event.target.value)}
-                      placeholder={t("placeholder_list_comma")}
-                    />
-                  </label>
-                  <MultiSelectField
-                    id="guest-sports"
-                    label={t("field_sport")}
-                    value={guestAdvanced.sports}
-                    options={sportOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("sports", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <label>
-                    <span className="label-title">{t("field_team_fan")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.teamFan}
-                      onChange={(event) => setGuestAdvancedField("teamFan", event.target.value)}
-                      placeholder={t("placeholder_team")}
-                    />
-                  </label>
-                  <MultiSelectField
-                    id="guest-day-moments"
-                    label={t("field_day_moment")}
-                    value={guestAdvanced.preferredDayMoments}
-                    options={dayMomentOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredDayMoments", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <label>
-                    <span className="label-title">{t("field_periodicity")}</span>
-                    <select
-                      value={guestAdvanced.periodicity}
-                      onChange={(event) => setGuestAdvancedField("periodicity", event.target.value)}
-                    >
-                      <option value="">{t("select_option_prompt")}</option>
-                      {periodicityOptions.map((optionValue) => (
-                        <option key={optionValue} value={optionValue}>
-                          {optionValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_punctuality")}</span>
-                    <select
-                      value={guestAdvanced.punctuality}
-                      onChange={(event) => setGuestAdvancedField("punctuality", event.target.value)}
-                    >
-                      <option value="">{t("select_option_prompt")}</option>
-                      {punctualityOptions.map((optionValue) => (
-                        <option key={optionValue} value={optionValue}>
-                          {optionValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <MultiSelectField
-                    id="guest-cuisine-types"
-                    label={t("field_cuisine_type")}
-                    value={guestAdvanced.cuisineTypes}
-                    options={cuisineTypeOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("cuisineTypes", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-pets"
-                    label={t("field_pets")}
-                    value={guestAdvanced.pets}
-                    options={petOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("pets", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  </section>
-                  ) : null}
-                  {guestAdvancedEditTab === "conversation" ? (
-                  <section className="advanced-section-block">
-                  <p
-                    className={`advanced-grid-heading ${guestAdvancedEditTab === "conversation" ? "is-active" : ""}`}
-                    ref={(node) => {
-                      guestAdvancedSectionRefs.current.conversation = node;
-                    }}
-                  >
-                    <Icon name="message" className="icon icon-sm" />
-                    {t("guest_advanced_section_conversation")}
-                  </p>
-                  <label>
-                    <span className="label-title">{t("field_last_talk_topic")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.lastTalkTopic}
-                      onChange={(event) => setGuestAdvancedField("lastTalkTopic", event.target.value)}
-                      placeholder={t("placeholder_talk_topic")}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("field_taboo_topics")}</span>
-                    <input
-                      type="text"
-                      value={guestAdvanced.tabooTopics}
-                      onChange={(event) => setGuestAdvancedField("tabooTopics", event.target.value)}
-                      placeholder={t("placeholder_list_comma")}
-                    />
-                  </label>
-                  </section>
-                  ) : null}
-                  {guestAdvancedEditTab === "health" ? (
-                  <section className="advanced-section-block">
-                  <p
-                    className={`advanced-grid-heading ${guestAdvancedEditTab === "health" ? "is-active" : ""}`}
-                    ref={(node) => {
-                      guestAdvancedSectionRefs.current.health = node;
-                    }}
-                  >
-                    <Icon name="shield" className="icon icon-sm" />
-                    {t("guest_advanced_section_health")}
-                  </p>
-                  <MultiSelectField
-                    id="guest-allergies"
-                    label={t("field_allergies")}
-                    value={guestAdvanced.allergies}
-                    options={allergyOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("allergies", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-intolerances"
-                    label={t("field_intolerances")}
-                    value={guestAdvanced.intolerances}
-                    options={intoleranceOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("intolerances", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-pet-allergies"
-                    label={t("field_pet_allergies")}
-                    value={guestAdvanced.petAllergies}
-                    options={petAllergyOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("petAllergies", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-medical-conditions"
-                    label={t("field_medical_conditions")}
-                    value={guestAdvanced.medicalConditions}
-                    options={medicalConditionOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("medicalConditions", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <MultiSelectField
-                    id="guest-dietary-medical-restrictions"
-                    label={t("field_dietary_medical_restrictions")}
-                    value={guestAdvanced.dietaryMedicalRestrictions}
-                    options={dietaryMedicalRestrictionOptions}
-                    onChange={(nextValue) => handleAdvancedMultiSelectChange("dietaryMedicalRestrictions", nextValue)}
-                    helpText={t("multi_select_hint")}
-                  t={t}
-                  />
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(guestAdvanced.sensitiveConsent)}
-                      onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)}
-                    />
-                    <span>{t("field_sensitive_consent")}</span>
-                  </label>
-                  <FieldMeta
-                    helpText={t("guest_sensitive_consent_hint")}
-                    errorText={guestErrors.sensitiveConsent ? t(guestErrors.sensitiveConsent) : ""}
-                  />
-                  </section>
-                  ) : null}
-                </div>
-              </details>
-
-              <datalist id="guest-city-options">
-                {cityOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-              <datalist id="guest-country-options">
-                {countryOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue} />
-                ))}
-              </datalist>
-
-              <div className="button-row">
-                <button className="btn" type="submit" disabled={isSavingGuest}>
-                  {isSavingGuest ? (isEditingGuest ? t("updating_guest") : t("saving_guest")) : isEditingGuest ? t("update_guest") : t("save_guest")}
-                </button>
-                {isEditingGuest ? (
-                  <button className="btn btn-ghost" type="button" onClick={handleCancelEditGuest}>
-                    {t("cancel_edit")}
-                  </button>
-                ) : null}
-              </div>
-              <InlineMessage text={guestMessage} />
-            </form>
-            ) : null}
-
-            {guestsWorkspace === "latest" ? (
-            <section className="panel panel-list panel-guests-latest">
-              <div className="list-tools list-tools-events">
-                <label className="list-tools-search">
-                  <span className="label-title">{t("search")}</span>
-                  <input
-                    type="search"
-                    value={guestSearch}
-                    onChange={(event) => setGuestSearch(event.target.value)}
-                    placeholder={t("search_guests_placeholder")}
-                  />
-                </label>
-                <div className="list-tools-secondary">
-                  <label>
-                    <span className="label-title">{t("sort_by")}</span>
-                    <select value={guestSort} onChange={(event) => setGuestSort(event.target.value)}>
-                      <option value="created_desc">{t("sort_created_desc")}</option>
-                      <option value="created_asc">{t("sort_created_asc")}</option>
-                      <option value="name_asc">{t("sort_name_asc")}</option>
-                      <option value="name_desc">{t("sort_name_desc")}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("pagination_items_per_page")}</span>
-                    <select value={guestPageSize} onChange={(event) => setGuestPageSize(Number(event.target.value) || GUESTS_PAGE_SIZE_DEFAULT)}>
-                      {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                        <option key={optionValue} value={optionValue}>
-                          {optionValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("filter_contact")}>
-                {[
-                  { key: "all", label: t("all_contacts") },
-                  { key: "contact", label: t("contact_any") },
-                  { key: "email", label: t("contact_email_only") },
-                  { key: "phone", label: t("contact_phone_only") }
-                ].map((contactOption) => (
-                  <button
-                    key={contactOption.key}
-                    className={`list-filter-tab ${guestContactFilter === contactOption.key ? "active" : ""}`}
-                    type="button"
-                    aria-pressed={guestContactFilter === contactOption.key}
-                    onClick={() => setGuestContactFilter(contactOption.key)}
-                  >
-                    {contactOption.label}
-                  </button>
-                ))}
-              </div>
-              <p className="hint">
-                {t("results_count")}: {filteredGuests.length}
-              </p>
-              <div className="list-inline-stats">
-                <span className="status-pill status-host-candidate">
-                  {t("host_potential_count_label")} {hostPotentialGuestsCount}
-                </span>
-                <span className="status-pill status-host-converted">
-                  {t("host_converted_count_label")} {convertedHostGuestsCount}
-                </span>
-                <span className="status-pill status-pending">
-                  {t("host_pending_conversion_label")} {pendingHostGuestsCount}
-                </span>
-                <span className="status-pill status-host-conversion-source-default">
-                  {t("kpi_converted_hosts_30d")} {convertedHostGuests30dCount}
-                </span>
-              </div>
-              <InlineMessage text={guestMessage} />
-              {filteredGuests.length === 0 ? (
-                <p>{t("no_guests")}</p>
-              ) : (
-                <>
-                <div className="list-table-shell">
-                  <div className="list-table-head list-table-head-guests" aria-hidden="true">
-                    <span>{t("field_guest")}</span>
-                    <span>{t("email")}</span>
-                    <span>{t("field_phone")}</span>
-                    <span>{t("field_allergies")} / {t("table_host_status")}</span>
-                    <span>{t("field_event")}</span>
-                    <span>{t("actions_label")}</span>
-                  </div>
-                  <ul className="list list-table list-table-guests">
-                    {pagedGuests.map((guestItem) => {
-                      const conversion = guestHostConversionById[guestItem.id] || null;
-                      const conversionSource = getConversionSource(conversion);
-                      const conversionSourceLabel = getConversionSourceLabel(t, conversionSource);
-                      const guestFullName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
-                      const guestEventsCount = guestEventCountByGuestId[guestItem.id] || 0;
-                      const sensitiveData = guestSensitiveById[guestItem.id] || {};
-                      const allergyPreview = toCatalogLabels("allergy", sensitiveData.allergies || [], language).slice(0, 2);
-                      const intolerancePreview = toCatalogLabels("intolerance", sensitiveData.intolerances || [], language).slice(0, 2);
-                      const medicalConditionPreview = toCatalogLabels(
-                        "medical_condition",
-                        sensitiveData.medical_conditions || [],
-                        language
-                      ).slice(0, 1);
-                      const dietaryMedicalRestrictionPreview = toCatalogLabels(
-                        "dietary_medical_restriction",
-                        sensitiveData.dietary_medical_restrictions || [],
-                        language
-                      ).slice(0, 1);
-                      const healthPreview = uniqueValues([
-                        ...allergyPreview,
-                        ...intolerancePreview,
-                        ...medicalConditionPreview,
-                        ...dietaryMedicalRestrictionPreview
-                      ]);
-                      const healthPreviewVisible = healthPreview.slice(0, 2);
-                      const healthPreviewRemaining = Math.max(0, healthPreview.length - healthPreviewVisible.length);
-                      const renderGuestRowMoreActionItems = () => (
-                        <>
-                          <button
-                            className="btn btn-ghost btn-sm list-actions-more-item"
-                            type="button"
-                            onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
-                          >
-                            <Icon name="sparkle" className="icon icon-sm" />
-                            <span>{t("guest_advanced_title")}</span>
-                          </button>
-                          <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(guestItem)}>
-                            <Icon name="link" className="icon icon-sm" />
-                            <span>{t("merge_guest_action")}</span>
-                          </button>
-                          {guestItem.email || guestItem.phone ? (
-                            <button
-                              className="btn btn-ghost btn-sm list-actions-more-item"
-                              type="button"
-                              onClick={() => handleCopyHostSignupLink(guestItem)}
-                              disabled={Boolean(conversion)}
-                            >
-                              <Icon name={conversion ? "check" : "link"} className="icon icon-sm" />
-                              <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
-                            </button>
-                          ) : null}
-                          {guestItem.email || guestItem.phone ? (
-                            <button
-                              className="btn btn-ghost btn-sm list-actions-more-item"
-                              type="button"
-                              onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
-                              disabled={Boolean(conversion)}
-                            >
-                              <Icon name="message" className="icon icon-sm" />
-                              <span>{t("host_invite_whatsapp_action")}</span>
-                            </button>
-                          ) : null}
-                          {guestItem.email || guestItem.phone ? (
-                            <button
-                              className="btn btn-ghost btn-sm list-actions-more-item"
-                              type="button"
-                              onClick={() => handleShareHostSignupLink(guestItem, "email")}
-                              disabled={Boolean(conversion)}
-                            >
-                              <Icon name="mail" className="icon icon-sm" />
-                              <span>{t("host_invite_email_action")}</span>
-                            </button>
-                          ) : null}
-                          <button
-                            className="btn btn-danger btn-sm list-actions-more-item"
-                            type="button"
-                            onClick={() => handleRequestDeleteGuest(guestItem)}
-                            disabled={isDeletingGuestId === guestItem.id}
-                          >
-                            <Icon name="x" className="icon icon-sm" />
-                            <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
-                          </button>
-                        </>
-                      );
-                      return (
-                      <li key={guestItem.id} className="list-table-row list-row-guest">
-                        <div className="cell-main list-title-with-avatar">
-                          <AvatarCircle
-                            className="list-avatar"
-                            label={guestFullName}
-                            fallback="IN"
-                            imageUrl={getGuestAvatarUrl(guestItem, guestFullName)}
-                            size={32}
-                          />
-                          <div>
-                            <p className="item-title">
-                              <button
-                                className="text-link-btn guest-name-link"
-                                type="button"
-                                onClick={() => openGuestDetail(guestItem.id)}
-                              >
-                                {guestFullName}
-                              </button>
-                            </p>
-                            {guestItem.relationship ? (
-                              <p className="item-meta">
-                                {toCatalogLabel("relationship", guestItem.relationship, language)}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                        <p className="item-meta cell-guest-email cell-meta">{guestItem.email || "-"}</p>
-                        <p className="item-meta cell-guest-phone cell-extra">{guestItem.phone || "-"}</p>
-                        <div className="cell-guest-health cell-meta list-badge-stack">
-                          {guestItem.email || guestItem.phone ? (
-                            <span className="status-pill status-host-candidate">{t("host_potential_badge")}</span>
-                          ) : null}
-                          {conversion ? (
-                            <span className="status-pill status-host-converted">{t("host_converted_badge")}</span>
-                          ) : null}
-                          {conversion ? (
-                            <span
-                              className={`status-pill ${
-                                conversionSource === "google"
-                                  ? "status-host-conversion-source-google"
-                                  : "status-host-conversion-source-default"
-                              }`}
-                            >
-                              {conversionSourceLabel}
                             </span>
-                          ) : null}
-                          {healthPreviewVisible.length > 0 ? (
-                            <p
-                              className="item-meta"
-                              title={healthPreview.join(", ")}
-                            >
-                              {healthPreviewVisible.map((item) => (
-                                <span key={`${guestItem.id}-${item}`} className="status-pill status-pending">
-                                  {item}
+                            <span className="import-preview-cell">{contactItem.email || "-"}</span>
+                            <span className="import-preview-cell">{contactItem.phone || "-"}</span>
+                            <span className="import-preview-cell">
+                              {[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}
+                            </span>
+                            <span className="import-preview-cell import-preview-status">
+                              <span className={`status-pill ${statusClass}`}>{statusText}</span>
+                              {contactItem.duplicateExisting && contactItem.existingGuestName ? (
+                                <span className="item-meta import-preview-target">
+                                  {t("merge_guest_target_label")}: {contactItem.existingGuestName}
                                 </span>
-                              ))}
-                              {healthPreviewRemaining > 0 ? (
-                                <span className="status-pill status-pending">+{healthPreviewRemaining}</span>
                               ) : null}
-                            </p>
-                          ) : (
-                            <p className="item-meta">—</p>
-                          )}
-                        </div>
-                        <div className="cell-guest-events cell-extra">
-                          <p className="item-title">{guestEventsCount}</p>
-                        </div>
-                        <div className="list-mobile-quick-actions">
-                          <button className="btn btn-sm" type="button" onClick={() => openGuestDetail(guestItem.id)}>
-                            <Icon name="eye" className="icon icon-sm" />
-                            <span>{t("view_detail")}</span>
-                          </button>
-                          <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(guestItem)}>
-                            <Icon name="edit" className="icon icon-sm" />
-                            <span>{t("edit_guest")}</span>
-                          </button>
-                          <details className="list-actions-more list-actions-more-mobile">
-                            <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
-                              <Icon name="more_horizontal" className="icon icon-sm" />
-                            </summary>
-                            <div className="list-actions-more-menu" role="menu">
-                              {renderGuestRowMoreActionItems()}
-                            </div>
-                          </details>
-                        </div>
-                        <div className="button-row item-actions cell-actions list-row-actions list-row-actions-guest">
-                          <div className="list-row-actions-main">
-                            <button
-                              className="btn btn-ghost btn-sm btn-icon-only"
-                              type="button"
-                              onClick={() => openGuestDetail(guestItem.id)}
-                              aria-label={t("view_detail")}
-                              title={t("view_detail")}
-                            >
-                              <Icon name="eye" className="icon icon-sm" />
-                            </button>
-                          </div>
-                          <details className="list-actions-more">
-                            <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
-                              <Icon name="more_horizontal" className="icon icon-sm" />
-                            </summary>
-                            <div className="list-actions-more-menu" role="menu">
-                              <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleStartEditGuest(guestItem)}>
-                                <Icon name="edit" className="icon icon-sm" />
-                                <span>{t("edit_guest")}</span>
-                              </button>
-                              {renderGuestRowMoreActionItems()}
-                            </div>
-                          </details>
-                        </div>
-                      </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-                </>
-              )}
-              {filteredGuests.length > 0 ? (
-                <div className="pagination-row">
-                  <p className="hint">
-                    {t("pagination_page")} {guestPage}/{guestTotalPages}
-                  </p>
-                  <div className="button-row">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setGuestPage((prev) => Math.max(1, prev - 1))}
-                      disabled={guestPage <= 1}
-                    >
-                      {t("pagination_prev")}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setGuestPage((prev) => Math.min(guestTotalPages, prev + 1))}
-                      disabled={guestPage >= guestTotalPages}
-                    >
-                      {t("pagination_next")}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <GeoPointsMapPanel
-                mapsStatus={mapsStatus}
-                mapsError={mapsError}
-                points={orderedGuestMapPoints}
-                title={t("guests_map_title")}
-                hint={t("guests_map_hint")}
-                emptyText={t("guests_map_empty")}
-                openActionText={t("guests_map_open_detail")}
-                onOpenDetail={(guestId) => openGuestDetail(guestId)}
-                t={t}
-              />
-            </section>
-            ) : null}
-
-            {guestsWorkspace === "detail" ? (
-            <section className="panel panel-wide detail-panel detail-panel-guest">
-              <div className="detail-breadcrumb detail-breadcrumb-row">
-                <button className="btn btn-ghost btn-sm detail-breadcrumb-pill" type="button" onClick={() => openWorkspace("guests", "latest")}>
-                  <Icon name="arrow_left" className="icon icon-sm" />
-                  {t("latest_guests_title")}
-                </button>
-              </div>
-              <div className="detail-head detail-head-rich">
-                  <div className="detail-head-primary detail-head-primary-guest">
-                    {selectedGuestDetail ? (
-                      <AvatarCircle
-                        className="list-avatar detail-head-avatar"
-                        label={`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
-                        fallback="IN"
-                        imageUrl={getGuestAvatarUrl(
-                          selectedGuestDetail,
-                          `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
-                        )}
-                        size={54}
-                      />
-                    ) : null}
-                    <div className="detail-head-primary-content">
-                      <div className="detail-head-title-row">
-                        <h2 className="section-title detail-title">
-                        {selectedGuestDetail
-                          ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")
-                          : t("guest_detail_title")}
-                      </h2>
-                      {selectedGuestDetail?.relationship ? (
-                        <span className="status-pill status-host-conversion-source-default">
-                          {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="detail-meta-inline">
-                      <span>
-                        <Icon name="mail" className="icon icon-sm" />
-                        {selectedGuestDetail?.email || "-"}
-                      </span>
-                      <span>
-                        <Icon name="phone" className="icon icon-sm" />
-                        {selectedGuestDetail?.phone || "-"}
-                      </span>
-                      <span>
-                        <Icon name="location" className="icon icon-sm" />
-                        {[selectedGuestDetail?.city, selectedGuestDetail?.country].filter(Boolean).join(", ") || "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {selectedGuestDetail ? (
-                  <div className="button-row detail-head-actions detail-head-actions-compact detail-head-actions-guest">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => handleStartEditGuest(selectedGuestDetail, { openAdvanced: true })}
-                    >
-                      <Icon name="sparkle" className="icon icon-sm" />
-                      {t("guest_advanced_title")}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => handleStartEditGuest(selectedGuestDetail)}>
-                      <Icon name="edit" className="icon icon-sm" />
-                      {t("guest_detail_edit_action")}
-                    </button>
-                    <details className="list-actions-more">
-                      <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
-                        <Icon name="more_horizontal" className="icon icon-sm" />
-                      </summary>
-                      <div className="list-actions-more-menu" role="menu">
-                        <button className="btn btn-ghost btn-sm list-actions-more-item" type="button" onClick={() => handleOpenMergeGuest(selectedGuestDetail)}>
-                          <Icon name="link" className="icon icon-sm" />
-                          <span>{t("merge_guest_action")}</span>
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm list-actions-more-item"
-                          type="button"
-                          onClick={() => handleRequestDeleteGuest(selectedGuestDetail)}
-                          disabled={isDeletingGuestId === selectedGuestDetail.id}
-                        >
-                          <Icon name="x" className="icon icon-sm" />
-                          <span>{isDeletingGuestId === selectedGuestDetail.id ? t("deleting") : t("delete_guest")}</span>
-                        </button>
-                      </div>
-                    </details>
-                  </div>
-                ) : null}
-              </div>
-              {!selectedGuestDetail ? (
-                <p className="hint">{t("guest_detail_empty")}</p>
-              ) : (
-                <>
-                  <article className="detail-guest-hero detail-guest-hero-kpis">
-                    <div className="detail-kpi-row detail-kpi-row-guest">
-                      <article className="detail-kpi-card">
-                        <p className="item-meta">{t("nav_events")}</p>
-                        <p className="item-title">{selectedGuestDetailInvitations.length}</p>
-                      </article>
-                      <article className="detail-kpi-card">
-                        <p className="item-meta">{t("status_yes")}</p>
-                        <p className="item-title">{selectedGuestDetailStatusCounts.yes}</p>
-                      </article>
-                      <article className="detail-kpi-card">
-                        <p className="item-meta">RSVP</p>
-                        <p className="item-title">{selectedGuestDetailRespondedRate}%</p>
-                      </article>
-                    </div>
-                  </article>
-                <div className="profile-tabs detail-profile-tabs" role="tablist" aria-label={t("guest_advanced_title")}>
-                  {guestProfileTabs.map((tabItem) => (
-                    <button
-                      key={tabItem.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={guestProfileViewTab === tabItem.key}
-                      className={`profile-tab ${guestProfileViewTab === tabItem.key ? "active" : ""}`}
-                      onClick={() => setGuestProfileViewTab(tabItem.key)}
-                    >
-                      {tabItem.label}
-                    </button>
-                  ))}
-                </div>
-                <div className={`detail-layout detail-layout-guest detail-layout-guest-tab-${guestProfileViewTab}`}>
-                  <article className="detail-card detail-card-guest-contact">
-                    <div className="detail-guest-contact-head detail-guest-contact-head-compact">
-                      <p className="item-title">{t("guest_detail_title")}</p>
-                      <p className="item-meta">
-                        {`${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("field_guest")}
-                      </p>
-                    </div>
-                    <div className="detail-guest-contact-channels">
-                      {selectedGuestDetail.email ? (
-                        <a className="detail-contact-link" href={`mailto:${selectedGuestDetail.email}`}>
-                          <Icon name="mail" className="icon icon-sm" />
-                          <span>{selectedGuestDetail.email}</span>
-                        </a>
-                      ) : null}
-                      {selectedGuestDetail.phone ? (
-                        <a className="detail-contact-link" href={`tel:${selectedGuestDetail.phone}`}>
-                          <Icon name="phone" className="icon icon-sm" />
-                          <span>{selectedGuestDetail.phone}</span>
-                        </a>
-                      ) : null}
-                      {!selectedGuestDetail.email && !selectedGuestDetail.phone ? <p className="item-meta">-</p> : null}
-                    </div>
-                    <div className="detail-guest-contact-meta">
-                      {selectedGuestDetail.relationship ? (
-                        <p className="item-meta">
-                          {t("field_relationship")}:{" "}
-                          {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
-                        </p>
-                      ) : null}
-                      {(selectedGuestDetail.city || selectedGuestDetail.country) ? (
-                        <p className="item-meta">
-                          {[selectedGuestDetail.city, selectedGuestDetail.country].filter(Boolean).join(", ")}
-                        </p>
-                      ) : null}
-                      {selectedGuestDetailConversion ? (
-                        <p className="item-meta">
-                          <span className="status-pill status-host-converted">{t("host_converted_badge")}</span>{" "}
-                          <span
-                            className={`status-pill ${
-                              getConversionSource(selectedGuestDetailConversion) === "google"
-                                ? "status-host-conversion-source-google"
-                                : "status-host-conversion-source-default"
-                            }`}
-                          >
-                            {getConversionSourceLabel(t, getConversionSource(selectedGuestDetailConversion))}
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="item-meta">
-                          <span className="status-pill status-host-candidate">{t("host_potential_badge")}</span>
-                        </p>
-                      )}
-                      {selectedGuestDetailConversion?.converted_at ? (
-                        <p className="item-meta">
-                          {t("host_conversion_date_label")}{" "}
-                          {formatDate(selectedGuestDetailConversion.converted_at, language, t("no_date"))}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="button-row guest-contact-actions">
-                      <button
-                        className="btn btn-sm"
-                        type="button"
-                        onClick={() =>
-                          openInvitationCreate({
-                            guestId: selectedGuestDetail.id,
-                            messageKey: "invitation_prefill_guest"
-                          })
-                        }
-                      >
-                        <Icon name="mail" className="icon icon-sm" />
-                        {t("guest_detail_create_invitation_action")}
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={() => handleCopyHostSignupLink(selectedGuestDetail)}
-                        disabled={Boolean(selectedGuestDetailConversion)}
-                      >
-                        <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="icon icon-sm" />
-                        {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
-                      </button>
-                      <details className="list-actions-more guest-contact-actions-more">
-                        <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
-                          <Icon name="more_horizontal" className="icon icon-sm" />
-                        </summary>
-                        <div className="list-actions-more-menu" role="menu">
-                          <button
-                            className="btn btn-ghost btn-sm list-actions-more-item"
-                            type="button"
-                            onClick={() => handleLinkProfileGuestToGlobal(selectedGuestDetail.id)}
-                            disabled={isLinkingGlobalGuest}
-                          >
-                            <Icon name="shield" className="icon icon-sm" />
-                            <span>{isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}</span>
-                          </button>
-                          {selectedGuestDetail.email || selectedGuestDetail.phone ? (
-                            <button
-                              className="btn btn-ghost btn-sm list-actions-more-item"
-                              type="button"
-                              onClick={() => handleShareHostSignupLink(selectedGuestDetail, "whatsapp")}
-                              disabled={Boolean(selectedGuestDetailConversion)}
-                            >
-                              <Icon name="message" className="icon icon-sm" />
-                              <span>{t("host_invite_whatsapp_action")}</span>
-                            </button>
-                          ) : null}
-                          {selectedGuestDetail.email || selectedGuestDetail.phone ? (
-                            <button
-                              className="btn btn-ghost btn-sm list-actions-more-item"
-                              type="button"
-                              onClick={() => handleShareHostSignupLink(selectedGuestDetail, "email")}
-                              disabled={Boolean(selectedGuestDetailConversion)}
-                            >
-                              <Icon name="mail" className="icon icon-sm" />
-                              <span>{t("host_invite_email_action")}</span>
-                            </button>
-                          ) : null}
-                        </div>
-                      </details>
-                    </div>
-                  </article>
-
-                  {guestProfileViewTab === "general" ? (
-                    <article className="detail-card detail-card-guest-notes">
-                      <p className="item-title">{t("guest_detail_notes_title")}</p>
-                      {selectedGuestDetailNotes.length === 0 ? (
-                        <p className="hint">{t("guest_detail_notes_empty")}</p>
-                      ) : (
-                        <ul className="list recommendation-list">
-                          {selectedGuestDetailNotes.map((noteItem) => (
-                            <li key={noteItem}>{noteItem}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </article>
-                  ) : null}
-
-                  {guestProfileViewTab === "general" ? (
-                    <article className="detail-card detail-card-guest-signals">
-                      <p className="item-title">{t("guest_detail_tags_title")}</p>
-                      {selectedGuestDetailTags.length === 0 ? (
-                        <p className="hint">{t("guest_detail_tags_empty")}</p>
-                      ) : (
-                        <div className="multi-chip-group">
-                          {selectedGuestDetailTags.map((tagItem) => (
-                            <span key={`guest-detail-tag-${tagItem}`} className="multi-chip readonly">
-                              {tagItem}
+                              {contactItem.duplicateExisting && contactItem.duplicateReasonLabel ? (
+                                <span className="item-meta import-preview-target">
+                                  {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
+                                </span>
+                              ) : null}
+                              {contactItem.requiresMergeApproval ? (
+                                <span className="item-meta import-preview-target import-merge-warning">
+                                  {t("contact_import_merge_requires_approval")}
+                                </span>
+                              ) : null}
+                              {contactItem.duplicateExisting ? (
+                                <span className="import-preview-target">
+                                  <span
+                                    className={`status-pill import-merge-confidence ${getImportDuplicateMergeConfidenceStatusClass(
+                                      contactItem.duplicateMergeConfidence
+                                    )}`}
+                                  >
+                                    {t("contact_import_merge_confidence_label")}:{" "}
+                                    {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
+                                  </span>
+                                </span>
+                              ) : null}
+                              {contactItem.requiresMergeApproval ? (
+                                <button
+                                  className="btn btn-ghost btn-sm import-merge-approve-btn"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleOpenLowConfidenceMergeReview(contactItem.previewId);
+                                  }}
+                                >
+                                  {t("contact_import_merge_review_action")}
+                                </button>
+                              ) : null}
                             </span>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  ) : null}
-
-                  {guestProfileViewTab === "food" ? (
-                    <article className="detail-card detail-card-wide detail-card-guest-tags">
-                      <p className="item-title">{t("guest_profile_tab_food")}</p>
-                      {selectedGuestFoodGroups.length === 0 ? (
-                        <p className="hint">{t("guest_detail_no_profile_data")}</p>
-                      ) : (
-                        <div className="detail-chip-groups">
-                          {selectedGuestFoodGroups.map((group) => (
-                            <div key={group.title} className="detail-chip-group">
-                              <p className="item-meta">{group.title}</p>
-                              <div className="multi-chip-group">
-                                {group.values.map((value) => (
-                                  <span key={`${group.title}-${value}`} className="multi-chip readonly">
-                                    {value}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  ) : null}
-
-                  {guestProfileViewTab === "lifestyle" ? (
-                    <article className="detail-card detail-card-wide detail-card-guest-tags">
-                      <p className="item-title">{t("guest_profile_tab_lifestyle")}</p>
-                      {selectedGuestLifestyleGroups.length === 0 ? (
-                        <p className="hint">{t("guest_detail_no_profile_data")}</p>
-                      ) : (
-                        <div className="detail-chip-groups">
-                          {selectedGuestLifestyleGroups.map((group) => (
-                            <div key={group.title} className="detail-chip-group">
-                              <p className="item-meta">{group.title}</p>
-                              <div className="multi-chip-group">
-                                {group.values.map((value) => (
-                                  <span key={`${group.title}-${value}`} className="multi-chip readonly">
-                                    {value}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  ) : null}
-
-                  {selectedGuestActiveTabRecommendations ? (
-                    <article className="detail-card detail-card-wide detail-card-guest-recommendations">
-                      <p className="item-title">{selectedGuestActiveTabRecommendations.title}</p>
-                      <p className="field-help">{selectedGuestActiveTabRecommendations.hint}</p>
-                      <div className="detail-recommendations-grid">
-                        {selectedGuestActiveTabRecommendations.cards.map((recommendationItem) => (
-                          <article key={recommendationItem.key} className="recommendation-card">
-                            <p className="item-title">{recommendationItem.title}</p>
-                            {recommendationItem.values.length > 0 ? (
-                              <ul className="list recommendation-list">
-                                {recommendationItem.values.map((value) => (
-                                  <li key={`${recommendationItem.key}-${value}`}>{value}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="hint">{t("smart_hosting_no_data")}</p>
-                            )}
-                          </article>
-                        ))}
-                      </div>
-                    </article>
-                  ) : null}
-
-                  {guestProfileViewTab === "conversation" ? (
-                    <article className="detail-card detail-card-guest-notes">
-                      <p className="item-title">{t("guest_profile_tab_conversation")}</p>
-                      <ul className="list recommendation-list">
-                        {selectedGuestDetailPreference?.last_talk_topic ? (
-                          <li>{`${t("field_last_talk_topic")}: ${selectedGuestDetailPreference.last_talk_topic}`}</li>
-                        ) : null}
-                        {toList(selectedGuestDetailPreference?.taboo_topics || []).length > 0 ? (
-                          <li>{`${t("field_taboo_topics")}: ${toList(selectedGuestDetailPreference.taboo_topics).join(", ")}`}</li>
-                        ) : null}
-                        {selectedGuestDetail.relationship ? (
-                          <li>
-                            {`${t("field_relationship")}: ${toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}`}
                           </li>
-                        ) : null}
-                        {!selectedGuestDetailPreference?.last_talk_topic &&
-                        toList(selectedGuestDetailPreference?.taboo_topics || []).length === 0 &&
-                        !selectedGuestDetail.relationship ? (
-                          <li>{t("guest_detail_notes_empty")}</li>
-                        ) : null}
-                      </ul>
-                    </article>
-                  ) : null}
-
-                  {guestProfileViewTab === "health" ? (
-                    <article className="detail-card detail-card-guest-notes">
-                      <p className="item-title">{t("guest_profile_tab_health")}</p>
-                      <div className="detail-chip-groups">
-                        <div className="detail-chip-group">
-                          <p className="item-meta">{t("field_allergies")}</p>
-                          <div className="multi-chip-group">
-                            {selectedGuestAllergyLabels.length > 0 ? (
-                              selectedGuestAllergyLabels.map((item) => (
-                                <span key={`allergy-${item}`} className="multi-chip readonly">
-                                  {item}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="multi-chip readonly">-</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="detail-chip-group">
-                          <p className="item-meta">{t("field_intolerances")}</p>
-                          <div className="multi-chip-group">
-                            {selectedGuestIntoleranceLabels.length > 0 ? (
-                              selectedGuestIntoleranceLabels.map((item) => (
-                                <span key={`intolerance-${item}`} className="multi-chip readonly">
-                                  {item}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="multi-chip readonly">-</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="detail-chip-group">
-                          <p className="item-meta">{t("field_pet_allergies")}</p>
-                          <div className="multi-chip-group">
-                            {selectedGuestPetAllergyLabels.length > 0 ? (
-                              selectedGuestPetAllergyLabels.map((item) => (
-                                <span key={`pet-allergy-${item}`} className="multi-chip readonly">
-                                  {item}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="multi-chip readonly">-</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="detail-chip-group">
-                          <p className="item-meta">{t("field_medical_conditions")}</p>
-                          <div className="multi-chip-group">
-                            {selectedGuestMedicalConditionLabels.length > 0 ? (
-                              selectedGuestMedicalConditionLabels.map((item) => (
-                                <span key={`medical-condition-${item}`} className="multi-chip readonly">
-                                  {item}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="multi-chip readonly">-</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="detail-chip-group">
-                          <p className="item-meta">{t("field_dietary_medical_restrictions")}</p>
-                          <div className="multi-chip-group">
-                            {selectedGuestDietaryMedicalRestrictionLabels.length > 0 ? (
-                              selectedGuestDietaryMedicalRestrictionLabels.map((item) => (
-                                <span key={`dietary-medical-restriction-${item}`} className="multi-chip readonly">
-                                  {item}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="multi-chip readonly">-</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                  ) : null}
-
-                  {guestProfileViewTab === "history" ? (
-                    <article className="detail-card detail-card-wide detail-card-guest-history">
-                      <p className="item-title">{t("guest_detail_invitations_title")}</p>
-                      {selectedGuestDetailInvitations.length === 0 ? (
-                        <p className="hint">{t("guest_detail_no_invitations")}</p>
-                      ) : (
-                        <div className="detail-table-shell">
-                          <div className="detail-table-head detail-table-head-guest-history" aria-hidden="true">
-                            <span>{t("field_event")}</span>
-                            <span>{t("date")}</span>
-                            <span>RSVP</span>
-                            <span>+1</span>
-                          </div>
-                          <ul className="list detail-table-list detail-table-list-guest-history">
-                            {selectedGuestDetailInvitations.map((invitationItem) => {
-                              const eventItem = eventsById[invitationItem.event_id];
-                              return (
-                                <li key={invitationItem.id} className="detail-table-row detail-table-row-guest-history">
-                                  <div className="cell-main">
-                                    <button
-                                      className="text-link-btn invitation-linked-name"
-                                      type="button"
-                                      onClick={() => openEventDetail(invitationItem.event_id)}
-                                    >
-                                      {eventItem?.title || eventNamesById[invitationItem.event_id] || t("field_event")}
-                                    </button>
-                                  </div>
-                                  <p className="item-meta cell-meta">
-                                    {formatDate(eventItem?.start_at || invitationItem.created_at, language, t("no_date"))}
-                                  </p>
-                                  <p className="item-meta cell-meta">
-                                    <span className={`status-pill ${statusClass(invitationItem.status)}`}>
-                                      {statusText(t, invitationItem.status)}
-                                    </span>
-                                  </p>
-                                  <p className="item-meta cell-meta">-</p>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      )}
-                    </article>
-                  ) : null}
-                </div>
-                </>
-              )}
-            </section>
-            ) : null}
-          </div>
-        )}
-      </section>
-        ) : null}
-
-        {activeView === "invitations" ? (
-          <section className="workspace-shell view-transition">
-            {invitationsWorkspace === "hub" ? (
-              <div className="workspace-card-grid">
-                {WORKSPACE_ITEMS.invitations.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
-                  <article key={workspaceItem.key} className="workspace-card">
-                    <div className="workspace-card-icon">
-                      <Icon name={workspaceItem.icon} className="icon" />
-                    </div>
-                    <div className="workspace-card-content">
-                      <h3>{t(workspaceItem.labelKey)}</h3>
-                      <p>{t(workspaceItem.descriptionKey)}</p>
-                    </div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => openWorkspace("invitations", workspaceItem.key)}
-                    >
-                      {t("workspace_open")}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div key={`invitations-${invitationsWorkspace}`} className="dashboard-grid single-section workspace-content">
-            {invitationsWorkspace === "create" ? (
-            <form className="panel form-grid" onSubmit={handleCreateInvitation} noValidate>
-              <label>
-                <span className="label-title">{t("field_event")}</span>
-                <select
-                  value={selectedEventId}
-                  onChange={(event) => setSelectedEventId(event.target.value)}
-                  disabled={!events.length}
-                  aria-invalid={Boolean(invitationErrors.eventId)}
-                >
-                  {!events.length ? <option value="">{t("select_event_first")}</option> : null}
-                  {events.map((eventItem) => (
-                    <option key={eventItem.id} value={eventItem.id}>
-                      {eventItem.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span className="label-title">{t("field_guest")}</span>
-                <select
-                  value={selectedGuestId}
-                  onChange={(event) => setSelectedGuestId(event.target.value)}
-                  disabled={!guests.length || allGuestsAlreadyInvitedForSelectedEvent}
-                  aria-invalid={Boolean(invitationErrors.guestId)}
-                >
-                  {!guests.length ? <option value="">{t("select_guest_first")}</option> : null}
-                  {allGuestsAlreadyInvitedForSelectedEvent ? (
-                    <option value="">{t("invitation_all_guests_already_invited")}</option>
-                  ) : null}
-                  {guests.map((guestItem) => (
-                    <option
-                      key={guestItem.id}
-                      value={guestItem.id}
-                      disabled={invitedGuestIdsForSelectedEvent.has(guestItem.id)}
-                    >
-                      {guestItem.first_name} {guestItem.last_name || ""}
-                      {invitedGuestIdsForSelectedEvent.has(guestItem.id)
-                        ? ` (${t("invitation_guest_already_invited_tag")})`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <section id="invitation-bulk-panel" className="recommendation-card invitation-bulk-card">
-                <p className="label-title">
-                  <Icon name="check" className="icon icon-sm" />
-                  {t("invitation_bulk_title")}
-                </p>
-                <p className="field-help">{t("invitation_bulk_hint")}</p>
-                <label>
-                  <span className="label-title">{t("search")}</span>
-                  <input
-                    type="search"
-                    value={bulkInvitationSearch}
-                    onChange={(event) => setBulkInvitationSearch(event.target.value)}
-                    placeholder={t("invitation_bulk_search_placeholder")}
-                    disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent}
-                  />
-                </label>
-                <div className="list-filter-tabs" role="group" aria-label={t("invitation_bulk_segment_label")}>
-                  {INVITATION_BULK_SEGMENTS.map((segmentKey) => (
-                    <button
-                      key={segmentKey}
-                      className={`list-filter-tab ${bulkInvitationSegment === segmentKey ? "active" : ""}`}
-                      type="button"
-                      aria-pressed={bulkInvitationSegment === segmentKey}
-                      onClick={() => setBulkInvitationSegment(segmentKey)}
-                    >
-                      {t(`invitation_bulk_segment_${segmentKey}`)} ({bulkSegmentCounts[segmentKey] || 0})
-                    </button>
-                  ))}
-                </div>
-                <p className="hint">{t("invitation_bulk_segment_hint")}</p>
-                <div className="button-row">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleSelectVisibleBulkGuests}
-                    disabled={bulkFilteredGuests.length === 0 || allGuestsAlreadyInvitedForSelectedEvent}
-                  >
-                    {t("invitation_bulk_select_visible")}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={handleClearBulkGuests}
-                    disabled={bulkInvitationGuestIds.length === 0}
-                  >
-                    {t("invitation_bulk_clear_selection")}
-                  </button>
-                </div>
-                <p className="hint">
-                  {t("invitation_bulk_selected_count")} {bulkInvitationGuestIds.length} - {t("results_count")} {bulkFilteredGuests.length}
-                </p>
-                {!events.length || allGuestsAlreadyInvitedForSelectedEvent ? (
-                  <p className="hint">{t("invitation_all_guests_already_invited")}</p>
-                ) : (
-                  <div className="bulk-guest-grid" role="group" aria-label={t("invitation_bulk_title")}>
-                    {bulkFilteredGuests.slice(0, 20).map((guestItem) => {
-                      const guestLabel = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
-                      return (
-                        <label key={guestItem.id} className="bulk-guest-option">
-                          <input
-                            type="checkbox"
-                            checked={bulkInvitationGuestIds.includes(guestItem.id)}
-                            onChange={() => toggleBulkInvitationGuest(guestItem.id)}
-                          />
-                          <span>
-                            <strong>{guestLabel}</strong>
-                            <span className="item-meta">{guestItem.email || guestItem.phone || "-"}</span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                    {bulkFilteredGuests.length > 20 ? (
+                        );
+                      })}
+                    </ul>
+                  </div>
+                  {importContactsFiltered.length > 0 ? (
+                    <div className="pagination-row import-preview-pagination">
                       <p className="hint">
-                        {t("contact_import_preview_more")} {bulkFilteredGuests.length - 20}
+                        {t("pagination_page")} {Math.min(importContactsPage, importContactsTotalPages)}/{importContactsTotalPages}
                       </p>
-                    ) : null}
-                  </div>
-                )}
-              </section>
-
-              <FieldMeta
-                helpText={
-                  allGuestsAlreadyInvitedForSelectedEvent
-                    ? t("invitation_all_guests_already_invited")
-                    : `${t("hint_invitation_public")} ${t("invitation_guest_tag_hint")}`
-                }
-                errorText={
-                  invitationErrors.eventId ? t(invitationErrors.eventId) : invitationErrors.guestId ? t(invitationErrors.guestId) : ""
-                }
-              />
-
-              {selectedGuestId ? (
-                <section
-                  className={`recommendation-card ${
-                    invitationRecommendations?.warnings?.length ? "warning" : ""
-                  }`}
-                >
-                  <p className="label-title">
-                    <Icon name="sparkle" className="icon icon-sm" />
-                    {t("invitation_recommendation_title")}
-                  </p>
-                  <p className="field-help">
-                    {t("invitation_recommendation_hint")}{" "}
-                    {invitationRecommendations?.guestLabel
-                      ? `${invitationRecommendations.guestLabel}${invitationRecommendations?.eventLabel ? ` - ${invitationRecommendations.eventLabel}` : ""}`
-                      : ""}
-                  </p>
-                  {invitationRecommendations?.warnings?.length ? (
-                    <div>
-                      <p className="hint">{t("invitation_recommendation_warnings")}</p>
-                      <ul className="list recommendation-list">
-                        {invitationRecommendations.warnings.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {invitationRecommendations?.suggestions?.length ? (
-                    <div>
-                      <p className="hint">{t("invitation_recommendation_suggestions")}</p>
-                      <ul className="list recommendation-list">
-                        {invitationRecommendations.suggestions.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {!invitationRecommendations?.warnings?.length && !invitationRecommendations?.suggestions?.length ? (
-                    <p className="hint">{t("invitation_recommendation_empty")}</p>
-                  ) : null}
-                </section>
-              ) : null}
-
-              <div className="button-row">
-                <button
-                  className="btn"
-                  type="submit"
-                  disabled={isCreatingInvitation || !events.length || !guests.length || allGuestsAlreadyInvitedForSelectedEvent}
-                >
-                  {isCreatingInvitation ? t("generating_invitation") : t("generate_rsvp")}
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={handleCreateBulkInvitations}
-                  disabled={isCreatingBulkInvitations || !events.length || bulkInvitationGuestIds.length === 0}
-                >
-                  {isCreatingBulkInvitations ? t("invitation_bulk_creating") : t("invitation_bulk_create_button")}
-                </button>
-              </div>
-              <InlineMessage text={invitationMessage} />
-
-              {lastInvitationUrl ? (
-                <div className="link-box">
-                  <p className="hint">{t("invitation_link_label")}</p>
-                  <input value={lastInvitationUrl} readOnly />
-                  <div className="button-row">
-                    <button className="btn btn-ghost" type="button" onClick={() => handleCopyInvitationLink(lastInvitationUrl)}>
-                      {t("copy_link")}
-                    </button>
-                    <a className="btn btn-ghost" href={lastInvitationUrl} target="_blank" rel="noreferrer">
-                      {t("open_rsvp")}
-                    </a>
-                  </div>
-                  {lastInvitationShareText ? (
-                    <>
-                      <p className="hint">{t("invitation_share_message_label")}</p>
-                      <textarea value={lastInvitationShareText} readOnly rows={6} />
                       <div className="button-row">
-                        <button
-                          className="btn btn-ghost"
-                          type="button"
-                          onClick={() => handleCopyInvitationMessage(lastInvitationShareText)}
-                        >
-                          {t("invitation_copy_message")}
-                        </button>
-                        {lastInvitationWhatsappUrl ? (
-                          <a className="btn btn-ghost" href={lastInvitationWhatsappUrl} target="_blank" rel="noreferrer">
-                            {t("invitation_open_whatsapp")}
-                          </a>
-                        ) : null}
-                        {lastInvitationEmailUrl ? (
-                          <a className="btn btn-ghost" href={lastInvitationEmailUrl}>
-                            {t("invitation_open_email")}
-                          </a>
-                        ) : null}
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </form>
-            ) : null}
-
-            {invitationsWorkspace === "latest" ? (
-            <section className="panel panel-list panel-invitations-latest">
-              <div className="list-tools list-tools-invitations">
-                <label className="list-tools-search">
-                  <span className="label-title">{t("search")}</span>
-                  <input
-                    type="search"
-                    value={invitationSearch}
-                    onChange={(event) => setInvitationSearch(event.target.value)}
-                    placeholder={t("search_invitations_placeholder")}
-                  />
-                </label>
-                <div className="list-tools-secondary list-tools-secondary-invitations">
-                  <label>
-                    <span className="label-title">{t("sort_by")}</span>
-                    <select value={invitationSort} onChange={(event) => setInvitationSort(event.target.value)}>
-                      <option value="created_desc">{t("sort_created_desc")}</option>
-                      <option value="created_asc">{t("sort_created_asc")}</option>
-                      <option value="responded_desc">{t("sort_responded_desc")}</option>
-                      <option value="responded_asc">{t("sort_responded_asc")}</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span className="label-title">{t("pagination_items_per_page")}</span>
-                    <select
-                      value={invitationPageSize}
-                      onChange={(event) => setInvitationPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)}
-                    >
-                      {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                        <option key={optionValue} value={optionValue}>
-                          {optionValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <div className="invitation-filter-row">
-                <label className="invitation-event-filter">
-                  <span className="label-title">{t("field_event")}</span>
-                  <select
-                    value={invitationEventFilter}
-                    onChange={(event) => setInvitationEventFilter(event.target.value)}
-                  >
-                    <option value="all">{t("all_events")}</option>
-                    {invitationEventOptions.map((eventOption) => (
-                      <option key={`invitation-filter-event-${eventOption.id}`} value={eventOption.id}>
-                        {eventOption.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="list-filter-tabs list-filter-tabs-segmented invitation-status-tabs" role="group" aria-label={t("filter_status")}>
-                  {[
-                    { key: "all", label: t("all_status") },
-                    { key: "pending", label: t("status_pending") },
-                    { key: "yes", label: t("status_yes") },
-                    { key: "maybe", label: t("status_maybe") },
-                    { key: "no", label: t("status_no") }
-                  ].map((statusOption) => (
-                    <button
-                      key={statusOption.key}
-                      className={`list-filter-tab ${invitationStatusFilter === statusOption.key ? "active" : ""}`}
-                      type="button"
-                      aria-pressed={invitationStatusFilter === statusOption.key}
-                      onClick={() => setInvitationStatusFilter(statusOption.key)}
-                    >
-                      {statusOption.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="invitation-results-row">
-                <p className="hint">
-                  {t("results_count")}: {filteredInvitations.length}
-                </p>
-              </div>
-              <InlineMessage text={invitationMessage} />
-              {filteredInvitations.length === 0 ? (
-                <div className="empty-list-state">
-                  <p>{t("no_invitations")}</p>
-                  <div className="button-row">
-                    <button className="btn btn-sm" type="button" onClick={() => openWorkspace("invitations", "create")}>
-                      <Icon name="mail" className="icon icon-sm" />
-                      {t("quick_create_invitation")}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                <div className="list-table-shell">
-                  <div className="list-table-head list-table-head-invitations-compact" aria-hidden="true">
-                    <span>{t("field_guest")}</span>
-                    <span>{t("field_event")}</span>
-                    <span>{t("status")}</span>
-                    <span>{t("created")}</span>
-                    <span>{t("actions_label")}</span>
-                  </div>
-                  <ul className="list list-table list-table-invitations list-table-invitations-compact">
-                  {pagedInvitations.map((invitation) => {
-                    const eventName = eventNamesById[invitation.event_id] || invitation.event_id;
-                    const guestName = guestNamesById[invitation.guest_id] || invitation.guest_id;
-                    const guestItem = guestsById[invitation.guest_id] || null;
-                    const eventItem = eventsById[invitation.event_id] || null;
-                    const sharePayload = buildInvitationSharePayload(invitation);
-                    const url = sharePayload?.url || buildAppUrl(`/rsvp/${encodeURIComponent(invitation.public_token)}`);
-                    const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
-                    const invitationStatus = String(invitation.status || "pending").toLowerCase();
-                    const mobileRsvpClassName = [
-                      "btn",
-                      "btn-sm",
-                      "invitation-mobile-rsvp-btn",
-                      invitationStatus === "pending"
-                        ? "is-pending"
-                        : invitationStatus === "no"
-                        ? "is-declined"
-                        : "is-neutral"
-                    ].join(" ");
-                    const mobileRsvpLabel =
-                      invitationStatus === "pending"
-                        ? t("invitation_mobile_rsvp_respond_now")
-                        : t("invitation_mobile_rsvp_view_response");
-                    const invitationActionHint =
-                      invitationStatus === "pending"
-                        ? t("invitation_action_hint_pending")
-                        : invitationStatus === "no"
-                        ? t("invitation_action_hint_declined")
-                        : t("invitation_action_hint_review");
-                    const desktopRsvpLabel = mobileRsvpLabel;
-                    const desktopRsvpClassName =
-                      invitationStatus === "pending"
-                        ? "btn btn-sm btn-icon-only invitation-open-rsvp-btn is-pending"
-                        : invitationStatus === "no"
-                        ? "btn btn-sm btn-icon-only invitation-open-rsvp-btn is-declined"
-                        : "btn btn-ghost btn-sm btn-icon-only invitation-open-rsvp-btn is-neutral";
-                    const mobileShareClassName = [
-                      "btn",
-                      "btn-ghost",
-                      "btn-sm",
-                      "invitation-mobile-share-btn",
-                      invitationStatus === "pending" ? "is-supporting" : "is-neutral"
-                    ].join(" ");
-                    return (
-                      <li key={invitation.id} className="list-table-row list-row-invitation">
-                        <div className="cell-main list-title-with-avatar">
-                          <AvatarCircle
-                            className="list-avatar list-avatar-sm"
-                            label={guestName}
-                            fallback="IN"
-                            imageUrl={getGuestAvatarUrl(guestItem, guestName)}
-                            size={29}
-                          />
-                          <div>
-                            <p className="item-title">
-                              <button
-                                className="text-link-btn invitation-linked-name"
-                                type="button"
-                                onClick={() => openGuestDetail(invitation.guest_id)}
-                              >
-                                {guestName}
-                              </button>
-                            </p>
-                            <p className="item-meta">{guestItem?.email || guestItem?.phone || "-"}</p>
-                          </div>
-                        </div>
-                        <div className="cell-invitation-event cell-meta">
-                          <p className="item-title">
-                            <button
-                              className="text-link-btn invitation-linked-name"
-                              type="button"
-                              onClick={() => openEventDetail(invitation.event_id)}
-                            >
-                              {eventName}
-                            </button>
-                          </p>
-                          <p className="item-meta">
-                            {eventItem?.start_at ? formatDate(eventItem.start_at, language, t("no_date")) : t("no_date")}
-                          </p>
-                        </div>
-                        <p className="item-meta cell-invitation-status cell-extra">
-                          <span className={`status-pill ${statusClass(invitation.status)}`}>{statusText(t, invitation.status)}</span>
-                        </p>
-                        <div className="cell-invitation-created cell-extra invitation-created-stack">
-                          <p className="item-meta">{formatDate(invitation.created_at, language, t("no_date"))}</p>
-                          <p className={`item-meta invitation-action-hint is-${invitationStatus}`}>{invitationActionHint}</p>
-                        </div>
-                        <div className="invitation-mobile-quick-actions">
-                          <button
-                            className={mobileShareClassName}
-                            type="button"
-                            onClick={() => {
-                              const prepared = handlePrepareInvitationShare(invitation);
-                              if (prepared?.whatsappUrl) {
-                                window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
-                              }
-                            }}
-                            aria-label={t("invitation_open_whatsapp")}
-                            title={t("invitation_open_whatsapp")}
-                          >
-                            <Icon name="message" className="icon icon-sm" />
-                            <span>WhatsApp</span>
-                          </button>
-                          <a
-                            className={mobileRsvpClassName}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={mobileRsvpLabel}
-                            title={mobileRsvpLabel}
-                          >
-                            <Icon name="eye" className="icon icon-sm" />
-                            <span>{mobileRsvpLabel}</span>
-                          </a>
-                          <details className="list-actions-more list-actions-more-mobile invitation-actions-more">
-                            <summary className="btn btn-ghost btn-sm btn-icon-only" aria-label={t("open_menu")} title={t("open_menu")}>
-                              <Icon name="more_horizontal" className="icon icon-sm" />
-                            </summary>
-                            <div className="list-actions-more-menu invitation-actions-more-menu" role="menu">
-                              <button
-                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
-                                type="button"
-                                onClick={() => {
-                                  const prepared = handlePrepareInvitationShare(invitation);
-                                  if (prepared?.mailtoUrl) {
-                                    window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
-                                  }
-                                }}
-                              >
-                                <Icon name="mail" className="icon icon-sm" />
-                                <span>{t("invitation_open_email")}</span>
-                              </button>
-                              <button
-                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
-                                type="button"
-                                onClick={() => handleCopyInvitationLink(url)}
-                              >
-                                <Icon name="link" className="icon icon-sm" />
-                                <span>{t("copy_link")}</span>
-                              </button>
-                              <button
-                                className="btn btn-danger btn-sm list-actions-more-item invitation-actions-more-item"
-                                type="button"
-                                onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
-                              >
-                                <Icon name="x" className="icon icon-sm" />
-                                <span>{t("delete_invitation")}</span>
-                              </button>
-                            </div>
-                          </details>
-                        </div>
-                        <div className={`button-row cell-actions list-row-actions invitation-actions invitation-actions--${invitationStatus}`}>
-                          <button
-                            className={`btn btn-ghost btn-sm invitation-share-chip ${
-                              invitationStatus === "pending" ? "is-pending-focus" : ""
-                            }`}
-                            type="button"
-                            onClick={() => {
-                              const prepared = handlePrepareInvitationShare(invitation);
-                              if (prepared?.whatsappUrl) {
-                                window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
-                              }
-                            }}
-                            aria-label={t("invitation_open_whatsapp")}
-                            title={t("invitation_open_whatsapp")}
-                          >
-                            <span>WhatsApp</span>
-                          </button>
-                          <a
-                            className={desktopRsvpClassName}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={desktopRsvpLabel}
-                            title={desktopRsvpLabel}
-                          >
-                            <Icon name="eye" className="icon icon-sm" />
-                          </a>
-                          <details className="list-actions-more invitation-actions-more">
-                            <summary
-                              className="btn btn-ghost btn-sm btn-icon-only"
-                              aria-label={t("open_menu")}
-                              title={t("open_menu")}
-                            >
-                              <Icon name="more_horizontal" className="icon icon-sm" />
-                            </summary>
-                            <div className="list-actions-more-menu invitation-actions-more-menu" role="menu">
-                              <button
-                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
-                                type="button"
-                                onClick={() => {
-                                  const prepared = handlePrepareInvitationShare(invitation);
-                                  if (prepared?.mailtoUrl) {
-                                    window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
-                                  }
-                                }}
-                              >
-                                <Icon name="mail" className="icon icon-sm" />
-                                <span>{t("invitation_open_email")}</span>
-                              </button>
-                              <button
-                                className="btn btn-ghost btn-sm list-actions-more-item invitation-actions-more-item"
-                                type="button"
-                                onClick={() => handleCopyInvitationLink(url)}
-                              >
-                                <Icon name="link" className="icon icon-sm" />
-                                <span>{t("copy_link")}</span>
-                              </button>
-                              <button
-                                className="btn btn-danger btn-sm list-actions-more-item invitation-actions-more-item"
-                                type="button"
-                                onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
-                              >
-                                <Icon name="x" className="icon icon-sm" />
-                                <span>{t("delete_invitation")}</span>
-                              </button>
-                            </div>
-                          </details>
-                        </div>
-                      </li>
-                    );
-                  })}
-                  </ul>
-                </div>
-                </>
-              )}
-              {filteredInvitations.length > 0 ? (
-                <div className="pagination-row">
-                  <p className="hint">
-                    {t("pagination_page")} {invitationPage}/{invitationTotalPages}
-                  </p>
-                  <div className="button-row">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setInvitationPage((prev) => Math.max(1, prev - 1))}
-                      disabled={invitationPage <= 1}
-                    >
-                      {t("pagination_prev")}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => setInvitationPage((prev) => Math.min(invitationTotalPages, prev + 1))}
-                      disabled={invitationPage >= invitationTotalPages}
-                    >
-                      {t("pagination_next")}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-            ) : null}
-          </div>
-        )}
-      </section>
-        ) : null}
-
-        {isImportWizardOpen ? (
-          <div className="import-wizard-overlay" onClick={handleCloseImportWizard}>
-            <section
-              className={`import-wizard-modal ${importWizardStep === 3 ? "is-wide" : ""}`}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="import-wizard-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header className="import-wizard-header">
-                <div>
-                  <p className="item-meta">{importWizardStepLabel}</p>
-                  <h3 id="import-wizard-title" className="item-title">
-                    {importWizardStepTitle}
-                  </h3>
-                  <p className="hint">{importWizardStepHint}</p>
-                </div>
-                <button
-                  className="btn btn-ghost btn-sm btn-icon-only"
-                  type="button"
-                  onClick={handleCloseImportWizard}
-                  aria-label={t("close_modal")}
-                  title={t("close_modal")}
-                >
-                  <Icon name="x" className="icon icon-sm" />
-                </button>
-              </header>
-
-              <div className="import-wizard-steps" role="list" aria-label={importWizardStepLabel}>
-                {Array.from({ length: IMPORT_WIZARD_STEP_TOTAL }).map((_, index) => {
-                  const stepNumber = index + 1;
-                  const isActive = importWizardStep === stepNumber;
-                  const isDone = importWizardStep > stepNumber;
-                  return (
-                    <span
-                      key={`wizard-step-${stepNumber}`}
-                      role="listitem"
-                      className={`import-wizard-step-pill ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}
-                    >
-                      {stepNumber}
-                    </span>
-                  );
-                })}
-              </div>
-
-              <div className="import-wizard-body">
-                {importWizardStep === 1 ? (
-                  <div className="import-source-grid">
-                    {importWizardSourceOptions.map((sourceItem) => (
-                      <button
-                        key={sourceItem.key}
-                        type="button"
-                        className={`import-source-card ${importWizardSource === sourceItem.key ? "active" : ""}`}
-                        onClick={() => setImportWizardSource(sourceItem.key)}
-                        aria-pressed={importWizardSource === sourceItem.key}
-                      >
-                        <span className="import-source-icon">
-                          <Icon name={sourceItem.icon} className="icon icon-sm" />
-                        </span>
-                        <span className="import-source-title-row">
-                          <span className="item-title">{sourceItem.title}</span>
-                          {sourceItem.isRecommended ? (
-                            <span className="import-source-recommended">{t("import_wizard_source_recommended")}</span>
-                          ) : null}
-                        </span>
-                        <span className="item-meta">{sourceItem.hint}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                {importWizardStep === 2 && isMobileImportExperience && importWizardSourceOptions.length > 1 ? (
-                  <div className="import-source-switch" role="tablist" aria-label={t("import_wizard_step_1_title")}>
-                    {importWizardSourceOptions.map((sourceItem) => (
-                      <button
-                        key={`switch-${sourceItem.key}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={importWizardSource === sourceItem.key}
-                        className={`import-source-switch-btn ${importWizardSource === sourceItem.key ? "active" : ""}`}
-                        onClick={() => {
-                          setImportContactsMessage("");
-                          setImportWizardSource(sourceItem.key);
-                        }}
-                      >
-                        <Icon name={sourceItem.icon} className="icon icon-xs" />
-                        <span>{sourceItem.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                {importWizardStep === 2 && importWizardSource === "csv" ? (
-                  <div className="import-step-stack">
-                    <div
-                      className="import-drop-zone"
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = "copy";
-                      }}
-                      onDrop={handleImportWizardDrop}
-                    >
-                      <Icon name="folder" className="icon" />
-                      <p className="item-title">{t("import_wizard_csv_drop_title")}</p>
-                      <p className="item-meta">{t("import_wizard_csv_drop_hint")}</p>
-                      <label className="btn btn-ghost btn-sm">
-                        {t("contact_import_open_file_button")}
-                        <input
-                          type="file"
-                          accept=".csv,.vcf,.vcard,text/csv,text/vcard"
-                          onChange={handleImportContactsFile}
-                          hidden
-                        />
-                      </label>
-                    </div>
-                    {importWizardUploadedFileName ? (
-                      <p className="field-success">
-                        <Icon name="check" className="icon icon-xs" /> {importWizardUploadedFileName}
-                      </p>
-                    ) : null}
-                    <label>
-                      <span className="label-title">{t("contact_import_paste_label")}</span>
-                      <textarea
-                        rows={3}
-                        value={importContactsDraft}
-                        onChange={(event) => setImportContactsDraft(event.target.value)}
-                        placeholder={t("contact_import_paste_placeholder")}
-                      />
-                    </label>
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handlePreviewContactsFromDraft}>
-                        {t("contact_import_preview_button")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearImportContacts}>
-                        {t("contact_import_clear_button")}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {importWizardStep === 2 && importWizardSource === "gmail" ? (
-                  <div className="import-step-stack">
-                    <button
-                      className="btn btn-sm"
-                      type="button"
-                      onClick={() => handleImportGoogleContacts({ fromWizard: true })}
-                      disabled={isImportingGoogleContacts || !canUseGoogleContacts}
-                    >
-                      <Icon name="mail" className="icon icon-sm" />
-                      {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
-                    </button>
-                    <p className="hint">{t("import_wizard_gmail_privacy_note")}</p>
-                    {!canUseGoogleContacts ? <p className="hint">{t("contact_import_google_unconfigured")}</p> : null}
-                    {importContactsAnalysis.length > 0 ? (
-                      <p className="field-success">
-                        {t("contact_import_preview_total")} {importContactsAnalysis.length}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {importWizardStep === 2 && importWizardSource === "mobile" ? (
-                  <div className="import-step-stack">
-                    {canUseDeviceContacts ? (
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("import_wizard_mobile_native_title")}</p>
-                        <p className="item-meta">{t("import_wizard_mobile_native_hint")}</p>
-                        <button
-                          className="btn btn-sm"
-                          type="button"
-                          onClick={() => handlePickDeviceContacts({ fromWizard: true })}
-                        >
-                          <Icon name="phone" className="icon icon-sm" />
-                          {t("contact_import_device_button")}
-                        </button>
-                      </article>
-                    ) : (
-                      <article className="recommendation-card warning">
-                        <p className="item-title">
-                          {isIOSDevice ? t("import_wizard_ios_recommendation_title") : t("import_wizard_mobile_fallback_title")}
-                        </p>
-                        <p className="item-meta">
-                          {isIOSDevice ? t("import_wizard_ios_recommendation_hint") : t("import_wizard_mobile_fallback_hint")}
-                        </p>
-                        <p className="hint">{contactPickerUnsupportedReason}</p>
-                        {isIOSDevice && canUseGoogleContacts ? (
-                          <button className="btn btn-sm" type="button" onClick={() => setImportWizardSource("gmail")}>
-                            <Icon name="mail" className="icon icon-sm" />
-                            {t("import_wizard_ios_use_google_action")}
-                          </button>
-                        ) : null}
-                      </article>
-                    )}
-                    {!canUseDeviceContacts ? (
-                      <div className="import-mobile-qr-box">
-                        {importWizardQrDataUrl ? (
-                          <img src={importWizardQrDataUrl} alt={t("import_wizard_mobile_qr_alt")} />
-                        ) : (
-                          <div className="import-mobile-qr-fallback">
-                            <Icon name="phone" className="icon" />
-                            <span>{t("import_wizard_mobile_qr_hint")}</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                    {!canUseDeviceContacts ? <p className="item-meta">{t("import_wizard_mobile_qr_hint")}</p> : null}
-                    <div className="button-row">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        type="button"
-                        onClick={handleShareImportWizardLink}
-                      >
-                        <Icon name="message" className="icon icon-sm" />
-                        {t("import_wizard_mobile_share_action")}
-                      </button>
-                      {!canUseDeviceContacts ? (
                         <button
                           className="btn btn-ghost btn-sm"
                           type="button"
-                          onClick={() => handleImportGoogleContacts({ fromWizard: true })}
-                          disabled={isImportingGoogleContacts || !canUseGoogleContacts}
+                          onClick={() => setImportContactsPage((prev) => Math.max(1, prev - 1))}
+                          disabled={importContactsPage <= 1}
                         >
-                          <Icon name="mail" className="icon icon-sm" />
-                          {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
+                          {t("pagination_prev")}
                         </button>
-                      ) : null}
-                    </div>
-                    {!isMobileImportExperience ? (
-                      <>
-                        <label>
-                          <span className="label-title">{t("email")}</span>
-                          <input
-                            type="email"
-                            value={importWizardShareEmail}
-                            onChange={(event) => setImportWizardShareEmail(event.target.value)}
-                            placeholder={t("placeholder_email")}
-                          />
-                        </label>
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardEmailLink}>
-                          <Icon name="mail" className="icon icon-sm" />
-                          {t("import_wizard_mobile_email_action")}
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => setImportContactsPage((prev) => Math.min(importContactsTotalPages, prev + 1))}
+                          disabled={importContactsPage >= importContactsTotalPages}
+                        >
+                          {t("pagination_next")}
                         </button>
-                      </>
-                    ) : null}
-                    {!canUseDeviceContacts && !isMobileImportExperience ? (
-                      <details className="contact-import-fallback-details">
-                        <summary>{t("import_wizard_mobile_alternative_methods")}</summary>
-                        <div className="button-row">
-                          <label className="btn btn-ghost btn-sm">
-                            <Icon name="folder" className="icon icon-sm" />
-                            {t("contact_import_open_file_button")}
-                            <input
-                              type="file"
-                              accept=".csv,.vcf,.vcard,text/csv,text/vcard"
-                              onChange={handleImportContactsFile}
-                              hidden
-                            />
-                          </label>
-                        </div>
-                      </details>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {importWizardStep === 3 ? (
-                  <div className="import-step-stack">
-                    <div className="list-tools">
-                      <label>
-                        <span className="label-title">{t("search")}</span>
-                        <input
-                          type="search"
-                          value={importContactsSearch}
-                          onChange={(event) => setImportContactsSearch(event.target.value)}
-                          placeholder={t("contact_import_filter_placeholder")}
-                        />
-                      </label>
-                      <label>
-                        <span className="label-title">{t("pagination_items_per_page")}</span>
-                        <select
-                          value={importContactsPageSize}
-                          onChange={(event) => setImportContactsPageSize(Number(event.target.value) || IMPORT_PREVIEW_PAGE_SIZE_DEFAULT)}
-                        >
-                          {IMPORT_PREVIEW_PAGE_SIZE_OPTIONS.map((optionValue) => (
-                            <option key={optionValue} value={optionValue}>
-                              {optionValue}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        <span className="label-title">{t("contact_import_duplicate_mode_label")}</span>
-                        <select
-                          value={importDuplicateMode}
-                          onChange={(event) => handleImportDuplicateModeChange(event.target.value)}
-                        >
-                          <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
-                          <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div className="import-status-pills">
-                      <span className="status-pill status-event-published">
-                        {t("contact_import_preview_total")} {importContactsAnalysis.length}
-                      </span>
-                      <span className="status-pill status-yes">
-                        {t("contact_import_selected_ready")} {importContactsSelectedReady.length}
-                      </span>
-                      <span className="status-pill status-event-draft">
-                        {t("contact_import_preview_ready")} {importContactsReady.length}
-                      </span>
-                    </div>
-                    {importContactsDuplicateCount > 0 ? (
-                      <div className="recommendation-card warning import-wizard-alert">
-                        <p className="item-title">{t("import_wizard_duplicates_title")}</p>
-                        <p className="item-meta">
-                          {interpolateText(t("import_wizard_duplicates_hint"), { count: importContactsDuplicateCount })}
-                        </p>
                       </div>
-                    ) : null}
-                    <div className="button-row">
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectSuggestedImportContacts}>
-                        {t("contact_import_select_suggested")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectDuplicateMergeImportContacts}>
-                        {t("contact_import_select_merge_safe")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleApproveAllLowConfidenceMergeContacts}>
-                        {t("contact_import_merge_approve_all_low")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectCurrentImportPageReady}>
-                        {t("contact_import_select_page_ready")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleSelectAllReadyImportContacts}>
-                        {t("contact_import_select_all_ready")}
-                      </button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={handleClearReadyImportContactsSelection}>
-                        {t("contact_import_clear_selection")}
-                      </button>
                     </div>
-                    <div className="import-preview-table">
-                      <div className="import-preview-head">
-                        <span />
-                        <span>{t("field_full_name")}</span>
-                        <span>{t("email")}</span>
-                        <span>{t("field_phone")}</span>
-                        <span>{t("field_city")}</span>
-                        <span>{t("status")}</span>
-                      </div>
-                      <ul className="list import-preview-list import-preview-list-modal">
-                        {pagedImportContacts.map((contactItem) => {
-                          const statusText = contactItem.duplicateExisting
-                            ? contactItem.willMerge
-                              ? t("contact_import_status_duplicate_merge")
-                              : t("contact_import_status_duplicate_existing")
-                            : contactItem.duplicateInPreview
-                            ? t("contact_import_status_duplicate_file")
-                            : contactItem.potentialLevel === "high"
-                            ? t("contact_import_status_high_potential")
-                            : contactItem.potentialLevel === "medium"
-                            ? t("contact_import_status_medium_potential")
-                            : t("contact_import_status_ready");
-                          const statusClass = contactItem.duplicateExisting
-                            ? "status-invitation-pending"
-                            : contactItem.duplicateInPreview
-                            ? "status-event-draft"
-                            : contactItem.potentialLevel === "high"
-                            ? "status-yes"
-                            : contactItem.potentialLevel === "medium"
-                            ? "status-maybe"
-                            : "status-event-published";
-                          return (
-                            <li key={contactItem.previewId} className="import-preview-row">
-                              <span className="import-preview-cell import-preview-checkbox">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedImportContactIds.includes(contactItem.previewId)}
-                                  disabled={!contactItem.canImport}
-                                  onChange={() => toggleImportContactSelection(contactItem.previewId)}
-                                />
-                              </span>
-                              <span className="import-preview-cell import-preview-name">
-                                {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
-                              </span>
-                              <span className="import-preview-cell">{contactItem.email || "-"}</span>
-                              <span className="import-preview-cell">{contactItem.phone || "-"}</span>
-                              <span className="import-preview-cell">
-                                {[contactItem.city, contactItem.country].filter(Boolean).join(", ") || "-"}
-                              </span>
-                              <span className="import-preview-cell import-preview-status">
-                                <span className={`status-pill ${statusClass}`}>{statusText}</span>
-                                {contactItem.duplicateExisting && contactItem.existingGuestName ? (
-                                  <span className="item-meta import-preview-target">
-                                    {t("merge_guest_target_label")}: {contactItem.existingGuestName}
-                                  </span>
-                                ) : null}
-                                {contactItem.duplicateExisting && contactItem.duplicateReasonLabel ? (
-                                  <span className="item-meta import-preview-target">
-                                    {t("contact_import_match_reason_label")}: {contactItem.duplicateReasonLabel}
-                                  </span>
-                                ) : null}
-                                {contactItem.requiresMergeApproval ? (
-                                  <span className="item-meta import-preview-target import-merge-warning">
-                                    {t("contact_import_merge_requires_approval")}
-                                  </span>
-                                ) : null}
-                                {contactItem.duplicateExisting ? (
-                                  <span className="import-preview-target">
-                                    <span
-                                      className={`status-pill import-merge-confidence ${getImportDuplicateMergeConfidenceStatusClass(
-                                        contactItem.duplicateMergeConfidence
-                                      )}`}
-                                    >
-                                      {t("contact_import_merge_confidence_label")}:{" "}
-                                      {t(`contact_import_merge_confidence_${contactItem.duplicateMergeConfidence || "low"}`)}
-                                    </span>
-                                  </span>
-                                ) : null}
-                                {contactItem.requiresMergeApproval ? (
-                                  <button
-                                    className="btn btn-ghost btn-sm import-merge-approve-btn"
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      handleOpenLowConfidenceMergeReview(contactItem.previewId);
-                                    }}
-                                  >
-                                    {t("contact_import_merge_review_action")}
-                                  </button>
-                                ) : null}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                    {importContactsFiltered.length > 0 ? (
-                      <div className="pagination-row import-preview-pagination">
-                        <p className="hint">
-                          {t("pagination_page")} {Math.min(importContactsPage, importContactsTotalPages)}/{importContactsTotalPages}
-                        </p>
-                        <div className="button-row">
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            type="button"
-                            onClick={() => setImportContactsPage((prev) => Math.max(1, prev - 1))}
-                            disabled={importContactsPage <= 1}
-                          >
-                            {t("pagination_prev")}
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            type="button"
-                            onClick={() => setImportContactsPage((prev) => Math.min(importContactsTotalPages, prev + 1))}
-                            disabled={importContactsPage >= importContactsTotalPages}
-                          >
-                            {t("pagination_next")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {importWizardStep === 4 ? (
-                  <div className="import-step-stack import-result-stack">
-                    <div className={`import-result-icon ${importWizardResult.partial ? "is-error" : "is-success"}`}>
-                      <Icon name={importWizardResult.partial ? "x" : "check"} className="icon" />
-                    </div>
-                    <div className="import-result-stats">
-                      <article>
-                        <p className="item-meta">{t("contact_import_done")}</p>
-                        <p className="item-title">{importWizardResult.imported}</p>
-                      </article>
-                      <article>
-                        <p className="item-meta">{t("contact_import_merged")}</p>
-                        <p className="item-title">{importWizardResult.updated}</p>
-                      </article>
-                      <article>
-                        <p className="item-meta">{t("contact_import_failed")}</p>
-                        <p className="item-title">{importWizardResult.failed}</p>
-                      </article>
-                      <article>
-                        <p className="item-meta">{t("contact_import_skipped")}</p>
-                        <p className="item-title">{importWizardResult.skipped}</p>
-                      </article>
-                    </div>
-                    <div className="progress-bar" aria-hidden="true">
-                      <span style={{ width: "100%" }} />
-                    </div>
-                    <p className="item-meta">{t("import_wizard_result_progress_complete")}</p>
-                    {importWizardResult.partial ? (
-                      <div className="recommendation-card warning import-wizard-alert">
-                        <p className="item-title">{t("import_wizard_result_partial_title")}</p>
-                        <p className="item-meta">
-                          {interpolateText(t("import_wizard_result_partial_hint"), { count: importWizardResult.failed })}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-
-              <InlineMessage text={importWizardShareMessage || importContactsMessage} />
-
-              <footer className="import-wizard-footer">
-                <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardBack} disabled={isImportingContacts}>
-                  {importWizardStep === 1 || importWizardStep === 4 ? t("cancel_action") : t("pagination_prev")}
-                </button>
-                <button className="btn btn-sm" type="button" onClick={handleImportWizardContinue} disabled={!importWizardCanContinue}>
-                  {importWizardContinueLabel}
-                </button>
-              </footer>
-            </section>
-          </div>
-        ) : null}
-
-        <EventPlannerContextModal
-          isOpen={isEventPlannerContextOpen}
-          onClose={() => {
-            setIsEventPlannerContextOpen(false);
-            setEventPlannerContextFocusField("");
-          }}
-          t={t}
-          draft={eventPlannerContextDraft}
-          setDraft={setEventPlannerContextDraft}
-          focusField={eventPlannerContextFocusField}
-          showTechnicalPrompt={showEventPlannerTechnicalPrompt}
-          onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
-          technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
-          onGenerate={handleGenerateFullEventPlanFromContext}
-          isGenerating={Boolean(selectedEventPlannerGenerationState?.isGenerating)}
-        />
-
-        {guestMergeSource ? (
-          <div className="confirm-overlay" onClick={handleCloseMergeGuest}>
-            <section
-              className="confirm-dialog merge-guest-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="merge-guest-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h3 id="merge-guest-title" className="item-title">
-                {t("merge_guest_title")}
-              </h3>
-              <p className="item-meta">{t("merge_guest_hint")}</p>
-              <p className="hint">
-                {t("merge_guest_source_label")}:{" "}
-                {`${guestMergeSource.first_name || ""} ${guestMergeSource.last_name || ""}`.trim() || t("field_guest")}
-              </p>
-              <label className="field">
-                <span>{t("search")}</span>
-                <input
-                  type="search"
-                  value={guestMergeSearch}
-                  onChange={(event) => setGuestMergeSearch(event.target.value)}
-                  placeholder={t("merge_guest_search_placeholder")}
-                />
-              </label>
-              <label className="field">
-                <span>{t("merge_guest_target_label")}</span>
-                <select
-                  value={guestMergeTargetId}
-                  onChange={(event) => setGuestMergeTargetId(event.target.value)}
-                  disabled={guestMergeCandidates.length === 0}
-                >
-                  {guestMergeCandidates.length === 0 ? (
-                    <option value="">{t("merge_guest_no_candidates")}</option>
                   ) : null}
-                  {guestMergeCandidates.map((guestItem) => (
-                    <option key={guestItem.id} value={guestItem.id}>
-                      {`${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {guestMergeCandidates.length > 0 ? (
-                <div className="merge-guest-candidate-list" role="list">
-                  {guestMergeCandidates.slice(0, 8).map((guestItem) => {
-                    const guestName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
-                    const isActive = guestMergeTargetId === guestItem.id;
-                    return (
-                      <button
-                        key={`merge-candidate-${guestItem.id}`}
-                        className={`merge-guest-candidate ${isActive ? "active" : ""}`}
-                        type="button"
-                        onClick={() => setGuestMergeTargetId(guestItem.id)}
-                        aria-pressed={isActive}
-                      >
-                        <span className="item-title">{guestName}</span>
-                        <span className="item-meta">
-                          {[guestItem.email, guestItem.phone].filter(Boolean).join(" · ") || "—"}
-                        </span>
-                      </button>
-                    );
-                  })}
                 </div>
               ) : null}
-              <div className="button-row">
-                <button className="btn btn-ghost" type="button" onClick={handleCloseMergeGuest} disabled={isMergingGuest}>
-                  {t("cancel_action")}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={handleConfirmMergeGuest}
-                  disabled={isMergingGuest || !guestMergeTargetId}
-                >
-                  {isMergingGuest ? t("guest_merging") : t("merge_guest_confirm")}
-                </button>
-              </div>
-            </section>
-          </div>
-        ) : null}
 
-        {pendingImportMergeApprovalItem ? (
-          <div className="confirm-overlay" onClick={handleCloseLowConfidenceMergeReview}>
-            <section
-              className="confirm-dialog import-merge-review-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="import-merge-review-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h3 id="import-merge-review-title" className="item-title">
-                {t("contact_import_merge_review_title")}
-              </h3>
-              <p className="item-meta">{t("contact_import_merge_review_hint")}</p>
-              <div className="import-merge-review-head">
-                <span className="status-pill status-event-draft">
-                  {t("contact_import_match_reason_label")}: {pendingImportMergeApprovalItem.duplicateReasonLabel || "—"}
-                </span>
-                <span className="status-pill status-maybe">
-                  {t("contact_import_merge_confidence_label")}:{" "}
-                  {t(`contact_import_merge_confidence_${pendingImportMergeApprovalItem.duplicateMergeConfidence || "low"}`)}
-                </span>
-              </div>
-              <p className="item-meta">
-                {interpolateText(t("contact_import_merge_review_summary"), { count: pendingImportMergeWillFillCount })}
-              </p>
-              <div className="import-merge-review-filters">
-                <span className="label-title">{t("contact_import_merge_review_filter_label")}</span>
-                <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("contact_import_merge_review_filter_label")}>
-                  <button
-                    className={`list-filter-tab ${importMergeReviewShowOnlyWillFill ? "active" : ""}`}
-                    type="button"
-                    onClick={() => setImportMergeReviewShowOnlyWillFill(true)}
-                  >
-                    {t("contact_import_merge_review_filter_fill_only")}
-                  </button>
-                  <button
-                    className={`list-filter-tab ${!importMergeReviewShowOnlyWillFill ? "active" : ""}`}
-                    type="button"
-                    onClick={() => setImportMergeReviewShowOnlyWillFill(false)}
-                  >
-                    {t("contact_import_merge_review_filter_all")}
-                  </button>
+              {importWizardStep === 4 ? (
+                <div className="import-step-stack import-result-stack">
+                  <div className={`import-result-icon ${importWizardResult.partial ? "is-error" : "is-success"}`}>
+                    <Icon name={importWizardResult.partial ? "x" : "check"} className="icon" />
+                  </div>
+                  <div className="import-result-stats">
+                    <article>
+                      <p className="item-meta">{t("contact_import_done")}</p>
+                      <p className="item-title">{importWizardResult.imported}</p>
+                    </article>
+                    <article>
+                      <p className="item-meta">{t("contact_import_merged")}</p>
+                      <p className="item-title">{importWizardResult.updated}</p>
+                    </article>
+                    <article>
+                      <p className="item-meta">{t("contact_import_failed")}</p>
+                      <p className="item-title">{importWizardResult.failed}</p>
+                    </article>
+                    <article>
+                      <p className="item-meta">{t("contact_import_skipped")}</p>
+                      <p className="item-title">{importWizardResult.skipped}</p>
+                    </article>
+                  </div>
+                  <div className="progress-bar" aria-hidden="true">
+                    <span style={{ width: "100%" }} />
+                  </div>
+                  <p className="item-meta">{t("import_wizard_result_progress_complete")}</p>
+                  {importWizardResult.partial ? (
+                    <div className="recommendation-card warning import-wizard-alert">
+                      <p className="item-title">{t("import_wizard_result_partial_title")}</p>
+                      <p className="item-meta">
+                        {interpolateText(t("import_wizard_result_partial_hint"), { count: importWizardResult.failed })}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
-                <span className="item-meta import-merge-review-visible">
-                  {interpolateText(t("contact_import_merge_review_visible"), {
-                    visible: pendingImportMergeVisibleCount,
-                    total: pendingImportMergeTotalCount
-                  })}
-                </span>
+              ) : null}
+            </div>
+
+            <InlineMessage text={importWizardShareMessage || importContactsMessage} />
+
+            <footer className="import-wizard-footer">
+              <button className="btn btn-ghost btn-sm" type="button" onClick={handleImportWizardBack} disabled={isImportingContacts}>
+                {importWizardStep === 1 || importWizardStep === 4 ? t("cancel_action") : t("pagination_prev")}
+              </button>
+              <button className="btn btn-sm" type="button" onClick={handleImportWizardContinue} disabled={!importWizardCanContinue}>
+                {importWizardContinueLabel}
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
+      <EventPlannerContextModal
+        isOpen={isEventPlannerContextOpen}
+        onClose={() => {
+          setIsEventPlannerContextOpen(false);
+          setEventPlannerContextFocusField("");
+        }}
+        t={t}
+        draft={eventPlannerContextDraft}
+        setDraft={setEventPlannerContextDraft}
+        focusField={eventPlannerContextFocusField}
+        showTechnicalPrompt={showEventPlannerTechnicalPrompt}
+        onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
+        technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
+        onGenerate={handleGenerateFullEventPlanFromContext}
+        isGenerating={Boolean(selectedEventPlannerGenerationState?.isGenerating)}
+      />
+
+      {guestMergeSource ? (
+        <div className="confirm-overlay" onClick={handleCloseMergeGuest}>
+          <section
+            className="confirm-dialog merge-guest-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="merge-guest-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="merge-guest-title" className="item-title">
+              {t("merge_guest_title")}
+            </h3>
+            <p className="item-meta">{t("merge_guest_hint")}</p>
+            <p className="hint">
+              {t("merge_guest_source_label")}:{" "}
+              {`${guestMergeSource.first_name || ""} ${guestMergeSource.last_name || ""}`.trim() || t("field_guest")}
+            </p>
+            <label className="field">
+              <span>{t("search")}</span>
+              <input
+                type="search"
+                value={guestMergeSearch}
+                onChange={(event) => setGuestMergeSearch(event.target.value)}
+                placeholder={t("merge_guest_search_placeholder")}
+              />
+            </label>
+            <label className="field">
+              <span>{t("merge_guest_target_label")}</span>
+              <select
+                value={guestMergeTargetId}
+                onChange={(event) => setGuestMergeTargetId(event.target.value)}
+                disabled={guestMergeCandidates.length === 0}
+              >
+                {guestMergeCandidates.length === 0 ? (
+                  <option value="">{t("merge_guest_no_candidates")}</option>
+                ) : null}
+                {guestMergeCandidates.map((guestItem) => (
+                  <option key={guestItem.id} value={guestItem.id}>
+                    {`${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {guestMergeCandidates.length > 0 ? (
+              <div className="merge-guest-candidate-list" role="list">
+                {guestMergeCandidates.slice(0, 8).map((guestItem) => {
+                  const guestName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
+                  const isActive = guestMergeTargetId === guestItem.id;
+                  return (
+                    <button
+                      key={`merge-candidate-${guestItem.id}`}
+                      className={`merge-guest-candidate ${isActive ? "active" : ""}`}
+                      type="button"
+                      onClick={() => setGuestMergeTargetId(guestItem.id)}
+                      aria-pressed={isActive}
+                    >
+                      <span className="item-title">{guestName}</span>
+                      <span className="item-meta">
+                        {[guestItem.email, guestItem.phone].filter(Boolean).join(" · ") || "—"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="import-merge-review-table-wrap">
-                <table className="import-merge-review-table">
-                  <thead>
-                    <tr>
-                      <th>{t("contact_import_merge_review_apply")}</th>
-                      <th>{t("contact_import_merge_review_field")}</th>
-                      <th>{t("contact_import_merge_review_source")}</th>
-                      <th>{t("contact_import_merge_review_target")}</th>
-                      <th>{t("contact_import_merge_review_result")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingImportMergeVisibleRows.map((rowItem) => (
-                      <tr
-                        key={`merge-review-${rowItem.label}`}
-                        className={rowItem.willFill ? "import-merge-review-row is-will-fill" : "import-merge-review-row"}
-                      >
-                        <td className="import-merge-review-check">
-                          <input
-                            type="checkbox"
-                            checked={pendingImportMergeSelectedFieldKeysSet.has(rowItem.fieldKey)}
-                            disabled={!rowItem.willFill}
-                            onChange={() => handleTogglePendingImportMergeFieldKey(rowItem.fieldKey)}
-                          />
-                        </td>
-                        <th>{rowItem.label}</th>
-                        <td>{formatMergeReviewValue(rowItem.source)}</td>
-                        <td>{formatMergeReviewValue(rowItem.target)}</td>
-                        <td>
-                          <span className={`status-pill import-merge-review-result is-${rowItem.mergeResultKey}`}>
-                            {t(`contact_import_merge_review_result_${rowItem.mergeResultKey}`)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {pendingImportMergeVisibleRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="item-meta">
-                          {t("contact_import_merge_review_no_rows")}
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-              <div className="button-row">
-                <button className="btn btn-ghost" type="button" onClick={handleCloseLowConfidenceMergeReview}>
-                  {t("cancel_action")}
+            ) : null}
+            <div className="button-row">
+              <button className="btn btn-ghost" type="button" onClick={handleCloseMergeGuest} disabled={isMergingGuest}>
+                {t("cancel_action")}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={handleConfirmMergeGuest}
+                disabled={isMergingGuest || !guestMergeTargetId}
+              >
+                {isMergingGuest ? t("guest_merging") : t("merge_guest_confirm")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {pendingImportMergeApprovalItem ? (
+        <div className="confirm-overlay" onClick={handleCloseLowConfidenceMergeReview}>
+          <section
+            className="confirm-dialog import-merge-review-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-merge-review-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="import-merge-review-title" className="item-title">
+              {t("contact_import_merge_review_title")}
+            </h3>
+            <p className="item-meta">{t("contact_import_merge_review_hint")}</p>
+            <div className="import-merge-review-head">
+              <span className="status-pill status-event-draft">
+                {t("contact_import_match_reason_label")}: {pendingImportMergeApprovalItem.duplicateReasonLabel || "—"}
+              </span>
+              <span className="status-pill status-maybe">
+                {t("contact_import_merge_confidence_label")}:{" "}
+                {t(`contact_import_merge_confidence_${pendingImportMergeApprovalItem.duplicateMergeConfidence || "low"}`)}
+              </span>
+            </div>
+            <p className="item-meta">
+              {interpolateText(t("contact_import_merge_review_summary"), { count: pendingImportMergeWillFillCount })}
+            </p>
+            <div className="import-merge-review-filters">
+              <span className="label-title">{t("contact_import_merge_review_filter_label")}</span>
+              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("contact_import_merge_review_filter_label")}>
+                <button
+                  className={`list-filter-tab ${importMergeReviewShowOnlyWillFill ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setImportMergeReviewShowOnlyWillFill(true)}
+                >
+                  {t("contact_import_merge_review_filter_fill_only")}
                 </button>
                 <button
-                  className="btn"
+                  className={`list-filter-tab ${!importMergeReviewShowOnlyWillFill ? "active" : ""}`}
                   type="button"
-                  onClick={handleConfirmLowConfidenceMergeReview}
-                  disabled={pendingImportMergeSelectableCount > 0 && pendingImportMergeSelectedFieldKeys.length === 0}
+                  onClick={() => setImportMergeReviewShowOnlyWillFill(false)}
                 >
-                  {t("contact_import_merge_approve_contact")}
+                  {t("contact_import_merge_review_filter_all")}
                 </button>
               </div>
-            </section>
-          </div>
-        ) : null}
+              <span className="item-meta import-merge-review-visible">
+                {interpolateText(t("contact_import_merge_review_visible"), {
+                  visible: pendingImportMergeVisibleCount,
+                  total: pendingImportMergeTotalCount
+                })}
+              </span>
+            </div>
+            <div className="import-merge-review-table-wrap">
+              <table className="import-merge-review-table">
+                <thead>
+                  <tr>
+                    <th>{t("contact_import_merge_review_apply")}</th>
+                    <th>{t("contact_import_merge_review_field")}</th>
+                    <th>{t("contact_import_merge_review_source")}</th>
+                    <th>{t("contact_import_merge_review_target")}</th>
+                    <th>{t("contact_import_merge_review_result")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingImportMergeVisibleRows.map((rowItem) => (
+                    <tr
+                      key={`merge-review-${rowItem.label}`}
+                      className={rowItem.willFill ? "import-merge-review-row is-will-fill" : "import-merge-review-row"}
+                    >
+                      <td className="import-merge-review-check">
+                        <input
+                          type="checkbox"
+                          checked={pendingImportMergeSelectedFieldKeysSet.has(rowItem.fieldKey)}
+                          disabled={!rowItem.willFill}
+                          onChange={() => handleTogglePendingImportMergeFieldKey(rowItem.fieldKey)}
+                        />
+                      </td>
+                      <th>{rowItem.label}</th>
+                      <td>{formatMergeReviewValue(rowItem.source)}</td>
+                      <td>{formatMergeReviewValue(rowItem.target)}</td>
+                      <td>
+                        <span className={`status-pill import-merge-review-result is-${rowItem.mergeResultKey}`}>
+                          {t(`contact_import_merge_review_result_${rowItem.mergeResultKey}`)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {pendingImportMergeVisibleRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="item-meta">
+                        {t("contact_import_merge_review_no_rows")}
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="button-row">
+              <button className="btn btn-ghost" type="button" onClick={handleCloseLowConfidenceMergeReview}>
+                {t("cancel_action")}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={handleConfirmLowConfidenceMergeReview}
+                disabled={pendingImportMergeSelectableCount > 0 && pendingImportMergeSelectedFieldKeys.length === 0}
+              >
+                {t("contact_import_merge_approve_contact")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
-        {pendingGlobalShareSave ? (
-          <div className="confirm-overlay" onClick={() => setPendingGlobalShareSave(null)}>
-            <section
-              className="confirm-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="confirm-share-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h3 id="confirm-share-title" className="item-title">
-                {t("global_profile_share_confirm_title")}
-              </h3>
-              <p className="item-meta">{t("global_profile_share_confirm_hint")}</p>
-              <p className="hint">
-                {t("global_profile_share_confirm_target")}: {pendingGlobalShareSave.hostName}
-              </p>
-              <p className="hint">
-                {t("global_profile_share_confirm_level")}:{" "}
-                {pendingGlobalSharePreset === "basic"
-                  ? t("global_profile_share_preset_basic")
-                  : pendingGlobalSharePreset === "custom"
+      {pendingGlobalShareSave ? (
+        <div className="confirm-overlay" onClick={() => setPendingGlobalShareSave(null)}>
+          <section
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-share-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="confirm-share-title" className="item-title">
+              {t("global_profile_share_confirm_title")}
+            </h3>
+            <p className="item-meta">{t("global_profile_share_confirm_hint")}</p>
+            <p className="hint">
+              {t("global_profile_share_confirm_target")}: {pendingGlobalShareSave.hostName}
+            </p>
+            <p className="hint">
+              {t("global_profile_share_confirm_level")}:{" "}
+              {pendingGlobalSharePreset === "basic"
+                ? t("global_profile_share_preset_basic")
+                : pendingGlobalSharePreset === "custom"
                   ? t("global_profile_share_preset_custom")
                   : t("global_profile_share_preset_private")}
-              </p>
-              <p className="hint">{t("global_profile_share_confirm_scopes")}</p>
-              <div className="profile-summary-signals">
-                {pendingGlobalShareScopes.length > 0 ? (
-                  pendingGlobalShareScopes.map((scopeLabel) => (
-                    <span key={`pending-share-${scopeLabel}`} className="status-pill status-yes">
-                      {scopeLabel}
-                    </span>
-                  ))
-                ) : (
-                  <span className="status-pill status-draft">{t("global_profile_share_confirm_scopes_none")}</span>
-                )}
-              </div>
-              <div className="button-row">
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => setPendingGlobalShareSave(null)}
-                  disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
-                >
-                  {t("cancel_action")}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={handleConfirmSaveGlobalShare}
-                  disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
-                >
-                  {savingGlobalShareHostId === pendingGlobalShareSave.hostUserId
-                    ? t("global_profile_share_confirm_saving")
-                    : t("global_profile_share_confirm_apply")}
-                </button>
-              </div>
-            </section>
-          </div>
-        ) : null}
+            </p>
+            <p className="hint">{t("global_profile_share_confirm_scopes")}</p>
+            <div className="profile-summary-signals">
+              {pendingGlobalShareScopes.length > 0 ? (
+                pendingGlobalShareScopes.map((scopeLabel) => (
+                  <span key={`pending-share-${scopeLabel}`} className="status-pill status-yes">
+                    {scopeLabel}
+                  </span>
+                ))
+              ) : (
+                <span className="status-pill status-draft">{t("global_profile_share_confirm_scopes_none")}</span>
+              )}
+            </div>
+            <div className="button-row">
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => setPendingGlobalShareSave(null)}
+                disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
+              >
+                {t("cancel_action")}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={handleConfirmSaveGlobalShare}
+                disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
+              >
+                {savingGlobalShareHostId === pendingGlobalShareSave.hostUserId
+                  ? t("global_profile_share_confirm_saving")
+                  : t("global_profile_share_confirm_apply")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
-        {deleteTarget ? (
-          <div className="confirm-overlay" onClick={() => setDeleteTarget(null)}>
-            <section
-              className="confirm-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="confirm-delete-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h3 id="confirm-delete-title" className="item-title">
-                {deleteTarget.type === "event"
-                  ? t("delete_event_title")
-                  : deleteTarget.type === "guest"
+      {deleteTarget ? (
+        <div className="confirm-overlay" onClick={() => setDeleteTarget(null)}>
+          <section
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="confirm-delete-title" className="item-title">
+              {deleteTarget.type === "event"
+                ? t("delete_event_title")
+                : deleteTarget.type === "guest"
                   ? t("delete_guest_title")
                   : t("delete_invitation_title")}
-              </h3>
-              <p className="item-meta">
-                {deleteTarget.type === "event"
-                  ? t("delete_event_confirm")
-                  : deleteTarget.type === "guest"
+            </h3>
+            <p className="item-meta">
+              {deleteTarget.type === "event"
+                ? t("delete_event_confirm")
+                : deleteTarget.type === "guest"
                   ? t("delete_guest_confirm")
                   : t("delete_invitation_confirm")}
-              </p>
-              <p className="hint">
-                {t("selected_item")}:{" "}
-                {deleteTarget.type === "event"
-                  ? deleteTarget.item?.title || "-"
-                  : deleteTarget.type === "guest"
+            </p>
+            <p className="hint">
+              {t("selected_item")}:{" "}
+              {deleteTarget.type === "event"
+                ? deleteTarget.item?.title || "-"
+                : deleteTarget.type === "guest"
                   ? `${deleteTarget.item?.first_name || ""} ${deleteTarget.item?.last_name || ""}`.trim() || "-"
                   : deleteTarget.itemLabel || "-"}
-              </p>
-              <div className="button-row">
-                <button className="btn btn-ghost" type="button" onClick={() => setDeleteTarget(null)} disabled={isDeleteConfirmLoading}>
-                  {t("cancel_action")}
-                </button>
-                <button className="btn btn-danger" type="button" onClick={handleConfirmDelete} disabled={isDeleteConfirmLoading}>
-                  {isDeleteConfirmLoading ? t("deleting") : t("confirm_delete")}
-                </button>
-              </div>
-            </section>
-          </div>
-        ) : null}
-      </section>
-    </main>
+            </p>
+            <div className="button-row">
+              <button className="btn btn-ghost" type="button" onClick={() => setDeleteTarget(null)} disabled={isDeleteConfirmLoading}>
+                {t("cancel_action")}
+              </button>
+              <button className="btn btn-danger" type="button" onClick={handleConfirmDelete} disabled={isDeleteConfirmLoading}>
+                {isDeleteConfirmLoading ? t("deleting") : t("confirm_delete")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </DashboardLayout>
   );
 }
 
 export { DashboardScreen };
+

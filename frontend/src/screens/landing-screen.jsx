@@ -72,15 +72,14 @@ function LandingScreen({
     currentPath === "/features"
       ? "features"
       : currentPath === "/pricing"
-      ? "pricing"
-      : currentPath === "/contact"
-      ? "contact"
-      : "home";
+        ? "pricing"
+        : currentPath === "/contact"
+          ? "contact"
+          : "home";
 
   const primaryCta = session?.user?.id
     ? { label: t("landing_cta_open_app"), onClick: onGoApp }
     : { label: t("landing_cta_start"), onClick: onGoLogin };
-  const revealStyle = (index = 0) => ({ "--landing-delay": `${index * 80}ms` });
 
   const handleJoinWaitlist = async (event) => {
     event.preventDefault();
@@ -252,11 +251,17 @@ function LandingScreen({
   };
 
   const renderWaitlistSection = (sectionId, compact = false) => (
-    <section id={sectionId} className={`landing-waitlist ${compact ? "landing-waitlist-compact" : ""}`}>
-      <h2 className="landing-waitlist-title">{t("landing_contact_title")}</h2>
-      <p className="landing-waitlist-subtitle">{t("landing_contact_subtitle")}</p>
-      <form className="landing-waitlist-form" onSubmit={handleJoinWaitlist} noValidate>
+    <section id={sectionId} className={`w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center bg-gradient-to-b from-transparent to-blue-500/5 dark:to-blue-900/10 rounded-t-[3rem] sm:rounded-t-[4rem] border-t border-x border-black/5 dark:border-white/5 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_40px_-15px_rgba(255,255,255,0.02)] ${compact ? "pt-16 pb-20 px-6" : "pt-24 pb-32 px-6"}`}>
+      <h2 className={`font-black text-gray-900 dark:text-white tracking-tight mb-4 ${compact ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"}`}>
+        {t("landing_contact_title")}
+      </h2>
+      <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+        {t("landing_contact_subtitle")}
+      </p>
+
+      <form className="w-full max-w-md flex flex-col sm:flex-row items-center gap-3 bg-white/60 dark:bg-black/20 p-2 rounded-2xl border border-black/10 dark:border-white/10 shadow-lg backdrop-blur-xl" onSubmit={handleJoinWaitlist} noValidate>
         <input
+          className="w-full px-4 py-3 sm:py-0 bg-transparent border-none focus:outline-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-500"
           type="email"
           value={waitlistEmail}
           onChange={(event) => setWaitlistEmail(event.target.value)}
@@ -265,28 +270,47 @@ function LandingScreen({
           autoComplete="email"
           disabled={isJoiningWaitlist}
         />
-        <button className="btn btn-sm" type="submit" disabled={isJoiningWaitlist}>
+        <button
+          className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-xl font-bold shadow-md hover:scale-[1.02] transition-transform whitespace-nowrap shrink-0 disabled:opacity-50"
+          type="submit"
+          disabled={isJoiningWaitlist}
+        >
           {isJoiningWaitlist ? t("waitlist_join_loading") : t("landing_contact_cta")}
         </button>
       </form>
-      <p className="landing-waitlist-legal">{t("waitlist_privacy_hint")}</p>
-      <InlineMessage type={waitlistMessageType} text={waitlistMessage} />
+
+      <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 mt-6 max-w-xs">
+        {t("waitlist_privacy_hint")}
+      </p>
+
+      {waitlistMessage && (
+        <div className="mt-4">
+          <InlineMessage type={waitlistMessageType} text={waitlistMessage} />
+        </div>
+      )}
     </section>
   );
 
   return (
-    <main className="page page-landing">
-      <section className="card landing-shell">
-        <header className="landing-header">
-          <button className="landing-brand" type="button" onClick={() => onNavigate("/")}>
-            <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
-            <span>{t("app_name")}</span>
+    <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
+
+      {/* Decorative Blobs (Background) */}
+      <div className="fixed top-[-10%] right-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[120px] opacity-70 pointer-events-none z-0"></div>
+      <div className="fixed bottom-[-10%] left-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-purple-500/20 dark:bg-purple-600/10 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[120px] opacity-70 pointer-events-none z-0"></div>
+
+      {/* HEADER (Sticky) */}
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5">
+        <div className="flex items-center gap-6">
+          <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none" type="button" onClick={() => onNavigate("/")}>
+            <BrandMark text="" fallback={t("logo_fallback")} className="w-8 h-8" />
+            <span className="font-black text-lg tracking-tight hidden sm:block">{t("app_name")}</span>
           </button>
-          <nav className="landing-nav" aria-label={t("nav_sections")}>
+
+          <nav className="hidden md:flex items-center gap-1" aria-label={t("nav_sections")}>
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.key}
-                className={`landing-nav-link ${currentPath === item.path ? "active" : ""}`}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${currentPath === item.path ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"}`}
                 type="button"
                 onClick={() => onNavigate(item.path)}
               >
@@ -294,69 +318,96 @@ function LandingScreen({
               </button>
             ))}
           </nav>
-          <div className="landing-header-actions">
-            <Controls
-              themeMode={themeMode}
-              setThemeMode={setThemeMode}
-              language={language}
-              setLanguage={setLanguage}
-              t={t}
-            />
-            <button className="btn btn-sm" type="button" onClick={primaryCta.onClick}>
-              {primaryCta.label}
-            </button>
-          </div>
-        </header>
+        </div>
 
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="hidden sm:block">
+            <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
+          </div>
+          <button
+            className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
+            type="button"
+            onClick={primaryCta.onClick}
+          >
+            {primaryCta.label}
+          </button>
+        </div>
+      </header>
+
+      {/* MAIN CONTENT WRAPPER */}
+      <div className="flex-1 relative z-10 flex flex-col pt-24 md:pt-32">
+
+        {/* --- PAGE: HOME --- */}
         {pageMode === "home" ? (
           <>
-            <section className="landing-hero">
-              <article className="landing-hero-copy landing-reveal" style={revealStyle(0)}>
-                <p className="landing-badge">{t("landing_badge")}</p>
-                <h1 className="landing-title">{t("landing_title")}</h1>
-                <p className="landing-subtitle">{t("landing_subtitle")}</p>
-                <div className="button-row">
-                  <button className="btn" type="button" onClick={primaryCta.onClick}>
-                    {primaryCta.label}
-                  </button>
-                  <button className="btn btn-ghost" type="button" onClick={() => onNavigate("/features")}>
-                    {t("landing_cta_demo")}
-                  </button>
-                </div>
-              </article>
-              <aside className="landing-hero-media landing-reveal" style={revealStyle(1)} aria-hidden="true">
-                <div className="landing-hero-media-overlay">
-                  <Icon name="sparkle" className="icon" />
-                  <p>{t("landing_feature_rsvp_title")}</p>
-                </div>
-              </aside>
+            <section className="flex flex-col justify-center items-center text-center px-6 min-h-[70vh] max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 shadow-sm">
+                {t("landing_badge")}
+              </span>
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-gray-900 dark:text-white leading-[1.1] mb-6">
+                {t("landing_title")}
+              </h1>
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto font-medium leading-relaxed">
+                {t("landing_subtitle")}
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
+                <button
+                  className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:scale-[1.02] transition-transform"
+                  type="button"
+                  onClick={primaryCta.onClick}
+                >
+                  {primaryCta.label}
+                </button>
+                <button
+                  className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm"
+                  type="button"
+                  onClick={() => onNavigate("/features")}
+                >
+                  {t("landing_cta_demo")}
+                </button>
+              </div>
+
+              {/* Decorative Hero Image/Mockup */}
+              <div className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gray-200 dark:bg-gray-800 border-t border-x border-black/5 dark:border-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl relative overflow-hidden group">
+                {/* Imagen temporal de evento. Cámbiala por una captura de tu app en el futuro */}
+                <img
+                  src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
+                  alt="LeGoodAnfitrión App Preview"
+                  className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                />
+                {/* Degradado para que la imagen se funda elegantemente con el fondo de la web */}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 dark:from-[#0A0D14] via-transparent to-transparent"></div>
+              </div>
             </section>
 
-            <section id="landing-features" className="landing-section landing-reveal" style={revealStyle(2)}>
-              <p className="landing-eyebrow">{t("landing_features_eyebrow")}</p>
-              <h2 className="landing-section-title">{t("landing_features_title")}</h2>
-              <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
-              <div className="landing-feature-grid">
-                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(3)}>
-                  <span className="landing-feature-icon">
-                    <Icon name="calendar" className="icon icon-sm" />
-                  </span>
-                  <h3>{t("landing_feature_events_title")}</h3>
-                  <p>{t("landing_feature_events_desc")}</p>
+            <section id="landing-features" className="py-24 px-6 w-full max-w-7xl mx-auto flex flex-col items-center">
+              <div className="text-center max-w-3xl mb-16">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">{t("landing_features_eyebrow")}</p>
+                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight">{t("landing_features_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium">{t("landing_features_subtitle")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8 hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <Icon name="calendar" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_events_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{t("landing_feature_events_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(4)}>
-                  <span className="landing-feature-icon">
-                    <Icon name="user" className="icon icon-sm" />
-                  </span>
-                  <h3>{t("landing_feature_guests_title")}</h3>
-                  <p>{t("landing_feature_guests_desc")}</p>
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8 hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <Icon name="user" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_guests_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{t("landing_feature_guests_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(5)}>
-                  <span className="landing-feature-icon">
-                    <Icon name="mail" className="icon icon-sm" />
-                  </span>
-                  <h3>{t("landing_feature_rsvp_title")}</h3>
-                  <p>{t("landing_feature_rsvp_desc")}</p>
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8 hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group">
+                  <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <Icon name="mail" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_rsvp_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{t("landing_feature_rsvp_desc")}</p>
                 </article>
               </div>
             </section>
@@ -365,204 +416,249 @@ function LandingScreen({
           </>
         ) : null}
 
+        {/* --- PAGE: FEATURES --- */}
         {pageMode === "features" ? (
           <>
-            <section className="landing-page-head landing-reveal" style={revealStyle(0)}>
-              <p className="landing-eyebrow">{t("landing_nav_features")}</p>
-              <h1 className="landing-section-title">{t("landing_features_title")}</h1>
-              <p className="landing-section-subtitle">{t("landing_features_subtitle")}</p>
-              <div className="button-row landing-page-head-actions">
-                <button className="btn" type="button" onClick={primaryCta.onClick}>
+            <section className="pt-24 pb-16 px-6 max-w-4xl mx-auto text-center animate-in fade-in slide-in-from-bottom-8 duration-500">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-4">{t("landing_nav_features")}</p>
+              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight">{t("landing_features_title")}</h1>
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto">{t("landing_features_subtitle")}</p>
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <button className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] transition-transform" type="button" onClick={primaryCta.onClick}>
                   {primaryCta.label}
                 </button>
-                <button className="btn btn-ghost" type="button" onClick={() => onNavigate("/pricing")}>
+                <button className="bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm" type="button" onClick={() => onNavigate("/pricing")}>
                   {t("landing_nav_pricing")}
                 </button>
               </div>
             </section>
-            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(1)}>
-              <div className="landing-feature-grid">
-                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(2)}>
-                  <span className="landing-feature-icon">
-                    <Icon name="calendar" className="icon icon-sm" />
-                  </span>
-                  <h3>{t("landing_feature_events_title")}</h3>
-                  <p>{t("landing_feature_events_desc")}</p>
+
+            <section className="py-12 px-6 w-full max-w-7xl mx-auto flex flex-col gap-12">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-6">
+                    <Icon name="calendar" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_events_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_events_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(3)}>
-                  <span className="landing-feature-icon">
-                    <Icon name="user" className="icon icon-sm" />
-                  </span>
-                  <h3>{t("landing_feature_guests_title")}</h3>
-                  <p>{t("landing_feature_guests_desc")}</p>
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-6">
+                    <Icon name="user" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_guests_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_guests_desc")}</p>
                 </article>
-                <article className="panel landing-feature-card landing-interactive-card" style={revealStyle(4)}>
-                  <span className="landing-feature-icon">
-                    <Icon name="mail" className="icon icon-sm" />
-                  </span>
-                  <h3>{t("landing_feature_rsvp_title")}</h3>
-                  <p>{t("landing_feature_rsvp_desc")}</p>
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
+                  <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-6">
+                    <Icon name="mail" className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_rsvp_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_rsvp_desc")}</p>
                 </article>
               </div>
-              <div className="landing-feature-summary-grid">
-                <article className="panel landing-feature-summary-card landing-interactive-card" style={revealStyle(5)}>
-                  <p className="item-title">{t("landing_feature_events_title")}</p>
-                  <p className="kpi-value">24</p>
-                  <p className="item-meta">{t("latest_events_title")}</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <article className="bg-blue-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_events_title")}</p>
+                  <p className="text-6xl font-black mb-1">24</p>
+                  <p className="text-xs font-medium opacity-90">{t("latest_events_title")}</p>
                 </article>
-                <article className="panel landing-feature-summary-card landing-interactive-card" style={revealStyle(6)}>
-                  <p className="item-title">{t("landing_feature_guests_title")}</p>
-                  <p className="kpi-value">142</p>
-                  <p className="item-meta">{t("latest_guests_title")}</p>
+                <article className="bg-purple-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_guests_title")}</p>
+                  <p className="text-6xl font-black mb-1">142</p>
+                  <p className="text-xs font-medium opacity-90">{t("latest_guests_title")}</p>
                 </article>
-                <article className="panel landing-feature-summary-card landing-interactive-card" style={revealStyle(7)}>
-                  <p className="item-title">{t("landing_feature_rsvp_title")}</p>
-                  <p className="kpi-value">67%</p>
-                  <p className="item-meta">RSVP</p>
+                <article className="bg-green-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_rsvp_title")}</p>
+                  <p className="text-6xl font-black mb-1">67%</p>
+                  <p className="text-xs font-medium opacity-90">RSVP Rate</p>
                 </article>
               </div>
             </section>
+
             {renderWaitlistSection("landing-cta", true)}
           </>
         ) : null}
 
+        {/* --- PAGE: PRICING --- */}
         {pageMode === "pricing" ? (
           <>
-            <section className="landing-page-head landing-reveal" style={revealStyle(0)}>
-              <p className="landing-eyebrow">{t("landing_nav_pricing")}</p>
-              <h1 className="landing-section-title">{t("landing_pricing_title")}</h1>
-              <p className="landing-section-subtitle">{t("landing_pricing_subtitle")}</p>
+            <section className="pt-24 pb-16 px-6 max-w-4xl mx-auto text-center animate-in fade-in slide-in-from-bottom-8 duration-500">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-4">{t("landing_nav_pricing")}</p>
+              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight">{t("landing_pricing_title")}</h1>
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{t("landing_pricing_subtitle")}</p>
             </section>
-            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(1)}>
-              <div className="landing-pricing-grid">
-                <article className="panel landing-pricing-card landing-interactive-card" style={revealStyle(2)}>
-                  <p className="landing-pricing-plan">{t("landing_pricing_card_title")}</p>
-                  <p className="landing-pricing-price">{t("landing_pricing_card_price")}</p>
-                  <p className="landing-pricing-desc">{t("landing_pricing_card_desc")}</p>
-                  <ul className="landing-pricing-list">
-                    <li>{t("landing_pricing_feature_1")}</li>
-                    <li>{t("landing_pricing_feature_2")}</li>
-                    <li>{t("landing_pricing_feature_3")}</li>
-                    <li>{t("landing_pricing_feature_4")}</li>
+
+            <section className="py-12 px-6 w-full max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+
+                {/* Plan Principal */}
+                <article className="bg-white dark:bg-gray-900 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-8 md:p-10 flex flex-col relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                  <p className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">{t("landing_pricing_card_title")}</p>
+                  <p className="text-5xl font-black text-gray-900 dark:text-white mb-4">{t("landing_pricing_card_price")}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-8 font-medium">{t("landing_pricing_card_desc")}</p>
+
+                  <ul className="flex flex-col gap-4 mb-10 flex-1">
+                    {[1, 2, 3, 4].map((num) => (
+                      <li key={num} className="flex items-start gap-3">
+                        <Icon name="check" className="w-5 h-5 text-green-500 shrink-0" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{t(`landing_pricing_feature_${num}`)}</span>
+                      </li>
+                    ))}
                   </ul>
-                  <button className="btn btn-sm" type="button" onClick={primaryCta.onClick}>
+
+                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] transition-transform" type="button" onClick={primaryCta.onClick}>
                     {primaryCta.label}
                   </button>
                 </article>
-                <article
-                  className="panel landing-pricing-card landing-pricing-card-secondary landing-interactive-card"
-                  style={revealStyle(3)}
-                >
-                  <p className="landing-pricing-plan">{t("public_coming_badge")}</p>
-                  <h3>{t("public_coming_title")}</h3>
-                  <p className="landing-pricing-desc">{t("public_coming_subtitle")}</p>
-                  <ul className="landing-pricing-list">
-                    <li>{t("public_coming_point_1")}</li>
-                    <li>{t("public_coming_point_2")}</li>
-                    <li>{t("public_coming_point_3")}</li>
+
+                {/* Plan Futuro */}
+                <article className="bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-3xl shadow-sm p-8 md:p-10 flex flex-col opacity-90">
+                  <span className="w-max px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 border border-yellow-200 dark:border-yellow-800/30 shadow-sm">
+                    {t("public_coming_badge")}
+                  </span>
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">{t("public_coming_title")}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">{t("public_coming_subtitle")}</p>
+
+                  <ul className="flex flex-col gap-4 text-gray-500 dark:text-gray-500">
+                    {[1, 2, 3].map((num) => (
+                      <li key={num} className="flex items-start gap-3">
+                        <Icon name="sparkle" className="w-5 h-5 shrink-0" />
+                        <span className="text-sm">{t(`public_coming_point_${num}`)}</span>
+                      </li>
+                    ))}
                   </ul>
                 </article>
+
               </div>
             </section>
+
             {renderWaitlistSection("landing-cta", true)}
           </>
         ) : null}
 
+        {/* --- PAGE: CONTACT --- */}
         {pageMode === "contact" ? (
           <>
-            <section className="landing-page-head landing-reveal" style={revealStyle(0)}>
-              <p className="landing-eyebrow">{t("landing_nav_contact")}</p>
-              <h1 className="landing-section-title">{t("landing_contact_title")}</h1>
-              <p className="landing-section-subtitle">{t("landing_contact_subtitle")}</p>
+            <section className="pt-24 pb-16 px-6 max-w-4xl mx-auto text-center animate-in fade-in slide-in-from-bottom-8 duration-500">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-green-600 dark:text-green-400 mb-4">{t("landing_nav_contact")}</p>
+              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight">{t("landing_contact_title")}</h1>
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">{t("landing_contact_subtitle")}</p>
             </section>
-            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(1)}>
-              <div className="landing-contact-layout">
-                <article className="panel landing-contact-card landing-interactive-card" style={revealStyle(2)}>
-                  <h3>{t("landing_contact_channels_title")}</h3>
-                  <p>{t("landing_contact_channels_hint")}</p>
-                  <div className="landing-contact-channel-list">
-                    <p>
-                      <strong>{t("landing_contact_channel_email")}:</strong> hello@legoodanfitrion.com
-                    </p>
-                    <p>
-                      <strong>{t("landing_contact_channel_web")}:</strong> https://legoodanfitrion.com
-                    </p>
-                    <p>
-                      <strong>{t("landing_contact_channel_response")}:</strong> {t("landing_contact_channel_response_value")}
-                    </p>
+
+            <section className="py-12 px-6 w-full max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+
+                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-3xl shadow-sm p-8 md:p-10 flex flex-col gap-6">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-2xl font-black text-gray-900 dark:text-white">{t("landing_contact_channels_title")}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_contact_channels_hint")}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-4 mt-2">
+                    <div className="flex flex-col gap-1 p-4 bg-white/40 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t("landing_contact_channel_email")}</span>
+                      <a href="mailto:hello@legoodanfitrion.com" className="text-base font-bold text-blue-600 dark:text-blue-400 hover:underline">hello@legoodanfitrion.com</a>
+                    </div>
+                    <div className="flex flex-col gap-1 p-4 bg-white/40 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t("landing_contact_channel_web")}</span>
+                      <a href="https://legoodanfitrion.com" className="text-base font-bold text-gray-900 dark:text-white hover:underline">legoodanfitrion.com</a>
+                    </div>
+                    <div className="flex flex-col gap-1 p-4 bg-white/40 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t("landing_contact_channel_response")}</span>
+                      <span className="text-base font-bold text-gray-900 dark:text-white">{t("landing_contact_channel_response_value")}</span>
+                    </div>
                   </div>
                 </article>
+
                 <form
-                  className="panel form-grid landing-contact-form landing-interactive-card"
-                  style={revealStyle(3)}
+                  className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-8 md:p-10 flex flex-col gap-6"
                   onSubmit={handleSendContact}
                   noValidate
                 >
-                  <h3>{t("landing_contact_form_title")}</h3>
-                  <p className="field-help">{t("landing_contact_form_hint")}</p>
-                  <label>
-                    <span className="label-title">{t("landing_contact_form_name")}</span>
-                    <input
-                      type="text"
-                      value={contactName}
-                      onChange={(event) => setContactName(event.target.value)}
-                      placeholder="Alex Martin"
-                      disabled={isSendingContact}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("email")}</span>
-                    <input
-                      type="email"
-                      value={contactEmail}
-                      onChange={(event) => setContactEmail(event.target.value)}
-                      placeholder={t("placeholder_email")}
-                      disabled={isSendingContact}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-title">{t("landing_contact_form_message")}</span>
-                    <textarea
-                      rows={5}
-                      value={contactMessageBody}
-                      onChange={(event) => setContactMessageBody(event.target.value)}
-                      placeholder={t("landing_contact_form_message_placeholder")}
-                      disabled={isSendingContact}
-                    />
-                  </label>
-                  <button className="btn btn-sm" type="submit" disabled={isSendingContact}>
+                  <div className="flex flex-col gap-2 border-b border-black/5 dark:border-white/10 pb-4">
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white">{t("landing_contact_form_title")}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_contact_form_hint")}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 ml-1">{t("landing_contact_form_name")}</span>
+                      <input
+                        className="w-full px-4 py-3 bg-white/50 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
+                        type="text"
+                        value={contactName}
+                        onChange={(event) => setContactName(event.target.value)}
+                        placeholder="Alex Martin"
+                        disabled={isSendingContact}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 ml-1">{t("email")}</span>
+                      <input
+                        className="w-full px-4 py-3 bg-white/50 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
+                        type="email"
+                        value={contactEmail}
+                        onChange={(event) => setContactEmail(event.target.value)}
+                        placeholder={t("placeholder_email")}
+                        disabled={isSendingContact}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 ml-1">{t("landing_contact_form_message")}</span>
+                      <textarea
+                        className="w-full px-4 py-3 bg-white/50 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none resize-none"
+                        rows={4}
+                        value={contactMessageBody}
+                        onChange={(event) => setContactMessageBody(event.target.value)}
+                        placeholder={t("landing_contact_form_message_placeholder")}
+                        disabled={isSendingContact}
+                      />
+                    </label>
+                  </div>
+
+                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-base shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 mt-2" type="submit" disabled={isSendingContact}>
                     {isSendingContact ? t("landing_contact_form_submitting") : t("landing_contact_form_submit")}
                   </button>
-                  <InlineMessage type={contactMessageType} text={contactMessage} />
+
+                  {contactMessage ? (
+                    <div className="mt-2 text-center">
+                      <InlineMessage type={contactMessageType} text={contactMessage} />
+                    </div>
+                  ) : null}
                 </form>
               </div>
             </section>
 
-            <section className="landing-section landing-section-page landing-reveal" style={revealStyle(2)}>
-              <div className="landing-faq-head">
-                <h2 className="landing-section-title">{t("landing_faq_title")}</h2>
-                <p className="landing-section-subtitle">{t("landing_faq_hint")}</p>
+            <section className="py-24 px-6 w-full max-w-3xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-4">{t("landing_faq_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300">{t("landing_faq_hint")}</p>
               </div>
-              <div className="landing-faq-list">
+
+              <div className="flex flex-col gap-4">
                 {FAQ_ITEMS.map((item) => {
                   const isOpen = openFaqKey === item.key;
                   return (
                     <article
                       key={item.key}
-                      className={`panel landing-faq-item landing-interactive-card ${isOpen ? "open" : ""}`}
-                      style={revealStyle(3)}
+                      className="bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl border border-black/5 dark:border-white/10 shadow-sm overflow-hidden transition-all"
                     >
                       <button
                         type="button"
-                        className="landing-faq-question"
+                        className="w-full flex items-center justify-between p-6 text-left focus:outline-none"
                         onClick={() => setOpenFaqKey((prev) => (prev === item.key ? "" : item.key))}
                         aria-expanded={isOpen}
                       >
-                        <span>{t(item.questionKey)}</span>
-                        <Icon name="chevron_down" className="icon icon-sm" />
+                        <span className="font-bold text-gray-900 dark:text-white pr-4">{t(item.questionKey)}</span>
+                        <Icon name={isOpen ? "chevron_up" : "chevron_down"} className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                       </button>
-                      <div className={`landing-faq-answer-wrap ${isOpen ? "open" : ""}`} aria-hidden={!isOpen}>
-                        <p className="landing-faq-answer">{t(item.answerKey)}</p>
+                      <div className={`overflow-hidden transition-all duration-300 ${isOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`} aria-hidden={!isOpen}>
+                        <p className="p-6 pt-0 text-sm text-gray-600 dark:text-gray-400 leading-relaxed border-t border-black/5 dark:border-white/5 mt-2">
+                          {t(item.answerKey)}
+                        </p>
                       </div>
                     </article>
                   );
@@ -572,27 +668,43 @@ function LandingScreen({
           </>
         ) : null}
 
-        <footer id="landing-footer" className="landing-footer">
-          <p>© 2026 {t("app_name")}</p>
-          <div className="landing-footer-links">
-            <button className="landing-footer-link" type="button" onClick={() => onNavigate("/contact")}>
+      </div>
+
+      {/* FOOTER GLOBAL */}
+      <footer className="w-full bg-white/30 dark:bg-black/30 backdrop-blur-lg border-t border-black/5 dark:border-white/5 py-8 mt-auto relative z-20">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <BrandMark text="" fallback={t("logo_fallback")} className="w-5 h-5 opacity-50 grayscale" />
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">© 2026 {t("app_name")}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
+            {/* Los enlaces de footer asumo que abren /contact por ahora, pero puedes ajustarlos */}
+            <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
               {t("landing_footer_privacy")}
             </button>
-            <button className="landing-footer-link" type="button" onClick={() => onNavigate("/contact")}>
+            <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
               {t("landing_footer_terms")}
             </button>
-            <button className="landing-footer-link" type="button" onClick={() => onNavigate("/contact")}>
+            <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
               {t("landing_nav_contact")}
             </button>
           </div>
-        </footer>
-        {toast.visible ? (
-          <div className={`landing-toast landing-toast-${toast.type}`} role="status" aria-live="polite">
-            <Icon name={toast.type === "error" ? "x" : "check"} className="icon icon-sm" />
-            <span>{toast.text}</span>
+
+          <div className="hidden md:block">
+            <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
           </div>
-        ) : null}
-      </section>
+        </div>
+      </footer>
+
+      {/* TOAST GLOBAL */}
+      {toast.visible ? (
+        <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-300 ${toast.type === "error" ? "bg-red-600 text-white" : "bg-gray-900 dark:bg-white text-white dark:text-gray-900"}`} role="status" aria-live="polite">
+          <Icon name={toast.type === "error" ? "x" : "check"} className="w-5 h-5" />
+          <span className="text-sm font-bold">{toast.text}</span>
+        </div>
+      ) : null}
+
     </main>
   );
 }
