@@ -3,6 +3,7 @@ import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
+import { getInitials } from "../../../lib/formatters";
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -418,7 +419,7 @@ export function EventDetailView({
                                     <AvatarCircle
                                       className="flex-shrink-0"
                                       label={rowGuestLabel}
-                                      fallback="IN"
+                                      fallback={getInitials(rowGuestLabel, "IN")}
                                       imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
                                       size={32}
                                     />

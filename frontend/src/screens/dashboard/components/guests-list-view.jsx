@@ -1,6 +1,8 @@
 import React from "react";
+import { useState } from "react";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
+import { getInitials } from "../../../lib/formatters";
 
 export function GuestsListView({
     t,
@@ -46,6 +48,7 @@ export function GuestsListView({
     // eslint-disable-next-line no-unused-vars
     GeoPointsMapPanel
 }) {
+    const [openDropdownId, setOpenDropdownId] = useState(null);
     return (
         <section className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-sm flex flex-col">
 
@@ -163,14 +166,17 @@ export function GuestsListView({
                 ) : (
                     <div className="w-full">
                         <div className="w-full">
-                            <table className="w-full text-left border-collapse block md:table">
+                            <table className="w-full text-left border-collapse block md:table table-fixed">
                                 <thead className="hidden md:table-header-group">
                                     <tr>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")} / {t("field_phone")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_allergies")} / {t("table_host_status")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-center">{t("field_event")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
+                                        {/* Añadimos w-[30%] para fijar el ancho del nombre */}
+                                        <th className="w-[30%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
+                                        {/* Añadimos w-[30%] para fijar el ancho del contacto */}
+                                        <th className="w-[30%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")} / {t("field_phone")}</th>
+                                        {/* El resto se reparte (aprox 20% para estado, 10% eventos, 10% acciones) */}
+                                        <th className="w-[20%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_allergies")} / {t("table_host_status")}</th>
+                                        <th className="w-[10%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-center">{t("field_event")}</th>
+                                        <th className="w-[10%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="block md:table-row-group divide-y-0 md:divide-y divide-black/5 dark:divide-white/5">
@@ -197,27 +203,29 @@ export function GuestsListView({
                                         const healthPreviewRemaining = Math.max(0, healthPreview.length - healthPreviewVisible.length);
 
                                         return (
-                                            <tr key={guestItem.id} className="block md:table-row flex flex-col mb-4 md:mb-0 p-4 md:p-0 rounded-2xl md:rounded-none border border-black/10 dark:border-white/10 md:border-transparent md:border-b bg-white/40 dark:bg-white/5 md:bg-transparent shadow-sm md:shadow-none transition-colors group">
+                                            <tr key={guestItem.id} className="relative focus-within:z-50 block md:table-row flex flex-col mb-4 md:mb-0 p-4 md:p-0 rounded-2xl md:rounded-none border border-black/10 dark:border-white/10 md:border-transparent md:border-b bg-white/40 dark:bg-white/5 md:bg-transparent shadow-sm md:shadow-none transition-colors group">
 
                                                 {/* Guest Name & Avatar */}
-                                                <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell flex items-center justify-between py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
-                                                    <div className="flex items-center gap-3">
+                                                <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 overflow-hidden">
+                                                    <div className="flex items-center gap-3 w-full">
                                                         <AvatarCircle
+                                                            className="shrink-0"
                                                             label={guestFullName}
-                                                            fallback="IN"
+                                                            fallback={getInitials(guestFullName, "IN")}
                                                             imageUrl={getGuestAvatarUrl(guestItem, guestFullName)}
                                                             size={42}
                                                         />
-                                                        <div className="min-w-0 flex-1">
+                                                        <div className="min-w-0 flex-1 overflow-hidden">
                                                             <button
-                                                                className="font-bold text-[15px] text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 truncate max-w-[200px] sm:max-w-xs text-left focus:outline-none transition-colors"
+                                                                className="font-bold text-[15px] text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 block truncate w-full text-left focus:outline-none transition-colors"
                                                                 type="button"
                                                                 onClick={() => openGuestDetail(guestItem.id)}
+                                                                title={guestFullName}
                                                             >
                                                                 {guestFullName}
                                                             </button>
                                                             {guestItem.relationship ? (
-                                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium">
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium block w-full" title={toCatalogLabel("relationship", guestItem.relationship, language)}>
                                                                     {toCatalogLabel("relationship", guestItem.relationship, language)}
                                                                 </p>
                                                             ) : null}
@@ -226,17 +234,17 @@ export function GuestsListView({
                                                 </td>
 
                                                 {/* Email & Phone */}
-                                                <td className="text-sm text-gray-600 dark:text-gray-400 align-middle block md:table-cell flex items-center justify-between py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
-                                                    <div className="flex flex-col gap-1">
+                                                <td className="text-sm text-gray-600 dark:text-gray-400 align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 overflow-hidden">
+                                                    <div className="flex flex-col gap-1 w-full overflow-hidden">
                                                         {guestItem.email ? (
-                                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px] sm:max-w-xs block" title={guestItem.email}>
+                                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate block w-full" title={guestItem.email}>
                                                                 {guestItem.email}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-sm text-gray-400 dark:text-gray-600">—</span>
+                                                            <span className="text-sm text-gray-400 dark:text-gray-600 block">—</span>
                                                         )}
                                                         {guestItem.phone && (
-                                                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px] sm:max-w-xs block">
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate block w-full" title={guestItem.phone}>
                                                                 {guestItem.phone}
                                                             </span>
                                                         )}
@@ -244,19 +252,19 @@ export function GuestsListView({
                                                 </td>
 
                                                 {/* Health & Status */}
-                                                <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell flex items-center justify-between py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
-                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 overflow-hidden">
+                                                    <div className="flex flex-wrap items-center gap-1.5 w-full">
                                                         {guestItem.email || guestItem.phone ? (
-                                                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-[10px] font-bold border border-blue-200 dark:border-blue-800/50">
+                                                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-[10px] font-bold border border-blue-200 dark:border-blue-800/50 truncate max-w-full">
                                                                 {t("host_potential_badge")}
                                                             </span>
                                                         ) : null}
                                                         {conversion ? (
                                                             <>
-                                                                <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded text-[10px] font-bold border border-green-200 dark:border-green-800/50">
+                                                                <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded text-[10px] font-bold border border-green-200 dark:border-green-800/50 truncate max-w-full">
                                                                     {t("host_converted_badge")}
                                                                 </span>
-                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${conversionSource === "google" ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50" : "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50"}`}>
+                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border truncate max-w-full ${conversionSource === "google" ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50" : "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50"}`}>
                                                                     {conversionSourceLabel}
                                                                 </span>
                                                             </>
@@ -265,12 +273,12 @@ export function GuestsListView({
                                                         {healthPreviewVisible.length > 0 ? (
                                                             <>
                                                                 {healthPreviewVisible.map((item) => (
-                                                                    <span key={`${guestItem.id}-${item}`} className="px-1.5 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 rounded text-[10px] font-bold border border-orange-200 dark:border-orange-800/50">
+                                                                    <span key={`${guestItem.id}-${item}`} className="px-1.5 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 rounded text-[10px] font-bold border border-orange-200 dark:border-orange-800/50 truncate max-w-full" title={item}>
                                                                         {item}
                                                                     </span>
                                                                 ))}
                                                                 {healthPreviewRemaining > 0 ? (
-                                                                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded text-[10px] font-bold border border-gray-200 dark:border-gray-700">
+                                                                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded text-[10px] font-bold border border-gray-200 dark:border-gray-700 shrink-0">
                                                                         +{healthPreviewRemaining}
                                                                     </span>
                                                                 ) : null}
@@ -280,19 +288,20 @@ export function GuestsListView({
                                                 </td>
 
                                                 {/* Events Count */}
-                                                <td className="text-sm text-gray-900 dark:text-white align-middle text-center block md:table-cell flex items-center justify-between py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
-                                                    <div className="flex justify-center">
-                                                        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-white dark:bg-black/30 rounded-lg text-sm font-bold text-gray-900 dark:text-white border border-black/5 dark:border-white/10 shadow-sm">
+                                                <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
+                                                    <div className="flex md:justify-center">
+                                                        <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-white dark:bg-black/30 rounded-lg text-sm font-bold text-gray-900 dark:text-white border border-black/5 dark:border-white/10 shadow-sm" title={t("kpi_events")}>
                                                             {guestEventsCount}
                                                         </span>
                                                     </div>
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="align-middle text-right block md:table-cell flex items-center justify-end py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
-                                                    <div className="flex items-center justify-end gap-1">
+                                                <td className="align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 relative">
+                                                    {/* CAMBIO 1: quitamos el 'md:' antes de justify-end para que siempre se alinee a la derecha */}
+                                                    <div className="flex items-center justify-end gap-1 w-full relative">
                                                         <button
-                                                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 rounded-lg transition-colors"
+                                                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 rounded-lg transition-colors shrink-0"
                                                             type="button"
                                                             onClick={() => openGuestDetail(guestItem.id)}
                                                             aria-label={t("view_detail")}
@@ -301,82 +310,114 @@ export function GuestsListView({
                                                             <Icon name="eye" className="w-4 h-4" />
                                                         </button>
                                                         <button
-                                                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white rounded-lg transition-colors"
+                                                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white rounded-lg transition-colors shrink-0"
                                                             type="button"
                                                             onClick={() => handleStartEditGuest(guestItem)}
+                                                            aria-label={t("edit_guest")}
                                                             title={t("edit_guest")}
                                                         >
                                                             <Icon name="edit" className="w-4 h-4" />
                                                         </button>
 
-                                                        <div className="relative group/dropdown">
-                                                            <button className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white rounded-lg transition-colors focus:outline-none" aria-label={t("open_menu")}>
+                                                        {/* CAMBIO 2: Añadimos eventos de ratón para recuperar el hover en escritorio */}
+                                                        <div
+                                                            className="relative shrink-0"
+                                                            onMouseEnter={() => setOpenDropdownId(guestItem.id)}
+                                                            onMouseLeave={() => setOpenDropdownId(null)}
+                                                        >
+                                                            <button
+                                                                className={`p-1.5 rounded-lg transition-colors focus:outline-none ${openDropdownId === guestItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
+                                                                type="button"
+                                                                aria-label={t("open_menu")}
+                                                                title={t("actions_label")}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenDropdownId(openDropdownId === guestItem.id ? null : guestItem.id);
+                                                                }}
+                                                            >
                                                                 <Icon name="more_horizontal" className="w-4 h-4" />
                                                             </button>
 
-                                                            <div className={`absolute right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible focus-within:opacity-100 focus-within:visible transition-all py-1 ${isLastRows ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-1 origin-top-right"}`}>
-                                                                <button
-                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
-                                                                    type="button"
-                                                                    onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
-                                                                >
-                                                                    <Icon name="sparkle" className="w-4 h-4" />
-                                                                    <span>{t("guest_advanced_title")}</span>
-                                                                </button>
+                                                            {openDropdownId === guestItem.id && (
+                                                                <>
+                                                                    {/* Capa invisible para cerrar el menú en móvil. Le ponemos md:hidden para que no moleste al ratón en escritorio */}
+                                                                    <div
+                                                                        className="fixed inset-0 z-[90] md:hidden"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setOpenDropdownId(null);
+                                                                        }}
+                                                                    ></div>
 
-                                                                <button
-                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
-                                                                    type="button"
-                                                                    onClick={() => handleOpenMergeGuest(guestItem)}
-                                                                >
-                                                                    <Icon name="link" className="w-4 h-4" />
-                                                                    <span>{t("merge_guest_action")}</span>
-                                                                </button>
+                                                                    {/* El Menú */}
+                                                                    <div
+                                                                        className={`absolute left-auto right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] py-1 ${isLastRows ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-1 origin-top-right"}`}
+                                                                        onClick={() => setOpenDropdownId(null)}
+                                                                    >
+                                                                        <button
+                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
+                                                                            type="button"
+                                                                            onClick={() => handleStartEditGuest(guestItem, { openAdvanced: true })}
+                                                                        >
+                                                                            <Icon name="sparkle" className="w-4 h-4" />
+                                                                            <span>{t("guest_advanced_title")}</span>
+                                                                        </button>
 
-                                                                {guestItem.email || guestItem.phone ? (
-                                                                    <>
+                                                                        <button
+                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
+                                                                            type="button"
+                                                                            onClick={() => handleOpenMergeGuest(guestItem)}
+                                                                        >
+                                                                            <Icon name="link" className="w-4 h-4" />
+                                                                            <span>{t("merge_guest_action")}</span>
+                                                                        </button>
+
+                                                                        {guestItem.email || guestItem.phone ? (
+                                                                            <>
+                                                                                <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-3" />
+                                                                                <button
+                                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                                    type="button"
+                                                                                    onClick={() => handleCopyHostSignupLink(guestItem)}
+                                                                                    disabled={Boolean(conversion)}
+                                                                                >
+                                                                                    <Icon name={conversion ? "check" : "link"} className="w-4 h-4" />
+                                                                                    <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
+                                                                                </button>
+                                                                                <button
+                                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                                    type="button"
+                                                                                    onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
+                                                                                    disabled={Boolean(conversion)}
+                                                                                >
+                                                                                    <Icon name="message" className="w-4 h-4" />
+                                                                                    <span>{t("host_invite_whatsapp_action")}</span>
+                                                                                </button>
+                                                                                <button
+                                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                                    type="button"
+                                                                                    onClick={() => handleShareHostSignupLink(guestItem, "email")}
+                                                                                    disabled={Boolean(conversion)}
+                                                                                >
+                                                                                    <Icon name="mail" className="w-4 h-4" />
+                                                                                    <span>{t("host_invite_email_action")}</span>
+                                                                                </button>
+                                                                            </>
+                                                                        ) : null}
+
                                                                         <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-3" />
                                                                         <button
-                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                                             type="button"
-                                                                            onClick={() => handleCopyHostSignupLink(guestItem)}
-                                                                            disabled={Boolean(conversion)}
+                                                                            onClick={() => handleRequestDeleteGuest(guestItem)}
+                                                                            disabled={isDeletingGuestId === guestItem.id}
                                                                         >
-                                                                            <Icon name={conversion ? "check" : "link"} className="w-4 h-4" />
-                                                                            <span>{conversion ? t("host_already_registered_action") : t("host_invite_action")}</span>
+                                                                            <Icon name="x" className="w-4 h-4" />
+                                                                            <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
                                                                         </button>
-                                                                        <button
-                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                            type="button"
-                                                                            onClick={() => handleShareHostSignupLink(guestItem, "whatsapp")}
-                                                                            disabled={Boolean(conversion)}
-                                                                        >
-                                                                            <Icon name="message" className="w-4 h-4" />
-                                                                            <span>{t("host_invite_whatsapp_action")}</span>
-                                                                        </button>
-                                                                        <button
-                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                            type="button"
-                                                                            onClick={() => handleShareHostSignupLink(guestItem, "email")}
-                                                                            disabled={Boolean(conversion)}
-                                                                        >
-                                                                            <Icon name="mail" className="w-4 h-4" />
-                                                                            <span>{t("host_invite_email_action")}</span>
-                                                                        </button>
-                                                                    </>
-                                                                ) : null}
-
-                                                                <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-3" />
-                                                                <button
-                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    type="button"
-                                                                    onClick={() => handleRequestDeleteGuest(guestItem)}
-                                                                    disabled={isDeletingGuestId === guestItem.id}
-                                                                >
-                                                                    <Icon name="x" className="w-4 h-4" />
-                                                                    <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
-                                                                </button>
-                                                            </div>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>

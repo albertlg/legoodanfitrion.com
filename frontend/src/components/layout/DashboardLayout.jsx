@@ -156,7 +156,7 @@ export function DashboardLayout({
                         <span className="font-bold text-gray-900 dark:text-white">{t("app_name")}</span>
                     </div>
 
-                    <div className="relative" ref={notificationMenuRef}>
+                    <div className="relative z-50" ref={notificationMenuRef}>
                         <button
                             className={`relative p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors border border-black/10 dark:border-white/10 ${isNotificationMenuOpen ? "bg-black/5 dark:bg-white/5" : "bg-transparent"}`}
                             type="button"
@@ -169,6 +169,36 @@ export function DashboardLayout({
                                 </span>
                             ) : null}
                         </button>
+
+                        {isNotificationMenuOpen ? (
+                            <div className="absolute right-0 mt-2 w-72 backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 shadow-xl rounded-2xl p-4 z-50 animate-in slide-in-from-top-2">
+                                <div className="flex items-center justify-between mb-3 pb-3 border-b border-black/5 dark:border-white/5">
+                                    <p className="font-semibold text-sm">{t("notifications_title")}</p>
+                                    <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full text-xs font-medium">
+                                        {interpolateText ? interpolateText(t("notifications_unread"), { count: unreadNotificationCount }) : `${unreadNotificationCount} unread`}
+                                    </span>
+                                </div>
+                                {recentActivityItems?.length === 0 ? (
+                                    <p className="text-sm text-center py-4 text-gray-500">{t("notifications_empty")}</p>
+                                ) : (
+                                    <ul className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                                        {recentActivityItems?.slice(0, 6).map((activityItem) => (
+                                            <li key={`mobile-notif-${activityItem.id}`} className="flex gap-3 items-start p-2 rounded-lg bg-white/50 dark:bg-black/20 border border-black/5 dark:border-white/5">
+                                                <span className={`mt-0.5 flex-shrink-0 ${statusClass ? statusClass(activityItem.status) : ""}`}>
+                                                    <Icon name={activityItem.icon} className="w-4 h-4" />
+                                                </span>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{activityItem.title}</p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {activityItem.meta} · {activityItem.timeLabel}
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        ) : null}
                     </div>
                 </header>
 

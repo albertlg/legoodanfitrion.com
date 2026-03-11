@@ -8473,5 +8473,9 @@ body {
     }
   }
 
+  html.dark {
+    color-scheme: dark;
+  }
+
   /* --- AÑADE ESTA LLAVE DE CIERRE AL FINAL DEL ARCHIVO --- */
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
+import { getInitials } from "../../../lib/formatters";
 
 export function GuestDetailView({
     t,
@@ -77,7 +78,7 @@ export function GuestDetailView({
                     <AvatarCircle
                         className="border-2 border-white dark:border-gray-800 shadow-md flex-shrink-0"
                         label={guestFullName}
-                        fallback="IN"
+                        fallback={getInitials(guestFullName, "IN")}
                         imageUrl={getGuestAvatarUrl(selectedGuestDetail, guestFullName)}
                         size={72}
                     />

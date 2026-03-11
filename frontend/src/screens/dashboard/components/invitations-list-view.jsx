@@ -1,6 +1,8 @@
 import React from "react";
+import { useState } from "react";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
+import { getInitials } from "../../../lib/formatters";
 
 export function InvitationsListView({
     t,
@@ -41,7 +43,7 @@ export function InvitationsListView({
     invitationTotalPages,
     setInvitationPage
 }) {
-
+    const [openDropdownId, setOpenDropdownId] = useState(null);
     return (
         <section className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-sm flex flex-col">
             {/* 1. TOOLBAR: Buscador, Filtro por Evento y Ordenación (PATRÓN UNIFICADO) */}
@@ -170,14 +172,14 @@ export function InvitationsListView({
                 ) : (
                     <div className="w-full">
                         <div className="w-full">
-                            <table className="w-full text-left border-collapse block md:table">
+                            <table className="w-full text-left border-collapse block md:table table-fixed">
                                 <thead className="hidden md:table-header-group">
                                     <tr>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_event")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("created")}</th>
-                                        <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
+                                        <th className="w-[30%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
+                                        <th className="w-[30%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_event")}</th>
+                                        <th className="w-[7%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
+                                        <th className="w-[15%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("created")}</th>
+                                        <th className="w-[18%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="block md:table-row-group divide-y-0 md:divide-y divide-black/5 dark:divide-white/5">
@@ -212,7 +214,7 @@ export function InvitationsListView({
                                                         <AvatarCircle
                                                             className="shrink-0 shadow-sm"
                                                             label={guestName}
-                                                            fallback="IN"
+                                                            fallback={getInitials(guestName, "IN")}
                                                             imageUrl={getGuestAvatarUrl(guestItem, guestName)}
                                                             size={40}
                                                         />
@@ -267,8 +269,8 @@ export function InvitationsListView({
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="align-middle text-right block md:table-cell flex items-center justify-end py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
-                                                    <div className="flex items-center justify-end gap-1">
+                                                <td className="align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 relative">
+                                                    <div className="flex items-center justify-end gap-1 w-full relative">
                                                         <button
                                                             className="inline-flex items-center justify-center px-2 py-1.5 w-full max-w-[100px] min-h-[32px] text-xs font-bold rounded-xl border transition-all bg-green-100 text-green-800 border-green-300 hover:bg-green-200 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/40 dark:hover:bg-green-500/30 shrink-0"
                                                             type="button"
@@ -283,7 +285,7 @@ export function InvitationsListView({
                                                             WhatsApp
                                                         </button>
                                                         <a
-                                                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white rounded-lg transition-colors flex items-center justify-center"
+                                                            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white rounded-lg transition-colors flex items-center justify-center shrink-0"
                                                             href={url}
                                                             target="_blank"
                                                             rel="noreferrer"
@@ -293,44 +295,75 @@ export function InvitationsListView({
                                                             <Icon name="eye" className="w-4 h-4" />
                                                         </a>
 
-                                                        <div className="relative group/dropdown">
-                                                            <button className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white rounded-lg transition-colors focus:outline-none" aria-label={t("open_menu")}>
+                                                        {/* CONTENEDOR DEL MENÚ DESPLEGABLE */}
+                                                        <div
+                                                            className="relative shrink-0"
+                                                            onMouseEnter={() => setOpenDropdownId(invitation.id)}
+                                                            onMouseLeave={() => setOpenDropdownId(null)}
+                                                        >
+                                                            <button
+                                                                className={`p-1.5 rounded-lg transition-colors focus:outline-none ${openDropdownId === invitation.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
+                                                                type="button"
+                                                                aria-label={t("open_menu")}
+                                                                title={t("actions_label")}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenDropdownId(openDropdownId === invitation.id ? null : invitation.id);
+                                                                }}
+                                                            >
                                                                 <Icon name="more_horizontal" className="w-4 h-4" />
                                                             </button>
 
-                                                            {/* Menú Dropdown con Z-Index y alineación corregida */}
-                                                            <div className={`absolute right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible focus-within:opacity-100 focus-within:visible transition-all py-1 ${isLastRows ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-1 origin-top-right"}`}>
-                                                                <button
-                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const prepared = handlePrepareInvitationShare(invitation);
-                                                                        if (prepared?.mailtoUrl) {
-                                                                            window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Icon name="mail" className="w-4 h-4" />
-                                                                    <span>{t("invitation_open_email")}</span>
-                                                                </button>
-                                                                <button
-                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
-                                                                    type="button"
-                                                                    onClick={() => handleCopyInvitationLink(url)}
-                                                                >
-                                                                    <Icon name="link" className="w-4 h-4" />
-                                                                    <span>{t("copy_link")}</span>
-                                                                </button>
-                                                                <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-3" />
-                                                                <button
-                                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    type="button"
-                                                                    onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
-                                                                >
-                                                                    <Icon name="x" className="w-4 h-4" />
-                                                                    <span>{t("delete_invitation")}</span>
-                                                                </button>
-                                                            </div>
+                                                            {/* Renderizado condicional del menú */}
+                                                            {openDropdownId === invitation.id && (
+                                                                <>
+                                                                    {/* Capa invisible para cerrar el menú en móvil */}
+                                                                    <div
+                                                                        className="fixed inset-0 z-[90] md:hidden"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setOpenDropdownId(null);
+                                                                        }}
+                                                                    ></div>
+
+                                                                    {/* Menú Dropdown con Z-Index y alineación corregida */}
+                                                                    <div
+                                                                        className={`absolute left-auto right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] py-1 ${isLastRows ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-1 origin-top-right"}`}
+                                                                        onClick={() => setOpenDropdownId(null)}
+                                                                    >
+                                                                        <button
+                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const prepared = handlePrepareInvitationShare(invitation);
+                                                                                if (prepared?.mailtoUrl) {
+                                                                                    window.open(prepared.mailtoUrl, "_blank", "noopener,noreferrer");
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Icon name="mail" className="w-4 h-4" />
+                                                                            <span>{t("invitation_open_email")}</span>
+                                                                        </button>
+                                                                        <button
+                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
+                                                                            type="button"
+                                                                            onClick={() => handleCopyInvitationLink(url)}
+                                                                        >
+                                                                            <Icon name="link" className="w-4 h-4" />
+                                                                            <span>{t("copy_link")}</span>
+                                                                        </button>
+                                                                        <div className="h-px bg-black/5 dark:bg-white/10 my-1 mx-3" />
+                                                                        <button
+                                                                            className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                            type="button"
+                                                                            onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
+                                                                        >
+                                                                            <Icon name="x" className="w-4 h-4" />
+                                                                            <span>{t("delete_invitation")}</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>
