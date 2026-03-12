@@ -4985,6 +4985,11 @@ function DashboardScreen({
     const timer = window.setTimeout(async () => {
       setIsAddressLoading(true);
       try {
+        // 🚀 LÍNEA DE SEGURIDAD: Si Google aún no ha cargado esta nueva API, salimos sin romper la app
+        if (!window.google?.maps?.places?.AutocompleteSuggestion) {
+          console.warn("La nueva API de Places aún no está lista.");
+          return;
+        }
         // 🚀 FIX: Usamos la nueva API estática basada en Promesas
         const response = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: query
@@ -5030,6 +5035,11 @@ function DashboardScreen({
     const timer = window.setTimeout(async () => {
       setIsGuestAddressLoading(true);
       try {
+        // 🚀 LÍNEA DE SEGURIDAD: Si Google aún no ha cargado esta nueva API, salimos sin romper la app
+        if (!window.google?.maps?.places?.AutocompleteSuggestion) {
+          console.warn("La nueva API de Places aún no está lista.");
+          return;
+        }
         // 🚀 FIX: Usamos la nueva API estática basada en Promesas
         const response = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: query
