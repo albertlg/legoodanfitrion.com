@@ -328,7 +328,7 @@ export function InvitationsListView({
 
                                                                     {/* Menú Dropdown con Z-Index y alineación corregida */}
                                                                     <div
-                                                                        className={`absolute left-auto right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] py-1 ${isLastRows ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-1 origin-top-right"}`}
+                                                                        className={`absolute left-auto right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] py-1 ${isLastRows ? "bottom-full pb-2 origin-bottom-right" : "top-full pt-2 origin-top-right"}`}
                                                                         onClick={() => setOpenDropdownId(null)}
                                                                     >
                                                                         <button

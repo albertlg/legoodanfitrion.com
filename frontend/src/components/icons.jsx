@@ -29,7 +29,12 @@ const ICON_PATHS = {
   trend: "M3 17h18M5 14l4-4 3 3 6-7M18 6h3v3",
   bell: "M15 17H9m9-6a6 6 0 1 0-12 0v4l-2 2h16l-2-2v-4Z",
   star:
-    "m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1L3.2 9.4l6.1-.9L12 3Z"
+    "m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1L3.2 9.4l6.1-.9L12 3Z",
+
+  // 🚀 NUEVOS ICONOS AÑADIDOS
+  pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z", // Usamos el mismo path de 'edit', que es un lápiz genial
+  camera: "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3zM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  trash: "M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"
 };
 
 function Icon({ name, className = "icon", title }) {

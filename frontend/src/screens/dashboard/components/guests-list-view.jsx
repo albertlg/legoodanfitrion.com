@@ -254,11 +254,8 @@ export function GuestsListView({
                                                 {/* Health & Status */}
                                                 <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 overflow-hidden">
                                                     <div className="flex flex-wrap items-center gap-1.5 w-full">
-                                                        {guestItem.email || guestItem.phone ? (
-                                                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-[10px] font-bold border border-blue-200 dark:border-blue-800/50 truncate max-w-full">
-                                                                {t("host_potential_badge")}
-                                                            </span>
-                                                        ) : null}
+
+                                                        {/* 🚀 LÓGICA EXCLUYENTE: Convertido VS Potencial */}
                                                         {conversion ? (
                                                             <>
                                                                 <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded text-[10px] font-bold border border-green-200 dark:border-green-800/50 truncate max-w-full">
@@ -268,8 +265,13 @@ export function GuestsListView({
                                                                     {conversionSourceLabel}
                                                                 </span>
                                                             </>
+                                                        ) : (guestItem.email || guestItem.phone) ? (
+                                                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-[10px] font-bold border border-blue-200 dark:border-blue-800/50 truncate max-w-full">
+                                                                {t("host_potential_badge")}
+                                                            </span>
                                                         ) : null}
 
+                                                        {/* Alergias / Etiquetas de Salud (Esto se mantiene independiente) */}
                                                         {healthPreviewVisible.length > 0 ? (
                                                             <>
                                                                 {healthPreviewVisible.map((item) => (
@@ -284,6 +286,7 @@ export function GuestsListView({
                                                                 ) : null}
                                                             </>
                                                         ) : null}
+
                                                     </div>
                                                 </td>
 
@@ -351,7 +354,7 @@ export function GuestsListView({
 
                                                                     {/* El Menú */}
                                                                     <div
-                                                                        className={`absolute left-auto right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] py-1 ${isLastRows ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-1 origin-top-right"}`}
+                                                                        className={`absolute left-auto right-0 w-56 bg-white/90 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-[100] py-1 ${isLastRows ? "bottom-full pb-2 origin-bottom-right" : "top-full pt-2 origin-top-right"}`}
                                                                         onClick={() => setOpenDropdownId(null)}
                                                                     >
                                                                         <button

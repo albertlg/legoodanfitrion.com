@@ -177,33 +177,73 @@ export function GuestBuilderView({
 
       {/* 👑 CABECERA DINÁMICA: Diferenciación visual radical entre Crear y Editar */}
       {isEditingGuest ? (
-        <header className="flex flex-col md:flex-row items-center md:items-start gap-6 bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-800 dark:to-gray-800/80 p-6 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm relative overflow-hidden mb-2">
+        <header className="flex flex-col md:flex-row items-center md:items-start gap-6 bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-800 dark:to-gray-800/80 p-6 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm relative mb-2">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
-          <div className="relative z-10 shrink-0">
+          {/* Avatar Container */}
+          <div className="relative z-50 shrink-0">
             <AvatarCircle
               className="w-20 h-20 md:w-24 md:h-24 rounded-full ring-4 ring-white dark:ring-gray-700 shadow-lg"
               label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
-              fallback={getAvatarFallback()} // 🏷️ Ahora usa iniciales calculadas (Soluciona Tarea #3)
+              fallback={getAvatarFallback()}
               imageUrl={guestPhotoUrl}
               size={96}
             />
-            <button
-              type="button"
-              onClick={() => document.getElementById('main-guest-photo-upload').click()} // 🏷️ Ahora funciona (Soluciona Tarea #2)
-              className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-110"
-              aria-label={t("guest_photo_upload")}
-            >
-              <Icon name="edit" className="w-4 h-4" />
-            </button>
+
+            {/* Contenedor del Botón y Menú */}
+            <div className="absolute bottom-0 right-0 md:-right-1">
+
+              {/* 🚀 GATILLO: Volvemos al Lápiz (Estándar Universal de "Editar") */}
+              <button
+                type="button"
+                className="peer bg-blue-600 hover:bg-blue-700 text-white p-2 md:p-2.5 rounded-full shadow-lg transition-transform hover:scale-110 outline-none focus:ring-2 focus:ring-blue-500/50"
+                aria-label={t("guest_photo_edit_options")}
+              >
+                <Icon name="edit" className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
+
+              {/* El Dropdown (Aparece con peer-focus o hover) 
+                  🚀 FIX: right-1/2 translate-x-1/2 centra el menú bajo el botón en móvil */}
+              <div className="absolute top-full right-1/2 translate-x-1/2 md:translate-x-0 md:right-0 pt-2 w-48 sm:w-52 z-[99] opacity-0 invisible peer-focus:opacity-100 peer-focus:visible hover:opacity-100 hover:visible transition-all duration-200">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-black/10 dark:border-white/10 overflow-hidden flex flex-col py-1.5">
+
+                  {/* 🚀 ACCIÓN 1: PUJAR FOTO. Icono universal de Cámara (Cámara = Foto de perfil) */}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); document.getElementById('main-guest-photo-upload').click(); }}
+                    className="flex items-center gap-3.5 px-4.5 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors w-full text-left outline-none"
+                  >
+                    <Icon name="camera" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    {t("guest_photo_upload_button") || "Pujar nova foto..."}
+                  </button>
+
+                  {guestPhotoUrl && (
+                    <div className="border-t border-black/5 dark:border-white/5 my-1"></div>
+                  )}
+
+                  {/* 🚀 ACCIÓN 2: ELIMINAR FOTO. Icono universal de Papelera, en Rojo (Rojo = Destructivo) */}
+                  {guestPhotoUrl && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); handleRemoveGuestPhoto(); }}
+                      className="flex items-center gap-3.5 px-4.5 py-3 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors w-full text-left outline-none"
+                    >
+                      <Icon name="trash" className="w-4 h-4" />
+                      {t("guest_photo_remove") || "Eliminar foto actual"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Text Container */}
           <div className="flex-1 text-center md:text-left relative z-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-[10px] font-bold uppercase tracking-widest mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-[10px] font-bold uppercase tracking-widest mb-3 shadow-sm border border-blue-200 dark:border-blue-800/30">
               <Icon name="edit" className="w-3 h-3" />
               {t("guest_wiz_header_mode_edit")}
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1 truncate">
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-1 truncate tracking-tight">
               {`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("placeholder_guest_no_name")}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
