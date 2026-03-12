@@ -145,63 +145,99 @@ export function DashboardLayout({
 
                 {/* --- MOBILE HEADER ALWAYS VISIBLE --- */}
                 <header className="md:hidden flex-shrink-0 flex items-center justify-between px-4 h-16 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-b border-black/5 dark:border-white/10 sticky top-0 z-40 transition-colors">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
                         <button
                             onClick={toggleMobileMenu}
-                            className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50 shrink-0"
                             aria-label="Abrir menú"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-900 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                         </button>
-                        <span className="font-bold text-gray-900 dark:text-white text-lg tracking-tight">{t("app_name")}</span>
+                        {/* 🏷️ TRUCO: Mostramos el nombre de la sección actual y lo truncamos si es muy largo */}
+                        <span className="font-bold text-gray-900 dark:text-white text-lg tracking-tight truncate">
+                            {sectionHeader?.title || t("app_name")}
+                        </span>
                     </div>
 
-                    <div className="relative z-50" ref={notificationMenuRef}>
-                        <button
-                            className={`relative p-2 rounded-full transition-colors border outline-none focus:ring-2 focus:ring-blue-500/50 ${isNotificationMenuOpen ? "bg-black/5 dark:bg-white/10 border-black/10 dark:border-white/20" : "bg-transparent hover:bg-black/5 dark:hover:bg-white/5 border-transparent"}`}
-                            type="button"
-                            onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
-                        >
-                            <Icon name="bell" className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                            {unreadNotificationCount > 0 ? (
-                                <span className="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/4 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.2rem] text-center shadow-sm">
-                                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                                </span>
-                            ) : null}
-                        </button>
-
-                        {isNotificationMenuOpen ? (
-                            <div className="absolute right-0 mt-2 w-72 backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-4 z-50 animate-in slide-in-from-top-2">
-                                <div className="flex items-center justify-between mb-3 pb-3 border-b border-black/5 dark:border-white/5">
-                                    <p className="font-bold text-sm text-gray-900 dark:text-white">{t("notifications_title")}</p>
-                                    <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                                        {interpolateText ? interpolateText(t("notifications_unread"), { count: unreadNotificationCount }) : `${unreadNotificationCount} unread`}
-                                    </span>
-                                </div>
-                                {recentActivityItems?.length === 0 ? (
-                                    <p className="text-sm text-center py-6 text-gray-500 dark:text-gray-400 italic">{t("notifications_empty")}</p>
-                                ) : (
-                                    <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
-                                        {recentActivityItems?.slice(0, 6).map((activityItem) => (
-                                            <li key={`mobile-notif-${activityItem.id}`} className="flex gap-3 items-start p-3 rounded-xl bg-white/50 dark:bg-black/20 border border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
-                                                <span className={`mt-0.5 flex-shrink-0 p-2 rounded-lg ${statusClass ? statusClass(activityItem.status) : "bg-gray-100 text-gray-500"}`}>
-                                                    <Icon name={activityItem.icon} className="w-3.5 h-3.5" />
-                                                </span>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{activityItem.title}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                                                        {activityItem.meta}
-                                                    </p>
-                                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-wider font-medium">
-                                                        {activityItem.timeLabel}
-                                                    </p>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {/* 🚀 NUEVO: Botones de Acción en Móvil (Solo Icono para ahorrar espacio) */}
+                        {contextualSecondaryAction ? (
+                            <button
+                                className="flex items-center justify-center p-2 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-black/10 dark:hover:bg-white/20 active:scale-95 transition-all outline-none"
+                                type="button"
+                                onClick={contextualSecondaryAction.onClick}
+                                aria-label={contextualSecondaryAction.label}
+                                title={contextualSecondaryAction.label}
+                            >
+                                <Icon name={contextualSecondaryAction.icon} className="w-5 h-5" />
+                            </button>
                         ) : null}
+
+                        {contextualCreateAction ? (
+                            <button
+                                className="flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm active:scale-95 transition-all outline-none focus:ring-2 focus:ring-blue-500/50"
+                                type="button"
+                                onClick={contextualCreateAction.onClick}
+                                aria-label={contextualCreateAction.label}
+                                title={contextualCreateAction.label}
+                            >
+                                <Icon name={contextualCreateAction.icon} className="w-5 h-5" />
+                            </button>
+                        ) : null}
+
+                        {/* Separador vertical sutil si hay botones de acción */}
+                        {(contextualCreateAction || contextualSecondaryAction) && (
+                            <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1"></div>
+                        )}
+
+                        {/* Menú de Notificaciones Original */}
+                        <div className="relative z-50" ref={notificationMenuRef}>
+                            <button
+                                className={`relative p-2 rounded-full transition-colors border outline-none focus:ring-2 focus:ring-blue-500/50 ${isNotificationMenuOpen ? "bg-black/5 dark:bg-white/10 border-black/10 dark:border-white/20" : "bg-transparent hover:bg-black/5 dark:hover:bg-white/5 border-transparent"}`}
+                                type="button"
+                                onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
+                            >
+                                <Icon name="bell" className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                                {unreadNotificationCount > 0 ? (
+                                    <span className="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/4 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.2rem] text-center shadow-sm">
+                                        {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                                    </span>
+                                ) : null}
+                            </button>
+
+                            {isNotificationMenuOpen ? (
+                                <div className="absolute right-0 mt-2 w-72 backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-4 z-50 animate-in slide-in-from-top-2">
+                                    <div className="flex items-center justify-between mb-3 pb-3 border-b border-black/5 dark:border-white/5">
+                                        <p className="font-bold text-sm text-gray-900 dark:text-white">{t("notifications_title")}</p>
+                                        <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                                            {interpolateText ? interpolateText(t("notifications_unread"), { count: unreadNotificationCount }) : `${unreadNotificationCount} unread`}
+                                        </span>
+                                    </div>
+                                    {recentActivityItems?.length === 0 ? (
+                                        <p className="text-sm text-center py-6 text-gray-500 dark:text-gray-400 italic">{t("notifications_empty")}</p>
+                                    ) : (
+                                        <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
+                                            {recentActivityItems?.slice(0, 6).map((activityItem) => (
+                                                <li key={`mobile-notif-${activityItem.id}`} className="flex gap-3 items-start p-3 rounded-xl bg-white/50 dark:bg-black/20 border border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
+                                                    <span className={`mt-0.5 flex-shrink-0 p-2 rounded-lg ${statusClass ? statusClass(activityItem.status) : "bg-gray-100 text-gray-500"}`}>
+                                                        <Icon name={activityItem.icon} className="w-3.5 h-3.5" />
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{activityItem.title}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                                                            {activityItem.meta}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-wider font-medium">
+                                                            {activityItem.timeLabel}
+                                                        </p>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 </header>
 
