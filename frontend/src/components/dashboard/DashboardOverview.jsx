@@ -296,30 +296,30 @@ export function DashboardOverview({
                 {/* COLUMNA DERECHA (Perfil del anfitrión - Ocupa 1/3) */}
                 <div className="lg:col-span-1 flex flex-col gap-6 md:gap-8">
 
-                    {/* TARJETA VIP DE ANFITRIÓN */}
-                    <article className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-[2.5rem] border border-gray-700 shadow-xl p-6 md:p-8 relative overflow-hidden flex flex-col gap-6">
+                    {/* TARJETA VIP DE ANFITRIÓN (Totalmente Adaptativa Claro/Oscuro) */}
+                    <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-white rounded-[2.5rem] border border-black/10 dark:border-gray-700 shadow-xl p-6 md:p-8 relative overflow-hidden flex flex-col gap-6 transition-colors">
                         {/* Fondo decorativo */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
                         {/* Cabecera del perfil */}
                         <div className="flex items-center gap-4 relative z-10">
                             <AvatarCircle
-                                className="w-16 h-16 rounded-full ring-4 ring-gray-700 shadow-lg shrink-0"
+                                className="w-16 h-16 rounded-full ring-4 ring-gray-100 dark:ring-gray-700 shadow-lg shrink-0"
                                 label={hostDisplayName}
                                 fallback={hostInitials}
                                 imageUrl={hostAvatarUrl}
                                 size={64}
                             />
                             <div>
-                                <h2 className="text-lg font-bold tracking-tight">{hostDisplayName}</h2>
-                                <p className="text-xs text-gray-400">{t("panel_title")}</p>
+                                <h2 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">{hostDisplayName}</h2>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{t("panel_title")}</p>
                             </div>
                         </div>
 
                         {/* Puntuación (Estrellas) */}
-                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl p-4 relative z-10">
-                            <span className="text-xs font-bold uppercase tracking-widest text-gray-300">{t("host_rating_reputation")}</span>
-                            <div className="flex items-center gap-1.5 bg-yellow-500/20 text-yellow-400 px-3 py-1.5 rounded-lg border border-yellow-500/30">
+                        <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl p-4 relative z-10 transition-colors">
+                            <span className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-300">{t("host_rating_reputation")}</span>
+                            <div className="flex items-center gap-1.5 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-lg border border-yellow-200 dark:border-yellow-500/30">
                                 <Icon name="star" className="w-4 h-4 fill-current" />
                                 <span className="font-black text-sm">{hostRatingScore}/5</span>
                             </div>
@@ -328,26 +328,26 @@ export function DashboardOverview({
                         {/* Métricas detalladas */}
                         <div className="flex flex-col gap-3 relative z-10">
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-400">{t("host_rating_metric_completed")}</span>
-                                <div className="flex-1 border-b border-dashed border-gray-600 mx-3 relative top-[-4px]"></div>
-                                <strong className="font-bold">{events.filter((eventItem) => eventItem.status === "completed").length}</strong>
+                                <span className="text-gray-600 dark:text-gray-400">{t("host_rating_metric_completed")}</span>
+                                <div className="flex-1 border-b border-dashed border-gray-300 dark:border-gray-600 mx-3 relative top-[-4px] transition-colors"></div>
+                                <strong className="font-bold text-gray-900 dark:text-white">{events.filter((eventItem) => eventItem.status === "completed").length}</strong>
                             </div>
 
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-400">{t("host_rating_metric_response")}</span>
-                                <div className="flex-1 border-b border-dashed border-gray-600 mx-3 relative top-[-4px]"></div>
-                                <strong className="font-bold text-green-400">{respondedInvitesRate}%</strong>
+                                <span className="text-gray-600 dark:text-gray-400">{t("host_rating_metric_response")}</span>
+                                <div className="flex-1 border-b border-dashed border-gray-300 dark:border-gray-600 mx-3 relative top-[-4px] transition-colors"></div>
+                                <strong className="font-bold text-green-600 dark:text-green-400">{respondedInvitesRate}%</strong>
                             </div>
 
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-400">{t("host_rating_metric_growth")}</span>
-                                <div className="flex-1 border-b border-dashed border-gray-600 mx-3 relative top-[-4px]"></div>
-                                <strong className="font-bold text-blue-400">{convertedHostRate}%</strong>
+                                <span className="text-gray-600 dark:text-gray-400">{t("host_rating_metric_growth")}</span>
+                                <div className="flex-1 border-b border-dashed border-gray-300 dark:border-gray-600 mx-3 relative top-[-4px] transition-colors"></div>
+                                <strong className="font-bold text-blue-600 dark:text-blue-400">{convertedHostRate}%</strong>
                             </div>
 
-                            <div className="flex items-center justify-between text-sm mt-2 pt-4 border-t border-gray-700">
+                            <div className="flex items-center justify-between text-sm mt-2 pt-4 border-t border-black/5 dark:border-gray-700 transition-colors">
                                 <span className="text-xs text-gray-500 uppercase tracking-widest">{t("host_rating_since_label")}</span>
-                                <strong className="text-xs font-medium text-gray-300 bg-gray-700 px-2 py-1 rounded-md">{hostMemberSinceLabel}</strong>
+                                <strong className="text-xs font-medium text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-700 px-2 py-1 rounded-md transition-colors">{hostMemberSinceLabel}</strong>
                             </div>
                         </div>
                     </article>
