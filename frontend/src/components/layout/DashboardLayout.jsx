@@ -32,7 +32,7 @@ export function DashboardLayout({
     notificationMenuRef,
     statusClass,
     sectionHeader,
-    interpolateText,
+    interpolateText
 }) {
 
     // ==========================================
@@ -47,8 +47,16 @@ export function DashboardLayout({
                     type="button"
                     className={`nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 ${activeView === item.key ? "active bg-black/5 dark:bg-white/10 text-black dark:text-white shadow-sm" : "text-gray-600 dark:text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/5 dark:hover:text-white"}`}
                     onClick={() => {
+                        // Primero ejecutamos el cambio de vista
                         changeView(item.key);
-                        if (isMenuOpen && closeMobileMenu) closeMobileMenu();
+
+                        // Solo cerramos el menú si realmente está abierto
+                        // Usamos un pequeño delay para que la navegación sea la prioridad
+                        if (isMenuOpen) {
+                            setTimeout(() => {
+                                if (closeMobileMenu) closeMobileMenu();
+                            }, 10);
+                        }
                     }}
                 >
                     <Icon name={item.icon} className={`icon ${activeView === item.key ? "text-blue-500 dark:text-blue-400" : ""}`} />
