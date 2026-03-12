@@ -162,7 +162,6 @@ export function GuestBuilderView({
   MultiSelectField
 }) {
 
-  // 🏷️ FUNCIÓN DE AYUDA PARA CALCULAR INICIALES (Soluciona Tarea #3)
   const getAvatarFallback = () => {
     const nameString = `${guestFirstName || ""} ${guestLastName || ""}`.trim();
     if (!nameString) return <Icon name="user" className="w-full h-full p-2 opacity-50" />;
@@ -173,9 +172,11 @@ export function GuestBuilderView({
   }
 
   return (
-    <form className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-[2.5rem] shadow-sm p-6 md:p-8 flex flex-col gap-6 w-full max-w-4xl mx-auto my-6" onSubmit={handleSaveGuest} noValidate>
+    // 🚀 FIX PADDINGCEPTION 1: Eliminamos bordes, radios y paddings en móvil. 
+    // En PC (sm:) vuelve a ser una tarjeta redonda centrada.
+    <form className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl sm:border border-black/10 dark:border-white/10 sm:rounded-[2.5rem] sm:shadow-sm pb-8 sm:p-6 md:p-8 flex flex-col gap-6 w-[calc(100%+2rem)] -mx-4 px-4 sm:w-full sm:mx-auto sm:my-6" onSubmit={handleSaveGuest} noValidate>
 
-      {/* 👑 CABECERA DINÁMICA: Diferenciación visual radical entre Crear y Editar */}
+      {/* 👑 CABECERA DINÁMICA */}
       {isEditingGuest ? (
         <header className="flex flex-col md:flex-row items-center md:items-start gap-6 bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-800 dark:to-gray-800/80 p-6 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm relative mb-2">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -190,49 +191,42 @@ export function GuestBuilderView({
               size={96}
             />
 
-            {/* Contenedor del Botón y Menú */}
-            <div className="absolute bottom-0 right-0 md:-right-1">
+            {/* 🚀 GATILLO: El botón ya no envuelve al menú, son hermanos */}
+            <button
+              type="button"
+              className="peer absolute bottom-0 right-0 md:-right-1 bg-blue-600 hover:bg-blue-700 text-white p-2 md:p-2.5 rounded-full shadow-lg transition-transform hover:scale-110 outline-none focus:ring-2 focus:ring-blue-500/50"
+              aria-label={t("guest_photo_edit_options")}
+            >
+              <Icon name="edit" className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
 
-              {/* 🚀 GATILLO: Volvemos al Lápiz (Estándar Universal de "Editar") */}
-              <button
-                type="button"
-                className="peer bg-blue-600 hover:bg-blue-700 text-white p-2 md:p-2.5 rounded-full shadow-lg transition-transform hover:scale-110 outline-none focus:ring-2 focus:ring-blue-500/50"
-                aria-label={t("guest_photo_edit_options")}
-              >
-                <Icon name="edit" className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
+            {/* 🚀 EL DROPDOWN: Anclado y centrado respecto al Avatar (left-1/2 -translate-x-1/2) */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-48 sm:w-52 z-[99] opacity-0 invisible peer-focus:opacity-100 peer-focus:visible hover:opacity-100 hover:visible transition-all duration-200">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-black/10 dark:border-white/10 overflow-hidden flex flex-col py-1.5">
 
-              {/* El Dropdown (Aparece con peer-focus o hover) 
-                  🚀 FIX: right-1/2 translate-x-1/2 centra el menú bajo el botón en móvil */}
-              <div className="absolute top-full right-1/2 translate-x-1/2 md:translate-x-0 md:right-0 pt-2 w-48 sm:w-52 z-[99] opacity-0 invisible peer-focus:opacity-100 peer-focus:visible hover:opacity-100 hover:visible transition-all duration-200">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-black/10 dark:border-white/10 overflow-hidden flex flex-col py-1.5">
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); document.getElementById('main-guest-photo-upload').click(); }}
+                  className="flex items-center gap-3.5 px-4 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors w-full text-left outline-none"
+                >
+                  <Icon name="camera" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  {t("guest_photo_upload_button") || "Pujar nova foto..."}
+                </button>
 
-                  {/* 🚀 ACCIÓN 1: PUJAR FOTO. Icono universal de Cámara (Cámara = Foto de perfil) */}
+                {guestPhotoUrl && (
+                  <div className="border-t border-black/5 dark:border-white/5 my-1"></div>
+                )}
+
+                {guestPhotoUrl && (
                   <button
                     type="button"
-                    onMouseDown={(e) => { e.preventDefault(); document.getElementById('main-guest-photo-upload').click(); }}
-                    className="flex items-center gap-3.5 px-4.5 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors w-full text-left outline-none"
+                    onMouseDown={(e) => { e.preventDefault(); handleRemoveGuestPhoto(); }}
+                    className="flex items-center gap-3.5 px-4 py-3 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors w-full text-left outline-none"
                   >
-                    <Icon name="camera" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    {t("guest_photo_upload_button") || "Pujar nova foto..."}
+                    <Icon name="trash" className="w-4 h-4" />
+                    {t("guest_photo_remove") || "Eliminar foto actual"}
                   </button>
-
-                  {guestPhotoUrl && (
-                    <div className="border-t border-black/5 dark:border-white/5 my-1"></div>
-                  )}
-
-                  {/* 🚀 ACCIÓN 2: ELIMINAR FOTO. Icono universal de Papelera, en Rojo (Rojo = Destructivo) */}
-                  {guestPhotoUrl && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => { e.preventDefault(); handleRemoveGuestPhoto(); }}
-                      className="flex items-center gap-3.5 px-4.5 py-3 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors w-full text-left outline-none"
-                    >
-                      <Icon name="trash" className="w-4 h-4" />
-                      {t("guest_photo_remove") || "Eliminar foto actual"}
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -253,9 +247,9 @@ export function GuestBuilderView({
         </header>
       ) : (
         <div className="mb-2">
+          {/* Bloque Importación igual */}
           <p className="text-sm text-gray-500 dark:text-gray-400 ml-1 mb-6">{t("guest_host_potential_hint")}</p>
 
-          {/* Bloque de Importación: SOLO SE MUESTRA AL CREAR */}
           <section className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 flex flex-col gap-4">
             <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               <Icon name="phone" className="w-4 h-4" />
@@ -285,7 +279,7 @@ export function GuestBuilderView({
 
           <details ref={contactImportDetailsRef} className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 flex flex-col gap-4 group mt-4">
             <summary className="font-bold text-gray-900 dark:text-white cursor-pointer outline-none marker:text-gray-400 p-2 -ml-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5">{t("contact_import_title")}</summary>
-            {/* ... Resto del contenido original de Importación ... */}
+
             <div className="flex flex-col gap-4 mt-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("contact_import_hint")}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("contact_import_google_hint")}</p>
@@ -310,8 +304,8 @@ export function GuestBuilderView({
                 <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("contact_import_file_label")}</span>
                 <input
                   ref={contactImportFileInputRef}
-                  id="contact_import_file_label" // 🏷️ ID único (Soluciona Error Consola B)
-                  name="contact_import_file" // 🏷️ Atributo name (Soluciona Error Consola B)
+                  id="contact_import_file_label"
+                  name="contact_import_file"
                   type="file"
                   className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-black/5 file:text-gray-700 hover:file:bg-black/10 dark:file:bg-white/10 dark:file:text-white dark:hover:file:bg-white/20 transition-all cursor-pointer"
                   accept=".csv,.vcf,.vcard,text/csv,text/vcard"
@@ -322,8 +316,8 @@ export function GuestBuilderView({
               <label htmlFor="importContactsDraft">
                 <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("contact_import_paste_label")}</span>
                 <textarea className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm" rows={4}
-                  id="importContactsDraft" // 🏷️ ID único (Soluciona Error Consola B)
-                  name="importContactsDraft" // 🏷️ Atributo name (Soluciona Error Consola B)
+                  id="importContactsDraft"
+                  name="importContactsDraft"
                   value={importContactsDraft}
                   onChange={(event) => setImportContactsDraft(event.target.value)}
                   placeholder={t("contact_import_paste_placeholder")}
@@ -338,14 +332,12 @@ export function GuestBuilderView({
                 </button>
               </div>
 
-              {/* ... Toda la lógica de previsualización (la dejo intacta para no romperla) ... */}
               {importContactsAnalysis.length > 0 && (
                 <div className="grid gap-2">
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {t("contact_import_preview_total")} {importContactsAnalysis.length}. {t("contact_import_preview_ready")}{" "}
                     {importContactsReady.length}. {t("contact_import_selected_ready")} {importContactsSelectedReady.length}.
                   </p>
-                  {/* ... Resto del listado de análisis de importación ... */}
                 </div>
               )}
 
@@ -363,17 +355,15 @@ export function GuestBuilderView({
             </div>
           </details>
         </div>
-      )}
+      )
+      }
 
       {/* 📝 CAMPOS BÁSICOS DEL INVITADO */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-black/5 dark:border-white/10">
         <label className="flex flex-col gap-2" htmlFor="guestFirstName">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_first_name")} *</span>
           <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.firstName ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestFirstName}
-            id="guestFirstName" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestFirstName" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestFirstName(event.target.value)}
-            placeholder={t("placeholder_first_name")}
+            id="guestFirstName" name="guestFirstName" onChange={(event) => setGuestFirstName(event.target.value)} placeholder={t("placeholder_first_name")}
           />
           {guestErrors.firstName && <span className="text-xs font-medium text-red-500 ml-1">{t(guestErrors.firstName)}</span>}
         </label>
@@ -381,14 +371,10 @@ export function GuestBuilderView({
         <label className="flex flex-col gap-2" htmlFor="guestLastName">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_last_name")}</span>
           <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.lastName ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestLastName}
-            id="guestLastName" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestLastName" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestLastName(event.target.value)}
-            placeholder={t("placeholder_last_name")}
+            id="guestLastName" name="guestLastName" onChange={(event) => setGuestLastName(event.target.value)} placeholder={t("placeholder_last_name")}
           />
         </label>
 
-        {/* FOTO DEL INVITADO AL CREAR (🏷️ Ahora usa iniciales calculadas - Soluciona Tarea #3) */}
         {!isEditingGuest && (
           <label className="flex flex-col gap-2 md:col-span-2">
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_guest_photo")}</span>
@@ -396,7 +382,7 @@ export function GuestBuilderView({
               <AvatarCircle
                 className="ring-2 ring-black/10 dark:ring-white/10 shrink-0"
                 label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
-                fallback={getAvatarFallback()} // 🏷️ Iniciales calculadas al vuelo (Soluciona Tarea #3)
+                fallback={getAvatarFallback()}
                 imageUrl={guestPhotoUrl}
                 size={48}
               />
@@ -424,10 +410,7 @@ export function GuestBuilderView({
             <Icon name="mail" className="w-3 h-3" /> {t("email")}
           </span>
           <input type="email" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.email ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestEmail}
-            id="guestEmail" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestEmail" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestEmail(event.target.value)}
-            placeholder={t("placeholder_email")}
+            id="guestEmail" name="guestEmail" onChange={(event) => setGuestEmail(event.target.value)} placeholder={t("placeholder_email")}
           />
         </label>
 
@@ -436,10 +419,7 @@ export function GuestBuilderView({
             <Icon name="phone" className="w-3 h-3" /> {t("field_phone")}
           </span>
           <input type="tel" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.phone ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestPhone}
-            id="guestPhone" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestPhone" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestPhone(event.target.value)}
-            placeholder={t("placeholder_phone")}
+            id="guestPhone" name="guestPhone" onChange={(event) => setGuestPhone(event.target.value)} placeholder={t("placeholder_phone")}
           />
           {(guestErrors.phone || guestErrors.contact) && <span className="text-xs font-medium text-red-500 ml-1">{guestErrors.phone ? t(guestErrors.phone) : t(guestErrors.contact)}</span>}
         </label>
@@ -447,9 +427,7 @@ export function GuestBuilderView({
         <label className="flex flex-col gap-2" htmlFor="guestRelationship">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_relationship")}</span>
           <select className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none ${guestErrors.relationship ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestRelationship}
-            id="guestRelationship" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestRelationship" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestRelationship(event.target.value)}
+            id="guestRelationship" name="guestRelationship" onChange={(event) => setGuestRelationship(event.target.value)}
           >
             <option value="">{t("select_option_prompt")}</option>
             {relationshipOptions.map((optionValue) => (
@@ -461,29 +439,21 @@ export function GuestBuilderView({
         <label className="flex flex-col gap-2" htmlFor="guestCity">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_city")}</span>
           <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.city ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestCity}
-            id="guestCity" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestCity" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestCity(event.target.value)}
-            placeholder={t("placeholder_city")}
-            list="guest-city-options"
+            id="guestCity" name="guestCity" onChange={(event) => setGuestCity(event.target.value)} placeholder={t("placeholder_city")} list="guest-city-options"
           />
         </label>
 
         <label className="flex flex-col gap-2 md:col-span-2" htmlFor="guestCountry">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_country")}</span>
           <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.country ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestCountry}
-            id="guestCountry" // 🏷️ ID único (Soluciona Error Consola B)
-            name="guestCountry" // 🏷️ Atributo name (Soluciona Error Consola B)
-            onChange={(event) => setGuestCountry(event.target.value)}
-            placeholder={t("placeholder_country")}
-            list="guest-country-options"
+            id="guestCountry" name="guestCountry" onChange={(event) => setGuestCountry(event.target.value)} placeholder={t("placeholder_country")} list="guest-country-options"
           />
         </label>
       </div>
 
-      {/* 🚀 TÍTULO CONFIGURACIÓN AVANZADA */}
-      <details ref={guestAdvancedDetailsRef} className="bg-white/50 dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/10 shadow-sm flex flex-col gap-4 group mt-6">
-        <summary className="flex items-center justify-between font-bold text-gray-900 dark:text-white cursor-pointer outline-none marker:text-gray-400 p-6 transition-colors hover:bg-black/5 dark:hover:bg-white/5 rounded-3xl">
+      {/* 🚀 TÍTULO CONFIGURACIÓN AVANZADA (Efecto Breakout en móvil) */}
+      <details ref={guestAdvancedDetailsRef} className="bg-white/50 dark:bg-white/5 sm:rounded-3xl border-y sm:border border-black/5 dark:border-white/10 shadow-sm flex flex-col gap-4 group mt-6 -mx-4 sm:mx-0">
+        <summary className="flex items-center justify-between font-bold text-gray-900 dark:text-white cursor-pointer outline-none marker:text-gray-400 p-4 sm:p-6 transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:rounded-3xl">
           <span className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
               <Icon name="sparkle" className="w-5 h-5" />
@@ -495,27 +465,25 @@ export function GuestBuilderView({
           </span>
         </summary>
 
-        <div className="flex flex-col border-t border-black/5 dark:border-white/10">
-
-          {/* STICKY TOOLBAR MODERNA */}
-          <div ref={guestAdvancedToolbarRef} className="sticky top-[80px] lg:top-[100px] z-30 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-black/5 dark:border-white/10 shadow-sm p-4 flex flex-col gap-4 w-full">
-
-            {/* TABS (🏷️ flex-wrap para evitar scroll horizontal excesivo - Soluciona Tarea #1) */}
-            <div className="flex flex-wrap gap-2 pb-2" role="tablist" aria-label={t("guest_advanced_title")}>
+        {/* 🚀 FIX PADDINGCEPTION 2: -mx-4 en móvil y quitamos paddings */}
+        <div className="flex flex-col border-t border-black/5 dark:border-white/10 pt-0">
+          {/* STICKY TOOLBAR MODERNA (🚀 FIX: top-[64px] para móvil, fondo sólido y z-40) */}
+          <div ref={guestAdvancedToolbarRef} className="sticky top-[64px] md:top-[72px] z-40 bg-gray-50 dark:bg-gray-900 border-b border-black/5 dark:border-white/10 shadow-sm py-3 px-4 sm:p-4 flex flex-col gap-2.5 w-full">
+            <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none" role="tablist" aria-label={t("guest_advanced_title")}>
               {guestAdvancedEditTabs.map((tabItem) => {
                 const isCompleted = Boolean(guestAdvancedSignalsBySection[tabItem.key]?.done);
                 const isActive = guestAdvancedEditTab === tabItem.key;
+                const tabIcon = tabItem.key === "identity" ? "id_card" : tabItem.key === "food" ? "utensils" : tabItem.key === "lifestyle" ? "star" : tabItem.key === "conversation" ? "message" : "heart";
+
                 return (
                   <button
-                    key={tabItem.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold transition-all whitespace-nowrap shadow-sm border ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                    key={tabItem.key} type="button" role="tab" aria-selected={isActive}
+                    className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[12px] md:text-[13px] font-bold transition-all whitespace-nowrap shadow-sm border outline-none shrink-0 ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
                     onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
                   >
+                    <Icon name={tabIcon} className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isActive ? "opacity-100" : "opacity-50"}`} />
                     <span>{tabItem.label}</span>
-                    <span className={`flex items-center justify-center w-4 h-4 rounded-full ${isActive ? (isCompleted ? "bg-white/20 text-white" : "bg-black/20 text-white") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
+                    <span className={`flex items-center justify-center w-3.5 h-3.5 md:w-4 md:h-4 rounded-full ${isActive ? (isCompleted ? "bg-white/20 text-white" : "bg-black/20 text-white") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
                       <Icon name={isCompleted ? "check" : "clock"} className="w-2.5 h-2.5" />
                     </span>
                   </button>
@@ -523,21 +491,23 @@ export function GuestBuilderView({
               })}
             </div>
 
-            {/* INDICADOR DE PASO Y CHECKLIST */}
-            <div className="flex flex-col gap-3">
-              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center">
-                <span className="bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-md mr-2 text-gray-700 dark:text-gray-200">
-                  {guestAdvancedCurrentStep}/{guestAdvancedEditTabs.length}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] md:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center">
+                  <span className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-md mr-1.5 md:mr-2 text-gray-700 dark:text-gray-200">
+                    {guestAdvancedCurrentStep}/{guestAdvancedEditTabs.length}
+                  </span>
+                  {guestAdvancedCurrentTabLabel}
+                </p>
+                <span className="text-[9px] md:text-[10px] text-gray-400 font-medium uppercase tracking-wider hidden sm:block">
+                  <Icon name="clock" className="w-3 h-3 inline mr-1 -mt-0.5" />
+                  {isSavingGuest ? t("guest_saving_draft") : guestLastSavedLabel}
                 </span>
-                {guestAdvancedCurrentTabLabel}
-              </p>
+              </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
                 {guestAdvancedCurrentChecklist.map((item) => (
-                  <span
-                    key={item.key}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm ${item.done ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/30" : "bg-white text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}
-                  >
+                  <span key={item.key} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-wider border shadow-sm shrink-0 whitespace-nowrap ${item.done ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/30" : "bg-white text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}>
                     <Icon name={item.done ? "check" : "clock"} className="w-3 h-3" />
                     {item.label}
                   </span>
@@ -545,163 +515,68 @@ export function GuestBuilderView({
               </div>
             </div>
 
-            {/* BOTONERA COMPACTA (CSS GRID) */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 pt-3 border-t border-black/5 dark:border-white/10">
-              <button
-                className="col-span-1 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-                type="button"
-                onClick={handleGoToPreviousGuestAdvancedSection}
-                disabled={!guestAdvancedPrevTab}
-              >
+            <div className="flex overflow-x-auto gap-2 pt-1.5 border-t border-black/5 dark:border-white/10 scrollbar-none">
+              <button className="shrink-0 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleGoToPreviousGuestAdvancedSection} disabled={!guestAdvancedPrevTab}>
                 <Icon name="arrow_left" className="w-3.5 h-3.5" />
-                {t("pagination_prev")}
+                <span className="hidden sm:inline">{t("pagination_prev")}</span>
               </button>
-
-              <button
-                className="col-span-1 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-                type="button"
-                onClick={handleSaveGuestDraft}
-                disabled={isSavingGuest}
-              >
+              <button className="shrink-0 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleSaveGuestDraft} disabled={isSavingGuest}>
                 <Icon name="check" className="w-3.5 h-3.5" />
-                {isSavingGuest ? t("guest_saving_draft") : t("guest_save_draft")}
+                <span className="hidden sm:inline">{isSavingGuest ? t("guest_saving_draft") : t("guest_save_draft")}</span>
+                <span className="sm:hidden">Desar</span>
               </button>
-
-              <button
-                className="col-span-2 sm:col-span-1 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800/30 font-bold py-2.5 px-4 rounded-xl transition-all text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-                type="button"
-                onClick={handleSaveAndGoNextPendingGuestAdvancedSection}
-                disabled={!guestAdvancedNextPendingTab || isSavingGuest}
-              >
+              <button className="shrink-0 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800/30 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleSaveAndGoNextPendingGuestAdvancedSection} disabled={!guestAdvancedNextPendingTab || isSavingGuest}>
                 <Icon name="sparkle" className="w-3.5 h-3.5" />
-                {t("guest_wizard_save_next_pending")}
+                <span className="hidden sm:inline">{t("guest_wizard_save_next_pending")}</span>
+                <span className="sm:hidden">Pendent</span>
               </button>
-
-              <button
-                className="col-span-2 sm:col-span-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5"
-                type="button"
-                onClick={handleGoToNextGuestAdvancedSection}
-                disabled={!guestAdvancedNextTab || isSavingGuest}
-              >
-                {t("guest_wizard_validate_next")}
+              <button className="shrink-0 flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 md:py-2.5 md:px-5 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleGoToNextGuestAdvancedSection} disabled={!guestAdvancedNextTab || isSavingGuest}>
+                <span>{t("guest_wizard_validate_next")}</span>
                 <Icon name="arrow_right" className="w-3.5 h-3.5" />
               </button>
             </div>
-
-            {/* Info de guardado */}
-            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider text-center sm:text-left mt-1">
-              <Icon name="clock" className="w-3 h-3 inline mr-1" />
-              {t("guest_last_saved_label")}: {isSavingGuest ? t("guest_saving_draft") : guestLastSavedLabel}
-            </p>
           </div>
 
-          {/* CONTENIDO DE LOS TABS */}
-          <div className="flex flex-col gap-6 p-6">
+          <div className="flex flex-col gap-6 py-5 px-4 sm:px-6">
             {guestAdvancedEditTab === "identity" && (
               <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.identity = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <label className="flex flex-col gap-2 md:col-span-2" htmlFor="advGuestCompany">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestCompany">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_company")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.company}
-                      id="advGuestCompany" // 🏷️ ID único
-                      name="guest_company" // 🏷️ Atributo name
-                      onChange={(event) => setGuestAdvancedField("company", event.target.value)}
-                      placeholder={t("placeholder_company")}
-                    />
+                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.company} id="advGuestCompany" name="guest_company" onChange={(event) => setGuestAdvancedField("company", event.target.value)} placeholder={t("placeholder_company")} />
                   </label>
-                  <label className="flex flex-col gap-2 md:col-span-2" htmlFor="advGuestAddress">
+                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestAddress">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_address")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.address}
-                      id="advGuestAddress" // 🏷️ ID único
-                      name="guest_address" // 🏷️ Atributo name
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setGuestAdvancedField("address", nextValue);
-                        if (selectedGuestAddressPlace && normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)) {
-                          setSelectedGuestAddressPlace(null);
-                        }
-                      }}
-                      placeholder={t("placeholder_address")}
-                      autoComplete="off"
-                    />
-                    {mapsStatus === "ready" && guestAdvanced.address?.trim().length >= 4 && (
-                      <ul className="mt-1 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {isGuestAddressLoading ? <li className="px-4 py-3 text-xs text-gray-500">{t("address_searching")}</li> : null}
-                        {!isGuestAddressLoading && guestAddressPredictions.length === 0 ? <li className="px-4 py-3 text-xs text-gray-500">{t("address_no_matches")}</li> : null}
-                        {guestAddressPredictions.map((prediction) => (
-                          <li key={prediction.place_id}>
-                            <button type="button" className="w-full text-left px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300 transition-colors flex items-start gap-2" onClick={() => handleSelectGuestAddressPrediction(prediction)}>
-                              <Icon name="location" className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
-                              {prediction.description}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.address} id="advGuestAddress" name="guest_address" onChange={(event) => { const nextValue = event.target.value; setGuestAdvancedField("address", nextValue); if (selectedGuestAddressPlace && normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)) { setSelectedGuestAddressPlace(null); } }} placeholder={t("placeholder_address")} autoComplete="off" />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestPostalCode">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestPostalCode">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_postal_code")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.postalCode}
-                      id="advGuestPostalCode" // 🏷️ ID único
-                      name="guest_postalCode" // 🏷️ Atributo name
-                      onChange={(event) => setGuestAdvancedField("postalCode", event.target.value)}
-                      placeholder={t("placeholder_postal_code")}
-                    />
+                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.postalCode} id="advGuestPostalCode" name="guest_postalCode" onChange={(event) => setGuestAdvancedField("postalCode", event.target.value)} placeholder={t("placeholder_postal_code")} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestStateRegion">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestStateRegion">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_state_region")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.stateRegion}
-                      id="advGuestStateRegion" // 🏷️ ID único
-                      name="guest_stateRegion" // 🏷️ Atributo name
-                      onChange={(event) => setGuestAdvancedField("stateRegion", event.target.value)}
-                      placeholder={t("placeholder_state_region")}
-                    />
+                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.stateRegion} id="advGuestStateRegion" name="guest_stateRegion" onChange={(event) => setGuestAdvancedField("stateRegion", event.target.value)} placeholder={t("placeholder_state_region")} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestBirthday">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestBirthday">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_birthday")}</span>
-                    <input type="date" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.birthday}
-                      id="advGuestBirthday" // 🏷️ ID único
-                      name="guest_birthday" // 🏷️ Atributo name
-                      onChange={(event) => setGuestAdvancedField("birthday", event.target.value)}
-                    />
+                    <input type="date" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.birthday} id="advGuestBirthday" name="guest_birthday" onChange={(event) => setGuestAdvancedField("birthday", event.target.value)} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestLastMeetAt">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestLastMeetAt">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_last_meet")}</span>
-                    <input type="date" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.lastMeetAt}
-                      id="advGuestLastMeetAt" // 🏷️ ID único
-                      name="guest_lastMeetAt" // 🏷️ Atributo name
-                      onChange={(event) => setGuestAdvancedField("lastMeetAt", event.target.value)}
-                    />
+                    <input type="date" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.lastMeetAt} id="advGuestLastMeetAt" name="guest_lastMeetAt" onChange={(event) => setGuestAdvancedField("lastMeetAt", event.target.value)} />
                   </label>
-
-                  {/* Redes Sociales en línea de 3 en escritorio */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10">
-                    <label className="flex flex-col gap-2" htmlFor="advGuestTwitter">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10">
+                    <label className="flex flex-col gap-1.5" htmlFor="advGuestTwitter">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">X / Twitter</span>
-                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.twitter}
-                        id="advGuestTwitter" // 🏷️ ID único
-                        name="guest_twitter" // 🏷️ Atributo name
-                        onChange={(event) => setGuestAdvancedField("twitter", event.target.value)}
-                        placeholder={t("placeholder_social_x")} // 🏷️ Placeholder traducible
-                      />
+                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.twitter} id="advGuestTwitter" name="guest_twitter" onChange={(event) => setGuestAdvancedField("twitter", event.target.value)} placeholder={t("placeholder_social_x")} />
                     </label>
-                    <label className="flex flex-col gap-2" htmlFor="advGuestInstagram">
+                    <label className="flex flex-col gap-1.5" htmlFor="advGuestInstagram">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Instagram</span>
-                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.instagram}
-                        id="advGuestInstagram" // 🏷️ ID único
-                        name="guest_instagram" // 🏷️ Atributo name
-                        onChange={(event) => setGuestAdvancedField("instagram", event.target.value)}
-                        placeholder={t("placeholder_social_instagram")} // 🏷️ Placeholder traducible
-                      />
+                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.instagram} id="advGuestInstagram" name="guest_instagram" onChange={(event) => setGuestAdvancedField("instagram", event.target.value)} placeholder={t("placeholder_social_instagram")} />
                     </label>
-                    <label className="flex flex-col gap-2" htmlFor="advGuestLinkedIn">
+                    <label className="flex flex-col gap-1.5" htmlFor="advGuestLinkedIn">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">LinkedIn</span>
-                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.linkedIn}
-                        id="advGuestLinkedIn" // 🏷️ ID único
-                        name="guest_linkedIn" // 🏷️ Atributo name
-                        onChange={(event) => setGuestAdvancedField("linkedIn", event.target.value)}
-                        placeholder={t("placeholder_social_linkedin")} // 🏷️ Placeholder traducible
-                      />
+                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.linkedIn} id="advGuestLinkedIn" name="guest_linkedIn" onChange={(event) => setGuestAdvancedField("linkedIn", event.target.value)} placeholder={t("placeholder_social_linkedin")} />
                     </label>
                   </div>
                 </div>
@@ -710,25 +585,27 @@ export function GuestBuilderView({
 
             {guestAdvancedEditTab === "food" && (
               <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.food = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2"><MultiSelectField id="guest-experience-types" name="guest_experienceTypes" label={t("field_experience_type")} value={guestAdvanced.experienceTypes} options={eventTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("experienceTypes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <div className="md:col-span-2"><MultiSelectField id="guest-preferred-relationships" name="guest_preferredRelationships" label={t("field_relationship")} value={guestAdvanced.preferredGuestRelationships} options={relationshipOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredGuestRelationships", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestDietType">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestDietType">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_diet_type")}</span>
                     <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.dietType} id="advGuestDietType" name="guest_dietType" onChange={(event) => setGuestAdvancedField("dietType", event.target.value)}>
                       <option value="">{t("select_option_prompt")}</option>
                       {dietTypeOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
                     </select>
                   </label>
+
+                  <div className="md:col-span-2"><MultiSelectField id="guest-cuisine-types" name="guest_cuisineTypes" label={t("field_cuisine_type")} value={guestAdvanced.cuisineTypes} options={cuisineTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("cuisineTypes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                   <div className="md:col-span-2"><MultiSelectField id="guest-tasting-preferences" name="guest_tastingPreferences" label={t("field_tasting_preferences")} value={guestAdvanced.tastingPreferences} options={tastingPreferenceOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("tastingPreferences", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestFoodLikes">
+
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestFoodLikes">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_food_likes")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.foodLikes} id="advGuestFoodLikes" name="guest_foodLikes" onChange={(event) => setGuestAdvancedField("foodLikes", event.target.value)} placeholder={t("placeholder_food_likes")} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestFoodDislikes">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestFoodDislikes">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_food_dislikes")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.foodDislikes} id="advGuestFoodDislikes" name="guest_foodDislikes" onChange={(event) => setGuestAdvancedField("foodDislikes", event.target.value)} placeholder={t("placeholder_food_dislikes")} />
                   </label>
+
                   <div className="md:col-span-2"><MultiSelectField id="guest-drink-likes" name="guest_drinkLikes" label={t("field_drink_likes")} value={guestAdvanced.drinkLikes} options={drinkOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkLikes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                   <div className="md:col-span-2"><MultiSelectField id="guest-drink-dislikes" name="guest_drinkDislikes" label={t("field_drink_dislikes")} value={guestAdvanced.drinkDislikes} options={drinkOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkDislikes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                 </div>
@@ -737,63 +614,69 @@ export function GuestBuilderView({
 
             {guestAdvancedEditTab === "lifestyle" && (
               <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.lifestyle = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                  <div className="md:col-span-2"><MultiSelectField id="guest-experience-types" name="guest_experienceTypes" label={t("field_experience_type")} value={guestAdvanced.experienceTypes} options={eventTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("experienceTypes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                   <div className="md:col-span-2"><MultiSelectField id="guest-music-genres" name="guest_musicGenres" label={t("field_music_genres")} value={guestAdvanced.musicGenres} options={musicGenreOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("musicGenres", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestFavColor">
+
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestFavColor">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_favorite_color")}</span>
                     <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.favoriteColor} id="advGuestFavColor" name="guest_favoriteColor" onChange={(event) => setGuestAdvancedField("favoriteColor", event.target.value)}>
                       <option value="">{t("select_option_prompt")}</option>
                       {colorOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestBooks">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestBooks">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_books")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.books} id="advGuestBooks" name="guest_books" onChange={(event) => setGuestAdvancedField("books", event.target.value)} placeholder={t("placeholder_books")} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestMovies">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestMovies">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_movies")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.movies} id="advGuestMovies" name="guest_movies" onChange={(event) => setGuestAdvancedField("movies", event.target.value)} placeholder={t("placeholder_movies")} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestSeries">
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestSeries">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_series")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.series} id="advGuestSeries" name="guest_series" onChange={(event) => setGuestAdvancedField("series", event.target.value)} placeholder={t("placeholder_series")} />
                   </label>
+
                   <div className="md:col-span-2"><MultiSelectField id="guest-sports" name="guest_sports" label={t("field_sport")} value={guestAdvanced.sports} options={sportOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("sports", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-2 md:col-span-2" htmlFor="advGuestTeamFan">
+                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestTeamFan">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_team_fan")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.teamFan} id="advGuestTeamFan" name="guest_teamFan" onChange={(event) => setGuestAdvancedField("teamFan", event.target.value)} placeholder={t("placeholder_team")} />
                   </label>
-                  <div className="md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10"><MultiSelectField id="guest-day-moments" name="guest_preferredDayMoments" label={t("field_day_moment")} value={guestAdvanced.preferredDayMoments} options={dayMomentOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredDayMoments", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestPeriodicity">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_periodicity")}</span>
-                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.periodicity} id="advGuestPeriodicity" name="guest_periodicity" onChange={(event) => setGuestAdvancedField("periodicity", event.target.value)}>
-                      <option value="">{t("select_option_prompt")}</option>
-                      {periodicityOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestPunctuality">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_punctuality")}</span>
-                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.punctuality} id="advGuestPunctuality" name="guest_punctuality" onChange={(event) => setGuestAdvancedField("punctuality", event.target.value)}>
-                      <option value="">{t("select_option_prompt")}</option>
-                      {punctualityOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
-                    </select>
-                  </label>
-                  <div className="md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10"><MultiSelectField id="guest-cuisine-types" name="guest_cuisineTypes" label={t("field_cuisine_type")} value={guestAdvanced.cuisineTypes} options={cuisineTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("cuisineTypes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <div className="md:col-span-2"><MultiSelectField id="guest-pets" name="guest_pets" label={t("field_pets")} value={guestAdvanced.pets} options={petOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("pets", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
+
+                  <div className="md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10"><MultiSelectField id="guest-pets" name="guest_pets" label={t("field_pets")} value={guestAdvanced.pets} options={petOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("pets", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                 </div>
               </section>
             )}
 
             {guestAdvancedEditTab === "conversation" && (
               <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.conversation = node; }}>
-                <div className="grid grid-cols-1 gap-6">
-                  <label className="flex flex-col gap-2" htmlFor="advGuestLastTalkTopic">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                  <div className="md:col-span-2"><MultiSelectField id="guest-preferred-relationships" name="guest_preferredRelationships" label={t("field_relationship")} value={guestAdvanced.preferredGuestRelationships} options={relationshipOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredGuestRelationships", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
+
+                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestLastTalkTopic">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_last_talk_topic")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.lastTalkTopic} id="advGuestLastTalkTopic" name="guest_lastTalkTopic" onChange={(event) => setGuestAdvancedField("lastTalkTopic", event.target.value)} placeholder={t("placeholder_talk_topic")} />
                   </label>
-                  <label className="flex flex-col gap-2" htmlFor="advGuestTabooTopics">
+                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestTabooTopics">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_taboo_topics")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.tabooTopics} id="advGuestTabooTopics" name="guest_tabooTopics" onChange={(event) => setGuestAdvancedField("tabooTopics", event.target.value)} placeholder={t("placeholder_food_likes")} />
+                  </label>
+
+                  <div className="md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10"><MultiSelectField id="guest-day-moments" name="guest_preferredDayMoments" label={t("field_day_moment")} value={guestAdvanced.preferredDayMoments} options={dayMomentOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredDayMoments", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestPeriodicity">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_periodicity")}</span>
+                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.periodicity} id="advGuestPeriodicity" name="guest_periodicity" onChange={(event) => setGuestAdvancedField("periodicity", event.target.value)}>
+                      <option value="">{t("select_option_prompt")}</option>
+                      {periodicityOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1.5" htmlFor="advGuestPunctuality">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_punctuality")}</span>
+                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.punctuality} id="advGuestPunctuality" name="guest_punctuality" onChange={(event) => setGuestAdvancedField("punctuality", event.target.value)}>
+                      <option value="">{t("select_option_prompt")}</option>
+                      {punctualityOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
+                    </select>
                   </label>
                 </div>
               </section>
@@ -808,8 +691,8 @@ export function GuestBuilderView({
                   <MultiSelectField id="guest-medical-conditions" name="guest_medicalConditions" label={t("field_medical_conditions")} value={guestAdvanced.medicalConditions} options={medicalConditionOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("medicalConditions", nextValue)} helpText={t("multi_select_hint")} t={t} />
                   <MultiSelectField id="guest-dietary-medical-restrictions" name="guest_dietaryMedicalRestrictions" label={t("field_dietary_medical_restrictions")} value={guestAdvanced.dietaryMedicalRestrictions} options={dietaryMedicalRestrictionOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("dietaryMedicalRestrictions", nextValue)} helpText={t("multi_select_hint")} t={t} />
 
-                  <label className="flex items-start gap-4 p-5 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl cursor-pointer hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors mt-2" htmlFor="advGuestSensitiveConsent">
-                    <input type="checkbox" className="mt-1 w-5 h-5 text-red-600 bg-white border-red-300 rounded focus:ring-red-500 focus:ring-2 dark:bg-gray-800 dark:border-red-800" checked={Boolean(guestAdvanced.sensitiveConsent)} id="advGuestSensitiveConsent" name="guest_sensitiveConsent" onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)} />
+                  <label className="flex items-start gap-4 p-4 sm:p-5 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl cursor-pointer hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors mt-2" htmlFor="advGuestSensitiveConsent">
+                    <input type="checkbox" className="mt-1 w-5 h-5 text-red-600 bg-white border-red-300 rounded focus:ring-red-500 focus:ring-2 dark:bg-gray-800 dark:border-red-800 shrink-0" checked={Boolean(guestAdvanced.sensitiveConsent)} id="advGuestSensitiveConsent" name="guest_sensitiveConsent" onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)} />
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-bold text-red-900 dark:text-red-200">{t("field_sensitive_consent")}</span>
                       <span className="text-xs text-red-700/80 dark:text-red-300/80 leading-relaxed">{t("guest_sensitive_consent_hint")}</span>
@@ -825,7 +708,6 @@ export function GuestBuilderView({
       <datalist id="guest-city-options">{cityOptions.map((o) => (<option key={o} value={o} />))}</datalist>
       <datalist id="guest-country-options">{countryOptions.map((o) => (<option key={o} value={o} />))}</datalist>
 
-      {/* Input oculto real para recoger el archivo (🏷️ Movido fuera para que funcione en ambos modos) */}
       <input id="main-guest-photo-upload" type="file" accept="image/*" className="hidden" onChange={handleGuestPhotoFileChange} />
 
       {/* FOOTER CON BOTONES DE GUARDAR */}
@@ -843,6 +725,6 @@ export function GuestBuilderView({
           </button>
         </div>
       </div>
-    </form>
+    </form >
   );
 }

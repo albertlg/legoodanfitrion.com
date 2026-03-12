@@ -111,6 +111,7 @@ function MultiSelectField({ id, label, value, options, onChange, helpText, t }) 
       : [...selectedValues, optionValue];
     onChange(listToInput(nextValues));
   };
+
   const handleAddCustomOption = () => {
     const normalizedInput = String(customOption || "").trim();
     if (!normalizedInput) {
@@ -127,26 +128,40 @@ function MultiSelectField({ id, label, value, options, onChange, helpText, t }) 
   };
 
   return (
-    <div className="multi-select-field">
-      <p id={titleId} className="label-title">
+    <div className="flex flex-col gap-2.5 w-full">
+      {/* Título del campo (Alineado con el nuevo diseño del formulario) */}
+      <p id={titleId} className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
         {label}
       </p>
-      <div className="multi-chip-group" role="group" aria-labelledby={titleId}>
-        {mergedOptions.map((optionValue) => (
-          <button
-            key={optionValue}
-            type="button"
-            className={`multi-chip ${selectedValues.includes(optionValue) ? "active" : ""}`}
-            aria-pressed={selectedValues.includes(optionValue)}
-            onClick={() => toggleValue(optionValue)}
-          >
-            {optionValue}
-          </button>
-        ))}
+
+      {/* CHIPS */}
+      <div className="flex flex-wrap gap-2 md:gap-2.5" role="group" aria-labelledby={titleId}>
+        {mergedOptions.map((optionValue) => {
+          const isSelected = selectedValues.includes(optionValue);
+          return (
+            <button
+              key={optionValue}
+              type="button"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 md:px-4 md:py-2 rounded-full text-[13px] md:text-sm font-semibold transition-all duration-200 border outline-none focus:ring-2 focus:ring-blue-500/50 select-none ${isSelected
+                ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700/50 dark:text-blue-300 shadow-sm"
+                : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                }`}
+              aria-pressed={isSelected}
+              onClick={() => toggleValue(optionValue)}
+            >
+              {/* Checkmark animado para los seleccionados */}
+              {isSelected && <Icon name="check" className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+              <span>{optionValue}</span>
+            </button>
+          );
+        })}
       </div>
-      <div className="multi-chip-add">
+
+      {/* INPUT AÑADIR OPCIÓN CUSTOM (Estilo moderno con botón incrustado) */}
+      <div className="relative mt-1">
         <input
           type="text"
+          className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl pl-4 pr-24 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm"
           value={customOption}
           onChange={(event) => setCustomOption(event.target.value)}
           onKeyDown={(event) => {
@@ -158,10 +173,17 @@ function MultiSelectField({ id, label, value, options, onChange, helpText, t }) 
           placeholder={t("multi_select_add_placeholder")}
           aria-label={t("multi_select_add_placeholder")}
         />
-        <button className="btn btn-ghost btn-sm" type="button" onClick={handleAddCustomOption}>
+        <button
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold rounded-lg text-xs transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          onClick={handleAddCustomOption}
+          disabled={!customOption.trim()}
+        >
           {t("multi_select_add_button")}
         </button>
       </div>
+
+      {/* Mantenemos tu FieldMeta original intacto */}
       <FieldMeta helpText={helpText} />
     </div>
   );
@@ -3447,9 +3469,26 @@ function DashboardScreen({
         title: t("guest_detail_recommendations_lifestyle_title"),
         hint: t("guest_detail_recommendations_lifestyle_hint"),
         cards: [
-          { key: "decor", title: t("smart_hosting_decor"), values: selectedGuestHostingRecommendations.ambience },
-          { key: "music", title: t("smart_hosting_music"), values: selectedGuestHostingRecommendations.ambience.slice(0, 5) },
-          { key: "timing", title: t("smart_hosting_timing"), values: [t("smart_hosting_timing_on_time")] }
+          // 🚀 FIX: Usamos el color favorito para decoración. 
+          // (Si tu variable se llama distinto, cambia 'selectedGuestDetail.favorite_color' por la correcta)
+          {
+            key: "decor",
+            title: t("smart_hosting_decor"),
+            // Usamos tu función de catálogos pasándole "color" o "favorite_color"
+            values: selectedGuestDetailPreference?.favorite_color
+              ? [toCatalogLabel("color", selectedGuestDetailPreference.favorite_color, language)]
+              : []
+          },
+          {
+            key: "music",
+            title: t("smart_hosting_music"),
+            values: selectedGuestHostingRecommendations.ambience.slice(0, 5)
+          },
+          {
+            key: "timing",
+            title: t("smart_hosting_timing"),
+            values: [t("smart_hosting_timing_on_time")]
+          }
         ]
       },
       conversation: {
