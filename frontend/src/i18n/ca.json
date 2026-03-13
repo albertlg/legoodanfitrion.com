@@ -35,9 +35,18 @@
   "landing_nav_features": "Característiques",
   "landing_nav_pricing": "Preus",
   "landing_nav_contact": "Contacte",
-  "landing_badge": "Disponible aviat",
-  "landing_title": "Crea experiències memorables per als teus convidats",
-  "landing_subtitle": "Planifica esdeveniments, gestiona convidats i envia invitacions RSVP des d'una única plataforma elegant.",
+  "_old_landing_badge": "Disponible aviat",
+  "_old_landing_title": "Crea experiències memorables per als teus convidats",
+  "_old_landing_subtitle": "Planifica esdeveniments, gestiona convidats i envia invitacions RSVP des d'una única plataforma elegant.",
+  "landing_badge": "PROGRAMARI DE GESTIÓ D'ESDEVENIMENTS I RSVP",
+  "landing_title": "Deixa de perseguir confirmacions per WhatsApp.",
+  "landing_subtitle": "Convida amb un enllaç. Rep confirmacions (RSVP), controla acompanyants i gestiona al·lèrgies des d'un sol lloc. Sense Excels.",
+  "landing_cta_create_event": "Crear el meu esdeveniment",
+  "landing_cta_demo_real": "Veure un exemple real",
+  "landing_hero_microcopy": "Els teus convidats confirmen en 1 clic. Sense descarregar cap app.",
+  "landing_trust_1": "Perfecte en mòbil",
+  "landing_trust_2": "Confirmació en 1 clic",
+  "landing_trust_3": "Sense comptes ni contrasenyes",
   "landing_cta_start": "Començar gratis",
   "landing_cta_demo": "Veure demo",
   "landing_cta_open_app": "Obrir app",
@@ -1321,5 +1330,5 @@
   "placeholder_food_likes": "Ex. Pizza, Sushi",
   "placeholder_food_dislikes": "Ex. Ceba, Picant",
   "placeholder_talk_topic": "Ex. El viatge al Japó",
-  "guest_wiz_header_mode_edit": "Mode Edició"
+  "guest_wiz_header_mode_edit": "Mode d'Edició"
 }

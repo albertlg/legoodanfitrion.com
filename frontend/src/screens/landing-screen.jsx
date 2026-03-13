@@ -81,7 +81,8 @@ function LandingScreen({
 
   const primaryCta = session?.user?.id
     ? { label: t("landing_cta_open_app"), onClick: onGoApp }
-    : { label: t("landing_cta_start"), onClick: onGoLogin };
+    // 🚀 FIX CRO: Cambiamos "landing_cta_start" por la nueva clave enfocada a la acción
+    : { label: t("landing_cta_create_event"), onClick: onGoLogin };
 
   const handleJoinWaitlist = async (event) => {
     event.preventDefault();
@@ -405,42 +406,73 @@ function LandingScreen({
         {/* --- PAGE: HOME --- */}
         {pageMode === "home" ? (
           <>
-            <section className="flex flex-col justify-center items-center text-center px-6 min-h-[70vh] max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/30 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 shadow-sm">
+            <section className="flex flex-col justify-center items-center text-center px-6 min-h-[75vh] max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+
+              {/* 🚀 FIX SEO: Este es ahora el H1 real para los motores de búsqueda */}
+              <h1 className="px-4 py-1.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 shadow-sm">
                 {t("landing_badge")}
-              </span>
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-gray-900 dark:text-white leading-[1.1] mb-6">
-                {t("landing_title")}
               </h1>
-              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto font-medium leading-relaxed">
+
+              {/* 🚀 FIX CRO: Este es el gancho visual gigante, pero a nivel semántico es un simple párrafo o H2 */}
+              <p className="text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] mb-6 max-w-4xl text-balance">
+                {t("landing_title")}
+              </p>
+
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto font-medium leading-relaxed text-balance">
                 {t("landing_subtitle")}
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
-                <button
-                  className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:scale-[1.02] transition-transform"
-                  type="button"
-                  onClick={primaryCta.onClick}
-                >
-                  {primaryCta.label}
-                </button>
-                <button
-                  className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm"
-                  type="button"
-                  onClick={() => onNavigate("/features")}
-                >
-                  {t("landing_cta_demo")}
-                </button>
+
+              {/* 🚀 FIX CRO: CTAs mejorados y Microcopy */}
+              <div className="flex flex-col items-center gap-4 w-full sm:w-auto mt-2">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
+                  <button
+                    className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-black text-lg shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={primaryCta.onClick}
+                  >
+                    <Icon name="sparkle" className="w-5 h-5" />
+                    {primaryCta.label}
+                  </button>
+                  <button
+                    className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => onNavigate("/features")}
+                  >
+                    <Icon name="eye" className="w-5 h-5 opacity-70" />
+                    {t("landing_cta_demo_real")}
+                  </button>
+                </div>
+
+                {/* Microcopy de seguridad para reducir fricción */}
+                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-2">
+                  <Icon name="check" className="w-4 h-4 text-green-500" />
+                  {t("landing_hero_microcopy")}
+                </p>
+              </div>
+
+              {/* 🚀 FIX CRO: Bloque de confianza (Señales de 0 fricción) */}
+              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 mt-12 pt-8 border-t border-black/5 dark:border-white/5 w-full max-w-3xl mx-auto opacity-90">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="phone" className="w-4 h-4" /></div>
+                  {t("landing_trust_1")}
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="check" className="w-4 h-4" /></div>
+                  {t("landing_trust_2")}
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="user" className="w-4 h-4" /></div>
+                  {t("landing_trust_3")}
+                </div>
               </div>
 
               {/* Decorative Hero Image/Mockup */}
               <div className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gray-200 dark:bg-gray-800 border-t border-x border-black/5 dark:border-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl relative overflow-hidden group">
-                {/* Imagen temporal de evento. Cámbiala por una captura de tu app en el futuro */}
                 <img
                   src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
                   alt="LeGoodAnfitrión App Preview"
                   className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-105"
                 />
-                {/* Degradado para que la imagen se funda elegantemente con el fondo de la web */}
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-50 dark:from-[#0A0D14] via-transparent to-transparent"></div>
               </div>
             </section>
