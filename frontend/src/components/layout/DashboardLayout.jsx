@@ -95,7 +95,7 @@ export function DashboardLayout({
                             imageUrl={hostAvatarUrl}
                             size={36}
                         />
-                        <span className="hidden md:block text-sm font-bold text-gray-900 dark:text-white truncate">
+                        <span className="block text-sm font-bold text-gray-900 dark:text-white truncate">
                             {hostDisplayName}
                         </span>
                     </button>

@@ -44,6 +44,8 @@ function LandingScreen({
   const [openFaqKey, setOpenFaqKey] = useState("faq_1");
   const [toast, setToast] = useState({ visible: false, text: "", type: "success" });
   const toastTimerRef = useRef(null);
+  // 🚀 NUEVO: Estado para controlar el menú móvil
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const showToast = (text, type = "success") => {
     if (!text) {
@@ -303,9 +305,11 @@ function LandingScreen({
         <div className="flex items-center gap-6">
           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none" type="button" onClick={() => onNavigate("/")}>
             <BrandMark text="" fallback={t("logo_fallback")} className="w-8 h-8" />
-            <span className="font-black text-lg tracking-tight hidden sm:block">{t("app_name")}</span>
+            {/* 🚀 FIX: Quitamos hidden sm:block para que se vea siempre en móvil */}
+            <span className="font-black text-lg tracking-tight">{t("app_name")}</span>
           </button>
 
+          {/* Navegación Desktop */}
           <nav className="hidden md:flex items-center gap-1" aria-label={t("nav_sections")}>
             {NAV_ITEMS.map((item) => (
               <button
@@ -321,18 +325,79 @@ function LandingScreen({
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="hidden sm:block">
+          {/* Controles Desktop */}
+          <div className="hidden md:block">
             <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
           </div>
+
           <button
-            className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
+            className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
             type="button"
             onClick={primaryCta.onClick}
           >
             {primaryCta.label}
           </button>
+
+          {/* 🚀 NUEVO: Botón Hamburguesa (Solo Móvil) */}
+          <button
+            className="md:hidden p-2 -mr-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Menú"
+          >
+            <Icon name="menu" className="w-6 h-6" />
+          </button>
         </div>
       </header>
+
+      {/* 🚀 NUEVO: Drawer Menú Móvil (Glassmorphism) */}
+      <div
+        className={`fixed inset-0 z-[100] transition-opacity duration-300 md:hidden backdrop-blur-sm bg-black/40 dark:bg-black/70 ${isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+      <aside
+        className={`fixed inset-y-0 right-0 h-full w-72 z-[101] transform transition-transform duration-300 flex flex-col md:hidden backdrop-blur-2xl bg-white/95 dark:bg-[#0A0D14]/95 border-l border-gray-200 dark:border-white/10 shadow-2xl ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}`}
+        aria-hidden={!isMobileMenuOpen}
+        inert={!isMobileMenuOpen ? "" : undefined}
+      >
+        <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-black/5 dark:border-white/5">
+          <BrandMark text="" fallback={t("logo_fallback")} className="w-6 h-6" />
+          <button className="p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-2">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={`mob-${item.key}`}
+              className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${currentPath === item.path ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"}`}
+              onClick={() => {
+                onNavigate(item.path);
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              {t(item.labelKey)}
+            </button>
+          ))}
+
+          <div className="mt-4 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-6">
+            <button
+              className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-2xl font-black text-base shadow-lg hover:scale-[1.02] transition-transform"
+              onClick={() => {
+                primaryCta.onClick();
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              {primaryCta.label}
+            </button>
+            <div className="flex justify-center">
+              {/* Controles en móvil */}
+              <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
+            </div>
+          </div>
+        </div>
+      </aside>
 
       {/* MAIN CONTENT WRAPPER */}
       <div className="flex-1 relative z-10 flex flex-col pt-24 md:pt-32">
@@ -672,27 +737,26 @@ function LandingScreen({
 
       {/* FOOTER GLOBAL */}
       <footer className="w-full bg-white/30 dark:bg-black/30 backdrop-blur-lg border-t border-black/5 dark:border-white/5 py-8 mt-auto relative z-20">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <BrandMark text="" fallback={t("logo_fallback")} className="w-5 h-5 opacity-50 grayscale" />
-            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">© 2026 {t("app_name")}</p>
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <div className="flex items-center gap-2">
+              <BrandMark text="" fallback={t("logo_fallback")} className="w-5 h-5 opacity-50 grayscale" />
+              <span className="font-bold tracking-tight text-gray-900 dark:text-white opacity-80">{t("app_name")}</span>
+            </div>
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">© 2026 Reservados todos los derechos.</p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
-            {/* Los enlaces de footer asumo que abren /contact por ahora, pero puedes ajustarlos */}
-            <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            {/* 🚀 FIX: Hemos eliminado <Controls/> de aquí. Ahora el footer es solo enlaces. */}
+            <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
               {t("landing_footer_privacy")}
             </button>
-            <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
+            <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
               {t("landing_footer_terms")}
             </button>
-            <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
+            <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
               {t("landing_nav_contact")}
             </button>
-          </div>
-
-          <div className="hidden md:block">
-            <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
           </div>
         </div>
       </footer>

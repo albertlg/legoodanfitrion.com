@@ -8473,6 +8473,20 @@ body {
     }
   }
 
+  /* ==========================================
+   AJUSTES DE WIDGETS EXTERNOS (MOBILE)
+   ========================================== */
+  @media (max-width: 768px) {
+
+    /* Empujar CookieBot por encima de nuestra Bottom Nav Bar */
+    #CookiebotWidget,
+    .CookiebotWidget,
+    div[id^="Cookie"] {
+      bottom: 85px !important;
+      /* Ajusta este valor según necesites (85px suele salvar la barra) */
+    }
+  }
+
   /* -------------------------------------------------------------------------- */
   /* SCROLLBAR ADAPTATIVO (CLARO / OSCURO)                                      */
   /* -------------------------------------------------------------------------- */
