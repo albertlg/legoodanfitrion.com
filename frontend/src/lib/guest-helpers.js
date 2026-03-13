@@ -2,7 +2,7 @@
 import { supabase } from "./supabaseClient";
 import { buildAppUrl } from "./app-url";
 import { CATALOGS, toCatalogCode, toCatalogLabel, toCatalogLabels } from "./guest-catalogs";
-import { normalizeLookupValue, uniqueValues, toList, splitListInput, listToInput, toNullable, normalizeIsoDate, isBlankValue, interpolateText } from "./formatters";
+import { normalizeLookupValue, uniqueValues, toList, splitListInput, listToInput, normalizeIsoDate, isBlankValue, interpolateText } from "./formatters";
 import { GUEST_AVATAR_STORAGE_BUCKET, GUEST_AVATAR_MAX_BYTES } from "./constants";
 
 export function normalizeEmailKey(value) {

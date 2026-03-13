@@ -17,7 +17,6 @@ export function DashboardOverview({
     upcomingEventsPreview,
     openEventDetail,
     interpolateText,
-    statusClass,
     statusText,
     hostDisplayName,
     hostInitials,
@@ -33,12 +32,6 @@ export function DashboardOverview({
     conversionTrend14d,
     conversionTrendMax,
 }) {
-    // Clases base para el Glassmorphism
-    const glassPanelClass = "bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 shadow-sm p-5 md:p-6 transition-all";
-    const glassInteractiveClass = "is-interactive hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md cursor-pointer";
-    const textPrimaryClass = "text-gray-900 dark:text-white";
-    const textSecondaryClass = "text-gray-500 dark:text-gray-400";
-
     return (
         <section className="max-w-6xl mx-auto w-full flex flex-col view-transition">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">

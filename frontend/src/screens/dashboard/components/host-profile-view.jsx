@@ -31,12 +31,9 @@ export function HostProfileView({
   handleApplyGlobalShareAction,
   isPausingGlobalShares,
   isRevokingGlobalShares,
-  globalProfileId,
   globalShareActiveCount,
-  globalShareSelfTargetCount,
   globalShareDraftByHostId,
   inferGlobalSharePreset,
-  statusClass,
   handleApplyGlobalSharePreset,
   handleChangeGlobalShareDraft,
   previewGlobalShareHostId,
@@ -55,8 +52,6 @@ export function HostProfileView({
   loadIntegrationStatusData,
   isLoadingIntegrationStatus,
   integrationStatus,
-  integrationShareTargetCount,
-  integrationSelfTargetCount,
   integrationChecks,
   integrationStatusMessage,
   handleSaveHostProfile,
@@ -100,15 +95,13 @@ export function HostProfileView({
   selectedGuestAddressPlace,
   setSelectedGuestAddressPlace,
   mapsStatus,
-  mapsError,
   isGuestAddressLoading,
   guestAddressPredictions,
   handleSelectGuestAddressPrediction,
   isSavingGuest,
   isEditingGuest,
   guestMessage,
-  openGuestDetail,
-  openWorkspace
+  openGuestDetail
 }) {
   return (
     <section className="max-w-6xl mx-auto w-full flex flex-col gap-8 p-4 md:p-0 mt-6 pb-20">

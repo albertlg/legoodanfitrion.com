@@ -5,7 +5,6 @@ import { InlineMessage } from "../../../components/inline-message";
 
 export function EventBuilderView({
     t,
-    language,
     timezone,
     handleSaveEvent,
     isSavingEvent,

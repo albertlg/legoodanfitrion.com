@@ -134,13 +134,6 @@ export function EventDetailView({
   const eventDateLabel = formatLongDate(selectedEventDetail?.start_at, language, t("no_date"));
   const eventTimeLabel = formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"));
   const eventPlaceLabel = selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-";
-  const eventMapsExternalUrl =
-    typeof selectedEventDetail?.location_lat === "number" && typeof selectedEventDetail?.location_lng === "number"
-      ? `https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`
-      : selectedEventDetail?.location_address
-        ? `https://www.google.com/maps?q=${encodeURIComponent(selectedEventDetail.location_address)}`
-        : "";
-  const eventSatelliteEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 17);
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);

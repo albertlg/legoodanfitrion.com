@@ -29,6 +29,145 @@ export function getImportWizardSource(searchParams) {
     return ["csv", "gmail", "mobile"].includes(next) ? next : "";
 }
 
+export function normalizeDashboardRouteState(appRoute) {
+    const next = {
+        activeView: "overview",
+        eventsWorkspace: "latest",
+        guestsWorkspace: "latest",
+        invitationsWorkspace: "latest",
+        selectedEventDetailId: "",
+        eventPlannerTab: "menu",
+        selectedGuestDetailId: "",
+        guestProfileViewTab: "general",
+        guestAdvancedEditTab: "identity",
+        importWizardSource: ""
+    };
+    if (!appRoute || typeof appRoute !== "object") return next;
+
+    const view = String(appRoute.view || "").trim();
+    if (!["overview", "profile", "events", "guests", "invitations"].includes(view)) return next;
+    next.activeView = view;
+
+    const workspace = String(appRoute.workspace || "").trim();
+    if (view === "events") {
+        if (["latest", "create", "detail", "plan", "insights"].includes(workspace)) next.eventsWorkspace = workspace;
+        next.selectedEventDetailId = String(appRoute.eventId || "").trim();
+        const nextEventPlannerTab = String(appRoute.eventPlannerTab || "").trim().toLowerCase();
+        if (EVENT_PLANNER_TABS.has(nextEventPlannerTab)) next.eventPlannerTab = nextEventPlannerTab;
+    }
+    if (view === "guests") {
+        if (["latest", "create", "detail"].includes(workspace)) next.guestsWorkspace = workspace;
+        next.selectedGuestDetailId = String(appRoute.guestId || "").trim();
+        const nextGuestProfileTab = String(appRoute.guestProfileTab || "").trim().toLowerCase();
+        if (GUEST_PROFILE_TABS.has(nextGuestProfileTab)) next.guestProfileViewTab = nextGuestProfileTab;
+        const nextGuestAdvancedTab = String(appRoute.guestAdvancedTab || "").trim().toLowerCase();
+        if (GUEST_ADVANCED_EDIT_TABS.has(nextGuestAdvancedTab)) next.guestAdvancedEditTab = nextGuestAdvancedTab;
+        const nextImportWizardSource = String(appRoute.importWizardSource || "").trim().toLowerCase();
+        if (["csv", "gmail", "mobile"].includes(nextImportWizardSource)) next.importWizardSource = nextImportWizardSource;
+    }
+    if (view === "invitations") {
+        if (["latest", "create"].includes(workspace)) next.invitationsWorkspace = workspace;
+    }
+    return next;
+}
+
+export function encodePathSegment(segment) {
+    return encodeURIComponent(String(segment || "").trim());
+}
+
+export function buildDashboardPathFromState({
+    activeView,
+    eventsWorkspace,
+    guestsWorkspace,
+    invitationsWorkspace,
+    selectedEventDetailId,
+    eventPlannerTab,
+    selectedGuestDetailId,
+    guestProfileViewTab,
+    guestAdvancedEditTab,
+    editingGuestId,
+    routeEventDetailId,
+    routeEventPlannerTab,
+    routeGuestDetailId
+}) {
+    if (activeView === "overview") return "/app";
+    if (activeView === "profile") return "/profile";
+    if (activeView === "events") {
+        const effectiveEventDetailId = String(selectedEventDetailId || routeEventDetailId || "").trim();
+        const normalizedEventPlannerTab = String(eventPlannerTab || "").trim().toLowerCase();
+        const normalizedRouteEventPlannerTab = String(routeEventPlannerTab || "").trim().toLowerCase();
+        const effectiveEventPlannerTab = EVENT_PLANNER_TABS.has(normalizedEventPlannerTab)
+            ? normalizedEventPlannerTab
+            : EVENT_PLANNER_TABS.has(normalizedRouteEventPlannerTab)
+                ? normalizedRouteEventPlannerTab
+                : "menu";
+        if (eventsWorkspace === "create") return "/app/events/new";
+        if (eventsWorkspace === "insights") return "/app/events/insights";
+        if (eventsWorkspace === "plan" && effectiveEventDetailId) {
+            return `/app/events/${encodePathSegment(effectiveEventDetailId)}/plan/${encodePathSegment(effectiveEventPlannerTab)}`;
+        }
+        if (eventsWorkspace === "detail" && effectiveEventDetailId) return `/app/events/${encodePathSegment(effectiveEventDetailId)}`;
+        return "/app/events";
+    }
+    if (activeView === "guests") {
+        const effectiveGuestDetailId = String(selectedGuestDetailId || routeGuestDetailId || "").trim();
+        if (guestsWorkspace === "create") {
+            const tab = String(guestAdvancedEditTab || "identity").trim().toLowerCase();
+            const safeTab = GUEST_ADVANCED_EDIT_TABS.has(tab) ? tab : "identity";
+            const editableGuestId = String(editingGuestId || routeGuestDetailId || "").trim();
+            if (editableGuestId) return `/app/guests/${encodePathSegment(editableGuestId)}/edit/advanced/${encodePathSegment(safeTab)}`;
+            return `/app/guests/new/advanced/${encodePathSegment(safeTab)}`;
+        }
+        if (guestsWorkspace === "detail" && effectiveGuestDetailId) {
+            const tab = String(guestProfileViewTab || "general").trim().toLowerCase();
+            if (tab && tab !== "general" && GUEST_PROFILE_TABS.has(tab)) {
+                return `/app/guests/${encodePathSegment(effectiveGuestDetailId)}/${encodePathSegment(tab)}`;
+            }
+            return `/app/guests/${encodePathSegment(effectiveGuestDetailId)}`;
+        }
+        return "/app/guests";
+    }
+    if (activeView === "invitations") {
+        if (invitationsWorkspace === "create") return "/app/invitations/new";
+        return "/app/invitations";
+    }
+    return "/app";
+}
+
+export function isSpecificEventDetailPath(pathname) {
+    return /^\/app\/events\/[^/]+(?:\/plan\/(?:menu|shopping|ambience|timings|communication|risks)|\/(?:menu|shopping|ambience|timings|communication|risks))?$/.test(String(pathname || "").trim());
+}
+
+export function isSpecificGuestDetailPath(pathname) {
+    return /^\/app\/guests\/[^/]+(?:\/(?:general|food|lifestyle|conversation|health|history))?$/.test(String(pathname || "").trim());
+}
+
+export function isSpecificGuestAdvancedEditPath(pathname) {
+    return /^\/app\/guests\/[^/]+\/edit\/advanced\/[^/]+$/.test(String(pathname || "").trim());
+}
+
+function isGenericEventPath(pathname) {
+    return String(pathname || "").trim() === "/app/events";
+}
+
+function isGenericGuestPath(pathname) {
+    return String(pathname || "").trim() === "/app/guests";
+}
+
+function isNewGuestAdvancedPath(pathname) {
+    return /^\/app\/guests\/new\/advanced\/[^/]+$/.test(String(pathname || "").trim());
+}
+
+export function shouldPreserveSpecificPath(currentPath, nextPath) {
+    const current = String(currentPath || "").trim();
+    const next = String(nextPath || "").trim();
+    if (!current || !next || current === next) return false;
+    if (isSpecificEventDetailPath(current) && isGenericEventPath(next)) return true;
+    if (isSpecificGuestDetailPath(current) && isGenericGuestPath(next)) return true;
+    if (isSpecificGuestAdvancedEditPath(current) && (isGenericGuestPath(next) || isNewGuestAdvancedPath(next))) return true;
+    return false;
+}
+
 export function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
     const normalized = normalizePathname(pathname);
     const segments = normalized.split("/").filter(Boolean).slice(1);

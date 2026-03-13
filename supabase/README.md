@@ -240,6 +240,11 @@ where routine_schema = 'public'
   and routine_name = 'upsert_event_host_plan';
 ```
 
+Nota de bootstrap:
+- `018_event_host_plans.sql` es la migracion canonica (tabla + RPC).
+- `020_create_event_host_plans.sql` queda como parche de compatibilidad legacy y no hace falta ejecutarlo manualmente.
+- Si tu entorno ejecuta todos los SQL por orden numerico, no hay conflicto: `020` solo refuerza `handle_updated_at()` y trigger.
+
 ## Paso 2 (verificación rápida)
 
 En `SQL Editor`, ejecuta:

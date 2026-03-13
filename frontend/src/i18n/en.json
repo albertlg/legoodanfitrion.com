@@ -1309,6 +1309,7 @@
   "placeholder_phone": "+1 555-123-4567",
   "placeholder_city": "e.g., London",
   "placeholder_country": "e.g., United Kingdom",
+  "guest_wiz_header_mode_edit": "Edit Mode",
   "placeholder_guest_no_name": "Unnamed Guest",
   "placeholder_guest_no_contact": "No contact details",
   "placeholder_company": "e.g., Acme Corp",

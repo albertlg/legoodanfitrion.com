@@ -11,7 +11,6 @@ export function DashboardLayout({
     setThemeMode,
     language,
     setLanguage,
-    session,
     onSignOut,
     hostDisplayName,
     hostInitials,

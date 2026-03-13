@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { BrandMark } from "./components/brand-mark";
 import { Controls } from "./components/controls";
 import ca from "./i18n/ca.json";
@@ -8,13 +8,31 @@ import fr from "./i18n/fr.json";
 import it from "./i18n/it.json";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
-import { AuthScreen } from "./screens/auth-screen";
-import { DashboardScreen } from "./screens/dashboard-screen";
-import { LandingScreen } from "./screens/landing-screen";
-import { PublicRsvpScreen } from "./screens/public-rsvp-screen";
 import { useAppRouter } from "./router-utils";
 
 const I18N = { es, ca, en, fr, it };
+const AuthScreen = lazy(() =>
+  import("./screens/auth-screen").then((module) => ({ default: module.AuthScreen }))
+);
+const LandingScreen = lazy(() =>
+  import("./screens/landing-screen").then((module) => ({ default: module.LandingScreen }))
+);
+const DashboardScreen = lazy(() =>
+  import("./screens/dashboard-screen").then((module) => ({ default: module.DashboardScreen }))
+);
+const PublicRsvpScreen = lazy(() =>
+  import("./screens/public-rsvp-screen").then((module) => ({ default: module.PublicRsvpScreen }))
+);
+
+function ScreenFallback() {
+  return (
+    <main className="page">
+      <section className="card app-card">
+        <p className="hint">Cargando...</p>
+      </section>
+    </main>
+  );
+}
 
 function detectLanguage() {
   const stored = window.localStorage.getItem("legood-language");
@@ -428,125 +446,135 @@ function App() {
 
   if (route.kind === "rsvp" && route.token) {
     return (
-      <PublicRsvpScreen
-        token={route.token}
-        language={language}
-        setLanguage={setLanguage}
-        themeMode={themeMode}
-        setThemeMode={setThemeMode}
-        t={t}
-      />
+      <Suspense fallback={<ScreenFallback />}>
+        <PublicRsvpScreen
+          token={route.token}
+          language={language}
+          setLanguage={setLanguage}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          t={t}
+        />
+      </Suspense>
     );
   }
 
   if (route.kind === "landing") {
     return (
-      <LandingScreen
-        t={t}
-        language={language}
-        setLanguage={setLanguage}
-        themeMode={themeMode}
-        setThemeMode={setThemeMode}
-        currentPath={route.path}
-        session={session}
-        onNavigate={navigate}
-        onGoLogin={() => navigate("/login")}
-        onGoApp={() => navigate("/app")}
-      />
+      <Suspense fallback={<ScreenFallback />}>
+        <LandingScreen
+          t={t}
+          language={language}
+          setLanguage={setLanguage}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          currentPath={route.path}
+          session={session}
+          onNavigate={navigate}
+          onGoLogin={() => navigate("/login")}
+          onGoApp={() => navigate("/app")}
+        />
+      </Suspense>
     );
   }
 
   if (route.kind === "login" && isRecoveryMode) {
     return (
-      <AuthScreen
-        t={t}
-        language={language}
-        setLanguage={setLanguage}
-        themeMode={themeMode}
-        setThemeMode={setThemeMode}
-        isLoadingAuth={isLoadingAuth}
-        authError={authError}
-        accountMessage={accountMessage}
-        loginEmail={loginEmail}
-        setLoginEmail={setLoginEmail}
-        loginPassword={loginPassword}
-        setLoginPassword={setLoginPassword}
-        isSigningIn={isSigningIn}
-        isSigningUp={isSigningUp}
-        isSigningInWithGoogle={isSigningInWithGoogle}
-        isSendingPasswordReset={isSendingPasswordReset}
-        isRecoveryMode={isRecoveryMode}
-        resetPassword={resetPassword}
-        setResetPassword={setResetPassword}
-        resetPasswordConfirm={resetPasswordConfirm}
-        setResetPasswordConfirm={setResetPasswordConfirm}
-        isUpdatingPassword={isUpdatingPassword}
-        onUpdatePassword={handleUpdatePassword}
-        onExitRecovery={() => {
-          setIsRecoveryMode(false);
-          navigate("/login", { replace: true });
-        }}
-        onSignIn={handleSignIn}
-        onSignUp={handleSignUp}
-        onForgotPassword={handleForgotPassword}
-        onGoogleSignIn={handleGoogleSignIn}
-        onBackToLanding={() => navigate("/")}
-      />
+      <Suspense fallback={<ScreenFallback />}>
+        <AuthScreen
+          t={t}
+          language={language}
+          setLanguage={setLanguage}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          isLoadingAuth={isLoadingAuth}
+          authError={authError}
+          accountMessage={accountMessage}
+          loginEmail={loginEmail}
+          setLoginEmail={setLoginEmail}
+          loginPassword={loginPassword}
+          setLoginPassword={setLoginPassword}
+          isSigningIn={isSigningIn}
+          isSigningUp={isSigningUp}
+          isSigningInWithGoogle={isSigningInWithGoogle}
+          isSendingPasswordReset={isSendingPasswordReset}
+          isRecoveryMode={isRecoveryMode}
+          resetPassword={resetPassword}
+          setResetPassword={setResetPassword}
+          resetPasswordConfirm={resetPasswordConfirm}
+          setResetPasswordConfirm={setResetPasswordConfirm}
+          isUpdatingPassword={isUpdatingPassword}
+          onUpdatePassword={handleUpdatePassword}
+          onExitRecovery={() => {
+            setIsRecoveryMode(false);
+            navigate("/login", { replace: true });
+          }}
+          onSignIn={handleSignIn}
+          onSignUp={handleSignUp}
+          onForgotPassword={handleForgotPassword}
+          onGoogleSignIn={handleGoogleSignIn}
+          onBackToLanding={() => navigate("/")}
+        />
+      </Suspense>
     );
   }
 
   if (!session?.user?.id) {
     return (
-      <AuthScreen
+      <Suspense fallback={<ScreenFallback />}>
+        <AuthScreen
+          t={t}
+          language={language}
+          setLanguage={setLanguage}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          isLoadingAuth={isLoadingAuth}
+          authError={authError}
+          accountMessage={accountMessage}
+          loginEmail={loginEmail}
+          setLoginEmail={setLoginEmail}
+          loginPassword={loginPassword}
+          setLoginPassword={setLoginPassword}
+          isSigningIn={isSigningIn}
+          isSigningUp={isSigningUp}
+          isSigningInWithGoogle={isSigningInWithGoogle}
+          isSendingPasswordReset={isSendingPasswordReset}
+          isRecoveryMode={isRecoveryMode}
+          resetPassword={resetPassword}
+          setResetPassword={setResetPassword}
+          resetPasswordConfirm={resetPasswordConfirm}
+          setResetPasswordConfirm={setResetPasswordConfirm}
+          isUpdatingPassword={isUpdatingPassword}
+          onUpdatePassword={handleUpdatePassword}
+          onExitRecovery={() => {
+            setIsRecoveryMode(false);
+            navigate("/login", { replace: true });
+          }}
+          onSignIn={handleSignIn}
+          onSignUp={handleSignUp}
+          onForgotPassword={handleForgotPassword}
+          onGoogleSignIn={handleGoogleSignIn}
+          onBackToLanding={() => navigate("/")}
+        />
+      </Suspense>
+    );
+  }
+
+  return (
+    <Suspense fallback={<ScreenFallback />}>
+      <DashboardScreen
         t={t}
         language={language}
         setLanguage={setLanguage}
         themeMode={themeMode}
         setThemeMode={setThemeMode}
-        isLoadingAuth={isLoadingAuth}
-        authError={authError}
-        accountMessage={accountMessage}
-        loginEmail={loginEmail}
-        setLoginEmail={setLoginEmail}
-        loginPassword={loginPassword}
-        setLoginPassword={setLoginPassword}
-        isSigningIn={isSigningIn}
-        isSigningUp={isSigningUp}
-        isSigningInWithGoogle={isSigningInWithGoogle}
-        isSendingPasswordReset={isSendingPasswordReset}
-        isRecoveryMode={isRecoveryMode}
-        resetPassword={resetPassword}
-        setResetPassword={setResetPassword}
-        resetPasswordConfirm={resetPasswordConfirm}
-        setResetPasswordConfirm={setResetPasswordConfirm}
-        isUpdatingPassword={isUpdatingPassword}
-        onUpdatePassword={handleUpdatePassword}
-        onExitRecovery={() => {
-          setIsRecoveryMode(false);
-          navigate("/login", { replace: true });
-        }}
-        onSignIn={handleSignIn}
-        onSignUp={handleSignUp}
-        onForgotPassword={handleForgotPassword}
-        onGoogleSignIn={handleGoogleSignIn}
-        onBackToLanding={() => navigate("/")}
+        session={session}
+        onSignOut={handleSignOut}
+        appRoute={route.appRoute || null}
+        appPath={route.path || "/app"}
+        onNavigateApp={navigate}
       />
-    );
-  }
-
-  return (
-    <DashboardScreen
-      t={t}
-      language={language}
-      setLanguage={setLanguage}
-      themeMode={themeMode}
-      setThemeMode={setThemeMode}
-      session={session}
-      onSignOut={handleSignOut}
-      appRoute={route.appRoute || null}
-      appPath={route.path || "/app"}
-      onNavigateApp={navigate}
-    />
+    </Suspense>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HostProfileView } from "./dashboard/components/host-profile-view";
 import { AvatarCircle } from "../components/avatar-circle";
@@ -7,7 +7,6 @@ import { Controls } from "../components/controls";
 import { FieldMeta } from "../components/field-meta";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
-import { EventPlannerContextModal } from "./dashboard/components/event-planner-context-modal";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
 import { DashboardOverview } from "../components/dashboard/DashboardOverview";
 import { EventDetailView } from "./dashboard/components/event-detail-view";
@@ -64,14 +63,14 @@ import {
 import {
   normalizeEmailKey, normalizePhoneKey, getMergedFieldValue, formatMergeReviewValue,
   buildGuestFingerprint, buildGuestNameKey, buildGuestFullNameKey, buildGuestMatchingKeys,
-  getImportDuplicateReasonCodes, getImportDuplicateMergeConfidence, getImportDuplicateMergeConfidenceStatusClass,
+  getImportDuplicateReasonCodes, getImportDuplicateMergeConfidence,
   buildGuestDuplicateMatchScore, mergeUniqueListValues, normalizeImportSource, tagImportedContacts,
   deriveGuestNameFromContact, toContactGroupsList, calculateImportContactCaptureScore,
   getImportPotentialLevel, deriveRelationshipCodeFromContact, splitFullName, normalizeDeviceContact,
-  readImageFileAsDataUrl, isDataImageUrl, extensionFromMimeType, uploadGuestAvatarToStorage,
-  getGuestAvatarUrl, getGuestPhotoValue, translateCatalogInputList, toPetAllergyLabel,
-  toPetAllergyLabels, buildCatalogLookupSet, INTOLERANCE_LOOKUP_SET, MEDICAL_CONDITION_LOOKUP_SET,
-  DIETARY_MEDICAL_LOOKUP_SET, splitLegacyHealthSignalsFromIntolerances, normalizeSensitiveRecord,
+  readImageFileAsDataUrl, isDataImageUrl, uploadGuestAvatarToStorage,
+  getGuestAvatarUrl, getGuestPhotoValue, translateCatalogInputList,
+  toPetAllergyLabels, INTOLERANCE_LOOKUP_SET, MEDICAL_CONDITION_LOOKUP_SET,
+  DIETARY_MEDICAL_LOOKUP_SET, normalizeSensitiveRecord,
   hasGuestHealthAlerts, buildHostInvitePayload, inferGlobalSharePreset, applyGlobalSharePreset,
   formatGlobalShareEventType, getGlobalShareVisibleScopes
 } from "../lib/guest-helpers";
@@ -80,19 +79,32 @@ import {
   EVENT_TYPE_TO_PLANNER_PRESET, EVENT_TYPE_TO_DEFAULT_HOUR, statusText, statusClass,
   getConversionSource, getConversionSourceLabel, getMapEmbedUrl, normalizeEventDressCode,
   normalizeEventPlaylistMode, normalizeEventSettings, hasEventSettingsColumns,
-  getSuggestedEventSettingsFromInsights, buildHostingPlaybookActions, rotateValues,
-  isAlcoholicDrink, rankItemsWithKeywords, buildPlannerHealthProfile, parseEventDurationHours,
+  getSuggestedEventSettingsFromInsights, buildHostingPlaybookActions,
   buildEventPlannerContext, buildEventMealPlan, applyPlannerOverrides, buildEventPlannerPromptBundle,
   buildEventHostPlaybook
 } from "../lib/event-planner-helpers";
 
 import {
   isCompatibilityError, isMissingRelationError, isMissingDbFeatureError, readEventSettingsCache,
-  writeEventSettingsCache, readGuestGeoCache, writeGuestGeoCache, toSelectedPlaceFromLocationPair,
-  mergeOptionsWithSelected, normalizeDashboardRouteState, encodePathSegment, buildDashboardPathFromState,
-  isSpecificEventDetailPath, isSpecificGuestDetailPath, isSpecificGuestAdvancedEditPath,
-  isGenericEventPath, isGenericGuestPath, isNewGuestAdvancedPath, shouldPreserveSpecificPath
+  writeEventSettingsCache, readGuestGeoCache, writeGuestGeoCache, mergeOptionsWithSelected
 } from "../lib/system-helpers";
+import {
+  normalizeDashboardRouteState,
+  buildDashboardPathFromState,
+  isSpecificEventDetailPath,
+  isSpecificGuestDetailPath,
+  isSpecificGuestAdvancedEditPath,
+  shouldPreserveSpecificPath
+} from "../router-utils";
+import { useDashboardNavigationState } from "../hooks/useDashboardNavigationState";
+import { useEventPlannerState } from "../hooks/useEventPlannerState";
+import { useImportWizardState } from "../hooks/useImportWizardState";
+
+const EventPlannerContextModal = lazy(() =>
+  import("./dashboard/components/event-planner-context-modal").then((module) => ({
+    default: module.EventPlannerContextModal
+  }))
+);
 
 function getWorkspaceItemsByView(viewKey, includeHub = true) {
   const workspaceItems = WORKSPACE_ITEMS[viewKey] || [];
@@ -346,47 +358,59 @@ function DashboardScreen({
     () => normalizeDashboardRouteState(appRoute).importWizardSource || "",
     [appRoute]
   );
-  const [activeView, setActiveView] = useState(initialRouteState.activeView);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [eventsWorkspace, setEventsWorkspace] = useState(initialRouteState.eventsWorkspace);
-  const [guestsWorkspace, setGuestsWorkspace] = useState(initialRouteState.guestsWorkspace);
-  const [invitationsWorkspace, setInvitationsWorkspace] = useState(initialRouteState.invitationsWorkspace);
-  const [selectedEventDetailId, setSelectedEventDetailId] = useState(initialRouteState.selectedEventDetailId);
-  const [selectedGuestDetailId, setSelectedGuestDetailId] = useState(initialRouteState.selectedGuestDetailId);
-  const [eventDetailPlannerTab, setEventDetailPlannerTab] = useState(initialRouteState.eventPlannerTab || "menu");
-  const [eventPlannerShoppingFilter, setEventPlannerShoppingFilter] = useState("all");
-  const [eventPlannerRegenerationByEventId, setEventPlannerRegenerationByEventId] = useState({});
-  const [eventPlannerRegenerationByEventIdByTab, setEventPlannerRegenerationByEventIdByTab] = useState({});
-  const [eventPlannerContextOverridesByEventId, setEventPlannerContextOverridesByEventId] = useState({});
-  const [eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId] = useState({});
-  const [eventPlannerSnapshotHistoryByEventId, setEventPlannerSnapshotHistoryByEventId] = useState({});
-  const [eventPlannerGenerationByEventId, setEventPlannerGenerationByEventId] = useState({});
-  const [isEventPlannerContextOpen, setIsEventPlannerContextOpen] = useState(false);
-  const [eventPlannerContextFocusField, setEventPlannerContextFocusField] = useState("");
-  const [showEventPlannerTechnicalPrompt, setShowEventPlannerTechnicalPrompt] = useState(false);
-  const [eventPlannerContextDraft, setEventPlannerContextDraft] = useState({
-    preset: "social",
-    momentKey: "evening",
-    toneKey: "casual",
-    budgetKey: "medium",
-    durationHours: "4",
-    allowPlusOne: false,
-    autoReminders: false,
-    dressCode: "none",
-    playlistMode: "host_only",
-    foodSuggestions: "",
-    drinkSuggestions: "",
-    avoidItems: "",
-    medicalConditions: "",
-    dietaryMedicalRestrictions: "",
-    musicGenres: "",
-    decorColors: "",
-    icebreakers: "",
-    tabooTopics: "",
-    additionalInstructions: ""
-  });
-  const [eventDetailShoppingCheckedByEventId, setEventDetailShoppingCheckedByEventId] = useState({});
-  const [guestProfileViewTab, setGuestProfileViewTab] = useState(initialRouteState.guestProfileViewTab || "general");
+  const {
+    activeView,
+    setActiveView,
+    isMenuOpen,
+    setIsMenuOpen,
+    eventsWorkspace,
+    setEventsWorkspace,
+    guestsWorkspace,
+    setGuestsWorkspace,
+    invitationsWorkspace,
+    setInvitationsWorkspace,
+    selectedEventDetailId,
+    setSelectedEventDetailId,
+    selectedGuestDetailId,
+    setSelectedGuestDetailId,
+    eventDetailPlannerTab,
+    setEventDetailPlannerTab,
+    eventPlannerShoppingFilter,
+    setEventPlannerShoppingFilter,
+    guestProfileViewTab,
+    setGuestProfileViewTab,
+    openGuestAdvancedOnCreate,
+    setOpenGuestAdvancedOnCreate,
+    guestAdvancedEditTab,
+    setGuestAdvancedEditTab,
+    isCompactViewport,
+    setIsCompactViewport
+  } = useDashboardNavigationState(initialRouteState);
+
+  const {
+    eventPlannerRegenerationByEventId,
+    setEventPlannerRegenerationByEventId,
+    eventPlannerRegenerationByEventIdByTab,
+    setEventPlannerRegenerationByEventIdByTab,
+    eventPlannerContextOverridesByEventId,
+    setEventPlannerContextOverridesByEventId,
+    eventPlannerSnapshotsByEventId,
+    setEventPlannerSnapshotsByEventId,
+    eventPlannerSnapshotHistoryByEventId,
+    setEventPlannerSnapshotHistoryByEventId,
+    eventPlannerGenerationByEventId,
+    setEventPlannerGenerationByEventId,
+    isEventPlannerContextOpen,
+    setIsEventPlannerContextOpen,
+    eventPlannerContextFocusField,
+    setEventPlannerContextFocusField,
+    showEventPlannerTechnicalPrompt,
+    setShowEventPlannerTechnicalPrompt,
+    eventPlannerContextDraft,
+    setEventPlannerContextDraft,
+    eventDetailShoppingCheckedByEventId,
+    setEventDetailShoppingCheckedByEventId
+  } = useEventPlannerState();
 
   const [eventTitle, setEventTitle] = useState("");
   const [eventType, setEventType] = useState("");
@@ -407,14 +431,11 @@ function DashboardScreen({
   const [guestAddressPredictions, setGuestAddressPredictions] = useState([]);
   const [isGuestAddressLoading, setIsGuestAddressLoading] = useState(false);
   const [selectedGuestAddressPlace, setSelectedGuestAddressPlace] = useState(null);
-  const [openGuestAdvancedOnCreate, setOpenGuestAdvancedOnCreate] = useState(false);
-  const [guestAdvancedEditTab, setGuestAdvancedEditTab] = useState(initialRouteState.guestAdvancedEditTab || "identity");
   const [eventMessage, setEventMessage] = useState("");
   const [eventErrors, setEventErrors] = useState({});
   const [editingEventId, setEditingEventId] = useState("");
   const [isSavingEvent, setIsSavingEvent] = useState(false);
 
-  const autocompleteServiceRef = useRef(null);
   const geocoderRef = useRef(null);
   const guestGeocodePendingRef = useRef(new Set());
   const guestAdvancedDetailsRef = useRef(null);
@@ -445,43 +466,65 @@ function DashboardScreen({
   );
   const [isSavingGuest, setIsSavingGuest] = useState(false);
   const [guestLastSavedAt, setGuestLastSavedAt] = useState("");
-  const [importContactsDraft, setImportContactsDraft] = useState("");
-  const [importContactsPreview, setImportContactsPreview] = useState([]);
-  const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
-  const [importWizardStep, setImportWizardStep] = useState(1);
-  const [importWizardSource, setImportWizardSource] = useState("csv");
-  const [importWizardUploadedFileName, setImportWizardUploadedFileName] = useState("");
-  const [importWizardShareEmail, setImportWizardShareEmail] = useState("");
-  const [importWizardShareMessage, setImportWizardShareMessage] = useState("");
-  const [importWizardQrDataUrl, setImportWizardQrDataUrl] = useState("");
-  const [importWizardResult, setImportWizardResult] = useState({
-    imported: 0,
-    updated: 0,
-    failed: 0,
-    skipped: 0,
-    selected: 0,
-    partial: false
+  const {
+    importContactsDraft,
+    setImportContactsDraft,
+    importContactsPreview,
+    setImportContactsPreview,
+    isImportWizardOpen,
+    setIsImportWizardOpen,
+    importWizardStep,
+    setImportWizardStep,
+    importWizardSource,
+    setImportWizardSource,
+    importWizardUploadedFileName,
+    setImportWizardUploadedFileName,
+    importWizardShareEmail,
+    setImportWizardShareEmail,
+    importWizardShareMessage,
+    setImportWizardShareMessage,
+    importWizardQrDataUrl,
+    setImportWizardQrDataUrl,
+    importWizardResult,
+    setImportWizardResult,
+    importContactsSearch,
+    setImportContactsSearch,
+    importContactsGroupFilter,
+    setImportContactsGroupFilter,
+    importContactsPotentialFilter,
+    setImportContactsPotentialFilter,
+    importContactsSourceFilter,
+    setImportContactsSourceFilter,
+    importContactsSort,
+    setImportContactsSort,
+    importDuplicateMode,
+    setImportDuplicateMode,
+    selectedImportContactIds,
+    setSelectedImportContactIds,
+    approvedLowConfidenceMergeIds,
+    setApprovedLowConfidenceMergeIds,
+    pendingImportMergeApprovalPreviewId,
+    setPendingImportMergeApprovalPreviewId,
+    importMergeReviewShowOnlyWillFill,
+    setImportMergeReviewShowOnlyWillFill,
+    pendingImportMergeSelectedFieldKeys,
+    setPendingImportMergeSelectedFieldKeys,
+    approvedLowConfidenceMergeFieldsByPreviewId,
+    setApprovedLowConfidenceMergeFieldsByPreviewId,
+    importContactsPage,
+    setImportContactsPage,
+    importContactsPageSize,
+    setImportContactsPageSize,
+    importContactsMessage,
+    setImportContactsMessage,
+    isImportingContacts,
+    setIsImportingContacts,
+    isImportingGoogleContacts,
+    setIsImportingGoogleContacts
+  } = useImportWizardState({
+    initialImportWizardSource: routeImportWizardSource || "csv",
+    importPreviewPageSizeDefault: IMPORT_PREVIEW_PAGE_SIZE_DEFAULT
   });
-  const [importContactsSearch, setImportContactsSearch] = useState("");
-  const [importContactsGroupFilter, setImportContactsGroupFilter] = useState("all");
-  const [importContactsPotentialFilter, setImportContactsPotentialFilter] = useState("all");
-  const [importContactsSourceFilter, setImportContactsSourceFilter] = useState("all");
-  const [importContactsSort, setImportContactsSort] = useState("priority");
-  const [importDuplicateMode, setImportDuplicateMode] = useState("skip");
-  const [selectedImportContactIds, setSelectedImportContactIds] = useState([]);
-  const [approvedLowConfidenceMergeIds, setApprovedLowConfidenceMergeIds] = useState([]);
-  const [pendingImportMergeApprovalPreviewId, setPendingImportMergeApprovalPreviewId] = useState("");
-  const [importMergeReviewShowOnlyWillFill, setImportMergeReviewShowOnlyWillFill] = useState(true);
-  const [pendingImportMergeSelectedFieldKeys, setPendingImportMergeSelectedFieldKeys] = useState([]);
-  const [approvedLowConfidenceMergeFieldsByPreviewId, setApprovedLowConfidenceMergeFieldsByPreviewId] = useState({});
-  const [importContactsPage, setImportContactsPage] = useState(1);
-  const [importContactsPageSize, setImportContactsPageSize] = useState(IMPORT_PREVIEW_PAGE_SIZE_DEFAULT);
-  const [importContactsMessage, setImportContactsMessage] = useState("");
-  const [isImportingContacts, setIsImportingContacts] = useState(false);
-  const [isImportingGoogleContacts, setIsImportingGoogleContacts] = useState(false);
-  const [isCompactViewport, setIsCompactViewport] = useState(
-    () => (typeof window !== "undefined" ? window.matchMedia("(max-width: 900px)").matches : false)
-  );
   const isMobileImportExperience = isCompactViewport;
   const [hostProfileName, setHostProfileName] = useState("");
   const [hostProfilePhone, setHostProfilePhone] = useState("");
@@ -561,7 +604,7 @@ function DashboardScreen({
   const [guestMergeTargetId, setGuestMergeTargetId] = useState("");
   const [guestMergeSearch, setGuestMergeSearch] = useState("");
   const [isMergingGuest, setIsMergingGuest] = useState(false);
-  const [prefsReady, setPrefsReady] = useState(false);
+  const [, setPrefsReady] = useState(false);
 
   const pendingInvites = invitations.filter((item) => item.status === "pending").length;
   const respondedInvites = invitations.filter((item) => item.status !== "pending").length;
@@ -1427,20 +1470,6 @@ function DashboardScreen({
       guests.filter((guestItem) => (guestItem.email || guestItem.phone) && Boolean(guestHostConversionById[guestItem.id])).length,
     [guests, guestHostConversionById]
   );
-  const convertedHostGuests30dCount = useMemo(() => {
-    const threshold = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return guests.filter((guestItem) => {
-      if (!guestItem.email && !guestItem.phone) {
-        return false;
-      }
-      const convertedAt = guestHostConversionById[guestItem.id]?.converted_at;
-      if (!convertedAt) {
-        return false;
-      }
-      const convertedAtMs = new Date(convertedAt).getTime();
-      return Number.isFinite(convertedAtMs) && convertedAtMs >= threshold;
-    }).length;
-  }, [guests, guestHostConversionById]);
   const invitedPotentialHostsCount = useMemo(() => {
     const potentialHostGuestIds = new Set(
       guests.filter((guestItem) => guestItem.email || guestItem.phone).map((guestItem) => guestItem.id)
@@ -2340,26 +2369,6 @@ function DashboardScreen({
     () => uniqueValues(knownLocationPairs.map((item) => item.address)),
     [knownLocationPairs]
   );
-  const findUniqueLocationByName = useCallback(
-    (rawName) => {
-      const normalizedName = normalizeLookupValue(rawName);
-      if (!normalizedName) {
-        return null;
-      }
-      const candidates = knownLocationPairs.filter(
-        (item) => normalizeLookupValue(item.name) === normalizedName && item.address
-      );
-      const addresses = uniqueValues(candidates.map((item) => item.address));
-      if (addresses.length !== 1) {
-        return null;
-      }
-      const normalizedAddress = normalizeLookupValue(addresses[0]);
-      return (
-        candidates.find((item) => normalizeLookupValue(item.address) === normalizedAddress) || null
-      );
-    },
-    [knownLocationPairs]
-  );
   const findUniqueLocationByAddress = useCallback(
     (rawAddress) => {
       const normalizedAddress = normalizeLookupValue(rawAddress);
@@ -2616,79 +2625,6 @@ function DashboardScreen({
     editingEventId,
     invitationCountForEditingEvent
   ]);
-  const invitationRecommendations = useMemo(() => {
-    if (!selectedGuestId) {
-      return null;
-    }
-    const guestItem = guests.find((guest) => guest.id === selectedGuestId) || null;
-    const preferenceItem = guestPreferencesById[selectedGuestId] || {};
-    const sensitiveItem = guestSensitiveById[selectedGuestId] || {};
-    const selectedEvent = events.find((eventItem) => eventItem.id === selectedEventId) || null;
-    const allergies = toCatalogLabels("allergy", sensitiveItem?.allergies || [], language).slice(0, 5);
-    const intolerances = toCatalogLabels("intolerance", sensitiveItem?.intolerances || [], language).slice(0, 5);
-    const petAllergies = toPetAllergyLabels(sensitiveItem?.pet_allergies || [], language).slice(0, 4);
-    const medicalConditions = toCatalogLabels("medical_condition", sensitiveItem?.medical_conditions || [], language).slice(0, 4);
-    const dietaryMedicalRestrictions = toCatalogLabels(
-      "dietary_medical_restriction",
-      sensitiveItem?.dietary_medical_restrictions || [],
-      language
-    ).slice(0, 4);
-    const foodDislikes = toList(preferenceItem?.food_dislikes || []).slice(0, 5);
-    const drinkDislikes = toCatalogLabels("drink", preferenceItem?.drink_dislikes || [], language).slice(0, 4);
-    const preferredCuisine = toCatalogLabels("cuisine_type", preferenceItem?.cuisine_types || [], language).slice(0, 4);
-    const preferredMoments = toCatalogLabels("day_moment", preferenceItem?.preferred_day_moments || [], language).slice(0, 3);
-    const preferredExperiences = toCatalogCodes("experience_type", preferenceItem?.experience_types || []);
-    const selectedEventTypeCode = toCatalogCode("experience_type", selectedEvent?.event_type || "");
-    const warnings = [];
-    const suggestions = [];
-
-    if (allergies.length > 0 || intolerances.length > 0) {
-      warnings.push(`${t("invitation_recommendation_health")}: ${[...allergies, ...intolerances].join(", ")}`);
-    }
-    if (petAllergies.length > 0) {
-      warnings.push(`${t("field_pet_allergies")}: ${petAllergies.join(", ")}`);
-    }
-    if (medicalConditions.length > 0) {
-      warnings.push(`${t("field_medical_conditions")}: ${medicalConditions.join(", ")}`);
-    }
-    if (dietaryMedicalRestrictions.length > 0) {
-      warnings.push(`${t("field_dietary_medical_restrictions")}: ${dietaryMedicalRestrictions.join(", ")}`);
-    }
-    if (foodDislikes.length > 0) {
-      warnings.push(`${t("field_food_dislikes")}: ${foodDislikes.join(", ")}`);
-    }
-    if (drinkDislikes.length > 0) {
-      warnings.push(`${t("field_drink_dislikes")}: ${drinkDislikes.join(", ")}`);
-    }
-
-    const dietTypeLabel = toCatalogLabel("diet_type", preferenceItem?.diet_type, language);
-    if (dietTypeLabel) {
-      suggestions.push(`${t("field_diet_type")}: ${dietTypeLabel}`);
-    }
-    if (preferredCuisine.length > 0) {
-      suggestions.push(`${t("field_cuisine_type")}: ${preferredCuisine.join(", ")}`);
-    }
-    if (preferredMoments.length > 0) {
-      suggestions.push(`${t("field_day_moment")}: ${preferredMoments.join(", ")}`);
-    }
-    if (preferenceItem?.last_talk_topic) {
-      suggestions.push(`${t("field_last_talk_topic")}: ${preferenceItem.last_talk_topic}`);
-    }
-    if (
-      selectedEventTypeCode &&
-      preferredExperiences.length > 0 &&
-      !preferredExperiences.includes(selectedEventTypeCode)
-    ) {
-      suggestions.push(t("invitation_recommendation_experience_mismatch"));
-    }
-
-    return {
-      guestLabel: guestItem ? `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() : "",
-      eventLabel: selectedEvent?.title || "",
-      warnings,
-      suggestions
-    };
-  }, [selectedGuestId, selectedEventId, guests, events, guestPreferencesById, guestSensitiveById, language, t]);
   const buildInvitationSharePayload = useCallback(
     (invitationItem) => {
       if (!invitationItem?.public_token) {
@@ -10641,22 +10577,26 @@ function DashboardScreen({
         document.body
       ) : null}
 
-      <EventPlannerContextModal
-        isOpen={isEventPlannerContextOpen}
-        onClose={() => {
-          setIsEventPlannerContextOpen(false);
-          setEventPlannerContextFocusField("");
-        }}
-        t={t}
-        draft={eventPlannerContextDraft}
-        setDraft={setEventPlannerContextDraft}
-        focusField={eventPlannerContextFocusField}
-        showTechnicalPrompt={showEventPlannerTechnicalPrompt}
-        onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
-        technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
-        onGenerate={handleGenerateFullEventPlanFromContext}
-        isGenerating={Boolean(selectedEventPlannerGenerationState?.isGenerating)}
-      />
+      {isEventPlannerContextOpen ? (
+        <Suspense fallback={null}>
+          <EventPlannerContextModal
+            isOpen={isEventPlannerContextOpen}
+            onClose={() => {
+              setIsEventPlannerContextOpen(false);
+              setEventPlannerContextFocusField("");
+            }}
+            t={t}
+            draft={eventPlannerContextDraft}
+            setDraft={setEventPlannerContextDraft}
+            focusField={eventPlannerContextFocusField}
+            showTechnicalPrompt={showEventPlannerTechnicalPrompt}
+            onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
+            technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
+            onGenerate={handleGenerateFullEventPlanFromContext}
+            isGenerating={Boolean(selectedEventPlannerGenerationState?.isGenerating)}
+          />
+        </Suspense>
+      ) : null}
 
       {guestMergeSource ? (
         <div className="confirm-overlay" onClick={handleCloseMergeGuest}>
@@ -10959,4 +10899,3 @@ function DashboardScreen({
 }
 
 export { DashboardScreen };
-
