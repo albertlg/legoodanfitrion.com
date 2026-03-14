@@ -222,7 +222,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       <div className="w-full max-w-2xl relative z-10 flex flex-col gap-6">
 
         {/* CABECERA (Logo y Controles) */}
-        <header className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-3xl shadow-sm p-4 px-6 flex items-center justify-between">
+        <header className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-3xl shadow-sm p-4 px-6 flex items-center justify-between z-20">
           <div className="flex flex-col">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 leading-none mb-1">{t("app_name")}</p>
             <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               <h1 className="text-lg font-black text-gray-900 dark:text-white leading-none tracking-tight">{t("rsvp_title")}</h1>
             </div>
           </div>
-          <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
+          <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} dropdownDirection="down" />
         </header>
 
         {isLoading ? (

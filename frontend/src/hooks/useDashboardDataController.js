@@ -1,0 +1,486 @@
+import { useCallback, useState } from "react";
+import { toCatalogLabel } from "../lib/guest-catalogs";
+import { uniqueValues } from "../lib/formatters";
+import {
+  normalizeEmailKey,
+  normalizePhoneKey,
+  normalizeSensitiveRecord
+} from "../lib/guest-helpers";
+import { getHostPlanStateFromSnapshot } from "../lib/host-plan";
+import { hasEventSettingsColumns, normalizeEventSettings } from "../lib/event-planner-helpers";
+import {
+  isCompatibilityError,
+  isMissingRelationError,
+  readEventSettingsCache
+} from "../lib/system-helpers";
+
+export function useDashboardDataController({
+  supabase,
+  sessionUserId,
+  sessionUserEmail,
+  language,
+  t,
+  appRoute,
+  onPreferencesSynced,
+  refreshSharedProfileData,
+  setDashboardError,
+  setEvents,
+  setEventSettingsCacheById,
+  setGuests,
+  setInvitations,
+  setEventPlannerSnapshotsByEventId,
+  setEventPlannerSnapshotHistoryByEventId,
+  setEventPlannerRegenerationByEventId,
+  setEventPlannerRegenerationByEventIdByTab,
+  setEventPlannerContextOverridesByEventId,
+  setGuestPreferencesById,
+  setGuestSensitiveById,
+  setGuestHostConversionById,
+  setHostProfileName,
+  setHostProfilePhone,
+  setHostProfileCity,
+  setHostProfileCountry,
+  setHostProfileRelationship,
+  setHostProfileCreatedAt
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const loadDashboardData = useCallback(async () => {
+    if (!supabase || !sessionUserId) {
+      return;
+    }
+    setIsLoading(true);
+    setDashboardError("");
+    onPreferencesSynced?.();
+
+    const routeEventDetailId =
+      appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim())
+        ? String(appRoute?.eventId || "").trim()
+        : "";
+    const routeGuestDetailId =
+      appRoute?.view === "guests" && ["detail", "create"].includes(String(appRoute?.workspace || "").trim())
+        ? String(appRoute?.guestId || "").trim()
+        : "";
+
+    const guestsPromise = supabase
+      .from("guests")
+      .select(
+        "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
+      )
+      .eq("host_user_id", sessionUserId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const hostProfilePromise = supabase
+      .from("profiles")
+      .select("full_name, phone, created_at")
+      .eq("id", sessionUserId)
+      .maybeSingle();
+
+    const invitationsPromise = supabase
+      .from("invitations")
+      .select("id, event_id, guest_id, status, public_token, created_at, responded_at, updated_at")
+      .eq("host_user_id", sessionUserId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    let { data: eventsData, error: eventsError } = await supabase
+      .from("events")
+      .select(
+        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+      )
+      .eq("host_user_id", sessionUserId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (
+      eventsError &&
+      isCompatibilityError(eventsError, [
+        "location_place_id",
+        "location_lat",
+        "location_lng",
+        "description",
+        "allow_plus_one",
+        "auto_reminders",
+        "dress_code",
+        "playlist_mode"
+      ])
+    ) {
+      const fallback = await supabase
+        .from("events")
+        .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
+        .eq("host_user_id", sessionUserId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      eventsData = fallback.data || [];
+      eventsError = fallback.error;
+    }
+
+    let [
+      { data: guestsData, error: guestsError },
+      { data: invitationsData, error: invitationsError },
+      { data: hostProfileData, error: hostProfileError }
+    ] = await Promise.all([guestsPromise, invitationsPromise, hostProfilePromise]);
+
+    if (
+      guestsError &&
+      isCompatibilityError(guestsError, [
+        "postal_code",
+        "state_region",
+        "address",
+        "company",
+        "twitter",
+        "instagram",
+        "linkedin",
+        "last_meet_at",
+        "avatar_url"
+      ])
+    ) {
+      const fallbackGuests = await supabase
+        .from("guests")
+        .select("id, first_name, last_name, email, phone, relationship, city, country, created_at")
+        .eq("host_user_id", sessionUserId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      guestsData = fallbackGuests.data || [];
+      guestsError = fallbackGuests.error;
+    }
+
+    if (!eventsError && routeEventDetailId && !(eventsData || []).some((eventItem) => eventItem.id === routeEventDetailId)) {
+      let routeEventResult = await supabase
+        .from("events")
+        .select(
+          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        )
+        .eq("host_user_id", sessionUserId)
+        .eq("id", routeEventDetailId)
+        .maybeSingle();
+
+      if (
+        routeEventResult.error &&
+        isCompatibilityError(routeEventResult.error, [
+          "location_place_id",
+          "location_lat",
+          "location_lng",
+          "description",
+          "allow_plus_one",
+          "auto_reminders",
+          "dress_code",
+          "playlist_mode"
+        ])
+      ) {
+        routeEventResult = await supabase
+          .from("events")
+          .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
+          .eq("host_user_id", sessionUserId)
+          .eq("id", routeEventDetailId)
+          .maybeSingle();
+      }
+
+      if (routeEventResult.error) {
+        eventsError = routeEventResult.error;
+      } else if (routeEventResult.data) {
+        eventsData = [routeEventResult.data, ...(eventsData || [])];
+      }
+    }
+
+    if (!guestsError && routeGuestDetailId && !(guestsData || []).some((guestItem) => guestItem.id === routeGuestDetailId)) {
+      let routeGuestResult = await supabase
+        .from("guests")
+        .select(
+          "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
+        )
+        .eq("host_user_id", sessionUserId)
+        .eq("id", routeGuestDetailId)
+        .maybeSingle();
+
+      if (
+        routeGuestResult.error &&
+        isCompatibilityError(routeGuestResult.error, [
+          "postal_code",
+          "state_region",
+          "address",
+          "company",
+          "twitter",
+          "instagram",
+          "linkedin",
+          "last_meet_at",
+          "avatar_url"
+        ])
+      ) {
+        routeGuestResult = await supabase
+          .from("guests")
+          .select("id, first_name, last_name, email, phone, relationship, city, country, created_at")
+          .eq("host_user_id", sessionUserId)
+          .eq("id", routeGuestDetailId)
+          .maybeSingle();
+      }
+
+      if (routeGuestResult.error) {
+        guestsError = routeGuestResult.error;
+      } else if (routeGuestResult.data) {
+        guestsData = [routeGuestResult.data, ...(guestsData || [])];
+      }
+    }
+
+    let eventPlannerRows = [];
+    let eventPlannerError = null;
+    const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
+    if (eventIdsForPlans.length > 0) {
+      const plannerResult = await supabase
+        .from("event_host_plans")
+        .select("event_id, version, generated_at, source, model_meta, plan_context, plan_snapshot")
+        .eq("host_user_id", sessionUserId)
+        .in("event_id", eventIdsForPlans)
+        .order("generated_at", { ascending: false });
+
+      if (plannerResult.error) {
+        if (!isMissingRelationError(plannerResult.error, "event_host_plans")) {
+          eventPlannerError = plannerResult.error;
+        }
+      } else {
+        eventPlannerRows = Array.isArray(plannerResult.data) ? plannerResult.data : [];
+      }
+    }
+
+    if (eventsError || guestsError || invitationsError || hostProfileError || eventPlannerError) {
+      setDashboardError(
+        eventsError?.message ||
+          guestsError?.message ||
+          invitationsError?.message ||
+          hostProfileError?.message ||
+          eventPlannerError?.message ||
+          t("error_load_data")
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    const guestIds = (guestsData || []).map((guest) => guest.id);
+    let guestHostConversionRows = [];
+    if (guestIds.length > 0) {
+      const guestConversionsResult = await supabase.rpc("get_host_guest_conversions");
+      if (
+        guestConversionsResult.error &&
+        !isCompatibilityError(guestConversionsResult.error, ["get_host_guest_conversions"])
+      ) {
+        setDashboardError(guestConversionsResult.error.message || t("error_load_data"));
+        setIsLoading(false);
+        return;
+      }
+      guestHostConversionRows = guestConversionsResult.data || [];
+    }
+    let guestPreferencesRows = [];
+    let guestSensitiveRows = [];
+
+    if (guestIds.length > 0) {
+      let preferencesResult = await supabase
+        .from("guest_preferences")
+        .select(
+          "guest_id, diet_type, tasting_preferences, food_likes, food_dislikes, drink_likes, drink_dislikes, music_genres, favorite_color, books, movies, series, sports, team_fan, punctuality, last_talk_topic, taboo_topics, experience_types, preferred_guest_relationships, preferred_day_moments, periodicity, cuisine_types, pets"
+        )
+        .in("guest_id", guestIds);
+
+      if (
+        preferencesResult.error &&
+        isCompatibilityError(preferencesResult.error, [
+          "experience_types",
+          "preferred_guest_relationships",
+          "preferred_day_moments",
+          "periodicity",
+          "cuisine_types",
+          "pets"
+        ])
+      ) {
+        preferencesResult = await supabase
+          .from("guest_preferences")
+          .select(
+            "guest_id, diet_type, tasting_preferences, food_likes, food_dislikes, drink_likes, drink_dislikes, music_genres, favorite_color, books, movies, series, sports, team_fan, punctuality, last_talk_topic, taboo_topics"
+          )
+          .in("guest_id", guestIds);
+      }
+
+      if (preferencesResult.error && !isMissingRelationError(preferencesResult.error, "guest_preferences")) {
+        setDashboardError(preferencesResult.error.message || t("error_load_data"));
+        setIsLoading(false);
+        return;
+      }
+
+      guestPreferencesRows = preferencesResult.data || [];
+
+      let sensitiveResult = await supabase
+        .from("guest_sensitive_preferences")
+        .select(
+          "guest_id, allergies, intolerances, pet_allergies, medical_conditions, dietary_medical_restrictions, consent_granted, consent_version, consent_granted_at"
+        )
+        .in("guest_id", guestIds);
+
+      if (
+        sensitiveResult.error &&
+        isCompatibilityError(sensitiveResult.error, ["medical_conditions", "dietary_medical_restrictions"])
+      ) {
+        sensitiveResult = await supabase
+          .from("guest_sensitive_preferences")
+          .select("guest_id, allergies, intolerances, pet_allergies, consent_granted, consent_version, consent_granted_at")
+          .in("guest_id", guestIds);
+      }
+
+      if (sensitiveResult.error && !isMissingRelationError(sensitiveResult.error, "guest_sensitive_preferences")) {
+        setDashboardError(sensitiveResult.error.message || t("error_load_data"));
+        setIsLoading(false);
+        return;
+      }
+
+      guestSensitiveRows = sensitiveResult.data || [];
+    }
+
+    const cachedEventSettingsById = readEventSettingsCache(sessionUserId);
+    const normalizedEventsData = (eventsData || []).map((eventItem) => {
+      const settingsFromRow = normalizeEventSettings(eventItem);
+      const settingsFromCache = normalizeEventSettings(cachedEventSettingsById[eventItem.id] || {});
+      const rowHasAnyValue = Boolean(
+        settingsFromRow.description ||
+          settingsFromRow.allow_plus_one ||
+          settingsFromRow.auto_reminders ||
+          settingsFromRow.dress_code !== "none" ||
+          settingsFromRow.playlist_mode !== "host_only"
+      );
+      const cacheHasAnyValue = Boolean(
+        settingsFromCache.description ||
+          settingsFromCache.allow_plus_one ||
+          settingsFromCache.auto_reminders ||
+          settingsFromCache.dress_code !== "none" ||
+          settingsFromCache.playlist_mode !== "host_only"
+      );
+      const shouldUseCache = !hasEventSettingsColumns(eventItem) || (!rowHasAnyValue && cacheHasAnyValue);
+      const effectiveSettings = shouldUseCache ? settingsFromCache : settingsFromRow;
+      return {
+        ...eventItem,
+        description: effectiveSettings.description,
+        allow_plus_one: effectiveSettings.allow_plus_one,
+        auto_reminders: effectiveSettings.auto_reminders,
+        dress_code: effectiveSettings.dress_code,
+        playlist_mode: effectiveSettings.playlist_mode
+      };
+    });
+
+    setEvents(normalizedEventsData);
+    setEventSettingsCacheById(cachedEventSettingsById);
+    setGuests(guestsData || []);
+    setInvitations(invitationsData || []);
+    const latestPlannerByEventId = {};
+    const plannerHistoryByEventId = {};
+    for (const row of eventPlannerRows) {
+      const eventId = String(row?.event_id || "").trim();
+      if (!eventId) {
+        continue;
+      }
+      const snapshotState = getHostPlanStateFromSnapshot(row?.plan_snapshot);
+      if (!snapshotState) {
+        continue;
+      }
+      if (!latestPlannerByEventId[eventId]) {
+        latestPlannerByEventId[eventId] = snapshotState;
+      }
+      const currentHistory = plannerHistoryByEventId[eventId] || [];
+      const hasSameVersion = currentHistory.some((item) => Number(item.version) === Number(snapshotState.version));
+      if (!hasSameVersion) {
+        currentHistory.push({
+          version: Number(snapshotState.version || 0),
+          generatedAt: String(snapshotState.generatedAt || ""),
+          scope: String(snapshotState?.modelMeta?.scope || "all"),
+          snapshotState
+        });
+      }
+      plannerHistoryByEventId[eventId] = currentHistory;
+    }
+    for (const eventId of Object.keys(plannerHistoryByEventId)) {
+      plannerHistoryByEventId[eventId].sort((a, b) => {
+        const versionDiff = Number(b.version || 0) - Number(a.version || 0);
+        if (versionDiff !== 0) {
+          return versionDiff;
+        }
+        return String(b.generatedAt || "").localeCompare(String(a.generatedAt || ""));
+      });
+    }
+    setEventPlannerSnapshotsByEventId(latestPlannerByEventId);
+    setEventPlannerSnapshotHistoryByEventId(plannerHistoryByEventId);
+    const nextPlannerSeedByEventId = {};
+    const nextPlannerSeedByEventIdByTab = {};
+    const nextPlannerContextOverridesByEventId = {};
+    for (const [eventId, snapshotState] of Object.entries(latestPlannerByEventId)) {
+      nextPlannerSeedByEventId[eventId] = Math.max(0, Number(snapshotState.seedAll || 0));
+      nextPlannerSeedByEventIdByTab[eventId] = snapshotState.seedByTab || {};
+      nextPlannerContextOverridesByEventId[eventId] =
+        snapshotState.contextOverrides && typeof snapshotState.contextOverrides === "object"
+          ? snapshotState.contextOverrides
+          : {};
+    }
+    setEventPlannerRegenerationByEventId(nextPlannerSeedByEventId);
+    setEventPlannerRegenerationByEventIdByTab(nextPlannerSeedByEventIdByTab);
+    setEventPlannerContextOverridesByEventId(nextPlannerContextOverridesByEventId);
+    setGuestPreferencesById(
+      Object.fromEntries((guestPreferencesRows || []).map((preferenceItem) => [preferenceItem.guest_id, preferenceItem]))
+    );
+    setGuestSensitiveById(
+      Object.fromEntries(
+        (guestSensitiveRows || []).map((sensitiveItem) => [sensitiveItem.guest_id, normalizeSensitiveRecord(sensitiveItem)])
+      )
+    );
+    setGuestHostConversionById(
+      Object.fromEntries((guestHostConversionRows || []).map((conversionItem) => [conversionItem.guest_id, conversionItem]))
+    );
+    const selfEmailKey = normalizeEmailKey(sessionUserEmail || "");
+    const selfPhoneKey = normalizePhoneKey(hostProfileData?.phone || "");
+    const selfGuest =
+      (guestsData || []).find((guestItem) => {
+        const guestEmailKey = normalizeEmailKey(guestItem.email || "");
+        const guestPhoneKey = normalizePhoneKey(guestItem.phone || "");
+        return Boolean((selfEmailKey && guestEmailKey === selfEmailKey) || (selfPhoneKey && guestPhoneKey === selfPhoneKey));
+      }) || null;
+    setHostProfileName(
+      String(hostProfileData?.full_name || "")
+        .trim()
+        .replace(/\s+/g, " ") || (sessionUserEmail || "").split("@")[0] || ""
+    );
+    setHostProfilePhone(String(hostProfileData?.phone || "").trim());
+    setHostProfileCity(String(selfGuest?.city || "").trim());
+    setHostProfileCountry(String(selfGuest?.country || "").trim());
+    setHostProfileRelationship(toCatalogLabel("relationship", selfGuest?.relationship, language));
+    setHostProfileCreatedAt(String(hostProfileData?.created_at || "").trim());
+    await refreshSharedProfileData();
+    setIsLoading(false);
+  }, [
+    appRoute,
+    language,
+    onPreferencesSynced,
+    refreshSharedProfileData,
+    sessionUserEmail,
+    sessionUserId,
+    setDashboardError,
+    setEventPlannerContextOverridesByEventId,
+    setEventPlannerRegenerationByEventId,
+    setEventPlannerRegenerationByEventIdByTab,
+    setEventPlannerSnapshotHistoryByEventId,
+    setEventPlannerSnapshotsByEventId,
+    setEventSettingsCacheById,
+    setEvents,
+    setGuestHostConversionById,
+    setGuestPreferencesById,
+    setGuestSensitiveById,
+    setGuests,
+    setHostProfileCity,
+    setHostProfileCountry,
+    setHostProfileCreatedAt,
+    setHostProfileName,
+    setHostProfilePhone,
+    setHostProfileRelationship,
+    setInvitations,
+    setIsLoading,
+    supabase,
+    t
+  ]);
+
+  return {
+    loadDashboardData,
+    isLoading
+  };
+}

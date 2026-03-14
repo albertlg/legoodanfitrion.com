@@ -1,16 +1,19 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { BrandMark } from "./components/brand-mark";
 import { Controls } from "./components/controls";
-import ca from "./i18n/ca.json";
-import en from "./i18n/en.json";
 import es from "./i18n/es.json";
-import fr from "./i18n/fr.json";
-import it from "./i18n/it.json";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { useAppRouter } from "./router-utils";
 
-const I18N = { es, ca, en, fr, it };
+const DEFAULT_LANGUAGE = "es";
+const SUPPORTED_LANGUAGES = ["es", "ca", "en", "fr", "it"];
+const LOCALE_LOADERS = {
+  ca: () => import("./i18n/ca.json"),
+  en: () => import("./i18n/en.json"),
+  fr: () => import("./i18n/fr.json"),
+  it: () => import("./i18n/it.json")
+};
 const AuthScreen = lazy(() =>
   import("./screens/auth-screen").then((module) => ({ default: module.AuthScreen }))
 );
@@ -36,11 +39,11 @@ function ScreenFallback() {
 
 function detectLanguage() {
   const stored = window.localStorage.getItem("legood-language");
-  if (stored && I18N[stored]) {
+  if (stored && SUPPORTED_LANGUAGES.includes(stored)) {
     return stored;
   }
-  const nav = (window.navigator.language || "es").slice(0, 2).toLowerCase();
-  return I18N[nav] ? nav : "es";
+  const nav = (window.navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
+  return SUPPORTED_LANGUAGES.includes(nav) ? nav : DEFAULT_LANGUAGE;
 }
 
 function getThemeModeInitial() {
@@ -92,9 +95,9 @@ function normalizeAuthErrorMessage(error, t) {
 function App() {
   const { route, navigate, isRecoveryMode: initialRecoveryMode } = useAppRouter();
   const [language, setLanguage] = useState(detectLanguage);
+  const [loadedLocales, setLoadedLocales] = useState(() => ({ [DEFAULT_LANGUAGE]: es }));
   const [themeMode, setThemeMode] = useState(getThemeModeInitial);
   const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
-  const [profilePrefsReady, setProfilePrefsReady] = useState(false);
   const [themeColumnSupported, setThemeColumnSupported] = useState(true);
 
   const [session, setSession] = useState(null);
@@ -113,12 +116,36 @@ function App() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
+  useEffect(() => {
+    if (loadedLocales[language] || !LOCALE_LOADERS[language]) {
+      return;
+    }
+    let isCancelled = false;
+    LOCALE_LOADERS[language]()
+      .then((module) => {
+        if (isCancelled) {
+          return;
+        }
+        const localeData = module?.default || module;
+        if (!localeData) {
+          return;
+        }
+        setLoadedLocales((prev) => ({
+          ...prev,
+          [language]: localeData
+        }));
+      })
+      .catch(() => { });
+    return () => {
+      isCancelled = true;
+    };
+  }, [language, loadedLocales]);
   const t = useCallback(
     (key) => {
-      const localized = I18N[language]?.[key];
-      return localized || I18N.es[key] || key;
+      const localized = loadedLocales[language]?.[key];
+      return localized || es[key] || key;
     },
-    [language]
+    [language, loadedLocales]
   );
 
   useEffect(() => {
@@ -158,7 +185,6 @@ function App() {
 
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
-      setProfilePrefsReady(false);
       setIsSigningInWithGoogle(false);
       if (event === "PASSWORD_RECOVERY") {
         setIsRecoveryMode(true);
@@ -197,11 +223,10 @@ function App() {
       }
 
       if (error) {
-        setProfilePrefsReady(true);
         return;
       }
 
-      if (data?.preferred_language && I18N[data.preferred_language]) {
+      if (data?.preferred_language && SUPPORTED_LANGUAGES.includes(data.preferred_language)) {
         setLanguage(data.preferred_language);
       }
 
@@ -213,7 +238,6 @@ function App() {
         setThemeColumnSupported(false);
       }
 
-      setProfilePrefsReady(true);
     };
 
     loadProfilePreferences();
@@ -222,8 +246,10 @@ function App() {
     };
   }, [session?.user?.id]);
 
+  // 🚀 FIX: Auto-guardado de preferencias (Idioma/Tema)
   useEffect(() => {
-    if (!supabase || !session?.user?.id || !profilePrefsReady) {
+    // Si no hay sesión, ni lo intentamos.
+    if (!supabase || !session?.user?.id) {
       return;
     }
 
@@ -239,6 +265,8 @@ function App() {
         }
         : basePayload;
 
+      // Hacemos el UPSERT directamente. Si la fila no existe (usuario recién registrado), 
+      // esto la creará con su idioma. Si existe, la actualizará.
       const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
 
       if (
@@ -252,7 +280,7 @@ function App() {
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [language, themeMode, profilePrefsReady, session?.user?.id, themeColumnSupported]);
+  }, [language, themeMode, session?.user?.id, themeColumnSupported]); // 🚀 Quitamos profilePrefsReady de las dependencias
 
   const handleSignIn = async (event) => {
     event.preventDefault();
@@ -405,18 +433,24 @@ function App() {
   };
 
   useEffect(() => {
+    if (isLoadingAuth) {
+      return;
+    }
     if (route.kind !== "app" || session?.user?.id) {
       return;
     }
     navigate("/login", { replace: true });
-  }, [navigate, route.kind, session?.user?.id]);
+  }, [isLoadingAuth, navigate, route.kind, session?.user?.id]);
 
   useEffect(() => {
+    if (isLoadingAuth) {
+      return;
+    }
     if (!session?.user?.id || route.kind !== "login" || isRecoveryMode) {
       return;
     }
     navigate("/app", { replace: true });
-  }, [isRecoveryMode, navigate, route.kind, session?.user?.id]);
+  }, [isLoadingAuth, isRecoveryMode, navigate, route.kind, session?.user?.id]);
 
   if (!hasSupabaseEnv && route.kind !== "landing") {
     return (
@@ -517,6 +551,10 @@ function App() {
         />
       </Suspense>
     );
+  }
+
+  if (isLoadingAuth && route.kind === "app") {
+    return <ScreenFallback />;
   }
 
   if (!session?.user?.id) {

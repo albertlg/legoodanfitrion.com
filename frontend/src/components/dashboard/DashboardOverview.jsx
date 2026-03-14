@@ -1,8 +1,83 @@
 import { Icon } from "../icons";
 import { AvatarCircle } from "../avatar-circle";
 
+function DashboardOverviewSkeleton({ t }) {
+    return (
+        <section
+            className="max-w-6xl mx-auto w-full flex flex-col animate-pulse"
+            aria-label={t("dash_home_loading_sr")}
+            role="status"
+        >
+            {/* Cabecera del Dashboard */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                <div className="space-y-3 w-full max-w-sm">
+                    {/* Título */}
+                    <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-3/4"></div>
+                    {/* Subtítulo */}
+                    <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/2"></div>
+                </div>
+                {/* Botón de crear (oculto visualmente pero ocupa espacio) */}
+                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-32 shrink-0"></div>
+            </div>
+
+            {/* Fila de 4 Tarjetas de KPIs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                {[1, 2, 3, 4].map((i) => (
+                    <article key={i} className="bg-gray-100/50 dark:bg-gray-800/20 border border-black/5 dark:border-white/5 rounded-[2rem] p-6 flex flex-col gap-4 h-40">
+                        <div className="flex justify-between items-start">
+                            <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/3 mt-2"></div>
+                            <div className="w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded-2xl"></div>
+                        </div>
+                        <div className="mt-auto space-y-2">
+                            <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded-xl w-1/4"></div>
+                            <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-2/3"></div>
+                        </div>
+                    </article>
+                ))}
+            </div>
+
+            {/* Columnas inferiores (Próximos eventos y Perfil) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-8">
+                {/* Columna Izquierda (Ocupa 2/3) */}
+                <div className="lg:col-span-2 flex flex-col gap-6 md:gap-8">
+                    <article className="bg-gray-100/50 dark:bg-gray-800/20 border border-black/5 dark:border-white/5 rounded-[2.5rem] p-6 md:p-8 h-80 flex flex-col gap-6">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/3"></div>
+                        <div className="space-y-4 mt-4">
+                            <div className="h-16 bg-gray-200 dark:bg-gray-800 rounded-2xl w-full"></div>
+                            <div className="h-16 bg-gray-200 dark:bg-gray-800 rounded-2xl w-full"></div>
+                            <div className="h-16 bg-gray-200 dark:bg-gray-800 rounded-2xl w-full"></div>
+                        </div>
+                    </article>
+                </div>
+
+                {/* Columna Derecha - Perfil (Ocupa 1/3) */}
+                <div className="lg:col-span-1">
+                    <article className="bg-gray-100/50 dark:bg-gray-800/20 border border-black/5 dark:border-white/5 rounded-[2.5rem] p-6 md:p-8 h-80 flex flex-col gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-full shrink-0"></div>
+                            <div className="space-y-2 w-full">
+                                <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded-lg w-3/4"></div>
+                                <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/2"></div>
+                            </div>
+                        </div>
+                        <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded-2xl w-full mt-4"></div>
+                        <div className="space-y-3 mt-4">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded-lg w-full"></div>
+                            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded-lg w-full"></div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+
+            {/* Texto de fallback invisible para accesibilidad */}
+            <span className="sr-only">{t("dash_home_loading")}</span>
+        </section>
+    );
+}
+
 export function DashboardOverview({
     t,
+    isLoading,
     openWorkspace,
     events,
     latestEventPreview,
@@ -32,8 +107,75 @@ export function DashboardOverview({
     conversionTrend14d,
     conversionTrendMax,
 }) {
+
+    // 🚀 ESTADO DE CARGA (Skeleton)
+    if (isLoading) {
+        return <DashboardOverviewSkeleton t={t} />;
+    }
+
+    // 🚀 LÓGICA DE EMPTY STATE BULLETPROOF
+    if (!events || !Array.isArray(events) || events.length === 0) {
+        return (
+            <section className="max-w-4xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in zoom-in-95 duration-500 px-4">
+                <div className="w-full bg-white/50 dark:bg-white/5 backdrop-blur-sm border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-[3rem] p-10 md:p-16 flex flex-col items-center justify-center text-center shadow-sm">
+
+                    <div className="w-24 h-24 bg-blue-50 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400 rounded-full flex items-center justify-center mb-8 shadow-inner relative">
+                        <div className="absolute inset-0 bg-blue-400/20 rounded-full animate-ping opacity-20"></div>
+                        <Icon name="sparkle" className="w-10 h-10" />
+                    </div>
+
+                    <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-4 tracking-tight">
+                        {t("dash_home_empty_title")}
+                    </h1>
+
+                    <p className="text-lg text-gray-500 dark:text-gray-400 max-w-lg mx-auto mb-10 font-medium leading-relaxed text-balance">
+                        {t("dash_home_empty_subtitle")}
+                    </p>
+
+                    {/* Botón Principal de Acción */}
+                    <button
+                        className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-2xl font-black text-lg shadow-xl hover:scale-105 hover:shadow-2xl transition-all flex items-center gap-3 outline-none focus:ring-4 focus:ring-blue-500/30"
+                        tabIndex={0}
+                        onClick={() => openWorkspace("events", "create")} // <-- Ajusta esto al action que abra tu modal de crear evento
+                    >
+                        <Icon name="plus" className="w-6 h-6" />
+                        {t("dash_home_cta_create_first")}
+                    </button>
+
+                    {/* Hint de confianza inferior */}
+                    <div className="mt-12 flex items-center gap-2 text-sm font-bold text-gray-400 dark:text-gray-500">
+                        <Icon name="calendar" className="w-4 h-4" />
+                        Se tarda menos de 2 minutos.
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    // 🚀 LÓGICA DE POPULATED STATE (TU DASHBOARD ACTUAL CON DATOS)
     return (
         <section className="max-w-6xl mx-auto w-full flex flex-col view-transition">
+
+            {/* SALUDO DE CABECERA (Añadido sutilmente antes de tus tarjetas) 
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                <div>
+                    <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
+                        {t("dash_home_greeting").replace("{{name}}", hostDisplayName || "Anfitrión")}
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium mt-1">
+                        {t("dash_home_section_active")}
+                    </p>
+                </div>
+                <button
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                    onClick={() => openWorkspace("events", "create")} // <-- Ajusta a tu manejador real
+                >
+                    <Icon name="plus" className="w-4 h-4" />
+                    {t("dash_home_cta_create_new")}
+                </button>
+            </div> */}
+
+            {/* --- AQUÍ EMPIEZA TU CÓDIGO ORIGINAL INTACTO --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
 
                 {/* TARJETA 1: EVENTOS (AZUL) */}
@@ -289,7 +431,7 @@ export function DashboardOverview({
                 {/* COLUMNA DERECHA (Perfil del anfitrión - Ocupa 1/3) */}
                 <div className="lg:col-span-1 flex flex-col gap-6 md:gap-8">
 
-                    {/* TARJETA VIP DE ANFITRIÓN (Totalmente Adaptativa Claro/Oscuro) */}
+                    {/* TARJETA VIP DE ANFITRIÓN */}
                     <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-white rounded-[2.5rem] border border-black/10 dark:border-gray-700 shadow-xl p-6 md:p-8 relative overflow-hidden flex flex-col gap-6 transition-colors">
                         {/* Fondo decorativo */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -347,9 +489,9 @@ export function DashboardOverview({
                 </div>
             </div>
 
+            {/* ARTÍCULO 1: GROWTH ANALYTICS (Se mantiene idéntico) */}
             <article className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-8 mb-6 mt-4">
 
-                {/* CABECERA CON TIMEFRAMES INTEGRADOS */}
                 <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-black/5 dark:border-white/10 pb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-2">
@@ -363,7 +505,6 @@ export function DashboardOverview({
                         </p>
                     </div>
 
-                    {/* Botonera de Ventanas de Tiempo (7d, 30d, 90d) */}
                     <div className="flex bg-white/50 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/5 w-fit shadow-sm">
                         <div className="px-4 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>
@@ -378,9 +519,7 @@ export function DashboardOverview({
                     </div>
                 </header>
 
-                {/* GRID DE MÉTRICAS (KPIs) HUMANIZADAS */}
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
-                    {/* Tarjeta 1: Potenciales */}
                     <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm p-6 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gray-500/5 rounded-full blur-2xl group-hover:bg-gray-500/10 transition-colors"></div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
@@ -392,7 +531,6 @@ export function DashboardOverview({
                         <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{hostPotentialGuestsCount}</p>
                     </article>
 
-                    {/* Tarjeta 2: Invitados */}
                     <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm p-6 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors"></div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-purple-500 dark:text-purple-400 mb-1">
@@ -404,7 +542,6 @@ export function DashboardOverview({
                         <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{invitedPotentialHostsCount}</p>
                     </article>
 
-                    {/* Tarjeta 3: Convertidos */}
                     <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm p-6 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-colors"></div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-green-500 dark:text-green-400 mb-1">
@@ -416,7 +553,6 @@ export function DashboardOverview({
                         <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{convertedHostGuestsCount}</p>
                     </article>
 
-                    {/* Tarjeta 4: Tasa */}
                     <article className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl border border-blue-500 shadow-xl shadow-blue-500/20 p-6 relative overflow-hidden group text-white">
                         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors duration-500"></div>
                         <Icon name="sparkle" className="absolute bottom-4 right-4 w-12 h-12 text-white/10 -rotate-12" />
@@ -430,16 +566,13 @@ export function DashboardOverview({
                     </article>
                 </div>
 
-                {/* GRÁFICO DE TENDENCIA (14 DÍAS) REDISEÑADO CON SCROLL EN MÓVIL */}
                 <div className="bg-white/50 dark:bg-black/20 rounded-3xl p-6 border border-black/5 dark:border-white/5 shadow-inner">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-8 flex items-center gap-2">
                         <Icon name="activity" className="w-3 h-3" />
                         {t("growth_trend_14d_title")}
                     </h3>
 
-                    {/* Contenedor del gráfico con scroll horizontal en móvil, se quita el scroll en md */}
                     <div className="growth-trend-chart-container overflow-x-auto md:overflow-x-visible pb-4 md:pb-0">
-                        {/* El gráfico en sí tiene un min-width en móvil para forzar el scroll, y w-full en md */}
                         <div
                             className="flex items-end h-40 gap-2 md:gap-3 min-w-[360px] md:min-w-full"
                             role="img"
@@ -452,13 +585,11 @@ export function DashboardOverview({
                                 return (
                                     <div key={bucket.key} className="flex-1 flex flex-col items-center justify-end h-full gap-2 group relative">
 
-                                        {/* Tooltip Emergente */}
                                         <div className="absolute -top-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:-translate-y-1 pointer-events-none whitespace-nowrap z-10 shadow-lg">
                                             {bucket.count} {bucket.count === 1 ? t("growth_trend_host_single") : t("growth_trend_host_plural")}
                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-white rotate-45"></div>
                                         </div>
 
-                                        {/* Barra de Progreso */}
                                         <div className="w-full flex items-end justify-center h-full bg-black/5 dark:bg-white/5 rounded-xl overflow-hidden shadow-inner relative">
                                             <span
                                                 className={`w-full rounded-xl transition-all duration-700 ease-out ${isZero ? 'bg-transparent' : 'bg-gradient-to-t from-blue-500/40 to-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] group-hover:to-blue-400'}`}
@@ -466,7 +597,6 @@ export function DashboardOverview({
                                             />
                                         </div>
 
-                                        {/* Etiqueta del Día */}
                                         <span className={`text-[9px] font-bold uppercase tracking-wider ${isZero ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
                                             {bucket.label}
                                         </span>
@@ -478,7 +608,7 @@ export function DashboardOverview({
                 </div>
             </article>
 
-            {/* ARTÍCULO 2: ACCESIBILIDAD Y CONSEJOS (Banner Informativo Premium) */}
+            {/* ARTÍCULO 2: ACCESIBILIDAD Y CONSEJOS (Se mantiene idéntico) */}
             <article className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl p-6 mb-6 flex gap-5 items-start">
                 <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-2xl text-blue-600 dark:text-blue-400 shrink-0 shadow-sm">
                     <Icon name="sparkle" className="w-6 h-6" />

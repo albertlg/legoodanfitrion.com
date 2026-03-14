@@ -1,23 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { HostProfileView } from "./dashboard/components/host-profile-view";
-import { AvatarCircle } from "../components/avatar-circle";
-import { BrandMark } from "../components/brand-mark";
-import { Controls } from "../components/controls";
-import { FieldMeta } from "../components/field-meta";
-import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
+import { MultiSelectField } from "../components/forms/multi-select-field";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
-import { DashboardOverview } from "../components/dashboard/DashboardOverview";
-import { EventDetailView } from "./dashboard/components/event-detail-view";
-import { EventsListView } from "./dashboard/components/events-list-view";
-import { EventBuilderView } from './dashboard/components/event-builder-view';
-import { GuestDetailView } from './dashboard/components/guest-detail-view';
-import { GuestsListView } from "./dashboard/components/guests-list-view";
-import { GuestBuilderView } from './dashboard/components/guest-builder-view';
-
-import { InvitationsListView } from "./dashboard/components/invitations-list-view";
-import { InvitationBuilderView } from './dashboard/components/invitation-builder-view';
+import { GeoPointsMapPanel } from "../components/maps/geo-points-map-panel";
 import {
   CATALOGS,
   getCatalogLabels,
@@ -55,30 +40,28 @@ import {
 
 import {
   toNullable, toIsoDateTime, toLocalDateTimeInput, getSuggestedEventDateTime, formatDate,
-  formatShortDate, formatLongDate, formatTimeLabel, formatRelativeDate, normalizeIsoDate,
+  formatShortDate, formatLongDate, formatTimeLabel, formatRelativeDate,
   getNextBirthdaySummary, getBirthdayEventDateTime, interpolateText, normalizeLookupValue,
-  getInitials, uniqueValues, toList, splitListInput, listToInput, isBlankValue
+  getInitials, uniqueValues, toList, splitListInput, listToInput
 } from "../lib/formatters";
 
 import {
   normalizeEmailKey, normalizePhoneKey, getMergedFieldValue, formatMergeReviewValue,
-  buildGuestFingerprint, buildGuestNameKey, buildGuestFullNameKey, buildGuestMatchingKeys,
-  getImportDuplicateReasonCodes, getImportDuplicateMergeConfidence,
-  buildGuestDuplicateMatchScore, mergeUniqueListValues, normalizeImportSource, tagImportedContacts,
-  deriveGuestNameFromContact, toContactGroupsList, calculateImportContactCaptureScore,
-  getImportPotentialLevel, deriveRelationshipCodeFromContact, splitFullName, normalizeDeviceContact,
+  buildGuestNameKey, buildGuestFullNameKey, buildGuestMatchingKeys,
+  buildGuestDuplicateMatchScore, mergeUniqueListValues, tagImportedContacts,
+  deriveGuestNameFromContact, deriveRelationshipCodeFromContact, splitFullName, normalizeDeviceContact,
   readImageFileAsDataUrl, isDataImageUrl, uploadGuestAvatarToStorage,
   getGuestAvatarUrl, getGuestPhotoValue, translateCatalogInputList,
   toPetAllergyLabels, INTOLERANCE_LOOKUP_SET, MEDICAL_CONDITION_LOOKUP_SET,
   DIETARY_MEDICAL_LOOKUP_SET, normalizeSensitiveRecord,
-  hasGuestHealthAlerts, buildHostInvitePayload, inferGlobalSharePreset, applyGlobalSharePreset,
+  hasGuestHealthAlerts, buildHostInvitePayload, inferGlobalSharePreset,
   formatGlobalShareEventType, getGlobalShareVisibleScopes
 } from "../lib/guest-helpers";
 
 import {
   EVENT_TYPE_TO_PLANNER_PRESET, EVENT_TYPE_TO_DEFAULT_HOUR, statusText, statusClass,
   getConversionSource, getConversionSourceLabel, getMapEmbedUrl, normalizeEventDressCode,
-  normalizeEventPlaylistMode, normalizeEventSettings, hasEventSettingsColumns,
+  normalizeEventPlaylistMode, normalizeEventSettings,
   getSuggestedEventSettingsFromInsights, buildHostingPlaybookActions,
   buildEventPlannerContext, buildEventMealPlan, applyPlannerOverrides, buildEventPlannerPromptBundle,
   buildEventHostPlaybook
@@ -86,259 +69,46 @@ import {
 
 import {
   isCompatibilityError, isMissingRelationError, isMissingDbFeatureError, readEventSettingsCache,
-  writeEventSettingsCache, readGuestGeoCache, writeGuestGeoCache, mergeOptionsWithSelected
+  writeEventSettingsCache, readGuestGeoCache, writeGuestGeoCache
 } from "../lib/system-helpers";
 import {
-  normalizeDashboardRouteState,
-  buildDashboardPathFromState,
-  isSpecificEventDetailPath,
-  isSpecificGuestDetailPath,
-  isSpecificGuestAdvancedEditPath,
-  shouldPreserveSpecificPath
+  normalizeDashboardRouteState
 } from "../router-utils";
 import { useDashboardNavigationState } from "../hooks/useDashboardNavigationState";
+import { useDashboardDataController } from "../hooks/useDashboardDataController";
 import { useEventPlannerState } from "../hooks/useEventPlannerState";
+import { useGlobalProfileData } from "../hooks/useGlobalProfileData";
+import { useHostProfileGlobalShareController } from "../hooks/useHostProfileGlobalShareController";
+import { useImportWizardController } from "../hooks/useImportWizardController";
 import { useImportWizardState } from "../hooks/useImportWizardState";
+import { useDashboardHeaderState } from "../hooks/useDashboardHeaderState";
 import { Helmet } from "react-helmet-async";
-
-const EventPlannerContextModal = lazy(() =>
-  import("./dashboard/components/event-planner-context-modal").then((module) => ({
-    default: module.EventPlannerContextModal
+import { DashboardModals } from "./dashboard/components/dashboard-modals";
+const DashboardOverview = lazy(() =>
+  import("../components/dashboard/DashboardOverview").then((module) => ({
+    default: module.DashboardOverview
   }))
 );
-
-function getWorkspaceItemsByView(viewKey, includeHub = true) {
-  const workspaceItems = WORKSPACE_ITEMS[viewKey] || [];
-  return includeHub ? workspaceItems : workspaceItems.filter((item) => item.key !== "hub");
-}
-
-function MultiSelectField({ id, label, value, options, onChange, helpText, t }) {
-  const selectedValues = splitListInput(value);
-  const mergedOptions = mergeOptionsWithSelected(options, value);
-  const titleId = `${id}-title`;
-  const [customOption, setCustomOption] = useState("");
-
-  const toggleValue = (optionValue) => {
-    const nextValues = selectedValues.includes(optionValue)
-      ? selectedValues.filter((item) => item !== optionValue)
-      : [...selectedValues, optionValue];
-    onChange(listToInput(nextValues));
-  };
-
-  const handleAddCustomOption = () => {
-    const normalizedInput = String(customOption || "").trim();
-    if (!normalizedInput) {
-      return;
-    }
-    const existingOption = mergedOptions.find(
-      (optionItem) => normalizeLookupValue(optionItem) === normalizeLookupValue(normalizedInput)
-    );
-    const nextOption = existingOption || normalizedInput;
-    if (!selectedValues.includes(nextOption)) {
-      onChange(listToInput([...selectedValues, nextOption]));
-    }
-    setCustomOption("");
-  };
-
-  return (
-    <div className="flex flex-col gap-2.5 w-full">
-      {/* Título del campo (Alineado con el nuevo diseño del formulario) */}
-      <p id={titleId} className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
-        {label}
-      </p>
-
-      {/* CHIPS */}
-      <div className="flex flex-wrap gap-2 md:gap-2.5" role="group" aria-labelledby={titleId}>
-        {mergedOptions.map((optionValue) => {
-          const isSelected = selectedValues.includes(optionValue);
-          return (
-            <button
-              key={optionValue}
-              type="button"
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 md:px-4 md:py-2 rounded-full text-[13px] md:text-sm font-semibold transition-all duration-200 border outline-none focus:ring-2 focus:ring-blue-500/50 select-none ${isSelected
-                ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700/50 dark:text-blue-300 shadow-sm"
-                : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
-                }`}
-              aria-pressed={isSelected}
-              onClick={() => toggleValue(optionValue)}
-            >
-              {/* Checkmark animado para los seleccionados */}
-              {isSelected && <Icon name="check" className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-              <span>{optionValue}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* INPUT AÑADIR OPCIÓN CUSTOM (Estilo moderno con botón incrustado) */}
-      <div className="relative mt-1">
-        <input
-          type="text"
-          className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl pl-4 pr-24 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm"
-          value={customOption}
-          onChange={(event) => setCustomOption(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              handleAddCustomOption();
-            }
-          }}
-          placeholder={t("multi_select_add_placeholder")}
-          aria-label={t("multi_select_add_placeholder")}
-        />
-        <button
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold rounded-lg text-xs transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-          onClick={handleAddCustomOption}
-          disabled={!customOption.trim()}
-        >
-          {t("multi_select_add_button")}
-        </button>
-      </div>
-
-      {/* Mantenemos tu FieldMeta original intacto */}
-      <FieldMeta helpText={helpText} />
-    </div>
-  );
-}
-
-function GeoPointsMapPanel({ mapsStatus, mapsError, points, title, hint, emptyText, t, onOpenDetail, openActionText }) {
-  const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markersRef = useRef([]);
-  const infoWindowRef = useRef(null);
-
-  useEffect(() => {
-    if (mapsStatus !== "ready" || !mapContainerRef.current || !Array.isArray(points) || points.length === 0) {
-      return;
-    }
-    // Aseguramos que existan las librerías necesarias
-    if (!window.google?.maps || !window.google?.maps?.marker) {
-      return;
-    }
-
-    if (!mapInstanceRef.current) {
-      mapInstanceRef.current = new window.google.maps.Map(mapContainerRef.current, {
-        center: { lat: points[0].lat, lng: points[0].lng },
-        zoom: 11,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        mapId: "DEMO_MAP_ID" // 🚀 REQUISITO OBLIGATORIO PARA LOS NUEVOS MARKERS
-      });
-      infoWindowRef.current = new window.google.maps.InfoWindow();
-    }
-
-    // Limpiamos los markers anteriores (La nueva API usa map = null en vez de setMap(null))
-    markersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    markersRef.current = [];
-
-    const bounds = new window.google.maps.LatLngBounds();
-
-    points.forEach((pointItem) => {
-      // 🚀 FIX AVISO CONSOLA: Usamos AdvancedMarkerElement
-      const marker = new window.google.maps.marker.AdvancedMarkerElement({
-        map: mapInstanceRef.current,
-        position: { lat: pointItem.lat, lng: pointItem.lng },
-        title: pointItem.label
-      });
-
-      marker.addListener("gmp-click", () => {
-        if (infoWindowRef.current) {
-          const contentNode = document.createElement("div");
-          // Estilos en línea básicos para el tooltip nativo de Google Maps
-          contentNode.style.padding = "4px 8px 4px 0";
-          contentNode.style.fontFamily = "inherit";
-
-          const titleNode = document.createElement("strong");
-          titleNode.textContent = pointItem.label;
-          titleNode.style.color = "#111827";
-          titleNode.style.fontSize = "14px";
-          contentNode.appendChild(titleNode);
-
-          if (pointItem.meta) {
-            const metaNode = document.createElement("p");
-            metaNode.textContent = pointItem.meta;
-            metaNode.style.margin = "4px 0 0";
-            metaNode.style.color = "#6B7280";
-            metaNode.style.fontSize = "12px";
-            contentNode.appendChild(metaNode);
-          }
-
-          infoWindowRef.current.setContent(contentNode);
-          infoWindowRef.current.open({
-            anchor: marker,
-            map: mapInstanceRef.current
-          });
-        }
-        onOpenDetail?.(pointItem.id);
-      });
-
-      markersRef.current.push(marker);
-      // 🚀 FIX: En la nueva API, se lee la propiedad directa .position
-      bounds.extend(marker.position);
-    });
-
-    if (points.length === 1) {
-      mapInstanceRef.current.setCenter({ lat: points[0].lat, lng: points[0].lng });
-      mapInstanceRef.current.setZoom(14);
-    } else {
-      mapInstanceRef.current.fitBounds(bounds, 58);
-    }
-  }, [mapsStatus, points, onOpenDetail]);
-
-  return (
-    <article className="bg-white/50 dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/10 p-5 sm:p-6 flex flex-col gap-4 shadow-sm transition-all">
-      <div className="flex flex-col">
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Icon name="location" className="w-5 h-5 text-blue-500" />
-          {title}
-        </h3>
-        {hint && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{hint}</p>}
-      </div>
-
-      {mapsStatus === "loading" && <p className="text-xs text-gray-500 italic animate-pulse">{t("address_google_loading")}</p>}
-      {mapsStatus === "unconfigured" && <p className="text-xs text-yellow-600 dark:text-yellow-500 italic">{t("address_google_unconfigured")}</p>}
-      {mapsStatus === "error" && <p className="text-xs text-red-500 italic">{`${t("address_google_error")} ${mapsError || ""}`}</p>}
-
-      {mapsStatus === "ready" && points.length === 0 && (
-        <div className="py-8 text-center bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5">
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{emptyText}</p>
-        </div>
-      )}
-
-      {mapsStatus === "ready" && points.length > 0 && (
-        <div className="flex flex-col gap-4 mt-2">
-          {/* Contenedor del Mapa con el nuevo formato Edge-to-Edge redondeado */}
-          <div
-            ref={mapContainerRef}
-            className="w-full h-64 sm:h-80 rounded-2xl overflow-hidden shadow-inner border border-black/10 dark:border-white/10"
-            role="img"
-            aria-label={title}
-          />
-
-          {/* Listado de Ubicaciones debajo del mapa */}
-          <ul className="flex flex-col gap-2">
-            {points.slice(0, 8).map((pointItem) => (
-              <li key={pointItem.id}>
-                <button
-                  className="w-full text-left px-4 py-3 bg-white/60 hover:bg-white dark:bg-black/20 dark:hover:bg-white/5 border border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 transition-all flex items-center gap-2.5 shadow-sm group outline-none focus:ring-2 focus:ring-blue-500/50"
-                  type="button"
-                  onClick={() => onOpenDetail?.(pointItem.id)}
-                >
-                  <Icon name="eye" className="w-4 h-4 text-blue-500/70 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
-                  <span className="truncate flex-1">{openActionText} · <span className="text-gray-900 dark:text-white">{pointItem.label}</span></span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </article>
-  );
-}
+const HostProfileView = lazy(() =>
+  import("./dashboard/components/host-profile-view").then((module) => ({
+    default: module.HostProfileView
+  }))
+);
+const EventsWorkspaceContainer = lazy(() =>
+  import("./dashboard/components/events-workspace-container").then((module) => ({
+    default: module.EventsWorkspaceContainer
+  }))
+);
+const GuestsWorkspaceContainer = lazy(() =>
+  import("./dashboard/components/guests-workspace-container").then((module) => ({
+    default: module.GuestsWorkspaceContainer
+  }))
+);
+const InvitationsWorkspaceContainer = lazy(() =>
+  import("./dashboard/components/invitations-workspace-container").then((module) => ({
+    default: module.InvitationsWorkspaceContainer
+  }))
+);
 
 function DashboardScreen({
   t,
@@ -350,43 +120,34 @@ function DashboardScreen({
   onSignOut,
   onPreferencesSynced,
   appRoute,
-  appPath,
   onNavigateApp
 }) {
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Madrid", []);
   const initialRouteState = useMemo(() => normalizeDashboardRouteState(appRoute), [appRoute]);
-  const routeImportWizardSource = useMemo(
-    () => normalizeDashboardRouteState(appRoute).importWizardSource || "",
-    [appRoute]
-  );
+  const routeImportWizardSource = initialRouteState.importWizardSource || "";
   const {
-    activeView,
-    setActiveView,
     isMenuOpen,
     setIsMenuOpen,
-    eventsWorkspace,
-    setEventsWorkspace,
-    guestsWorkspace,
-    setGuestsWorkspace,
-    invitationsWorkspace,
-    setInvitationsWorkspace,
     selectedEventDetailId,
     setSelectedEventDetailId,
     selectedGuestDetailId,
     setSelectedGuestDetailId,
-    eventDetailPlannerTab,
-    setEventDetailPlannerTab,
     eventPlannerShoppingFilter,
     setEventPlannerShoppingFilter,
-    guestProfileViewTab,
-    setGuestProfileViewTab,
     openGuestAdvancedOnCreate,
     setOpenGuestAdvancedOnCreate,
-    guestAdvancedEditTab,
-    setGuestAdvancedEditTab,
     isCompactViewport,
     setIsCompactViewport
   } = useDashboardNavigationState(initialRouteState);
+  const routeActiveView = initialRouteState.activeView;
+  const routeEventsWorkspace = initialRouteState.eventsWorkspace;
+  const routeGuestsWorkspace = initialRouteState.guestsWorkspace;
+  const routeInvitationsWorkspace = initialRouteState.invitationsWorkspace;
+  const routeEventPlannerTab = initialRouteState.eventPlannerTab || "menu";
+  const routeGuestProfileTab = initialRouteState.guestProfileViewTab || "general";
+  const routeGuestAdvancedTab = initialRouteState.guestAdvancedEditTab || "identity";
+  const routeSelectedEventDetailId = initialRouteState.selectedEventDetailId || "";
+  const routeSelectedGuestDetailId = initialRouteState.selectedGuestDetailId || "";
 
   const {
     eventPlannerRegenerationByEventId,
@@ -442,11 +203,11 @@ function DashboardScreen({
   const guestAdvancedDetailsRef = useRef(null);
   const guestAdvancedToolbarRef = useRef(null);
   const guestAdvancedSectionRefs = useRef({});
+  const guestEditorHydratedIdRef = useRef("");
   const eventPlannerSectionRef = useRef(null);
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
-  const userNavigationIntentRef = useRef(false);
   const importWizardAutoloadHandledRef = useRef(false);
 
   const [guestFirstName, setGuestFirstName] = useState("");
@@ -612,6 +373,19 @@ function DashboardScreen({
   const respondedInvitesRate = invitations.length > 0 ? Math.round((respondedInvites / invitations.length) * 100) : 0;
   const isEditingEvent = Boolean(editingEventId);
   const isEditingGuest = Boolean(editingGuestId);
+  const globalShareTargetsVisible = useMemo(
+    () => globalShareTargets.filter((item) => item?.host_user_id && item.host_user_id !== session?.user?.id),
+    [globalShareTargets, session?.user?.id]
+  );
+  const globalShareSelfTargetCount = useMemo(
+    () =>
+      globalShareTargets.filter((item) => item?.host_user_id && item.host_user_id === session?.user?.id).length,
+    [globalShareTargets, session?.user?.id]
+  );
+  const globalShareActiveCount = useMemo(
+    () => globalShareTargetsVisible.filter((item) => String(item.share_status || "").toLowerCase() === "active").length,
+    [globalShareTargetsVisible]
+  );
   const isDeleteConfirmLoading =
     deleteTarget?.type === "event"
       ? isDeletingEventId === deleteTarget.item?.id
@@ -840,507 +614,6 @@ function DashboardScreen({
     }
     return counts;
   }, [invitations]);
-  const importContactsAnalysis = useMemo(() => {
-    const seenInPreview = new Set();
-    return importContactsPreview.map((contactItem, index) => {
-      const firstName = String(contactItem?.firstName || "").trim();
-      const lastName = String(contactItem?.lastName || "").trim();
-      const email = String(contactItem?.email || "").trim();
-      const phone = String(contactItem?.phone || "").trim();
-      const birthday = normalizeIsoDate(contactItem?.birthday);
-      const photoUrl = String(contactItem?.photoUrl || "").trim();
-      const groups = toContactGroupsList(contactItem);
-      const importSource = normalizeImportSource(contactItem?.importSource);
-      const fingerprint = buildGuestFingerprint({ firstName, lastName, email, phone });
-      const matchingKeys = buildGuestMatchingKeys({ firstName, lastName, email, phone });
-      const duplicateInPreview = matchingKeys.some((matchingKey) => seenInPreview.has(matchingKey));
-      matchingKeys.forEach((matchingKey) => seenInPreview.add(matchingKey));
-      const existingGuest = findExistingGuestForContact({ firstName, lastName, email, phone });
-      const duplicateExisting = Boolean(existingGuest);
-      const willMerge = duplicateExisting && importDuplicateMode === "merge";
-      const duplicateReasonCodes = getImportDuplicateReasonCodes({
-        firstName,
-        lastName,
-        email,
-        phone,
-        existingGuest,
-        ownerGuestId: ownerGuestCandidate?.id || ""
-      });
-      const duplicateMergeConfidence = getImportDuplicateMergeConfidence(duplicateReasonCodes);
-      const duplicateReasonLabel = duplicateReasonCodes
-        .map((reasonCode) => t(`contact_import_match_reason_${reasonCode}`))
-        .filter(Boolean)
-        .join(" · ");
-      const previewId = fingerprint ? `fp:${fingerprint}` : `idx:${index}`;
-      const requiresMergeApproval = Boolean(
-        duplicateExisting &&
-        willMerge &&
-        duplicateMergeConfidence === "low" &&
-        !approvedLowConfidenceMergeIds.includes(previewId)
-      );
-      const existingGuestName =
-        duplicateExisting && existingGuest
-          ? `${existingGuest.first_name || ""} ${existingGuest.last_name || ""}`.trim() || t("field_guest")
-          : "";
-      const canImport = Boolean(
-        (firstName || email || phone) &&
-        !duplicateInPreview &&
-        (!duplicateExisting || (willMerge && !requiresMergeApproval))
-      );
-      const hasDualChannel = Boolean(normalizeEmailKey(email) && normalizePhoneKey(phone));
-      const captureScore = calculateImportContactCaptureScore({
-        firstName,
-        lastName,
-        email,
-        phone,
-        city: String(contactItem?.city || "").trim(),
-        country: String(contactItem?.country || "").trim(),
-        address: String(contactItem?.address || "").trim(),
-        company: String(contactItem?.company || "").trim(),
-        birthday,
-        photoUrl,
-        groups
-      });
-      const potentialLevel = getImportPotentialLevel(captureScore);
-      return {
-        previewId,
-        fingerprint,
-        matchingKeys,
-        existingGuestId: existingGuest?.id || "",
-        existingGuestName,
-        firstName,
-        lastName,
-        email,
-        phone,
-        birthday,
-        photoUrl,
-        groups,
-        importSource,
-        relationship: String(contactItem?.relationship || "").trim(),
-        city: String(contactItem?.city || "").trim(),
-        country: String(contactItem?.country || "").trim(),
-        address: String(contactItem?.address || "").trim(),
-        postalCode: String(contactItem?.postalCode || "").trim(),
-        stateRegion: String(contactItem?.stateRegion || "").trim(),
-        company: String(contactItem?.company || "").trim(),
-        captureScore,
-        potentialLevel,
-        hasDualChannel,
-        duplicateInPreview,
-        duplicateExisting,
-        duplicateReasonCodes,
-        duplicateReasonLabel,
-        duplicateMergeConfidence,
-        requiresMergeApproval,
-        willMerge,
-        canImport
-      };
-    });
-  }, [
-    approvedLowConfidenceMergeIds,
-    findExistingGuestForContact,
-    importContactsPreview,
-    importDuplicateMode,
-    ownerGuestCandidate?.id,
-    t
-  ]);
-  const importContactsGroupOptions = useMemo(
-    () =>
-      uniqueValues(
-        importContactsAnalysis.flatMap((item) => (Array.isArray(item.groups) ? item.groups : []))
-      ),
-    [importContactsAnalysis]
-  );
-  const importContactsFiltered = useMemo(() => {
-    const term = String(importContactsSearch || "").trim().toLowerCase();
-    const groupFilter = String(importContactsGroupFilter || "all");
-    const potentialFilter = String(importContactsPotentialFilter || "all");
-    const sourceFilter = String(importContactsSourceFilter || "all");
-    const sortBy = String(importContactsSort || "priority");
-    const potentialWeight = { high: 3, medium: 2, low: 1 };
-    const collator = new Intl.Collator(language, { sensitivity: "base", numeric: true });
-    const compareByPriority = (a, b) => {
-      if (a.canImport !== b.canImport) {
-        return a.canImport ? -1 : 1;
-      }
-      if ((potentialWeight[b.potentialLevel] || 0) !== (potentialWeight[a.potentialLevel] || 0)) {
-        return (potentialWeight[b.potentialLevel] || 0) - (potentialWeight[a.potentialLevel] || 0);
-      }
-      if (b.captureScore !== a.captureScore) {
-        return b.captureScore - a.captureScore;
-      }
-      if (a.duplicateExisting !== b.duplicateExisting) {
-        return a.duplicateExisting ? 1 : -1;
-      }
-      const nameA = `${a.firstName} ${a.lastName}`.trim();
-      const nameB = `${b.firstName} ${b.lastName}`.trim();
-      return collator.compare(nameA, nameB);
-    };
-
-    return importContactsAnalysis
-      .filter((item) => {
-        const matchesGroup = groupFilter === "all" || (Array.isArray(item.groups) && item.groups.includes(groupFilter));
-        const matchesPotential = potentialFilter === "all" || item.potentialLevel === potentialFilter;
-        const matchesSource = sourceFilter === "all" || item.importSource === sourceFilter;
-        if (!matchesGroup || !matchesPotential || !matchesSource) {
-          return false;
-        }
-        if (!term) {
-          return true;
-        }
-        const groupsText = Array.isArray(item.groups) ? item.groups.join(" ") : "";
-        const haystack = `${item.firstName} ${item.lastName} ${item.email} ${item.phone} ${item.city} ${item.country} ${groupsText}`.toLowerCase();
-        return haystack.includes(term);
-      })
-      .sort((a, b) => {
-        const nameA = `${a.firstName} ${a.lastName}`.trim();
-        const nameB = `${b.firstName} ${b.lastName}`.trim();
-        if (sortBy === "score_desc") {
-          if (b.captureScore !== a.captureScore) {
-            return b.captureScore - a.captureScore;
-          }
-          return collator.compare(nameA, nameB);
-        }
-        if (sortBy === "score_asc") {
-          if (a.captureScore !== b.captureScore) {
-            return a.captureScore - b.captureScore;
-          }
-          return collator.compare(nameA, nameB);
-        }
-        if (sortBy === "name_desc") {
-          return collator.compare(nameB, nameA);
-        }
-        if (sortBy === "name_asc") {
-          return collator.compare(nameA, nameB);
-        }
-        return compareByPriority(a, b);
-      });
-  }, [
-    importContactsAnalysis,
-    importContactsGroupFilter,
-    importContactsPotentialFilter,
-    importContactsSourceFilter,
-    importContactsSort,
-    importContactsSearch,
-    language
-  ]);
-  const importContactsFilteredReady = useMemo(
-    () => importContactsFiltered.filter((item) => item.canImport),
-    [importContactsFiltered]
-  );
-  const importContactsSuggested = useMemo(
-    () =>
-      importContactsFiltered.filter(
-        (item) =>
-          item.canImport &&
-          !item.duplicateInPreview &&
-          (item.potentialLevel === "high" || (item.potentialLevel === "medium" && item.hasDualChannel))
-      ),
-    [importContactsFiltered]
-  );
-  const importContactsReady = useMemo(() => importContactsAnalysis.filter((item) => item.canImport), [importContactsAnalysis]);
-  const importContactsSelectedReady = useMemo(
-    () => importContactsReady.filter((item) => selectedImportContactIds.includes(item.previewId)),
-    [importContactsReady, selectedImportContactIds]
-  );
-  const importContactsStatusSummary = useMemo(
-    () =>
-      importContactsAnalysis.reduce(
-        (acc, item) => {
-          if (item.canImport) {
-            acc.ready += 1;
-            if (item.potentialLevel === "high") {
-              acc.highPotential += 1;
-            } else if (item.potentialLevel === "medium") {
-              acc.mediumPotential += 1;
-            } else {
-              acc.lowPotential += 1;
-            }
-          }
-          if (item.duplicateExisting) {
-            acc.duplicateExisting += 1;
-          }
-          if (item.duplicateInPreview) {
-            acc.duplicateInPreview += 1;
-          }
-          return acc;
-        },
-        { ready: 0, highPotential: 0, mediumPotential: 0, lowPotential: 0, duplicateExisting: 0, duplicateInPreview: 0 }
-      ),
-    [importContactsAnalysis]
-  );
-  const importContactsDuplicateCount = useMemo(
-    () => importContactsAnalysis.filter((item) => item.duplicateExisting || item.duplicateInPreview).length,
-    [importContactsAnalysis]
-  );
-  const importWizardMobileLink = useMemo(() => buildAppUrl("/app/guests?import=mobile&wizard=1"), []);
-  useEffect(() => {
-    let isDisposed = false;
-    const generateQrDataUrl = async () => {
-      try {
-        const qrcodeModule = await import("qrcode");
-        const qrDataUrl = await qrcodeModule.toDataURL(importWizardMobileLink, {
-          width: 180,
-          margin: 1,
-          color: {
-            dark: "#1a2332",
-            light: "#ffffff"
-          }
-        });
-        if (!isDisposed) {
-          setImportWizardQrDataUrl(qrDataUrl);
-        }
-      } catch {
-        if (!isDisposed) {
-          setImportWizardQrDataUrl("");
-        }
-      }
-    };
-    generateQrDataUrl();
-    return () => {
-      isDisposed = true;
-    };
-  }, [importWizardMobileLink, setImportWizardQrDataUrl]);
-  const importWizardStepLabel = useMemo(
-    () =>
-      interpolateText(t("import_wizard_step_indicator"), {
-        step: importWizardStep,
-        total: IMPORT_WIZARD_STEP_TOTAL
-      }),
-    [importWizardStep, t]
-  );
-  const importWizardStepTitle = useMemo(() => {
-    if (importWizardStep === 1) {
-      return t("import_wizard_step_1_title");
-    }
-    if (importWizardStep === 2) {
-      if (importWizardSource === "gmail") {
-        return t("import_wizard_step_2_gmail_title");
-      }
-      if (importWizardSource === "mobile") {
-        return t("import_wizard_step_2_mobile_title");
-      }
-      return t("import_wizard_step_2_csv_title");
-    }
-    if (importWizardStep === 3) {
-      return t("import_wizard_step_3_title");
-    }
-    return importWizardResult.partial ? t("import_wizard_step_4_error_title") : t("import_wizard_step_4_success_title");
-  }, [importWizardResult.partial, importWizardSource, importWizardStep, t]);
-  const importWizardStepHint = useMemo(() => {
-    if (importWizardStep === 1) {
-      return t("import_wizard_step_1_hint");
-    }
-    if (importWizardStep === 2) {
-      if (importWizardSource === "gmail") {
-        return t("import_wizard_step_2_gmail_hint");
-      }
-      if (importWizardSource === "mobile") {
-        return t("import_wizard_step_2_mobile_hint");
-      }
-      return t("import_wizard_step_2_csv_hint");
-    }
-    if (importWizardStep === 3) {
-      return t("import_wizard_step_3_hint");
-    }
-    return importWizardResult.partial ? t("import_wizard_step_4_error_hint") : t("import_wizard_step_4_success_hint");
-  }, [importWizardResult.partial, importWizardSource, importWizardStep, t]);
-  const importWizardContinueLabel = useMemo(() => {
-    if (importWizardStep === 3) {
-      return isImportingContacts
-        ? t("contact_import_importing")
-        : interpolateText(t("import_wizard_import_selected"), { count: importContactsSelectedReady.length });
-    }
-    if (importWizardStep === 4) {
-      return t("import_wizard_finish");
-    }
-    return t("pagination_next");
-  }, [importContactsSelectedReady.length, importWizardStep, isImportingContacts, t]);
-  const importWizardCanContinue = useMemo(() => {
-    if (importWizardStep === 1) {
-      return Boolean(importWizardSource);
-    }
-    if (importWizardStep === 2) {
-      return importContactsAnalysis.length > 0;
-    }
-    if (importWizardStep === 3) {
-      return !isImportingContacts && importContactsSelectedReady.length > 0;
-    }
-    return true;
-  }, [importWizardSource, importWizardStep, importContactsAnalysis.length, importContactsSelectedReady.length, isImportingContacts]);
-  const importContactsTotalPages = useMemo(
-    () => Math.max(1, Math.ceil(importContactsFiltered.length / importContactsPageSize)),
-    [importContactsFiltered.length, importContactsPageSize]
-  );
-  const pagedImportContacts = useMemo(() => {
-    const safePage = Math.min(importContactsPage, importContactsTotalPages);
-    const start = (safePage - 1) * importContactsPageSize;
-    return importContactsFiltered.slice(start, start + importContactsPageSize);
-  }, [importContactsFiltered, importContactsPage, importContactsPageSize, importContactsTotalPages]);
-  const pendingImportMergeApprovalItem = useMemo(
-    () => importContactsAnalysis.find((item) => item.previewId === pendingImportMergeApprovalPreviewId) || null,
-    [importContactsAnalysis, pendingImportMergeApprovalPreviewId]
-  );
-  const pendingImportMergeApprovalTargetGuest = useMemo(() => {
-    if (!pendingImportMergeApprovalItem?.existingGuestId) {
-      return null;
-    }
-    return guestsById[pendingImportMergeApprovalItem.existingGuestId] || null;
-  }, [guestsById, pendingImportMergeApprovalItem]);
-  const pendingImportMergeComparisonRows = useMemo(() => {
-    if (!pendingImportMergeApprovalItem || !pendingImportMergeApprovalTargetGuest) {
-      return [];
-    }
-    const sourceName = [pendingImportMergeApprovalItem.firstName, pendingImportMergeApprovalItem.lastName]
-      .filter(Boolean)
-      .join(" ");
-    const targetName = [pendingImportMergeApprovalTargetGuest.first_name, pendingImportMergeApprovalTargetGuest.last_name]
-      .filter(Boolean)
-      .join(" ");
-    const rows = [
-      { fieldKey: "full_name", label: t("field_full_name"), source: sourceName, target: targetName },
-      { fieldKey: "email", label: t("email"), source: pendingImportMergeApprovalItem.email, target: pendingImportMergeApprovalTargetGuest.email },
-      { fieldKey: "phone", label: t("field_phone"), source: pendingImportMergeApprovalItem.phone, target: pendingImportMergeApprovalTargetGuest.phone },
-      { fieldKey: "city", label: t("field_city"), source: pendingImportMergeApprovalItem.city, target: pendingImportMergeApprovalTargetGuest.city },
-      { fieldKey: "country", label: t("field_country"), source: pendingImportMergeApprovalItem.country, target: pendingImportMergeApprovalTargetGuest.country },
-      { fieldKey: "address", label: t("field_address"), source: pendingImportMergeApprovalItem.address, target: pendingImportMergeApprovalTargetGuest.address },
-      { fieldKey: "company", label: t("field_company"), source: pendingImportMergeApprovalItem.company, target: pendingImportMergeApprovalTargetGuest.company },
-      { fieldKey: "birthday", label: t("field_birthday"), source: pendingImportMergeApprovalItem.birthday, target: pendingImportMergeApprovalTargetGuest.birthday },
-      {
-        fieldKey: "avatar_url",
-        label: t("field_guest_photo"),
-        source: pendingImportMergeApprovalItem.photoUrl ? t("status_yes") : t("status_no"),
-        target: pendingImportMergeApprovalTargetGuest.avatar_url ? t("status_yes") : t("status_no")
-      }
-    ];
-    const rankedRows = rows.map((rowItem) => {
-      const sourceBlank = isBlankValue(rowItem.source);
-      const targetBlank = isBlankValue(rowItem.target);
-      let mergeResultKey = "keep_target";
-      if (!sourceBlank && targetBlank) {
-        mergeResultKey = "will_fill";
-      } else if (sourceBlank && targetBlank) {
-        mergeResultKey = "empty";
-      }
-      return {
-        ...rowItem,
-        mergeResultKey,
-        willFill: mergeResultKey === "will_fill"
-      };
-    });
-    const resultOrder = { will_fill: 0, keep_target: 1, empty: 2 };
-    return rankedRows.sort((a, b) => (resultOrder[a.mergeResultKey] ?? 99) - (resultOrder[b.mergeResultKey] ?? 99));
-  }, [pendingImportMergeApprovalItem, pendingImportMergeApprovalTargetGuest, t]);
-  const pendingImportMergeWillFillCount = useMemo(
-    () => pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill).length,
-    [pendingImportMergeComparisonRows]
-  );
-  const pendingImportMergeVisibleRows = useMemo(() => {
-    if (!importMergeReviewShowOnlyWillFill) {
-      return pendingImportMergeComparisonRows;
-    }
-    return pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill);
-  }, [importMergeReviewShowOnlyWillFill, pendingImportMergeComparisonRows]);
-  const pendingImportMergeVisibleCount = pendingImportMergeVisibleRows.length;
-  const pendingImportMergeTotalCount = pendingImportMergeComparisonRows.length;
-  const pendingImportMergeDefaultSelectedFieldKeys = useMemo(
-    () => pendingImportMergeComparisonRows.filter((rowItem) => rowItem.willFill).map((rowItem) => rowItem.fieldKey),
-    [pendingImportMergeComparisonRows]
-  );
-  const pendingImportMergeSelectedFieldKeysSet = useMemo(
-    () => new Set(pendingImportMergeSelectedFieldKeys),
-    [pendingImportMergeSelectedFieldKeys]
-  );
-  const pendingImportMergeSelectableCount = pendingImportMergeDefaultSelectedFieldKeys.length;
-  useEffect(() => {
-    const defaultIds = importContactsReady.map((item) => item.previewId);
-    setSelectedImportContactIds(defaultIds);
-  }, [importContactsReady, setSelectedImportContactIds]);
-  useEffect(() => {
-    setApprovedLowConfidenceMergeIds((prev) => {
-      const validIds = new Set(importContactsAnalysis.map((item) => item.previewId));
-      const next = prev.filter((id) => validIds.has(id));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [importContactsAnalysis, setApprovedLowConfidenceMergeIds]);
-  useEffect(() => {
-    setApprovedLowConfidenceMergeFieldsByPreviewId((prev) => {
-      const validIds = new Set(importContactsAnalysis.map((item) => item.previewId));
-      const entries = Object.entries(prev).filter(([previewId]) => validIds.has(previewId));
-      if (entries.length === Object.keys(prev).length) {
-        return prev;
-      }
-      return Object.fromEntries(entries);
-    });
-  }, [importContactsAnalysis, setApprovedLowConfidenceMergeFieldsByPreviewId]);
-  useEffect(() => {
-    if (!pendingImportMergeApprovalItem || !pendingImportMergeApprovalItem.requiresMergeApproval) {
-      setPendingImportMergeApprovalPreviewId("");
-    }
-  }, [pendingImportMergeApprovalItem, setPendingImportMergeApprovalPreviewId]);
-  useEffect(() => {
-    if (!pendingImportMergeApprovalItem) {
-      setPendingImportMergeSelectedFieldKeys([]);
-      return;
-    }
-    const saved = approvedLowConfidenceMergeFieldsByPreviewId[pendingImportMergeApprovalItem.previewId];
-    if (Array.isArray(saved) && saved.length > 0) {
-      setPendingImportMergeSelectedFieldKeys(saved);
-      return;
-    }
-    setPendingImportMergeSelectedFieldKeys(pendingImportMergeDefaultSelectedFieldKeys);
-  }, [
-    approvedLowConfidenceMergeFieldsByPreviewId,
-    pendingImportMergeApprovalItem,
-    pendingImportMergeDefaultSelectedFieldKeys,
-    setPendingImportMergeSelectedFieldKeys
-  ]);
-  useEffect(() => {
-    if (activeView !== "guests" || guestsWorkspace !== "latest") {
-      setPendingImportMergeApprovalPreviewId("");
-      setPendingImportMergeSelectedFieldKeys([]);
-    }
-  }, [activeView, guestsWorkspace, setPendingImportMergeApprovalPreviewId, setPendingImportMergeSelectedFieldKeys]);
-  useEffect(() => {
-    setImportContactsPage(1);
-  }, [
-    importContactsSearch,
-    importContactsGroupFilter,
-    importContactsPotentialFilter,
-    importContactsSourceFilter,
-    importContactsSort,
-    importDuplicateMode,
-    importContactsPageSize,
-    importContactsPreview.length,
-    setImportContactsPage
-  ]);
-  useEffect(() => {
-    if (importContactsPage > importContactsTotalPages) {
-      setImportContactsPage(importContactsTotalPages);
-    }
-  }, [importContactsPage, importContactsTotalPages, setImportContactsPage]);
-  useEffect(() => {
-    if (!isImportWizardOpen) {
-      return undefined;
-    }
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setIsImportWizardOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isImportWizardOpen, setIsImportWizardOpen]);
-  useEffect(() => {
-    if (typeof document === "undefined" || !isImportWizardOpen) {
-      return undefined;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isImportWizardOpen]);
   useEffect(() => {
     if (typeof window === "undefined") {
       return undefined;
@@ -1352,12 +625,12 @@ function DashboardScreen({
     return () => mediaQuery.removeEventListener("change", onChange);
   }, [setIsCompactViewport]);
   useEffect(() => {
-    if (activeView !== "guests" || guestsWorkspace !== "latest") {
+    if (routeActiveView !== "guests" || routeGuestsWorkspace !== "latest") {
       setIsImportWizardOpen(false);
     }
-  }, [activeView, guestsWorkspace, setIsImportWizardOpen]);
+  }, [routeActiveView, routeGuestsWorkspace, setIsImportWizardOpen]);
   useEffect(() => {
-    if (activeView !== "guests" || guestsWorkspace !== "latest" || isImportWizardOpen) {
+    if (routeActiveView !== "guests" || routeGuestsWorkspace !== "latest" || isImportWizardOpen) {
       return;
     }
     if (!routeImportWizardSource) {
@@ -1410,8 +683,8 @@ function DashboardScreen({
       window.history.replaceState(window.history.state, "", nextUrl);
     }
   }, [
-    activeView,
-    guestsWorkspace,
+    routeActiveView,
+    routeGuestsWorkspace,
     isImportWizardOpen,
     routeImportWizardSource,
     setImportContactsDraft,
@@ -1667,6 +940,96 @@ function DashboardScreen({
     recommendedImportWizardSource,
     setImportWizardSource
   ]);
+  const {
+    importContactsAnalysis,
+    importContactsGroupOptions,
+    importContactsFiltered,
+    importContactsSuggested,
+    importContactsReady,
+    importContactsSelectedReady,
+    importContactsStatusSummary,
+    importContactsDuplicateCount,
+    importWizardStepLabel,
+    importWizardStepTitle,
+    importWizardStepHint,
+    importWizardContinueLabel,
+    importWizardCanContinue,
+    importContactsTotalPages,
+    pagedImportContacts,
+    pendingImportMergeApprovalItem,
+    pendingImportMergeWillFillCount,
+    pendingImportMergeVisibleRows,
+    pendingImportMergeVisibleCount,
+    pendingImportMergeTotalCount,
+    pendingImportMergeSelectedFieldKeysSet,
+    pendingImportMergeSelectableCount,
+    handleImportWizardBack,
+    handleImportWizardContinue,
+    handleImportWizardEmailLink,
+    handleShareImportWizardLink,
+    handleSelectAllReadyImportContacts,
+    handleSelectSuggestedImportContacts,
+    handleClearReadyImportContactsSelection,
+    handleSelectFilteredReadyImportContacts,
+    handleSelectCurrentImportPageReady,
+    handleSelectOnlyNewImportContacts,
+    handleSelectHighPotentialImportContacts,
+    handleSelectDualChannelImportContacts,
+    handleImportDuplicateModeChange,
+    handleTogglePendingImportMergeFieldKey,
+    handleOpenLowConfidenceMergeReview,
+    handleCloseLowConfidenceMergeReview,
+    handleConfirmLowConfidenceMergeReview,
+    handleApproveAllLowConfidenceMergeContacts,
+    handleSelectDuplicateMergeImportContacts,
+    toggleImportContactSelection
+  } = useImportWizardController({
+    t,
+    language,
+    buildAppUrl,
+    importContactsPreview,
+    importDuplicateMode,
+    ownerGuestCandidateId: ownerGuestCandidate?.id,
+    approvedLowConfidenceMergeIds,
+    setApprovedLowConfidenceMergeIds,
+    findExistingGuestForContact,
+    guestsById,
+    selectedImportContactIds,
+    setSelectedImportContactIds,
+    importContactsSearch,
+    importContactsGroupFilter,
+    importContactsPotentialFilter,
+    importContactsSourceFilter,
+    importContactsSort,
+    importContactsPage,
+    setImportContactsPage,
+    importContactsPageSize,
+    pendingImportMergeApprovalPreviewId,
+    setPendingImportMergeApprovalPreviewId,
+    importMergeReviewShowOnlyWillFill,
+    setImportMergeReviewShowOnlyWillFill,
+    pendingImportMergeSelectedFieldKeys,
+    setPendingImportMergeSelectedFieldKeys,
+    approvedLowConfidenceMergeFieldsByPreviewId,
+    setApprovedLowConfidenceMergeFieldsByPreviewId,
+    isImportWizardOpen,
+    setIsImportWizardOpen,
+    importWizardStep,
+    setImportWizardStep,
+    importWizardSource,
+    importWizardResult,
+    isImportingContacts,
+    setImportContactsMessage,
+    setImportDuplicateMode,
+    handleCloseImportWizard,
+    handleImportContacts,
+    canUseNativeShare,
+    importWizardShareEmail,
+    setImportWizardShareMessage,
+    setImportWizardQrDataUrl,
+    activeView: routeActiveView,
+    guestsWorkspace: routeGuestsWorkspace
+  });
   const invitedGuestIdsByEvent = useMemo(() => {
     const byEvent = new Map();
     for (const invitationItem of invitations) {
@@ -2206,7 +1569,7 @@ function DashboardScreen({
     () => Object.fromEntries(guestAdvancedProfileSignals.map((item) => [item.key, item])),
     [guestAdvancedProfileSignals]
   );
-  const guestAdvancedCurrentTabIndex = GUEST_ADVANCED_EDIT_TABS.indexOf(guestAdvancedEditTab);
+  const guestAdvancedCurrentTabIndex = GUEST_ADVANCED_EDIT_TABS.indexOf(routeGuestAdvancedTab);
   const guestAdvancedCurrentStep = guestAdvancedCurrentTabIndex >= 0 ? guestAdvancedCurrentTabIndex + 1 : 1;
   const guestAdvancedPrevTab =
     guestAdvancedCurrentTabIndex > 0 ? GUEST_ADVANCED_EDIT_TABS[guestAdvancedCurrentTabIndex - 1] : "";
@@ -2215,7 +1578,7 @@ function DashboardScreen({
       ? GUEST_ADVANCED_EDIT_TABS[guestAdvancedCurrentTabIndex + 1]
       : "";
   const guestAdvancedCurrentTabLabel =
-    guestAdvancedEditTabs.find((tabItem) => tabItem.key === guestAdvancedEditTab)?.label ||
+    guestAdvancedEditTabs.find((tabItem) => tabItem.key === routeGuestAdvancedTab)?.label ||
     guestAdvancedEditTabs[0]?.label ||
     "";
   const guestAdvancedFirstPendingTab = useMemo(
@@ -2236,15 +1599,15 @@ function DashboardScreen({
     ];
     return (
       orderedTabs.find(
-        (tabKey) => tabKey !== guestAdvancedEditTab && !guestAdvancedSignalsBySection[tabKey]?.done
+        (tabKey) => tabKey !== routeGuestAdvancedTab && !guestAdvancedSignalsBySection[tabKey]?.done
       ) || ""
     );
-  }, [guestAdvancedCurrentTabIndex, guestAdvancedEditTab, guestAdvancedSignalsBySection]);
+  }, [guestAdvancedCurrentTabIndex, routeGuestAdvancedTab, guestAdvancedSignalsBySection]);
   const guestAdvancedNextPendingLabel = guestAdvancedNextPendingTab
     ? guestAdvancedSignalsBySection[guestAdvancedNextPendingTab]?.label || ""
     : "";
   const guestAdvancedCurrentChecklist = useMemo(() => {
-    if (guestAdvancedEditTab === "identity") {
+    if (routeGuestAdvancedTab === "identity") {
       return [
         {
           key: "identity_contact",
@@ -2263,14 +1626,14 @@ function DashboardScreen({
         }
       ];
     }
-    if (guestAdvancedEditTab === "food") {
+    if (routeGuestAdvancedTab === "food") {
       return [
         { key: "food_diet", label: t("field_diet_type"), done: Boolean(guestAdvanced.dietType.trim()) },
         { key: "food_likes", label: t("field_food_likes"), done: Boolean(splitListInput(guestAdvanced.foodLikes).length) },
         { key: "food_drinks", label: t("field_drink_likes"), done: Boolean(splitListInput(guestAdvanced.drinkLikes).length) }
       ];
     }
-    if (guestAdvancedEditTab === "lifestyle") {
+    if (routeGuestAdvancedTab === "lifestyle") {
       return [
         {
           key: "lifestyle_music",
@@ -2285,7 +1648,7 @@ function DashboardScreen({
         }
       ];
     }
-    if (guestAdvancedEditTab === "conversation") {
+    if (routeGuestAdvancedTab === "conversation") {
       return [
         {
           key: "conversation_last_topic",
@@ -2339,7 +1702,7 @@ function DashboardScreen({
           : Boolean(guestAdvanced.sensitiveConsent)
       }
     ];
-  }, [guestAdvanced, guestAdvancedEditTab, guestCity, guestCountry, guestEmail, guestFirstName, guestPhone, guestRelationship, t]);
+  }, [guestAdvanced, routeGuestAdvancedTab, guestCity, guestCountry, guestEmail, guestFirstName, guestPhone, guestRelationship, t]);
   const guestAdvancedCurrentChecklistDone = guestAdvancedCurrentChecklist.filter((item) => item.done).length;
   const guestAdvancedCurrentChecklistTotal = Math.max(1, guestAdvancedCurrentChecklist.length);
   const guestNextBirthday = useMemo(
@@ -2710,11 +2073,12 @@ function DashboardScreen({
     return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lastInvitationShareText)}`;
   }, [lastInvitationShareSubject, lastInvitationShareText, t]);
   const selectedEventDetail = useMemo(() => {
-    if (!selectedEventDetailId) {
+    const preferredEventId = routeSelectedEventDetailId || selectedEventDetailId;
+    if (!preferredEventId) {
       return events[0] || null;
     }
-    return eventsById[selectedEventDetailId] || events[0] || null;
-  }, [events, eventsById, selectedEventDetailId]);
+    return eventsById[preferredEventId] || events[0] || null;
+  }, [events, eventsById, routeSelectedEventDetailId, selectedEventDetailId]);
   const selectedEventDetailInvitations = useMemo(() => {
     if (!selectedEventDetail?.id) {
       return [];
@@ -3287,11 +2651,12 @@ function DashboardScreen({
     t
   ]);
   const selectedGuestDetail = useMemo(() => {
-    if (!selectedGuestDetailId) {
+    const preferredGuestId = routeSelectedGuestDetailId || selectedGuestDetailId;
+    if (!preferredGuestId) {
       return guests[0] || null;
     }
-    return guestsById[selectedGuestDetailId] || guests[0] || null;
-  }, [guests, guestsById, selectedGuestDetailId]);
+    return guestsById[preferredGuestId] || guests[0] || null;
+  }, [guests, guestsById, routeSelectedGuestDetailId, selectedGuestDetailId]);
   const selectedGuestDetailPreference = useMemo(
     () => (selectedGuestDetail ? guestPreferencesById[selectedGuestDetail.id] || {} : {}),
     [guestPreferencesById, selectedGuestDetail]
@@ -3539,7 +2904,7 @@ function DashboardScreen({
     t
   ]);
   const selectedGuestActiveTabRecommendations =
-    selectedGuestTabRecommendations[guestProfileViewTab] || null;
+    selectedGuestTabRecommendations[routeGuestProfileTab] || null;
   const selectedGuestAllergyLabels = useMemo(
     () => toCatalogLabels("allergy", selectedGuestDetailSensitive?.allergies || [], language),
     [selectedGuestDetailSensitive, language]
@@ -3771,566 +3136,59 @@ function DashboardScreen({
     return filteredInvitations.slice(start, start + invitationPageSize);
   }, [filteredInvitations, invitationPage, invitationPageSize]);
 
-  const mapShareTargetToDraft = useCallback((targetItem) => {
-    const status = String(targetItem?.share_status || "inactive").toLowerCase();
-    return {
-      status: status === "active" || status === "revoked" || status === "expired" ? status : "inactive",
-      allow_identity: Boolean(targetItem?.allow_identity),
-      allow_food: Boolean(targetItem?.allow_food),
-      allow_lifestyle: Boolean(targetItem?.allow_lifestyle),
-      allow_conversation: Boolean(targetItem?.allow_conversation),
-      allow_health: Boolean(targetItem?.allow_health)
-    };
-  }, []);
-  const isIntegrationDebugEnabled = useMemo(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    const params = new URLSearchParams(window.location.search || "");
-    return params.get("debug") === "1" || params.get("diagnostics") === "1";
-  }, []);
+  const {
+    mapShareTargetToDraft,
+    isIntegrationDebugEnabled,
+    loadIntegrationStatusData,
+    refreshSharedProfileData
+  } = useGlobalProfileData({
+    supabase,
+    sessionUserId: session?.user?.id,
+    t,
+    globalProfileId,
+    setGlobalProfileId,
+    setGlobalShareTargets,
+    setGlobalShareDraftByHostId,
+    setPreviewGlobalShareHostId,
+    setIsGlobalProfileFeatureReady,
+    setGlobalProfileMessage,
+    setIsLoadingIntegrationStatus,
+    setIntegrationStatusMessage,
+    setIntegrationStatus,
+    setGlobalShareHistory,
+    setIsLoadingGlobalShareHistory,
+    setIsIntegrationPanelOpen
+  });
 
-  const loadGlobalProfileData = useCallback(async () => {
-    if (!supabase || !session?.user?.id) {
-      return null;
-    }
-
-    const defaultFeatureReady = true;
-    let nextFeatureReady = defaultFeatureReady;
-    let nextGlobalProfileId = "";
-    let nextShareTargets = [];
-    let nextShareDraftByHostId = {};
-
-    const { data: globalProfileRow, error: globalProfileError } = await supabase
-      .from("global_guest_profiles")
-      .select("id")
-      .eq("owner_user_id", session.user.id)
-      .maybeSingle();
-
-    if (globalProfileError) {
-      if (isMissingDbFeatureError(globalProfileError, ["global_guest_profiles"])) {
-        nextFeatureReady = false;
-      } else {
-        setGlobalProfileMessage(`${t("global_profile_load_error")} ${globalProfileError.message}`);
-        return null;
-      }
-    } else {
-      nextGlobalProfileId = String(globalProfileRow?.id || "");
-    }
-
-    if (nextFeatureReady && nextGlobalProfileId) {
-      const shareTargetsResult = await supabase.rpc("get_my_global_profile_share_targets");
-      if (shareTargetsResult.error) {
-        if (isMissingDbFeatureError(shareTargetsResult.error, ["get_my_global_profile_share_targets"])) {
-          nextFeatureReady = false;
-        } else {
-          setGlobalProfileMessage(`${t("global_profile_load_error")} ${shareTargetsResult.error.message}`);
-          return null;
-        }
-      } else {
-        nextShareTargets = Array.isArray(shareTargetsResult.data) ? shareTargetsResult.data : [];
-        nextShareDraftByHostId = Object.fromEntries(
-          nextShareTargets.map((item) => [item.host_user_id, mapShareTargetToDraft(item)])
-        );
-      }
-    }
-
-    setIsGlobalProfileFeatureReady(nextFeatureReady);
-    setGlobalProfileId(nextGlobalProfileId);
-    setGlobalShareTargets(nextShareTargets);
-    setGlobalShareDraftByHostId(nextShareDraftByHostId);
-    setPreviewGlobalShareHostId((prev) =>
-      prev && nextShareTargets.some((item) => item.host_user_id === prev) ? prev : ""
-    );
-    return { profileId: nextGlobalProfileId, shareTargets: nextShareTargets, featureReady: nextFeatureReady };
-  }, [mapShareTargetToDraft, session?.user?.id, t]);
-
-  const loadIntegrationStatusData = useCallback(async () => {
-    if (!supabase || !session?.user?.id) {
-      return;
-    }
-    setIsLoadingIntegrationStatus(true);
-    setIntegrationStatusMessage("");
-    const result = await supabase.rpc("get_shared_profile_feature_status");
-    setIsLoadingIntegrationStatus(false);
-
-    if (result.error) {
-      if (isMissingDbFeatureError(result.error, ["get_shared_profile_feature_status"])) {
-        setIntegrationStatus(null);
-        setIntegrationStatusMessage(t("integration_status_feature_pending"));
-      } else {
-        setIntegrationStatusMessage(`${t("integration_status_load_error")} ${result.error.message}`);
-      }
-      return;
-    }
-
-    const row = Array.isArray(result.data) ? result.data[0] : result.data;
-    if (!row) {
-      setIntegrationStatus(null);
-      setIntegrationStatusMessage(t("integration_status_empty"));
-      return;
-    }
-    setIntegrationStatus(row);
-  }, [session?.user?.id, t]);
-
-  const loadGlobalShareHistoryData = useCallback(
-    async (profileIdOverride) => {
-      if (!supabase || !session?.user?.id) {
-        return;
-      }
-      const targetProfileId = String(profileIdOverride || globalProfileId || "").trim();
-      if (!targetProfileId) {
-        setGlobalShareHistory([]);
-        return;
-      }
-      setIsLoadingGlobalShareHistory(true);
-      const result = await supabase
-        .from("global_guest_profile_consent_events")
-        .select("id, event_type, created_at, payload")
-        .eq("global_profile_id", targetProfileId)
-        .in("event_type", ["share_granted", "share_revoked"])
-        .order("created_at", { ascending: false })
-        .limit(12);
-      setIsLoadingGlobalShareHistory(false);
-      if (result.error) {
-        if (isMissingDbFeatureError(result.error, ["global_guest_profile_consent_events"])) {
-          setGlobalShareHistory([]);
-          return;
-        }
-        setGlobalProfileMessage(`${t("global_profile_history_load_error")} ${result.error.message}`);
-        return;
-      }
-      setGlobalShareHistory(Array.isArray(result.data) ? result.data : []);
-    },
-    [globalProfileId, session?.user?.id, t]
-  );
-
-  const refreshSharedProfileData = useCallback(async () => {
-    const sharedData = await loadGlobalProfileData();
-    const nextProfileId = String(sharedData?.profileId || "").trim();
-    const tasks = [loadGlobalShareHistoryData(nextProfileId)];
-    if (isIntegrationDebugEnabled) {
-      tasks.push(loadIntegrationStatusData());
-    } else {
-      setIntegrationStatus(null);
-      setIntegrationStatusMessage("");
-      setIsIntegrationPanelOpen(false);
-    }
-    await Promise.all(tasks);
-  }, [isIntegrationDebugEnabled, loadGlobalProfileData, loadIntegrationStatusData, loadGlobalShareHistoryData]);
-
-  const loadDashboardData = useCallback(async () => {
-    if (!supabase || !session?.user?.id) {
-      return;
-    }
-    setDashboardError("");
-    onPreferencesSynced?.();
-
-    const routeEventDetailId =
-      appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim())
-        ? String(appRoute?.eventId || "").trim()
-        : "";
-    const routeGuestDetailId =
-      appRoute?.view === "guests" && ["detail", "create"].includes(String(appRoute?.workspace || "").trim())
-        ? String(appRoute?.guestId || "").trim()
-        : "";
-
-    const guestsPromise = supabase
-      .from("guests")
-      .select(
-        "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
-      )
-      .eq("host_user_id", session.user.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    const hostProfilePromise = supabase
-      .from("profiles")
-      .select("full_name, phone, created_at")
-      .eq("id", session.user.id)
-      .maybeSingle();
-
-    const invitationsPromise = supabase
-      .from("invitations")
-      .select("id, event_id, guest_id, status, public_token, created_at, responded_at, updated_at")
-      .eq("host_user_id", session.user.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    let { data: eventsData, error: eventsError } = await supabase
-      .from("events")
-      .select(
-        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
-      )
-      .eq("host_user_id", session.user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (
-      eventsError &&
-      isCompatibilityError(eventsError, [
-        "location_place_id",
-        "location_lat",
-        "location_lng",
-        "description",
-        "allow_plus_one",
-        "auto_reminders",
-        "dress_code",
-        "playlist_mode"
-      ])
-    ) {
-      const fallback = await supabase
-        .from("events")
-        .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
-        .eq("host_user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      eventsData = fallback.data || [];
-      eventsError = fallback.error;
-    }
-
-    let [
-      { data: guestsData, error: guestsError },
-      { data: invitationsData, error: invitationsError },
-      { data: hostProfileData, error: hostProfileError }
-    ] = await Promise.all([guestsPromise, invitationsPromise, hostProfilePromise]);
-
-    if (
-      guestsError &&
-      isCompatibilityError(guestsError, [
-        "postal_code",
-        "state_region",
-        "address",
-        "company",
-        "twitter",
-        "instagram",
-        "linkedin",
-        "last_meet_at",
-        "avatar_url"
-      ])
-    ) {
-      const fallbackGuests = await supabase
-        .from("guests")
-        .select("id, first_name, last_name, email, phone, relationship, city, country, created_at")
-        .eq("host_user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      guestsData = fallbackGuests.data || [];
-      guestsError = fallbackGuests.error;
-    }
-
-    if (!eventsError && routeEventDetailId && !(eventsData || []).some((eventItem) => eventItem.id === routeEventDetailId)) {
-      let routeEventResult = await supabase
-        .from("events")
-        .select(
-          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
-        )
-        .eq("host_user_id", session.user.id)
-        .eq("id", routeEventDetailId)
-        .maybeSingle();
-
-      if (
-        routeEventResult.error &&
-        isCompatibilityError(routeEventResult.error, [
-          "location_place_id",
-          "location_lat",
-          "location_lng",
-          "description",
-          "allow_plus_one",
-          "auto_reminders",
-          "dress_code",
-          "playlist_mode"
-        ])
-      ) {
-        routeEventResult = await supabase
-          .from("events")
-          .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
-          .eq("host_user_id", session.user.id)
-          .eq("id", routeEventDetailId)
-          .maybeSingle();
-      }
-
-      if (routeEventResult.error) {
-        eventsError = routeEventResult.error;
-      } else if (routeEventResult.data) {
-        eventsData = [routeEventResult.data, ...(eventsData || [])];
-      }
-    }
-
-    if (!guestsError && routeGuestDetailId && !(guestsData || []).some((guestItem) => guestItem.id === routeGuestDetailId)) {
-      let routeGuestResult = await supabase
-        .from("guests")
-        .select(
-          "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
-        )
-        .eq("host_user_id", session.user.id)
-        .eq("id", routeGuestDetailId)
-        .maybeSingle();
-
-      if (
-        routeGuestResult.error &&
-        isCompatibilityError(routeGuestResult.error, [
-          "postal_code",
-          "state_region",
-          "address",
-          "company",
-          "twitter",
-          "instagram",
-          "linkedin",
-          "last_meet_at",
-          "avatar_url"
-        ])
-      ) {
-        routeGuestResult = await supabase
-          .from("guests")
-          .select("id, first_name, last_name, email, phone, relationship, city, country, created_at")
-          .eq("host_user_id", session.user.id)
-          .eq("id", routeGuestDetailId)
-          .maybeSingle();
-      }
-
-      if (routeGuestResult.error) {
-        guestsError = routeGuestResult.error;
-      } else if (routeGuestResult.data) {
-        guestsData = [routeGuestResult.data, ...(guestsData || [])];
-      }
-    }
-
-    let eventPlannerRows = [];
-    let eventPlannerError = null;
-    const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
-    if (eventIdsForPlans.length > 0) {
-      const plannerResult = await supabase
-        .from("event_host_plans")
-        .select("event_id, version, generated_at, source, model_meta, plan_context, plan_snapshot")
-        .eq("host_user_id", session.user.id)
-        .in("event_id", eventIdsForPlans)
-        .order("generated_at", { ascending: false });
-
-      if (plannerResult.error) {
-        if (!isMissingRelationError(plannerResult.error, "event_host_plans")) {
-          eventPlannerError = plannerResult.error;
-        }
-      } else {
-        eventPlannerRows = Array.isArray(plannerResult.data) ? plannerResult.data : [];
-      }
-    }
-
-    if (eventsError || guestsError || invitationsError || hostProfileError || eventPlannerError) {
-      setDashboardError(
-        eventsError?.message ||
-        guestsError?.message ||
-        invitationsError?.message ||
-        hostProfileError?.message ||
-        eventPlannerError?.message ||
-        t("error_load_data")
-      );
-      return;
-    }
-
-    const guestIds = (guestsData || []).map((guest) => guest.id);
-    let guestHostConversionRows = [];
-    if (guestIds.length > 0) {
-      const guestConversionsResult = await supabase.rpc("get_host_guest_conversions");
-      if (
-        guestConversionsResult.error &&
-        !isCompatibilityError(guestConversionsResult.error, ["get_host_guest_conversions"])
-      ) {
-        setDashboardError(guestConversionsResult.error.message || t("error_load_data"));
-        return;
-      }
-      guestHostConversionRows = guestConversionsResult.data || [];
-    }
-    let guestPreferencesRows = [];
-    let guestSensitiveRows = [];
-
-    if (guestIds.length > 0) {
-      let preferencesResult = await supabase
-        .from("guest_preferences")
-        .select(
-          "guest_id, diet_type, tasting_preferences, food_likes, food_dislikes, drink_likes, drink_dislikes, music_genres, favorite_color, books, movies, series, sports, team_fan, punctuality, last_talk_topic, taboo_topics, experience_types, preferred_guest_relationships, preferred_day_moments, periodicity, cuisine_types, pets"
-        )
-        .in("guest_id", guestIds);
-
-      if (
-        preferencesResult.error &&
-        isCompatibilityError(preferencesResult.error, [
-          "experience_types",
-          "preferred_guest_relationships",
-          "preferred_day_moments",
-          "periodicity",
-          "cuisine_types",
-          "pets"
-        ])
-      ) {
-        preferencesResult = await supabase
-          .from("guest_preferences")
-          .select(
-            "guest_id, diet_type, tasting_preferences, food_likes, food_dislikes, drink_likes, drink_dislikes, music_genres, favorite_color, books, movies, series, sports, team_fan, punctuality, last_talk_topic, taboo_topics"
-          )
-          .in("guest_id", guestIds);
-      }
-
-      if (preferencesResult.error && !isMissingRelationError(preferencesResult.error, "guest_preferences")) {
-        setDashboardError(preferencesResult.error.message || t("error_load_data"));
-        return;
-      }
-
-      guestPreferencesRows = preferencesResult.data || [];
-
-      let sensitiveResult = await supabase
-        .from("guest_sensitive_preferences")
-        .select(
-          "guest_id, allergies, intolerances, pet_allergies, medical_conditions, dietary_medical_restrictions, consent_granted, consent_version, consent_granted_at"
-        )
-        .in("guest_id", guestIds);
-
-      if (
-        sensitiveResult.error &&
-        isCompatibilityError(sensitiveResult.error, ["medical_conditions", "dietary_medical_restrictions"])
-      ) {
-        sensitiveResult = await supabase
-          .from("guest_sensitive_preferences")
-          .select("guest_id, allergies, intolerances, pet_allergies, consent_granted, consent_version, consent_granted_at")
-          .in("guest_id", guestIds);
-      }
-
-      if (sensitiveResult.error && !isMissingRelationError(sensitiveResult.error, "guest_sensitive_preferences")) {
-        setDashboardError(sensitiveResult.error.message || t("error_load_data"));
-        return;
-      }
-
-      guestSensitiveRows = sensitiveResult.data || [];
-    }
-
-    const cachedEventSettingsById = readEventSettingsCache(session.user.id);
-    const normalizedEventsData = (eventsData || []).map((eventItem) => {
-      const settingsFromRow = normalizeEventSettings(eventItem);
-      const settingsFromCache = normalizeEventSettings(cachedEventSettingsById[eventItem.id] || {});
-      const rowHasAnyValue = Boolean(
-        settingsFromRow.description ||
-        settingsFromRow.allow_plus_one ||
-        settingsFromRow.auto_reminders ||
-        settingsFromRow.dress_code !== "none" ||
-        settingsFromRow.playlist_mode !== "host_only"
-      );
-      const cacheHasAnyValue = Boolean(
-        settingsFromCache.description ||
-        settingsFromCache.allow_plus_one ||
-        settingsFromCache.auto_reminders ||
-        settingsFromCache.dress_code !== "none" ||
-        settingsFromCache.playlist_mode !== "host_only"
-      );
-      const shouldUseCache = !hasEventSettingsColumns(eventItem) || (!rowHasAnyValue && cacheHasAnyValue);
-      const effectiveSettings = shouldUseCache ? settingsFromCache : settingsFromRow;
-      return {
-        ...eventItem,
-        description: effectiveSettings.description,
-        allow_plus_one: effectiveSettings.allow_plus_one,
-        auto_reminders: effectiveSettings.auto_reminders,
-        dress_code: effectiveSettings.dress_code,
-        playlist_mode: effectiveSettings.playlist_mode
-      };
-    });
-
-    setEvents(normalizedEventsData);
-    setEventSettingsCacheById(cachedEventSettingsById);
-    setGuests(guestsData || []);
-    setInvitations(invitationsData || []);
-    const latestPlannerByEventId = {};
-    const plannerHistoryByEventId = {};
-    for (const row of eventPlannerRows) {
-      const eventId = String(row?.event_id || "").trim();
-      if (!eventId) {
-        continue;
-      }
-      const snapshotState = getHostPlanStateFromSnapshot(row?.plan_snapshot);
-      if (!snapshotState) {
-        continue;
-      }
-      if (!latestPlannerByEventId[eventId]) {
-        latestPlannerByEventId[eventId] = snapshotState;
-      }
-      const currentHistory = plannerHistoryByEventId[eventId] || [];
-      const hasSameVersion = currentHistory.some((item) => Number(item.version) === Number(snapshotState.version));
-      if (!hasSameVersion) {
-        currentHistory.push({
-          version: Number(snapshotState.version || 0),
-          generatedAt: String(snapshotState.generatedAt || ""),
-          scope: String(snapshotState?.modelMeta?.scope || "all"),
-          snapshotState
-        });
-      }
-      plannerHistoryByEventId[eventId] = currentHistory;
-    }
-    for (const eventId of Object.keys(plannerHistoryByEventId)) {
-      plannerHistoryByEventId[eventId].sort((a, b) => {
-        const versionDiff = Number(b.version || 0) - Number(a.version || 0);
-        if (versionDiff !== 0) {
-          return versionDiff;
-        }
-        return String(b.generatedAt || "").localeCompare(String(a.generatedAt || ""));
-      });
-    }
-    setEventPlannerSnapshotsByEventId(latestPlannerByEventId);
-    setEventPlannerSnapshotHistoryByEventId(plannerHistoryByEventId);
-    const nextPlannerSeedByEventId = {};
-    const nextPlannerSeedByEventIdByTab = {};
-    const nextPlannerContextOverridesByEventId = {};
-    for (const [eventId, snapshotState] of Object.entries(latestPlannerByEventId)) {
-      nextPlannerSeedByEventId[eventId] = Math.max(0, Number(snapshotState.seedAll || 0));
-      nextPlannerSeedByEventIdByTab[eventId] = snapshotState.seedByTab || {};
-      nextPlannerContextOverridesByEventId[eventId] =
-        snapshotState.contextOverrides && typeof snapshotState.contextOverrides === "object"
-          ? snapshotState.contextOverrides
-          : {};
-    }
-    setEventPlannerRegenerationByEventId(nextPlannerSeedByEventId);
-    setEventPlannerRegenerationByEventIdByTab(nextPlannerSeedByEventIdByTab);
-    setEventPlannerContextOverridesByEventId(nextPlannerContextOverridesByEventId);
-    setGuestPreferencesById(
-      Object.fromEntries((guestPreferencesRows || []).map((preferenceItem) => [preferenceItem.guest_id, preferenceItem]))
-    );
-    setGuestSensitiveById(
-      Object.fromEntries(
-        (guestSensitiveRows || []).map((sensitiveItem) => [sensitiveItem.guest_id, normalizeSensitiveRecord(sensitiveItem)])
-      )
-    );
-    setGuestHostConversionById(
-      Object.fromEntries((guestHostConversionRows || []).map((conversionItem) => [conversionItem.guest_id, conversionItem]))
-    );
-    const selfEmailKey = normalizeEmailKey(session.user.email || "");
-    const selfPhoneKey = normalizePhoneKey(hostProfileData?.phone || "");
-    const selfGuest =
-      (guestsData || []).find((guestItem) => {
-        const guestEmailKey = normalizeEmailKey(guestItem.email || "");
-        const guestPhoneKey = normalizePhoneKey(guestItem.phone || "");
-        return Boolean((selfEmailKey && guestEmailKey === selfEmailKey) || (selfPhoneKey && guestPhoneKey === selfPhoneKey));
-      }) || null;
-    setHostProfileName(
-      String(hostProfileData?.full_name || "")
-        .trim()
-        .replace(/\s+/g, " ") || (session.user.email || "").split("@")[0] || ""
-    );
-    setHostProfilePhone(String(hostProfileData?.phone || "").trim());
-    setHostProfileCity(String(selfGuest?.city || "").trim());
-    setHostProfileCountry(String(selfGuest?.country || "").trim());
-    setHostProfileRelationship(toCatalogLabel("relationship", selfGuest?.relationship, language));
-    setHostProfileCreatedAt(String(hostProfileData?.created_at || "").trim());
-    await refreshSharedProfileData();
-  }, [
-    session?.user?.id,
-    session?.user?.email,
+  const { loadDashboardData, isLoading } = useDashboardDataController({
+    supabase,
+    sessionUserId: session?.user?.id,
+    sessionUserEmail: session?.user?.email,
     language,
     t,
+    appRoute,
     onPreferencesSynced,
     refreshSharedProfileData,
-    appRoute,
+    setDashboardError,
+    setEvents,
+    setEventSettingsCacheById,
+    setGuests,
+    setInvitations,
+    setEventPlannerSnapshotsByEventId,
+    setEventPlannerSnapshotHistoryByEventId,
     setEventPlannerRegenerationByEventId,
     setEventPlannerRegenerationByEventIdByTab,
     setEventPlannerContextOverridesByEventId,
-    setEventPlannerSnapshotsByEventId,
-    setEventPlannerSnapshotHistoryByEventId
-  ]);
+    setGuestPreferencesById,
+    setGuestSensitiveById,
+    setGuestHostConversionById,
+    setHostProfileName,
+    setHostProfilePhone,
+    setHostProfileCity,
+    setHostProfileCountry,
+    setHostProfileRelationship,
+    setHostProfileCreatedAt
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -4358,27 +3216,6 @@ function DashboardScreen({
       setSelectedEventDetailId(events[0]?.id || "");
     }
   }, [events, selectedEventDetailId, setSelectedEventDetailId]);
-  useEffect(() => {
-    const isEventRoute = appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim());
-    const routeEventId = isEventRoute ? String(appRoute?.eventId || "").trim() : "";
-    const routePlannerTab =
-      appRoute?.workspace === "plan" &&
-        EVENT_PLANNER_VIEW_TABS.includes(String(appRoute?.eventPlannerTab || "").trim().toLowerCase())
-        ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
-        : "menu";
-    if (selectedEventDetail?.id && routeEventId && selectedEventDetail.id === routeEventId && appRoute?.workspace === "plan") {
-      setEventDetailPlannerTab(routePlannerTab);
-      return;
-    }
-    setEventDetailPlannerTab("menu");
-  }, [
-    selectedEventDetail?.id,
-    appRoute?.eventId,
-    appRoute?.eventPlannerTab,
-    appRoute?.view,
-    appRoute?.workspace,
-    setEventDetailPlannerTab
-  ]);
   useEffect(() => {
     setEventPlannerShoppingFilter("all");
   }, [selectedEventDetail?.id, setEventPlannerShoppingFilter]);
@@ -4442,8 +3279,8 @@ function DashboardScreen({
       return;
     }
     const shouldMaintainGuestSelection =
-      (activeView === "guests" && guestsWorkspace === "detail") ||
-      (activeView === "guests" && guestsWorkspace === "create" && Boolean(editingGuestId));
+      (routeActiveView === "guests" && routeGuestsWorkspace === "detail") ||
+      (routeActiveView === "guests" && routeGuestsWorkspace === "create" && Boolean(editingGuestId));
     if (!shouldMaintainGuestSelection) {
       return;
     }
@@ -4454,10 +3291,10 @@ function DashboardScreen({
     if (selectedGuestDetailId && !guests.find((guestItem) => guestItem.id === selectedGuestDetailId)) {
       setSelectedGuestDetailId(guests[0]?.id || "");
     }
-  }, [activeView, guestsWorkspace, editingGuestId, guests, selectedGuestDetailId, setSelectedGuestDetailId]);
+  }, [routeActiveView, routeGuestsWorkspace, editingGuestId, guests, selectedGuestDetailId, setSelectedGuestDetailId]);
 
   useEffect(() => {
-    if (activeView !== "profile") {
+    if (routeActiveView !== "profile") {
       return;
     }
     if (guestFirstName || guestLastName || guestPhotoUrl || guestEmail || guestPhone || guestCity || guestCountry || guestRelationship) {
@@ -4465,7 +3302,7 @@ function DashboardScreen({
     }
     syncHostGuestProfileForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeView]);
+  }, [routeActiveView]);
   useEffect(() => {
     if (!guestMergeSource) {
       setGuestMergeTargetId("");
@@ -4533,98 +3370,6 @@ function DashboardScreen({
     setInvitationPage(1);
   }, [invitationSearch, invitationEventFilter, invitationStatusFilter, invitationSort, invitationPageSize]);
 
-  useEffect(() => {
-    const nextRoute = normalizeDashboardRouteState(appRoute);
-    setActiveView((prev) => (prev === nextRoute.activeView ? prev : nextRoute.activeView));
-    if (nextRoute.activeView === "events") {
-      setEventsWorkspace((prev) => (prev === nextRoute.eventsWorkspace ? prev : nextRoute.eventsWorkspace));
-      setEventDetailPlannerTab((prev) => (prev === nextRoute.eventPlannerTab ? prev : nextRoute.eventPlannerTab));
-      if (nextRoute.selectedEventDetailId) {
-        setSelectedEventDetailId((prev) => (prev === nextRoute.selectedEventDetailId ? prev : nextRoute.selectedEventDetailId));
-      }
-    }
-    if (nextRoute.activeView === "guests") {
-      setGuestsWorkspace((prev) => (prev === nextRoute.guestsWorkspace ? prev : nextRoute.guestsWorkspace));
-      if (nextRoute.selectedGuestDetailId) {
-        setSelectedGuestDetailId((prev) => (prev === nextRoute.selectedGuestDetailId ? prev : nextRoute.selectedGuestDetailId));
-      }
-      if (nextRoute.guestsWorkspace === "create") {
-        const nextEditingGuestId = String(nextRoute.selectedGuestDetailId || "").trim();
-        setEditingGuestId((prev) => (prev === nextEditingGuestId ? prev : nextEditingGuestId));
-        if (!nextEditingGuestId) {
-          setSelectedGuestDetailId((prev) => (prev ? "" : prev));
-        }
-      }
-      setGuestProfileViewTab((prev) =>
-        prev === (nextRoute.guestProfileViewTab || "general") ? prev : nextRoute.guestProfileViewTab || "general"
-      );
-      setGuestAdvancedEditTab((prev) =>
-        prev === (nextRoute.guestAdvancedEditTab || "identity") ? prev : nextRoute.guestAdvancedEditTab || "identity"
-      );
-      if (nextRoute.guestsWorkspace === "create") {
-        setOpenGuestAdvancedOnCreate(true);
-      }
-    }
-    if (nextRoute.activeView === "invitations") {
-      setInvitationsWorkspace((prev) =>
-        prev === nextRoute.invitationsWorkspace ? prev : nextRoute.invitationsWorkspace
-      );
-    }
-  }, [
-    appRoute,
-    setActiveView,
-    setEventsWorkspace,
-    setEventDetailPlannerTab,
-    setSelectedEventDetailId,
-    setGuestsWorkspace,
-    setSelectedGuestDetailId,
-    setGuestProfileViewTab,
-    setGuestAdvancedEditTab,
-    setOpenGuestAdvancedOnCreate,
-    setInvitationsWorkspace
-  ]);
-
-  const dashboardPath = useMemo(
-    () =>
-      buildDashboardPathFromState({
-        activeView,
-        eventsWorkspace,
-        guestsWorkspace,
-        invitationsWorkspace,
-        selectedEventDetailId,
-        eventDetailPlannerTab,
-        selectedGuestDetailId,
-        guestProfileViewTab,
-        guestAdvancedEditTab,
-        editingGuestId,
-        routeEventDetailId:
-          appRoute?.view === "events" && ["detail", "plan"].includes(String(appRoute?.workspace || "").trim())
-            ? String(appRoute?.eventId || "").trim()
-            : "",
-        routeEventPlannerTab:
-          appRoute?.view === "events" && appRoute?.workspace === "plan"
-            ? String(appRoute?.eventPlannerTab || "").trim().toLowerCase()
-            : "",
-        routeGuestDetailId:
-          appRoute?.view === "guests" && ["detail", "create"].includes(String(appRoute?.workspace || "").trim())
-            ? String(appRoute?.guestId || "").trim()
-            : ""
-      }),
-    [
-      activeView,
-      eventsWorkspace,
-      guestsWorkspace,
-      invitationsWorkspace,
-      selectedEventDetailId,
-      eventDetailPlannerTab,
-      selectedGuestDetailId,
-      guestProfileViewTab,
-      guestAdvancedEditTab,
-      editingGuestId,
-      appRoute
-    ]
-  );
-
   const getGuestAdvancedState = useCallback((guestItem) => {
     const preferenceItem = guestPreferencesById[guestItem?.id] || {};
     const sensitiveItem = guestSensitiveById[guestItem?.id] || {};
@@ -4689,28 +3434,7 @@ function DashboardScreen({
   }, [guestPreferencesById, guestSensitiveById, language]);
 
   useEffect(() => {
-    if (typeof onNavigateApp !== "function") {
-      return;
-    }
-    const currentPath = String(appPath || "").trim();
-    const nextPath = String(dashboardPath || "").trim();
-    if (nextPath === currentPath) {
-      userNavigationIntentRef.current = false;
-      return;
-    }
-    const isCurrentSpecificPath =
-      isSpecificEventDetailPath(currentPath) ||
-      isSpecificGuestDetailPath(currentPath) ||
-      isSpecificGuestAdvancedEditPath(currentPath);
-    if (!userNavigationIntentRef.current && (isCurrentSpecificPath || shouldPreserveSpecificPath(currentPath, nextPath))) {
-      return;
-    }
-    onNavigateApp(nextPath);
-    userNavigationIntentRef.current = false;
-  }, [dashboardPath, onNavigateApp, appPath]);
-
-  useEffect(() => {
-    if (!openGuestAdvancedOnCreate || activeView !== "guests" || guestsWorkspace !== "create") {
+    if (!openGuestAdvancedOnCreate || routeActiveView !== "guests" || routeGuestsWorkspace !== "create") {
       return;
     }
     if (guestAdvancedDetailsRef.current) {
@@ -4728,17 +3452,25 @@ function DashboardScreen({
       setOpenGuestAdvancedOnCreate(false);
     }, 40);
     return () => window.clearTimeout(timer);
-  }, [openGuestAdvancedOnCreate, activeView, guestsWorkspace, setOpenGuestAdvancedOnCreate]);
+  }, [openGuestAdvancedOnCreate, routeActiveView, routeGuestsWorkspace, setOpenGuestAdvancedOnCreate]);
 
   useEffect(() => {
-    if (activeView !== "guests" || guestsWorkspace !== "create") {
+    if (routeActiveView !== "guests" || routeGuestsWorkspace !== "create") {
+      guestEditorHydratedIdRef.current = "";
       return;
     }
-    if (!selectedGuestDetailId || editingGuestId === selectedGuestDetailId || guests.length === 0) {
+    if (!routeSelectedGuestDetailId) {
+      guestEditorHydratedIdRef.current = "";
       return;
     }
-    const guestItem = guests.find((item) => item.id === selectedGuestDetailId);
+    if (guests.length === 0) {
+      return;
+    }
+    const guestItem = guests.find((item) => item.id === routeSelectedGuestDetailId);
     if (!guestItem) {
+      return;
+    }
+    if (guestEditorHydratedIdRef.current === guestItem.id) {
       return;
     }
     setEditingGuestId(guestItem.id);
@@ -4765,39 +3497,23 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
-    const nextTab = GUEST_ADVANCED_EDIT_TABS.includes(guestAdvancedEditTab) ? guestAdvancedEditTab : "identity";
-    setGuestAdvancedEditTab(nextTab);
     setOpenGuestAdvancedOnCreate(true);
+    guestEditorHydratedIdRef.current = guestItem.id;
   }, [
-    activeView,
-    guestsWorkspace,
-    selectedGuestDetailId,
-    editingGuestId,
+    routeActiveView,
+    routeGuestsWorkspace,
+    routeSelectedGuestDetailId,
     guests,
-    guestAdvancedEditTab,
     language,
     getGuestAdvancedState,
-    setOpenGuestAdvancedOnCreate,
-    setGuestAdvancedEditTab
+    setOpenGuestAdvancedOnCreate
   ]);
 
   useEffect(() => {
-    if (!GUEST_PROFILE_VIEW_TABS.includes(guestProfileViewTab)) {
-      setGuestProfileViewTab("general");
-    }
-  }, [guestProfileViewTab, setGuestProfileViewTab]);
-
-  useEffect(() => {
-    if (!GUEST_ADVANCED_EDIT_TABS.includes(guestAdvancedEditTab)) {
-      setGuestAdvancedEditTab("identity");
-    }
-  }, [guestAdvancedEditTab, setGuestAdvancedEditTab]);
-
-  useEffect(() => {
-    if (activeView === "guests" && guestsWorkspace === "create" && !editingGuestId) {
+    if (routeActiveView === "guests" && routeGuestsWorkspace === "create" && !editingGuestId) {
       setGuestLastSavedAt("");
     }
-  }, [activeView, guestsWorkspace, editingGuestId]);
+  }, [routeActiveView, routeGuestsWorkspace, editingGuestId]);
 
   useEffect(() => {
     if (!eventSettingsStorageKey || !session?.user?.id) {
@@ -4932,28 +3648,6 @@ function DashboardScreen({
       if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.invitationPageSize))) {
         setInvitationPageSize(Number(parsed.invitationPageSize));
       }
-      const isRootAppPath = String(appPath || "/app").trim() === "/app";
-      const validViews = [...VIEW_CONFIG.map((item) => item.key), "profile"];
-      if (isRootAppPath) {
-        if (typeof parsed?.activeView === "string" && validViews.includes(parsed.activeView)) {
-          setActiveView(parsed.activeView);
-        }
-        const validEventsWorkspace = getWorkspaceItemsByView("events", true).map((item) => item.key);
-        if (typeof parsed?.eventsWorkspace === "string" && validEventsWorkspace.includes(parsed.eventsWorkspace)) {
-          setEventsWorkspace(parsed.eventsWorkspace === "hub" ? "latest" : parsed.eventsWorkspace);
-        }
-        const validGuestsWorkspace = getWorkspaceItemsByView("guests", true).map((item) => item.key);
-        if (typeof parsed?.guestsWorkspace === "string" && validGuestsWorkspace.includes(parsed.guestsWorkspace)) {
-          setGuestsWorkspace(parsed.guestsWorkspace === "hub" ? "latest" : parsed.guestsWorkspace);
-        }
-        const validInvitationsWorkspace = getWorkspaceItemsByView("invitations", true).map((item) => item.key);
-        if (
-          typeof parsed?.invitationsWorkspace === "string" &&
-          validInvitationsWorkspace.includes(parsed.invitationsWorkspace)
-        ) {
-          setInvitationsWorkspace(parsed.invitationsWorkspace === "hub" ? "latest" : parsed.invitationsWorkspace);
-        }
-      }
       if (typeof parsed?.bulkInvitationSegment === "string" && INVITATION_BULK_SEGMENTS.includes(parsed.bulkInvitationSegment)) {
         setBulkInvitationSegment(parsed.bulkInvitationSegment);
       }
@@ -4961,7 +3655,7 @@ function DashboardScreen({
       // Ignore malformed local settings and continue with defaults.
     }
     setPrefsReady(true);
-  }, [prefsStorageKey, appPath, setActiveView, setEventsWorkspace, setGuestsWorkspace, setInvitationsWorkspace]);
+  }, [prefsStorageKey]);
 
   // 1. INICIALIZACIÓN (Ya no necesitamos instanciar AutocompleteService)
   useEffect(() => {
@@ -5200,20 +3894,6 @@ function DashboardScreen({
     setGuestAdvancedField(field, nextValue);
   };
 
-  const setWorkspaceByView = (viewKey, workspaceKey) => {
-    if (viewKey === "events") {
-      setEventsWorkspace(workspaceKey);
-      return;
-    }
-    if (viewKey === "guests") {
-      setGuestsWorkspace(workspaceKey);
-      return;
-    }
-    if (viewKey === "invitations") {
-      setInvitationsWorkspace(workspaceKey);
-    }
-  };
-
   const closeMobileMenu = () => {
     setIsMenuOpen(false);
   };
@@ -5225,8 +3905,18 @@ function DashboardScreen({
     });
   };
 
+  const navigateAppPath = useCallback(
+    (nextPath, options = {}) => {
+      if (typeof onNavigateApp !== "function" || !nextPath) {
+        return;
+      }
+      onNavigateApp(nextPath, options);
+    },
+    [onNavigateApp]
+  );
+
   const markUserNavigationIntent = () => {
-    userNavigationIntentRef.current = true;
+    // URL-driven routing: la intención de navegación se ejecuta directamente en navigateAppPath.
   };
 
   const openWorkspace = (viewKey, workspaceKey) => {
@@ -5237,8 +3927,31 @@ function DashboardScreen({
     if (viewKey === "guests" && workspaceKey === "create") {
       handleCancelEditGuest();
     }
-    setActiveView(viewKey);
-    setWorkspaceByView(viewKey, workspaceKey);
+    if (viewKey === "events") {
+      if (workspaceKey === "create") {
+        navigateAppPath("/app/events/new");
+      } else if (workspaceKey === "insights") {
+        navigateAppPath("/app/events/insights");
+      } else {
+        navigateAppPath("/app/events");
+      }
+    } else if (viewKey === "guests") {
+      if (workspaceKey === "create") {
+        navigateAppPath("/app/guests/new/advanced/identity");
+      } else {
+        navigateAppPath("/app/guests");
+      }
+    } else if (viewKey === "invitations") {
+      if (workspaceKey === "create") {
+        navigateAppPath("/app/invitations/new");
+      } else {
+        navigateAppPath("/app/invitations");
+      }
+    } else if (viewKey === "profile") {
+      navigateAppPath("/profile");
+    } else {
+      navigateAppPath("/app");
+    }
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -5305,7 +4018,7 @@ function DashboardScreen({
   const openHostProfile = () => {
     markUserNavigationIntent();
     syncHostGuestProfileForm();
-    setActiveView("profile");
+    navigateAppPath("/profile");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -5316,11 +4029,8 @@ function DashboardScreen({
     if (!fallbackEventId) {
       return;
     }
+    navigateAppPath(`/app/events/${encodeURIComponent(fallbackEventId)}`);
     setEventsMapFocusId(fallbackEventId);
-    setSelectedEventDetailId(fallbackEventId);
-    setEventDetailPlannerTab("menu");
-    setActiveView("events");
-    setEventsWorkspace("detail");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -5334,11 +4044,8 @@ function DashboardScreen({
     const normalizedTab = EVENT_PLANNER_VIEW_TABS.includes(String(targetTab || "").trim().toLowerCase())
       ? String(targetTab || "").trim().toLowerCase()
       : "menu";
+    navigateAppPath(`/app/events/${encodeURIComponent(fallbackEventId)}/plan/${encodeURIComponent(normalizedTab)}`);
     setEventsMapFocusId(fallbackEventId);
-    setSelectedEventDetailId(fallbackEventId);
-    setEventDetailPlannerTab(normalizedTab);
-    setActiveView("events");
-    setEventsWorkspace("plan");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -5349,11 +4056,8 @@ function DashboardScreen({
     if (!fallbackGuestId) {
       return;
     }
+    navigateAppPath(`/app/guests/${encodeURIComponent(fallbackGuestId)}`);
     setGuestsMapFocusId(fallbackGuestId);
-    setSelectedGuestDetailId(fallbackGuestId);
-    setGuestProfileViewTab("general");
-    setActiveView("guests");
-    setGuestsWorkspace("detail");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -5392,8 +4096,7 @@ function DashboardScreen({
     if (nextGuestId) {
       setSelectedGuestId(nextGuestId);
     }
-    setActiveView("invitations");
-    setInvitationsWorkspace("create");
+    navigateAppPath("/app/invitations/new");
     setInvitationErrors({});
     setLastInvitationUrl("");
     setLastInvitationShareText("");
@@ -5409,9 +4112,16 @@ function DashboardScreen({
 
   const changeView = (nextView) => {
     markUserNavigationIntent();
-    setActiveView(nextView);
-    if (nextView === "events" || nextView === "guests" || nextView === "invitations") {
-      setWorkspaceByView(nextView, "latest");
+    if (nextView === "events") {
+      navigateAppPath("/app/events");
+    } else if (nextView === "guests") {
+      navigateAppPath("/app/guests");
+    } else if (nextView === "invitations") {
+      navigateAppPath("/app/invitations");
+    } else if (nextView === "profile") {
+      navigateAppPath("/profile");
+    } else {
+      navigateAppPath("/app");
     }
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
@@ -5987,7 +4697,21 @@ function DashboardScreen({
       ? String(nextTab || "").trim().toLowerCase()
       : "menu";
     markUserNavigationIntent();
-    setEventDetailPlannerTab(normalizedTab);
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    navigateAppPath(`/app/events/${encodeURIComponent(selectedEventDetail.id)}/plan/${encodeURIComponent(normalizedTab)}`);
+  };
+  const handleGuestProfileTabChange = (nextTab) => {
+    const normalizedTab = String(nextTab || "").trim().toLowerCase();
+    if (!selectedGuestDetail?.id) {
+      return;
+    }
+    if (!GUEST_PROFILE_VIEW_TABS.includes(normalizedTab) || normalizedTab === "general") {
+      navigateAppPath(`/app/guests/${encodeURIComponent(selectedGuestDetail.id)}`);
+      return;
+    }
+    navigateAppPath(`/app/guests/${encodeURIComponent(selectedGuestDetail.id)}/${encodeURIComponent(normalizedTab)}`);
   };
   const handleOpenEventPlan = (targetTab = "ambience") => {
     openEventPlanById(selectedEventDetail?.id || "", targetTab);
@@ -5997,9 +4721,7 @@ function DashboardScreen({
       return;
     }
     markUserNavigationIntent();
-    setSelectedEventDetailId(selectedEventDetail.id);
-    setActiveView("events");
-    setEventsWorkspace("detail");
+    navigateAppPath(`/app/events/${encodeURIComponent(selectedEventDetail.id)}`);
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -6050,10 +4772,8 @@ function DashboardScreen({
     if (!eventItem) {
       return;
     }
+    navigateAppPath("/app/events/new");
     const eventSettings = normalizeEventSettings(eventItem);
-    setActiveView("events");
-    setSelectedEventDetailId(eventItem.id);
-    setEventsWorkspace("create");
     setEditingEventId(eventItem.id);
     setEventTitle(eventItem.title || "");
     setEventType(toCatalogLabel("experience_type", eventItem.event_type, language));
@@ -6494,9 +5214,8 @@ function DashboardScreen({
       setGuestMessage(t("birthday_event_missing"));
       return;
     }
+    navigateAppPath("/app/events/new");
     const guestLabel = `${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest");
-    setActiveView("events");
-    setEventsWorkspace("create");
     setEditingEventId("");
     setEventTitle(interpolateText(t("birthday_event_title"), { guest: guestLabel }));
     setEventType(toCatalogLabel("experience_type", "celebration", language));
@@ -6515,7 +5234,11 @@ function DashboardScreen({
       guestAdvancedDetailsRef.current.open = true;
       guestAdvancedDetailsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    setGuestAdvancedEditTab("identity");
+    if (editingGuestId) {
+      navigateAppPath(`/app/guests/${encodeURIComponent(editingGuestId)}/edit/advanced/identity`);
+      return;
+    }
+    navigateAppPath("/app/guests/new/advanced/identity");
   };
 
   const scrollGuestAdvancedSectionIntoView = useCallback((sectionNode) => {
@@ -6543,7 +5266,11 @@ function DashboardScreen({
     if (!GUEST_ADVANCED_EDIT_TABS.includes(normalizedTab)) {
       return;
     }
-    setGuestAdvancedEditTab(normalizedTab);
+    if (editingGuestId) {
+      navigateAppPath(`/app/guests/${encodeURIComponent(editingGuestId)}/edit/advanced/${encodeURIComponent(normalizedTab)}`);
+    } else {
+      navigateAppPath(`/app/guests/new/advanced/${encodeURIComponent(normalizedTab)}`);
+    }
     if (guestAdvancedDetailsRef.current) {
       guestAdvancedDetailsRef.current.open = true;
     }
@@ -6686,7 +5413,7 @@ function DashboardScreen({
     if (!guestAdvancedNextTab) {
       return;
     }
-    if (!validateGuestAdvancedStep(guestAdvancedEditTab)) {
+    if (!validateGuestAdvancedStep(routeGuestAdvancedTab)) {
       return;
     }
     const saveResult = await persistGuest({ refreshAfterSave: false, successMessageMode: "step" });
@@ -6700,7 +5427,7 @@ function DashboardScreen({
     if (isSavingGuest) {
       return;
     }
-    if (!validateGuestAdvancedStep(guestAdvancedEditTab)) {
+    if (!validateGuestAdvancedStep(routeGuestAdvancedTab)) {
       return;
     }
     await persistGuest({ refreshAfterSave: false, successMessageMode: "draft" });
@@ -6710,7 +5437,7 @@ function DashboardScreen({
     if (isSavingGuest || !guestAdvancedNextPendingTab) {
       return;
     }
-    if (!validateGuestAdvancedStep(guestAdvancedEditTab)) {
+    if (!validateGuestAdvancedStep(routeGuestAdvancedTab)) {
       return;
     }
     const saveResult = await persistGuest({ refreshAfterSave: false, successMessageMode: "draft" });
@@ -6765,43 +5492,10 @@ function DashboardScreen({
     setIsImportWizardOpen(true);
   };
 
-  const handleCloseImportWizard = () => {
+  function handleCloseImportWizard() {
     setIsImportWizardOpen(false);
     setImportWizardShareMessage("");
-  };
-
-  const handleImportWizardBack = () => {
-    if (importWizardStep <= 1) {
-      handleCloseImportWizard();
-      return;
-    }
-    if (importWizardStep === 4) {
-      handleCloseImportWizard();
-      return;
-    }
-    setImportWizardStep((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleImportWizardContinue = async () => {
-    if (importWizardStep === 1) {
-      setImportContactsMessage("");
-      setImportWizardStep(2);
-      return;
-    }
-    if (importWizardStep === 2) {
-      if (importContactsAnalysis.length === 0) {
-        setImportContactsMessage(t("contact_import_no_matches"));
-        return;
-      }
-      setImportWizardStep(3);
-      return;
-    }
-    if (importWizardStep === 3) {
-      await handleImportContacts({ fromWizard: true });
-      return;
-    }
-    handleCloseImportWizard();
-  };
+  }
 
   const handleImportWizardDrop = async (event) => {
     event.preventDefault();
@@ -6813,250 +5507,7 @@ function DashboardScreen({
     await handleImportContactsSelectedFile(selectedFile);
   };
 
-  const handleImportWizardEmailLink = () => {
-    const nextEmail = String(importWizardShareEmail || "").trim();
-    const subject = encodeURIComponent(t("import_wizard_mobile_email_subject"));
-    const body = encodeURIComponent(
-      `${t("import_wizard_mobile_email_body")}\n${importWizardMobileLink}`
-    );
-    const mailToEmail = nextEmail ? nextEmail : "";
-    window.open(`mailto:${mailToEmail}?subject=${subject}&body=${body}`, "_blank", "noopener,noreferrer");
-    setImportWizardShareMessage(t("import_wizard_mobile_email_sent"));
-  };
-
-  const handleShareImportWizardLink = async () => {
-    if (canUseNativeShare) {
-      try {
-        await navigator.share({
-          title: t("import_wizard_mobile_share_title"),
-          text: t("import_wizard_mobile_share_text"),
-          url: importWizardMobileLink
-        });
-        setImportWizardShareMessage(t("import_wizard_mobile_share_sent"));
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          return;
-        }
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(importWizardMobileLink);
-      setImportWizardShareMessage(t("copy_ok"));
-    } catch {
-      setImportWizardShareMessage(t("copy_fail"));
-    }
-  };
-
-  const handleSelectAllReadyImportContacts = () => {
-    setSelectedImportContactIds(importContactsReady.map((item) => item.previewId));
-  };
-
-  const handleSelectSuggestedImportContacts = () => {
-    setSelectedImportContactIds(importContactsSuggested.map((item) => item.previewId));
-  };
-
-  const handleClearReadyImportContactsSelection = () => {
-    setSelectedImportContactIds([]);
-  };
-
-  const handleSelectFilteredReadyImportContacts = () => {
-    setSelectedImportContactIds(importContactsFilteredReady.map((item) => item.previewId));
-  };
-
-  const handleSelectCurrentImportPageReady = () => {
-    setSelectedImportContactIds(pagedImportContacts.filter((item) => item.canImport).map((item) => item.previewId));
-  };
-
-  const handleSelectOnlyNewImportContacts = () => {
-    setSelectedImportContactIds(
-      importContactsFiltered
-        .filter((item) => item.canImport && !item.duplicateExisting && !item.duplicateInPreview)
-        .map((item) => item.previewId)
-    );
-  };
-
-  const handleSelectHighPotentialImportContacts = () => {
-    setSelectedImportContactIds(
-      importContactsFiltered
-        .filter((item) => item.canImport && item.potentialLevel === "high")
-        .map((item) => item.previewId)
-    );
-  };
-
-  const handleSelectDualChannelImportContacts = () => {
-    setSelectedImportContactIds(
-      importContactsFiltered
-        .filter((item) => item.canImport && item.hasDualChannel)
-        .map((item) => item.previewId)
-    );
-  };
-
-  const getSmartImportMergeSelection = (items) => {
-    const duplicateCandidates = items.filter((item) => item.duplicateExisting && !item.duplicateInPreview);
-    const safeCandidates = duplicateCandidates.filter((item) => item.canImport);
-    return {
-      duplicateCandidates,
-      selectedCandidates: safeCandidates
-    };
-  };
-
-  const handleImportDuplicateModeChange = (nextModeInput) => {
-    const nextMode = nextModeInput === "merge" ? "merge" : "skip";
-    setImportDuplicateMode(nextMode);
-    if (nextMode !== "merge") {
-      setApprovedLowConfidenceMergeIds([]);
-      setApprovedLowConfidenceMergeFieldsByPreviewId({});
-      setPendingImportMergeApprovalPreviewId("");
-      setImportMergeReviewShowOnlyWillFill(true);
-      setPendingImportMergeSelectedFieldKeys([]);
-      return;
-    }
-    const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
-    if (duplicateCandidates.length === 0 || selectedImportContactIds.length > 0) {
-      return;
-    }
-    setSelectedImportContactIds(selectedCandidates.map((item) => item.previewId));
-    setImportContactsMessage(
-      interpolateText(t("contact_import_merge_smart_selected"), {
-        selected: selectedCandidates.length,
-        total: duplicateCandidates.length
-      })
-    );
-  };
-
-  const handleTogglePendingImportMergeFieldKey = (fieldKey) => {
-    if (!fieldKey) {
-      return;
-    }
-    setPendingImportMergeSelectedFieldKeys((prev) =>
-      prev.includes(fieldKey) ? prev.filter((item) => item !== fieldKey) : [...prev, fieldKey]
-    );
-  };
-
-  const getDefaultApprovedFieldKeysForImportItem = useCallback(
-    (contactItem) => {
-      if (!contactItem?.existingGuestId) {
-        return [];
-      }
-      const targetGuest = guestsById[contactItem.existingGuestId];
-      if (!targetGuest) {
-        return [];
-      }
-      const sourceFullName = [contactItem.firstName, contactItem.lastName].filter(Boolean).join(" ");
-      const targetFullName = [targetGuest.first_name, targetGuest.last_name].filter(Boolean).join(" ");
-      const fieldChecks = [
-        { key: "full_name", source: sourceFullName, target: targetFullName },
-        { key: "email", source: contactItem.email, target: targetGuest.email },
-        { key: "phone", source: contactItem.phone, target: targetGuest.phone },
-        { key: "city", source: contactItem.city, target: targetGuest.city },
-        { key: "country", source: contactItem.country, target: targetGuest.country },
-        { key: "address", source: contactItem.address, target: targetGuest.address },
-        { key: "company", source: contactItem.company, target: targetGuest.company },
-        { key: "birthday", source: contactItem.birthday, target: targetGuest.birthday },
-        { key: "avatar_url", source: contactItem.photoUrl, target: targetGuest.avatar_url }
-      ];
-      return fieldChecks.filter((item) => !isBlankValue(item.source) && isBlankValue(item.target)).map((item) => item.key);
-    },
-    [guestsById]
-  );
-
-  const handleApproveLowConfidenceMergeContact = (previewId, selectedFieldKeys = pendingImportMergeSelectedFieldKeys) => {
-    if (!previewId) {
-      return;
-    }
-    setImportDuplicateMode("merge");
-    setApprovedLowConfidenceMergeIds((prev) => (prev.includes(previewId) ? prev : [...prev, previewId]));
-    if (Array.isArray(selectedFieldKeys) && selectedFieldKeys.length > 0) {
-      setApprovedLowConfidenceMergeFieldsByPreviewId((prev) => ({
-        ...prev,
-        [previewId]: uniqueValues(selectedFieldKeys)
-      }));
-    }
-    setImportMergeReviewShowOnlyWillFill(true);
-    setPendingImportMergeApprovalPreviewId("");
-    setPendingImportMergeSelectedFieldKeys([]);
-  };
-
-  const handleOpenLowConfidenceMergeReview = (previewId) => {
-    if (!previewId) {
-      return;
-    }
-    const targetItem = importContactsAnalysis.find((item) => item.previewId === previewId);
-    if (!targetItem?.requiresMergeApproval) {
-      handleApproveLowConfidenceMergeContact(previewId);
-      return;
-    }
-    setImportMergeReviewShowOnlyWillFill(true);
-    setPendingImportMergeApprovalPreviewId(previewId);
-  };
-
-  const handleCloseLowConfidenceMergeReview = () => {
-    setImportMergeReviewShowOnlyWillFill(true);
-    setPendingImportMergeApprovalPreviewId("");
-    setPendingImportMergeSelectedFieldKeys([]);
-  };
-
-  const handleConfirmLowConfidenceMergeReview = () => {
-    if (!pendingImportMergeApprovalItem?.previewId) {
-      return;
-    }
-    if (pendingImportMergeSelectableCount > 0 && pendingImportMergeSelectedFieldKeys.length === 0) {
-      setImportContactsMessage(t("contact_import_merge_review_select_at_least_one"));
-      return;
-    }
-    handleApproveLowConfidenceMergeContact(
-      pendingImportMergeApprovalItem.previewId,
-      pendingImportMergeSelectedFieldKeys
-    );
-  };
-
-  const handleApproveAllLowConfidenceMergeContacts = () => {
-    setImportDuplicateMode("merge");
-    const pendingItems = importContactsFiltered.filter(
-      (item) => item.duplicateExisting && item.duplicateMergeConfidence === "low" && !item.duplicateInPreview
-    );
-    const pendingIds = pendingItems.map((item) => item.previewId);
-    if (pendingIds.length === 0) {
-      return;
-    }
-    setApprovedLowConfidenceMergeIds((prev) => uniqueValues([...prev, ...pendingIds]));
-    setApprovedLowConfidenceMergeFieldsByPreviewId((prev) => {
-      const next = { ...prev };
-      for (const pendingItem of pendingItems) {
-        const fieldKeys = getDefaultApprovedFieldKeysForImportItem(pendingItem);
-        if (fieldKeys.length > 0) {
-          next[pendingItem.previewId] = uniqueValues(fieldKeys);
-        }
-      }
-      return next;
-    });
-    setImportContactsMessage(
-      interpolateText(t("contact_import_merge_low_approved"), {
-        count: pendingIds.length
-      })
-    );
-  };
-
-  const handleSelectDuplicateMergeImportContacts = () => {
-    setImportDuplicateMode("merge");
-    const { duplicateCandidates, selectedCandidates } = getSmartImportMergeSelection(importContactsFiltered);
-    setSelectedImportContactIds(selectedCandidates.map((item) => item.previewId));
-    setImportContactsMessage(
-      interpolateText(t("contact_import_merge_smart_selected"), {
-        selected: selectedCandidates.length,
-        total: duplicateCandidates.length
-      })
-    );
-  };
-
-  const toggleImportContactSelection = (previewId) => {
-    setSelectedImportContactIds((prev) =>
-      prev.includes(previewId) ? prev.filter((item) => item !== previewId) : [...prev, previewId]
-    );
-  };
-
-  const handleImportContacts = async ({ fromWizard = false } = {}) => {
+  async function handleImportContacts({ fromWizard = false } = {}) {
     if (!supabase || !session?.user?.id) {
       return null;
     }
@@ -7255,7 +5706,7 @@ function DashboardScreen({
       await loadDashboardData();
     }
     return summary;
-  };
+  }
 
   const handleShareHostSignupLink = async (guestItem, channel = "copy") => {
     if (!guestItem) {
@@ -7294,362 +5745,57 @@ function DashboardScreen({
     await handleShareHostSignupLink(guestItem, "copy");
   };
 
-  const handleSaveHostProfile = async (event) => {
-    event.preventDefault();
-    if (!supabase || !session?.user?.id) {
-      return;
-    }
-    setHostProfileMessage("");
-    setIsSavingHostProfile(true);
-
-    const fallbackName = (session.user.email || "").split("@")[0] || t("field_guest");
-    const normalizedFullName =
-      String(hostProfileName || "")
-        .trim()
-        .replace(/\s+/g, " ") || fallbackName;
-    const profilePayload = {
-      id: session.user.id,
-      full_name: normalizedFullName,
-      phone: toNullable(hostProfilePhone)
-    };
-    const { error: profileError } = await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
-    if (profileError) {
-      setIsSavingHostProfile(false);
-      setHostProfileMessage(`${t("host_profile_save_error")} ${profileError.message}`);
-      return;
-    }
-
-    const { firstName, lastName } = splitFullName(normalizedFullName);
-    const guestPayload = {
-      host_user_id: session.user.id,
-      content_language: language,
-      first_name: firstName || fallbackName,
-      last_name: toNullable(lastName),
-      email: toNullable(session.user.email || ""),
-      phone: toNullable(hostProfilePhone),
-      relationship: toNullable(toCatalogCode("relationship", hostProfileRelationship)),
-      city: toNullable(hostProfileCity),
-      country: toNullable(hostProfileCountry)
-    };
-    const fallbackGuestPayload = {
-      host_user_id: session.user.id,
-      first_name: firstName || fallbackName,
-      last_name: toNullable(lastName),
-      email: toNullable(session.user.email || ""),
-      phone: toNullable(hostProfilePhone),
-      relationship: toNullable(toCatalogCode("relationship", hostProfileRelationship)),
-      city: toNullable(hostProfileCity),
-      country: toNullable(hostProfileCountry)
-    };
-
-    const existingGuest = selfGuestCandidate;
-    let guestResult = existingGuest?.id
-      ? await supabase
-        .from("guests")
-        .update(guestPayload)
-        .eq("id", existingGuest.id)
-        .eq("host_user_id", session.user.id)
-      : await supabase.from("guests").insert(guestPayload);
-
-    if (
-      guestResult.error &&
-      isCompatibilityError(guestResult.error, ["content_language"])
-    ) {
-      guestResult = existingGuest?.id
-        ? await supabase
-          .from("guests")
-          .update(fallbackGuestPayload)
-          .eq("id", existingGuest.id)
-          .eq("host_user_id", session.user.id)
-        : await supabase.from("guests").insert(fallbackGuestPayload);
-    }
-
-    setIsSavingHostProfile(false);
-    if (guestResult.error) {
-      setHostProfileMessage(`${t("host_profile_saved_guest_sync_warning")} ${guestResult.error.message}`);
-      await loadDashboardData();
-      return;
-    }
-    setHostProfileMessage(t("host_profile_saved"));
-    await loadDashboardData();
-  };
-
-  const handleClaimGlobalProfile = async () => {
-    if (!supabase || !session?.user?.id) {
-      return;
-    }
-    setGlobalProfileMessage("");
-    setIsClaimingGlobalProfile(true);
-    const result = await supabase.rpc("get_or_create_my_global_guest_profile");
-    setIsClaimingGlobalProfile(false);
-
-    if (result.error) {
-      if (isMissingDbFeatureError(result.error, ["get_or_create_my_global_guest_profile"])) {
-        setIsGlobalProfileFeatureReady(false);
-        setGlobalProfileMessage(t("global_profile_feature_pending"));
-      } else {
-        setGlobalProfileMessage(`${t("global_profile_claim_error")} ${result.error.message}`);
-      }
-      return;
-    }
-
-    const normalizedId = String(result.data || "").trim();
-    setGlobalProfileId(normalizedId);
-    setGlobalProfileMessage(t("global_profile_claimed"));
-    await refreshSharedProfileData();
-  };
-
-  const handleLinkProfileGuestToGlobal = async (guestId) => {
-    if (!supabase || !session?.user?.id || !guestId) {
-      return;
-    }
-    setGlobalProfileMessage("");
-    setIsLinkingGlobalGuest(true);
-    const result = await supabase.rpc("link_my_guest_to_matched_global_profile", { p_guest_id: guestId });
-    setIsLinkingGlobalGuest(false);
-
-    if (result.error) {
-      if (isMissingDbFeatureError(result.error, ["link_my_guest_to_matched_global_profile"])) {
-        setIsGlobalProfileFeatureReady(false);
-        setGlobalProfileMessage(t("global_profile_feature_pending"));
-      } else {
-        setGlobalProfileMessage(`${t("global_profile_link_error")} ${result.error.message}`);
-      }
-      return;
-    }
-
-    const row = Array.isArray(result.data) ? result.data[0] : result.data;
-    if (row?.linked) {
-      setGlobalProfileId(String(row.global_profile_id || globalProfileId || "").trim());
-      setGlobalProfileMessage(t("global_profile_link_success"));
-      await refreshSharedProfileData();
-      return;
-    }
-
-    const reason = String(row?.reason || "").trim();
-    if (reason === "no_registered_owner") {
-      setGlobalProfileMessage(t("global_profile_link_no_owner"));
-      return;
-    }
-    if (reason === "guest_without_contact") {
-      setGlobalProfileMessage(t("global_profile_link_missing_contact"));
-      return;
-    }
-    setGlobalProfileMessage(t("global_profile_link_not_linked"));
-  };
-
-  const handleLinkAllGuestsToGlobalProfiles = async () => {
-    if (!supabase || !session?.user?.id) {
-      return;
-    }
-    setGlobalProfileMessage("");
-    setIsLinkingAllGlobalGuests(true);
-    const result = await supabase.rpc("link_all_my_guests_to_global_profiles");
-    setIsLinkingAllGlobalGuests(false);
-
-    if (result.error) {
-      if (isMissingDbFeatureError(result.error, ["link_all_my_guests_to_global_profiles"])) {
-        setIsGlobalProfileFeatureReady(false);
-        setGlobalProfileMessage(t("global_profile_feature_pending"));
-      } else {
-        setGlobalProfileMessage(`${t("global_profile_link_error")} ${result.error.message}`);
-      }
-      return;
-    }
-
-    const row = Array.isArray(result.data) ? result.data[0] : result.data;
-    setGlobalProfileMessage(
-      interpolateText(t("global_profile_link_all_summary"), {
-        checked: Number(row?.checked_count || 0),
-        linked: Number(row?.linked_count || 0),
-        skipped: Number(row?.skipped_count || 0)
-      })
-    );
-    await refreshSharedProfileData();
-  };
-
-  const handleChangeGlobalShareDraft = (hostUserId, field, value) => {
-    if (!hostUserId || !field) {
-      return;
-    }
-    setGlobalShareDraftByHostId((prev) => ({
-      ...prev,
-      [hostUserId]: {
-        status: prev?.[hostUserId]?.status || "inactive",
-        allow_identity: Boolean(prev?.[hostUserId]?.allow_identity),
-        allow_food: Boolean(prev?.[hostUserId]?.allow_food),
-        allow_lifestyle: Boolean(prev?.[hostUserId]?.allow_lifestyle),
-        allow_conversation: Boolean(prev?.[hostUserId]?.allow_conversation),
-        allow_health: Boolean(prev?.[hostUserId]?.allow_health),
-        [field]: value
-      }
-    }));
-  };
-
-  const handleApplyGlobalSharePreset = (hostUserId, preset) => {
-    if (!hostUserId) {
-      return;
-    }
-    setGlobalShareDraftByHostId((prev) => {
-      const baseDraft = prev?.[hostUserId] || {
-        status: "inactive",
-        allow_identity: false,
-        allow_food: false,
-        allow_lifestyle: false,
-        allow_conversation: false,
-        allow_health: false
-      };
-      return {
-        ...prev,
-        [hostUserId]: applyGlobalSharePreset(baseDraft, preset)
-      };
-    });
-  };
-
-  const handleSaveGlobalShare = async (hostUserId, draftOverride = null) => {
-    if (!supabase || !session?.user?.id || !hostUserId) {
-      return;
-    }
-    if (hostUserId === session.user.id) {
-      setGlobalProfileMessage(t("global_profile_share_self_error"));
-      return;
-    }
-    const draft = draftOverride || globalShareDraftByHostId[hostUserId];
-    if (!draft) {
-      return;
-    }
-    setGlobalProfileMessage("");
-    setSavingGlobalShareHostId(hostUserId);
-    const status = String(draft.status || "inactive");
-    const normalizedStatus = status === "active" || status === "revoked" ? status : "revoked";
-    const result = await supabase.rpc("set_my_global_profile_share", {
-      p_grantee_user_id: hostUserId,
-      p_status: normalizedStatus,
-      p_allow_identity: Boolean(draft.allow_identity),
-      p_allow_food: Boolean(draft.allow_food),
-      p_allow_lifestyle: Boolean(draft.allow_lifestyle),
-      p_allow_conversation: Boolean(draft.allow_conversation),
-      p_allow_health: Boolean(draft.allow_health),
-      p_expires_at: null
-    });
-    setSavingGlobalShareHostId("");
-
-    if (result.error) {
-      if (isMissingDbFeatureError(result.error, ["set_my_global_profile_share"])) {
-        setIsGlobalProfileFeatureReady(false);
-        setGlobalProfileMessage(t("global_profile_feature_pending"));
-      } else if (String(result.error.message || "").toLowerCase().includes("health_consent_required_before_sharing")) {
-        setGlobalProfileMessage(t("global_profile_health_consent_required"));
-      } else {
-        setGlobalProfileMessage(`${t("global_profile_share_save_error")} ${result.error.message}`);
-      }
-      return;
-    }
-
-    setGlobalProfileMessage(t("global_profile_share_saved"));
-    await refreshSharedProfileData();
-  };
-
-  const handleRequestSaveGlobalShare = (hostUserId) => {
-    if (!hostUserId) {
-      return;
-    }
-    const targetItem = globalShareTargetsVisible.find((item) => item.host_user_id === hostUserId);
-    const draft = globalShareDraftByHostId[hostUserId] || (targetItem ? mapShareTargetToDraft(targetItem) : null);
-    if (!targetItem || !draft) {
-      return;
-    }
-    setPendingGlobalShareSave({
-      hostUserId,
-      hostName: targetItem.host_name || t("host_default_name"),
-      hostEmail: targetItem.host_email || hostUserId,
-      draft
-    });
-  };
-
-  const handleConfirmSaveGlobalShare = async () => {
-    if (!pendingGlobalShareSave?.hostUserId || !pendingGlobalShareSave?.draft) {
-      setPendingGlobalShareSave(null);
-      return;
-    }
-    await handleSaveGlobalShare(pendingGlobalShareSave.hostUserId, pendingGlobalShareSave.draft);
-    setPendingGlobalShareSave(null);
-  };
-
-  const handleApplyGlobalShareAction = async (mode) => {
-    if (!supabase || !session?.user?.id) {
-      return;
-    }
-    const targets = globalShareTargetsVisible.filter((item) => item?.host_user_id);
-    if (targets.length === 0) {
-      setGlobalProfileMessage(t("global_profile_share_targets_empty"));
-      return;
-    }
-
-    if (mode === "pause") {
-      setIsPausingGlobalShares(true);
-    } else {
-      setIsRevokingGlobalShares(true);
-    }
-    setGlobalProfileMessage("");
-
-    let savedCount = 0;
-    let failedCount = 0;
-    for (const targetItem of targets) {
-      const hostId = targetItem.host_user_id;
-      const currentDraft = globalShareDraftByHostId[hostId] || mapShareTargetToDraft(targetItem);
-      const nextDraft =
-        mode === "pause"
-          ? { ...currentDraft, status: "revoked" }
-          : {
-            ...currentDraft,
-            status: "revoked",
-            allow_identity: false,
-            allow_food: false,
-            allow_lifestyle: false,
-            allow_conversation: false,
-            allow_health: false
-          };
-
-      const result = await supabase.rpc("set_my_global_profile_share", {
-        p_grantee_user_id: hostId,
-        p_status: "revoked",
-        p_allow_identity: Boolean(nextDraft.allow_identity),
-        p_allow_food: Boolean(nextDraft.allow_food),
-        p_allow_lifestyle: Boolean(nextDraft.allow_lifestyle),
-        p_allow_conversation: Boolean(nextDraft.allow_conversation),
-        p_allow_health: Boolean(nextDraft.allow_health),
-        p_expires_at: null
-      });
-      if (result.error) {
-        failedCount += 1;
-      } else {
-        savedCount += 1;
-      }
-    }
-
-    if (mode === "pause") {
-      setIsPausingGlobalShares(false);
-      setGlobalProfileMessage(
-        interpolateText(t("global_profile_share_pause_summary"), { saved: savedCount, failed: failedCount })
-      );
-    } else {
-      setIsRevokingGlobalShares(false);
-      setGlobalProfileMessage(
-        interpolateText(t("global_profile_share_revoke_all_summary"), { saved: savedCount, failed: failedCount })
-      );
-    }
-    await refreshSharedProfileData();
-  };
+  const {
+    handleSaveHostProfile,
+    handleClaimGlobalProfile,
+    handleLinkProfileGuestToGlobal,
+    handleLinkAllGuestsToGlobalProfiles,
+    handleChangeGlobalShareDraft,
+    handleApplyGlobalSharePreset,
+    handleRequestSaveGlobalShare,
+    handleConfirmSaveGlobalShare,
+    handleApplyGlobalShareAction
+  } = useHostProfileGlobalShareController({
+    supabase,
+    t,
+    language,
+    sessionUserId: session?.user?.id,
+    sessionUserEmail: session?.user?.email,
+    hostProfileName,
+    hostProfilePhone,
+    hostProfileRelationship,
+    hostProfileCity,
+    hostProfileCountry,
+    setHostProfileMessage,
+    setIsSavingHostProfile,
+    selfGuestCandidate,
+    loadDashboardData,
+    setGlobalProfileMessage,
+    setIsClaimingGlobalProfile,
+    setIsGlobalProfileFeatureReady,
+    globalProfileId,
+    setGlobalProfileId,
+    refreshSharedProfileData,
+    setIsLinkingGlobalGuest,
+    setIsLinkingAllGlobalGuests,
+    setGlobalShareDraftByHostId,
+    globalShareDraftByHostId,
+    setSavingGlobalShareHostId,
+    globalShareTargetsVisible,
+    mapShareTargetToDraft,
+    setPendingGlobalShareSave,
+    pendingGlobalShareSave,
+    setIsPausingGlobalShares,
+    setIsRevokingGlobalShares
+  });
 
   const handleStartEditGuest = (guestItem, { openAdvanced = false, preferredAdvancedTab = "identity" } = {}) => {
     markUserNavigationIntent();
     if (!guestItem) {
       return;
     }
-    setActiveView("guests");
-    setSelectedGuestDetailId(guestItem.id);
-    setGuestsWorkspace("create");
+    const nextTab = GUEST_ADVANCED_EDIT_TABS.includes(preferredAdvancedTab) ? preferredAdvancedTab : "identity";
+    navigateAppPath(`/app/guests/${encodeURIComponent(guestItem.id)}/edit/advanced/${encodeURIComponent(nextTab)}`);
     setEditingGuestId(guestItem.id);
     setGuestFirstName(guestItem.first_name || "");
     setGuestLastName(guestItem.last_name || "");
@@ -7674,12 +5820,11 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
-    const nextTab = GUEST_ADVANCED_EDIT_TABS.includes(preferredAdvancedTab) ? preferredAdvancedTab : "identity";
-    setGuestAdvancedEditTab(nextTab);
     setOpenGuestAdvancedOnCreate(Boolean(openAdvanced));
   };
 
   const handleCancelEditGuest = () => {
+    guestEditorHydratedIdRef.current = "";
     setEditingGuestId("");
     setSelectedGuestDetailId("");
     setGuestFirstName("");
@@ -7696,8 +5841,8 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
-    setGuestAdvancedEditTab("identity");
     setOpenGuestAdvancedOnCreate(false);
+    navigateAppPath("/app/guests/new/advanced/identity");
   };
 
   const openGuestAdvancedEditor = (guestId) => {
@@ -8141,6 +6286,9 @@ function DashboardScreen({
     if (savedGuestId) {
       setEditingGuestId(savedGuestId);
       setSelectedGuestDetailId(savedGuestId);
+      navigateAppPath(
+        `/app/guests/${encodeURIComponent(savedGuestId)}/edit/advanced/${encodeURIComponent(routeGuestAdvancedTab)}`
+      );
       setGuestLastSavedAt(new Date().toISOString());
       if (avatarUploadWarning) {
         setGuestMessage(`${t("guest_saved_partial_warning")} ${t("guest_photo_storage_warning")} (${avatarUploadWarning})`);
@@ -8171,6 +6319,8 @@ function DashboardScreen({
     isEditingGuest,
     language,
     loadDashboardData,
+    navigateAppPath,
+    routeGuestAdvancedTab,
     resolveCreatedGuestId,
     setSelectedGuestDetailId,
     selectedGuestAddressPlace,
@@ -8597,6 +6747,9 @@ function DashboardScreen({
       if (selectedGuestDetailId === sourceGuest.id) {
         setSelectedGuestDetailId(targetGuest.id);
       }
+      if (routeSelectedGuestDetailId === sourceGuest.id) {
+        navigateAppPath(`/app/guests/${encodeURIComponent(targetGuest.id)}`);
+      }
       setGuestMessage(
         interpolateText(t("merge_guest_success"), {
           source: `${sourceGuest.first_name || ""} ${sourceGuest.last_name || ""}`.trim() || t("field_guest"),
@@ -8911,13 +7064,6 @@ function DashboardScreen({
   const profileLinkedGuestId = selfGuestCandidate?.id || editingGuestId || "";
   const isProfileGuestLinked = Boolean(profileLinkedGuestId);
   const isGlobalProfileClaimed = Boolean(globalProfileId);
-  const globalShareSelfTargetCount = globalShareTargets.filter(
-    (item) => item?.host_user_id && item.host_user_id === session?.user?.id
-  ).length;
-  const globalShareTargetsVisible = globalShareTargets.filter((item) => item?.host_user_id && item.host_user_id !== session?.user?.id);
-  const globalShareActiveCount = globalShareTargetsVisible.filter(
-    (item) => String(item.share_status || "").toLowerCase() === "active"
-  ).length;
   const globalShareTargetsByHostId = useMemo(
     () =>
       Object.fromEntries(
@@ -9006,149 +7152,23 @@ function DashboardScreen({
   const pendingGlobalSharePreset = pendingGlobalShareSave?.draft
     ? inferGlobalSharePreset(pendingGlobalShareSave.draft)
     : "private";
-  const activeViewItem = VIEW_CONFIG.find((item) => item.key === activeView) || VIEW_CONFIG[0];
-  const sectionHeader = useMemo(() => {
-    const selectedGuestName =
-      selectedGuestDetail
-        ? `${selectedGuestDetail.first_name || ""} ${selectedGuestDetail.last_name || ""}`.trim() || t("guest_detail_title")
-        : t("guest_detail_title");
-    if (activeView === "overview") {
-      return {
-        eyebrow: "",
-        title: interpolateText(t("dashboard_welcome"), { name: hostFirstName }),
-        subtitle: t("dashboard_welcome_subtitle")
-      };
-    }
-    if (activeView === "profile") {
-      return {
-        eyebrow: "",
-        title: t("host_profile_title"),
-        subtitle: t("host_profile_hint")
-      };
-    }
-    if (activeView === "events") {
-      if (eventsWorkspace === "create") {
-        return {
-          eyebrow: "",
-          title: t("create_event_title"),
-          subtitle: t("help_event_form")
-        };
-      }
-      if (eventsWorkspace === "plan") {
-        return {
-          eyebrow: "",
-          title: t("event_planner_title"),
-          subtitle: t("event_planner_hint")
-        };
-      }
-      if (eventsWorkspace === "detail") {
-        return {
-          eyebrow: "",
-          title: selectedEventDetail?.title || t("event_detail_title"),
-          subtitle: ""
-        };
-      }
-      if (eventsWorkspace === "insights") {
-        return {
-          eyebrow: "",
-          title: t("smart_hosting_title"),
-          subtitle: t("smart_hosting_hint")
-        };
-      }
-      return {
-        eyebrow: "",
-        title: t("nav_events"),
-        subtitle: t("header_events_subtitle")
-      };
-    }
-    if (activeView === "guests") {
-      if (guestsWorkspace === "create") {
-        return {
-          eyebrow: "",
-          title: t("create_guest_title"),
-          subtitle: t("help_guest_form")
-        };
-      }
-      if (guestsWorkspace === "detail") {
-        return {
-          eyebrow: "",
-          title: selectedGuestName,
-          subtitle: ""
-        };
-      }
-      return {
-        eyebrow: "",
-        title: t("nav_guests"),
-        subtitle: t("header_guests_subtitle")
-      };
-    }
-    if (activeView === "invitations") {
-      if (invitationsWorkspace === "create") {
-        return {
-          eyebrow: "",
-          title: t("create_invitation_title"),
-          subtitle: t("help_invitation_form")
-        };
-      }
-      return {
-        eyebrow: "",
-        title: t("nav_invitations"),
-        subtitle: t("header_invitations_subtitle")
-      };
-    }
-    return {
-      eyebrow: "",
-      title: t(activeViewItem.labelKey),
-      subtitle: t("dashboard_welcome_subtitle")
-    };
-  }, [
-    activeView,
-    activeViewItem.labelKey,
-    eventsWorkspace,
-    guestsWorkspace,
-    hostFirstName,
-    invitationsWorkspace,
-    selectedEventDetail?.title,
-    selectedGuestDetail,
-    t
-  ]);
-  const contextualCreateAction =
-    activeView === "overview" || activeView === "events"
-      ? {
-        icon: "calendar",
-        label: t("quick_create_event"),
-        onClick: () => openWorkspace("events", "create")
-      }
-      : activeView === "guests"
-        ? {
-          icon: "user",
-          label: t("quick_create_guest"),
-          onClick: () => openWorkspace("guests", "create")
-        }
-        : activeView === "invitations"
-          ? {
-            icon: "mail",
-            label: t("quick_create_invitation"),
-            onClick: () => openWorkspace("invitations", "create")
-          }
-          : null;
-  const contextualSecondaryAction =
-    activeView === "invitations" && invitationsWorkspace === "latest"
-      ? {
-        icon: "message",
-        label: t("invitation_bulk_title"),
-        onClick: openInvitationBulkWorkspace
-      }
-      : activeView === "guests" && guestsWorkspace === "latest"
-        ? {
-          icon: "link",
-          label: t("contact_import_title"),
-          onClick: handleOpenImportWizard
-        }
-        : null;
-  const hideDashboardHeader =
-    (activeView === "events" && ["detail", "plan"].includes(eventsWorkspace)) ||
-    (activeView === "guests" && guestsWorkspace === "detail");
+  const activeViewItem = VIEW_CONFIG.find((item) => item.key === routeActiveView) || VIEW_CONFIG[0];
+  const { sectionHeader, contextualCreateAction, contextualSecondaryAction, hideDashboardHeader } =
+    useDashboardHeaderState({
+      activeView: routeActiveView,
+      eventsWorkspace: routeEventsWorkspace,
+      guestsWorkspace: routeGuestsWorkspace,
+      invitationsWorkspace: routeInvitationsWorkspace,
+      selectedEventTitle: selectedEventDetail?.title || "",
+      selectedGuestDetail,
+      hostFirstName,
+      activeViewItemLabelKey: activeViewItem.labelKey,
+      t,
+      interpolateText,
+      openWorkspace,
+      openInvitationBulkWorkspace,
+      handleOpenImportWizard
+    });
 
   return (
     <DashboardLayout
@@ -9167,7 +7187,7 @@ function DashboardScreen({
       isNotificationMenuOpen={isNotificationMenuOpen}
       setIsNotificationMenuOpen={setIsNotificationMenuOpen}
       recentActivityItems={recentActivityItems}
-      activeView={activeView}
+      activeView={routeActiveView}
       changeView={changeView}
       VIEW_CONFIG={VIEW_CONFIG}
       isMenuOpen={isMenuOpen}
@@ -9200,1886 +7220,735 @@ function DashboardScreen({
 
       {dashboardError ? <InlineMessage type="error" text={dashboardError} /> : null}
 
-      {activeView === "overview" ? (
-        <DashboardOverview
-          t={t}
-          openWorkspace={openWorkspace}
-          events={events}
-          latestEventPreview={latestEventPreview}
-          guests={guests}
-          latestGuestPreview={latestGuestPreview}
-          invitations={invitations}
-          pendingInvites={pendingInvites}
-          pendingInvitationPreview={pendingInvitationPreview}
-          respondedInvitesRate={respondedInvitesRate}
-          respondedInvites={respondedInvites}
-          answeredInvitationPreview={answeredInvitationPreview}
-          upcomingEventsPreview={upcomingEventsPreview}
-          openEventDetail={openEventDetail}
-          interpolateText={interpolateText}
-          statusClass={statusClass}
-          statusText={statusText}
-          hostDisplayName={hostDisplayName}
-          hostInitials={hostInitials}
-          hostAvatarUrl={hostAvatarUrl}
-          convertedHostRate={convertedHostRate}
-          hostMemberSinceLabel={hostMemberSinceLabel}
-          hostRatingScore={hostRatingScore}
-          recentActivityItems={recentActivityItems}
-          hostPotentialGuestsCount={hostPotentialGuestsCount}
-          invitedPotentialHostsCount={invitedPotentialHostsCount}
-          convertedHostGuestsCount={convertedHostGuestsCount}
-          conversionWindowCounts={conversionWindowCounts}
-          conversionTrend14d={conversionTrend14d}
-          conversionTrendMax={conversionTrendMax}
-        />
-      ) : null}
-
-      {activeView === "profile" ? (
-        <HostProfileView
-          interpolateText={interpolateText}
-          formatRelativeDate={formatRelativeDate}
-          normalizeLookupValue={normalizeLookupValue}
-          t={t}
-          language={language}
-          session={session}
-          isProfileGuestLinked={isProfileGuestLinked}
-          hostGuestProfilePercent={hostGuestProfilePercent}
-          hostGuestProfileCompletedCount={hostGuestProfileCompletedCount}
-          hostGuestProfileTotalCount={hostGuestProfileTotalCount}
-          hostGuestProfileSignals={hostGuestProfileSignals}
-          profileLinkedGuestId={profileLinkedGuestId}
-          openGuestAdvancedEditor={openGuestAdvancedEditor}
-          syncHostGuestProfileForm={syncHostGuestProfileForm}
-          isGlobalProfileClaimed={isGlobalProfileClaimed}
-          isGlobalProfileFeatureReady={isGlobalProfileFeatureReady}
-          handleClaimGlobalProfile={handleClaimGlobalProfile}
-          isClaimingGlobalProfile={isClaimingGlobalProfile}
-          handleLinkProfileGuestToGlobal={handleLinkProfileGuestToGlobal}
-          isLinkingGlobalGuest={isLinkingGlobalGuest}
-          handleLinkAllGuestsToGlobalProfiles={handleLinkAllGuestsToGlobalProfiles}
-          isLinkingAllGlobalGuests={isLinkingAllGlobalGuests}
-          globalShareTargetsVisible={globalShareTargetsVisible}
-          handleApplyGlobalShareAction={handleApplyGlobalShareAction}
-          isPausingGlobalShares={isPausingGlobalShares}
-          isRevokingGlobalShares={isRevokingGlobalShares}
-          globalProfileId={globalProfileId}
-          globalShareActiveCount={globalShareActiveCount}
-          globalShareSelfTargetCount={globalShareSelfTargetCount}
-          globalShareDraftByHostId={globalShareDraftByHostId}
-          inferGlobalSharePreset={inferGlobalSharePreset}
-          statusClass={statusClass}
-          handleApplyGlobalSharePreset={handleApplyGlobalSharePreset}
-          handleChangeGlobalShareDraft={handleChangeGlobalShareDraft}
-          previewGlobalShareHostId={previewGlobalShareHostId}
-          setPreviewGlobalShareHostId={setPreviewGlobalShareHostId}
-          handleRequestSaveGlobalShare={handleRequestSaveGlobalShare}
-          savingGlobalShareHostId={savingGlobalShareHostId}
-          globalShareHistoryItems={globalShareHistoryItems}
-          isLoadingGlobalShareHistory={isLoadingGlobalShareHistory}
-          formatGlobalShareEventType={formatGlobalShareEventType}
-          globalProfileMessage={globalProfileMessage}
-          isIntegrationDebugEnabled={isIntegrationDebugEnabled}
-          integrationChecksTotal={integrationChecksTotal}
-          integrationChecksOkCount={integrationChecksOkCount}
-          isIntegrationPanelOpen={isIntegrationPanelOpen}
-          setIsIntegrationPanelOpen={setIsIntegrationPanelOpen}
-          loadIntegrationStatusData={loadIntegrationStatusData}
-          isLoadingIntegrationStatus={isLoadingIntegrationStatus}
-          integrationStatus={integrationStatus}
-          integrationShareTargetCount={integrationShareTargetCount}
-          integrationSelfTargetCount={integrationSelfTargetCount}
-          integrationChecks={integrationChecks}
-          integrationStatusMessage={integrationStatusMessage}
-          handleSaveHostProfile={handleSaveHostProfile}
-          hostProfileName={hostProfileName}
-          setHostProfileName={setHostProfileName}
-          hostProfilePhone={hostProfilePhone}
-          setHostProfilePhone={setHostProfilePhone}
-          hostProfileCity={hostProfileCity}
-          setHostProfileCity={setHostProfileCity}
-          hostProfileCountry={hostProfileCountry}
-          setHostProfileCountry={setHostProfileCountry}
-          hostProfileRelationship={hostProfileRelationship}
-          setHostProfileRelationship={setHostProfileRelationship}
-          relationshipOptions={relationshipOptions}
-          cityOptions={cityOptions}
-          countryOptions={countryOptions}
-          isSavingHostProfile={isSavingHostProfile}
-          hostProfileMessage={hostProfileMessage}
-          handleSaveGuest={handleSaveGuest}
-          guestFirstName={guestFirstName}
-          setGuestFirstName={setGuestFirstName}
-          guestErrors={guestErrors}
-          guestLastName={guestLastName}
-          setGuestLastName={setGuestLastName}
-          guestPhotoUrl={guestPhotoUrl}
-          guestPhotoInputValue={guestPhotoInputValue}
-          handleGuestPhotoUrlChange={handleGuestPhotoUrlChange}
-          handleGuestPhotoFileChange={handleGuestPhotoFileChange}
-          handleRemoveGuestPhoto={handleRemoveGuestPhoto}
-          guestEmail={guestEmail}
-          guestPhone={guestPhone}
-          setGuestPhone={setGuestPhone}
-          guestRelationship={guestRelationship}
-          setGuestRelationship={setGuestRelationship}
-          guestCity={guestCity}
-          setGuestCity={setGuestCity}
-          guestCountry={guestCountry}
-          setGuestCountry={setGuestCountry}
-          guestAdvanced={guestAdvanced}
-          setGuestAdvancedField={setGuestAdvancedField}
-          selectedGuestAddressPlace={selectedGuestAddressPlace}
-          setSelectedGuestAddressPlace={setSelectedGuestAddressPlace}
-          mapsStatus={mapsStatus}
-          mapsError={mapsError}
-          isGuestAddressLoading={isGuestAddressLoading}
-          guestAddressPredictions={guestAddressPredictions}
-          handleSelectGuestAddressPrediction={handleSelectGuestAddressPrediction}
-          isSavingGuest={isSavingGuest}
-          isEditingGuest={isEditingGuest}
-          guestMessage={guestMessage}
-          openGuestDetail={openGuestDetail}
-          openWorkspace={openWorkspace}
-        />
-      ) : null}
-
-      {activeView === "events" ? (
-        <section className="workspace-shell view-transition">
-          {eventsWorkspace === "hub" ? (
-            <div className="workspace-card-grid">
-              {WORKSPACE_ITEMS.events
-                .filter((item) => !["hub", "create", "plan"].includes(item.key))
-                .map((workspaceItem) => (
-                  <article key={workspaceItem.key} className="workspace-card">
-                    <div className="workspace-card-icon">
-                      <Icon name={workspaceItem.icon} className="icon" />
-                    </div>
-                    <div className="workspace-card-content">
-                      <h3>{t(workspaceItem.labelKey)}</h3>
-                      <p>{t(workspaceItem.descriptionKey)}</p>
-                    </div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => openWorkspace("events", workspaceItem.key)}
-                    >
-                      {t("workspace_open")}
-                    </button>
-                  </article>
-                ))}
-            </div>
-          ) : (
-            <div key={`events-${eventsWorkspace}`} className="dashboard-grid single-section workspace-content">
-              {eventsWorkspace === "create" ? (
-                <EventBuilderView
-                  t={t}
-                  language={language}
-                  timezone={timezone}
-                  handleSaveEvent={handleSaveEvent}
-                  isSavingEvent={isSavingEvent}
-                  isEditingEvent={isEditingEvent}
-                  handleCancelEditEvent={handleCancelEditEvent}
-                  eventTemplates={eventTemplates}
-                  activeEventTemplateKey={activeEventTemplateKey}
-                  handleApplyEventTemplate={handleApplyEventTemplate}
-                  eventTitle={eventTitle}
-                  setEventTitle={setEventTitle}
-                  eventErrors={eventErrors}
-                  eventDescription={eventDescription}
-                  setEventDescription={setEventDescription}
-                  eventType={eventType}
-                  setEventType={setEventType}
-                  eventTypeOptions={eventTypeOptions}
-                  eventStatus={eventStatus}
-                  setEventStatus={setEventStatus}
-                  eventStartAt={eventStartAt}
-                  setEventStartAt={setEventStartAt}
-                  eventLocationName={eventLocationName}
-                  setEventLocationName={setEventLocationName}
-                  eventLocationAddress={eventLocationAddress}
-                  setEventLocationAddress={setEventLocationAddress}
-                  mapsStatus={mapsStatus}
-                  mapsError={mapsError}
-                  addressPredictions={addressPredictions}
-                  isAddressLoading={isAddressLoading}
-                  handleSelectAddressPrediction={handleSelectAddressPrediction}
-                  selectedPlace={selectedPlace}
-                  getMapEmbedUrl={getMapEmbedUrl}
-                  eventPhaseProgress={eventPhaseProgress}
-                  invitationCountForEditingEvent={invitationCountForEditingEvent}
-                  editingEventId={editingEventId}
-                  eventAllowPlusOne={eventAllowPlusOne}
-                  setEventAllowPlusOne={setEventAllowPlusOne}
-                  eventAutoReminders={eventAutoReminders}
-                  setEventAutoReminders={setEventAutoReminders}
-                  eventDressCode={eventDressCode}
-                  setEventDressCode={setEventDressCode}
-                  eventPlaylistMode={eventPlaylistMode}
-                  setEventPlaylistMode={setEventPlaylistMode}
-                  eventBuilderPlaybookActions={eventBuilderPlaybookActions}
-                  handleApplySuggestedEventSettings={handleApplySuggestedEventSettings}
-                  eventBuilderMealPlan={eventBuilderMealPlan}
-                  handleCopyEventBuilderShoppingChecklist={handleCopyEventBuilderShoppingChecklist}
-                  locationNameOptions={locationNameOptions}
-                  locationAddressOptions={locationAddressOptions}
-                  eventMessage={eventMessage}
-                />
-              ) : null}
-
-              {eventsWorkspace === "latest" ? (
-                <EventsListView
-                  t={t}
-                  eventSearch={eventSearch}
-                  setEventSearch={setEventSearch}
-                  eventSort={eventSort}
-                  setEventSort={setEventSort}
-                  eventPageSize={eventPageSize}
-                  setEventPageSize={setEventPageSize}
-                  eventsPageSizeDefault={EVENTS_PAGE_SIZE_DEFAULT}
-                  pageSizeOptions={PAGE_SIZE_OPTIONS}
-                  eventStatusFilter={eventStatusFilter}
-                  setEventStatusFilter={setEventStatusFilter}
-                  eventStatusCounts={eventStatusCounts}
-                  filteredEvents={filteredEvents}
-                  pagedEvents={pagedEvents}
-                  eventInvitationSummaryByEventId={eventInvitationSummaryByEventId}
-                  openEventDetail={openEventDetail}
-                  openEventPlanById={openEventPlanById}
-                  handleStartEditEvent={handleStartEditEvent}
-                  handleRequestDeleteEvent={handleRequestDeleteEvent}
-                  isDeletingEventId={isDeletingEventId}
-                  toCatalogLabel={toCatalogLabel}
-                  formatDate={formatDate}
-                  language={language}
-                  statusClass={statusClass}
-                  statusText={statusText}
-                  eventPage={eventPage}
-                  eventTotalPages={eventTotalPages}
-                  setEventPage={setEventPage}
-                  mapsStatus={mapsStatus}
-                  mapsError={mapsError}
-                  orderedEventMapPoints={orderedEventMapPoints}
-                  GeoPointsMapPanel={GeoPointsMapPanel}
-                />
-              ) : null}
-
-              {eventsWorkspace === "detail" || eventsWorkspace === "plan" ? (
-                <EventDetailView
-                  eventsWorkspace={eventsWorkspace}
-                  openWorkspace={openWorkspace}
-                  handleBackToEventDetail={handleBackToEventDetail}
-                  selectedEventDetail={selectedEventDetail}
-                  t={t}
-                  statusClass={statusClass}
-                  statusText={statusText}
-                  formatLongDate={formatLongDate}
-                  language={language}
-                  formatTimeLabel={formatTimeLabel}
-                  handleOpenEventPlan={handleOpenEventPlan}
-                  handleStartEditEvent={handleStartEditEvent}
-                  selectedEventDetailPrimaryShare={selectedEventDetailPrimaryShare}
-                  openInvitationCreate={openInvitationCreate}
-                  selectedEventDetailInvitations={selectedEventDetailInvitations}
-                  selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
-                  invitationMessage={invitationMessage}
-                  toCatalogLabel={toCatalogLabel}
-                  formatDate={formatDate}
-                  normalizeEventDressCode={normalizeEventDressCode}
-                  normalizeEventPlaylistMode={normalizeEventPlaylistMode}
-                  selectedEventChecklist={selectedEventChecklist}
-                  selectedEventHealthAlerts={selectedEventHealthAlerts}
-                  selectedEventHealthAlertsConfirmedCount={selectedEventHealthAlertsConfirmedCount}
-                  selectedEventHealthAlertsPendingCount={selectedEventHealthAlertsPendingCount}
-                  eventPlannerSectionRef={eventPlannerSectionRef}
-                  interpolateText={interpolateText}
-                  selectedEventMealPlan={selectedEventMealPlan}
-                  selectedEventPlannerContextEffective={selectedEventPlannerContextEffective}
-                  selectedEventPlannerSavedLabel={selectedEventPlannerSavedLabel}
-                  selectedEventPlannerSnapshotVersion={selectedEventPlannerSnapshotVersion}
-                  selectedEventPlannerSnapshotHistory={selectedEventPlannerSnapshotHistory}
-                  selectedEventPlannerVariantSeed={selectedEventPlannerVariantSeed}
-                  selectedEventPlannerTabSeed={selectedEventPlannerTabSeed}
-                  selectedEventPlannerLastGeneratedByScope={selectedEventPlannerLastGeneratedByScope}
-                  selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
-                  handleOpenEventPlannerContext={handleOpenEventPlannerContext}
-                  handleRegenerateEventPlanner={handleRegenerateEventPlanner}
-                  handleRestoreEventPlannerSnapshot={handleRestoreEventPlannerSnapshot}
-                  eventDetailPlannerTab={eventDetailPlannerTab}
-                  handleExportEventPlannerShoppingList={handleExportEventPlannerShoppingList}
-                  selectedEventDietTypesCount={selectedEventDietTypesCount}
-                  selectedEventAllergiesCount={selectedEventAllergiesCount}
-                  selectedEventMedicalConditionsCount={selectedEventMedicalConditionsCount}
-                  selectedEventDietaryMedicalRestrictionsCount={selectedEventDietaryMedicalRestrictionsCount}
-                  selectedEventCriticalRestrictions={selectedEventCriticalRestrictions}
-                  selectedEventHealthRestrictionHighlights={selectedEventHealthRestrictionHighlights}
-                  selectedEventRestrictionsCount={selectedEventRestrictionsCount}
-                  selectedEventIntolerancesCount={selectedEventIntolerancesCount}
-                  handleEventPlannerTabChange={handleEventPlannerTabChange}
-                  selectedEventShoppingTotalIngredients={selectedEventShoppingTotalIngredients}
-                  selectedEventEstimatedCostRange={selectedEventEstimatedCostRange}
-                  selectedEventShoppingProgress={selectedEventShoppingProgress}
-                  selectedEventShoppingItems={selectedEventShoppingItems}
-                  selectedEventShoppingCheckedSet={selectedEventShoppingCheckedSet}
-                  handleCopySelectedEventShoppingChecklist={handleCopySelectedEventShoppingChecklist}
-                  handleMarkAllEventPlannerShoppingItems={handleMarkAllEventPlannerShoppingItems}
-                  handleClearEventPlannerShoppingCheckedItems={handleClearEventPlannerShoppingCheckedItems}
-                  eventPlannerShoppingFilter={eventPlannerShoppingFilter}
-                  setEventPlannerShoppingFilter={setEventPlannerShoppingFilter}
-                  selectedEventShoppingCounts={selectedEventShoppingCounts}
-                  selectedEventShoppingGroupsFiltered={selectedEventShoppingGroupsFiltered}
-                  handleToggleEventPlannerShoppingItem={handleToggleEventPlannerShoppingItem}
-                  selectedEventHostPlaybook={selectedEventHostPlaybook}
-                  handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
-                  handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
-                  getMapEmbedUrl={getMapEmbedUrl}
-                  getGuestAvatarUrl={getGuestAvatarUrl}
-                  selectedEventDetailGuests={selectedEventDetailGuests}
-                  openGuestDetail={openGuestDetail}
-                  handlePrepareInvitationShare={handlePrepareInvitationShare}
-                  handleRequestDeleteInvitation={handleRequestDeleteInvitation}
-                  selectedEventRsvpTimeline={selectedEventRsvpTimeline}
-                />
-              ) : null}
-
-              {eventsWorkspace === "insights" ? (
-                <section className="panel panel-wide">
-                  {events.length > 0 ? (
-                    <label>
-                      <span className="label-title">{t("smart_hosting_event_select")}</span>
-                      <select value={insightsEventId} onChange={(event) => setInsightsEventId(event.target.value)}>
-                        {events.map((eventItem) => (
-                          <option key={eventItem.id} value={eventItem.id}>
-                            {eventItem.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                  <p className="hint">
-                    {t("smart_hosting_scope_label")}:{" "}
-                    {eventInsights.scope === "event" ? t("smart_hosting_scope_event") : t("smart_hosting_scope_all")} -{" "}
-                    {t("smart_hosting_considered_guests")}: {eventInsights.consideredGuestsCount}
-                  </p>
-                  {eventInsights.hasData ? (
-                    <div className="stack-md">
-                      <div className="insights-grid">
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_food")}</p>
-                          <p className="item-meta">
-                            {eventInsights.foodSuggestions.length > 0
-                              ? eventInsights.foodSuggestions.join(", ")
-                              : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_drink")}</p>
-                          <p className="item-meta">
-                            {eventInsights.drinkSuggestions.length > 0
-                              ? eventInsights.drinkSuggestions.join(", ")
-                              : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_avoid")}</p>
-                          <p className="item-meta">
-                            {eventInsights.avoidItems.length > 0 ? eventInsights.avoidItems.join(", ") : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_decor")}</p>
-                          <p className="item-meta">
-                            {eventInsights.decorColors.length > 0
-                              ? eventInsights.decorColors.join(", ")
-                              : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_music")}</p>
-                          <p className="item-meta">
-                            {eventInsights.musicGenres.length > 0
-                              ? eventInsights.musicGenres.join(", ")
-                              : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_icebreakers")}</p>
-                          <p className="item-meta">
-                            {eventInsights.icebreakers.length > 0
-                              ? eventInsights.icebreakers.join(", ")
-                              : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_taboo")}</p>
-                          <p className="item-meta">
-                            {eventInsights.tabooTopics.length > 0
-                              ? eventInsights.tabooTopics.join(", ")
-                              : t("smart_hosting_no_data")}
-                          </p>
-                        </article>
-                        <article className="insight-card">
-                          <p className="item-title">{t("smart_hosting_timing")}</p>
-                          <p className="item-meta">
-                            {eventInsights.timingRecommendation === "start_with_buffer"
-                              ? t("smart_hosting_timing_buffer")
-                              : t("smart_hosting_timing_on_time")}
-                          </p>
-                        </article>
-                      </div>
-                      <article className="recommendation-card">
-                        <p className="item-title">{t("smart_hosting_playbook_title")}</p>
-                        <p className="field-help">{t("smart_hosting_playbook_hint")}</p>
-                        {insightsPlaybookActions.length > 0 ? (
-                          <ul className="list recommendation-list">
-                            {insightsPlaybookActions.map((item, index) => (
-                              <li key={`${index}-${item}`}>{item}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="hint">{t("smart_hosting_empty")}</p>
-                        )}
-                      </article>
-                    </div>
-                  ) : (
-                    <p className="hint">{t("smart_hosting_empty")}</p>
-                  )}
-                </section>
-              ) : null}
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {activeView === "guests" ? (
-        <section className="workspace-shell view-transition">
-          {guestsWorkspace === "hub" ? (
-            <div className="workspace-card-grid">
-              {WORKSPACE_ITEMS.guests.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
-                <article key={workspaceItem.key} className="workspace-card">
-                  <div className="workspace-card-icon">
-                    <Icon name={workspaceItem.icon} className="icon" />
-                  </div>
-                  <div className="workspace-card-content">
-                    <h3>{t(workspaceItem.labelKey)}</h3>
-                    <p>{t(workspaceItem.descriptionKey)}</p>
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => openWorkspace("guests", workspaceItem.key)}
-                  >
-                    {t("workspace_open")}
-                  </button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div key={`guests-${guestsWorkspace}`} className="dashboard-grid single-section workspace-content">
-              {guestsWorkspace === "create" ? (
-                <GuestBuilderView
-                  t={t}
-                  language={language}
-                  canUseDeviceContacts={canUseDeviceContacts}
-                  contactPickerUnsupportedReason={contactPickerUnsupportedReason}
-                  handleFillGuestFromDeviceContact={handleFillGuestFromDeviceContact}
-                  openFileImportFallback={openFileImportFallback}
-                  contactImportDetailsRef={contactImportDetailsRef}
-                  handlePickDeviceContacts={handlePickDeviceContacts}
-                  handleImportGoogleContacts={handleImportGoogleContacts}
-                  isImportingGoogleContacts={isImportingGoogleContacts}
-                  canUseGoogleContacts={canUseGoogleContacts}
-                  contactImportFileInputRef={contactImportFileInputRef}
-                  handleImportContactsFile={handleImportContactsFile}
-                  importContactsDraft={importContactsDraft}
-                  setImportContactsDraft={setImportContactsDraft}
-                  handlePreviewContactsFromDraft={handlePreviewContactsFromDraft}
-                  handleClearImportContacts={handleClearImportContacts}
-                  importContactsAnalysis={importContactsAnalysis}
-                  importContactsReady={importContactsReady}
-                  importContactsSelectedReady={importContactsSelectedReady}
-                  importContactsStatusSummary={importContactsStatusSummary}
-                  importDuplicateMode={importDuplicateMode}
-                  handleImportDuplicateModeChange={handleImportDuplicateModeChange}
-                  importContactsSearch={importContactsSearch}
-                  setImportContactsSearch={setImportContactsSearch}
-                  importContactsGroupFilter={importContactsGroupFilter}
-                  setImportContactsGroupFilter={setImportContactsGroupFilter}
-                  importContactsGroupOptions={importContactsGroupOptions}
-                  importContactsPotentialFilter={importContactsPotentialFilter}
-                  setImportContactsPotentialFilter={setImportContactsPotentialFilter}
-                  importContactsSourceFilter={importContactsSourceFilter}
-                  setImportContactsSourceFilter={setImportContactsSourceFilter}
-                  importContactsSort={importContactsSort}
-                  setImportContactsSort={setImportContactsSort}
-                  IMPORT_CONTACTS_SORT_OPTIONS={IMPORT_CONTACTS_SORT_OPTIONS}
-                  importContactsPageSize={importContactsPageSize}
-                  setImportContactsPageSize={setImportContactsPageSize}
-                  IMPORT_PREVIEW_PAGE_SIZE_DEFAULT={IMPORT_PREVIEW_PAGE_SIZE_DEFAULT}
-                  IMPORT_PREVIEW_PAGE_SIZE_OPTIONS={IMPORT_PREVIEW_PAGE_SIZE_OPTIONS}
-                  handleSelectSuggestedImportContacts={handleSelectSuggestedImportContacts}
-                  handleSelectAllReadyImportContacts={handleSelectAllReadyImportContacts}
-                  handleSelectHighPotentialImportContacts={handleSelectHighPotentialImportContacts}
-                  handleSelectDualChannelImportContacts={handleSelectDualChannelImportContacts}
-                  handleSelectDuplicateMergeImportContacts={handleSelectDuplicateMergeImportContacts}
-                  handleApproveAllLowConfidenceMergeContacts={handleApproveAllLowConfidenceMergeContacts}
-                  handleSelectFilteredReadyImportContacts={handleSelectFilteredReadyImportContacts}
-                  handleSelectCurrentImportPageReady={handleSelectCurrentImportPageReady}
-                  handleSelectOnlyNewImportContacts={handleSelectOnlyNewImportContacts}
-                  handleClearReadyImportContactsSelection={handleClearReadyImportContactsSelection}
-                  importContactsSuggested={importContactsSuggested}
-                  interpolateText={interpolateText}
-                  pagedImportContacts={pagedImportContacts}
-                  selectedImportContactIds={selectedImportContactIds}
-                  toggleImportContactSelection={toggleImportContactSelection}
-                  handleOpenLowConfidenceMergeReview={handleOpenLowConfidenceMergeReview}
-                  importContactsFiltered={importContactsFiltered}
-                  importContactsPage={importContactsPage}
-                  importContactsTotalPages={importContactsTotalPages}
-                  setImportContactsPage={setImportContactsPage}
-                  handleImportContacts={handleImportContacts}
-                  isImportingContacts={isImportingContacts}
-                  importContactsMessage={importContactsMessage}
-                  handleSaveGuest={handleSaveGuest}
-                  guestFirstName={guestFirstName}
-                  setGuestFirstName={setGuestFirstName}
-                  guestErrors={guestErrors}
-                  guestLastName={guestLastName}
-                  setGuestLastName={setGuestLastName}
-                  guestPhotoUrl={guestPhotoUrl}
-                  guestPhotoInputValue={guestPhotoInputValue}
-                  handleGuestPhotoUrlChange={handleGuestPhotoUrlChange}
-                  handleGuestPhotoFileChange={handleGuestPhotoFileChange}
-                  handleRemoveGuestPhoto={handleRemoveGuestPhoto}
-                  guestEmail={guestEmail}
-                  setGuestEmail={setGuestEmail}
-                  guestPhone={guestPhone}
-                  setGuestPhone={setGuestPhone}
-                  guestRelationship={guestRelationship}
-                  setGuestRelationship={setGuestRelationship}
-                  relationshipOptions={relationshipOptions}
-                  guestCity={guestCity}
-                  setGuestCity={setGuestCity}
-                  guestCountry={guestCountry}
-                  setGuestCountry={setGuestCountry}
-                  guestAdvanced={guestAdvanced}
-                  setGuestAdvancedField={setGuestAdvancedField}
-                  guestAdvancedProfileCompleted={guestAdvancedProfileCompleted}
-                  guestAdvancedProfileSignals={guestAdvancedProfileSignals}
-                  guestAdvancedProfilePercent={guestAdvancedProfilePercent}
-                  guestNextBirthday={guestNextBirthday}
-                  handleCreateBirthdayEventFromGuest={handleCreateBirthdayEventFromGuest}
-                  scrollToGuestAdvancedSection={scrollToGuestAdvancedSection}
-                  guestPriorityCompleted={guestPriorityCompleted}
-                  guestPriorityTotal={guestPriorityTotal}
-                  guestPriorityPercent={guestPriorityPercent}
-                  guestPriorityMissing={guestPriorityMissing}
-                  getGuestAdvancedSectionFromPriorityKey={getGuestAdvancedSectionFromPriorityKey}
-                  handleOpenGuestAdvancedPriority={handleOpenGuestAdvancedPriority}
-                  guestAdvancedDetailsRef={guestAdvancedDetailsRef}
-                  guestAdvancedToolbarRef={guestAdvancedToolbarRef}
-                  guestAdvancedEditTabs={guestAdvancedEditTabs}
-                  guestAdvancedSignalsBySection={guestAdvancedSignalsBySection}
-                  guestAdvancedEditTab={guestAdvancedEditTab}
-                  guestAdvancedCurrentStep={guestAdvancedCurrentStep}
-                  guestAdvancedCurrentTabLabel={guestAdvancedCurrentTabLabel}
-                  guestAdvancedCurrentChecklistDone={guestAdvancedCurrentChecklistDone}
-                  guestAdvancedCurrentChecklistTotal={guestAdvancedCurrentChecklistTotal}
-                  guestAdvancedCurrentChecklist={guestAdvancedCurrentChecklist}
-                  isSavingGuest={isSavingGuest}
-                  guestLastSavedLabel={guestLastSavedLabel}
-                  handleGoToPreviousGuestAdvancedSection={handleGoToPreviousGuestAdvancedSection}
-                  guestAdvancedPrevTab={guestAdvancedPrevTab}
-                  handleSaveGuestDraft={handleSaveGuestDraft}
-                  handleSaveAndGoNextPendingGuestAdvancedSection={handleSaveAndGoNextPendingGuestAdvancedSection}
-                  guestAdvancedNextPendingTab={guestAdvancedNextPendingTab}
-                  guestAdvancedNextPendingLabel={guestAdvancedNextPendingLabel}
-                  handleGoToNextGuestAdvancedSection={handleGoToNextGuestAdvancedSection}
-                  guestAdvancedNextTab={guestAdvancedNextTab}
-                  handleGoToFirstPendingGuestAdvancedSection={handleGoToFirstPendingGuestAdvancedSection}
-                  guestAdvancedFirstPendingTab={guestAdvancedFirstPendingTab}
-                  guestAdvancedFirstPendingLabel={guestAdvancedFirstPendingLabel}
-                  guestAdvancedSectionRefs={guestAdvancedSectionRefs}
-                  setGuestErrors={setGuestErrors}
-                  setGuestMessage={setGuestMessage}
-                  selectedGuestAddressPlace={selectedGuestAddressPlace}
-                  normalizeLookupValue={normalizeLookupValue}
-                  setSelectedGuestAddressPlace={setSelectedGuestAddressPlace}
-                  mapsStatus={mapsStatus}
-                  mapsError={mapsError}
-                  isGuestAddressLoading={isGuestAddressLoading}
-                  guestAddressPredictions={guestAddressPredictions}
-                  handleSelectGuestAddressPrediction={handleSelectGuestAddressPrediction}
-                  eventTypeOptions={eventTypeOptions}
-                  handleAdvancedMultiSelectChange={handleAdvancedMultiSelectChange}
-                  dietTypeOptions={dietTypeOptions}
-                  tastingPreferenceOptions={tastingPreferenceOptions}
-                  drinkOptions={drinkOptions}
-                  musicGenreOptions={musicGenreOptions}
-                  colorOptions={colorOptions}
-                  sportOptions={sportOptions}
-                  dayMomentOptions={dayMomentOptions}
-                  periodicityOptions={periodicityOptions}
-                  punctualityOptions={punctualityOptions}
-                  cuisineTypeOptions={cuisineTypeOptions}
-                  petOptions={petOptions}
-                  allergyOptions={allergyOptions}
-                  intoleranceOptions={intoleranceOptions}
-                  petAllergyOptions={petAllergyOptions}
-                  medicalConditionOptions={medicalConditionOptions}
-                  dietaryMedicalRestrictionOptions={dietaryMedicalRestrictionOptions}
-                  cityOptions={cityOptions}
-                  countryOptions={countryOptions}
-                  isEditingGuest={isEditingGuest}
-                  handleCancelEditGuest={handleCancelEditGuest}
-                  guestMessage={guestMessage}
-                  MultiSelectField={MultiSelectField}
-                />
-              ) : null}
-
-              {guestsWorkspace === "latest" ? (
-                <GuestsListView
-                  t={t}
-                  language={language}
-                  guestSearch={guestSearch}
-                  setGuestSearch={setGuestSearch}
-                  guestSort={guestSort}
-                  setGuestSort={setGuestSort}
-                  guestPageSize={guestPageSize}
-                  setGuestPageSize={setGuestPageSize}
-                  PAGE_SIZE_OPTIONS={PAGE_SIZE_OPTIONS}
-                  GUESTS_PAGE_SIZE_DEFAULT={GUESTS_PAGE_SIZE_DEFAULT}
-                  guestContactFilter={guestContactFilter}
-                  setGuestContactFilter={setGuestContactFilter}
-                  filteredGuests={filteredGuests}
-                  pagedGuests={pagedGuests}
-                  hostPotentialGuestsCount={hostPotentialGuestsCount}
-                  convertedHostGuestsCount={convertedHostGuestsCount}
-                  pendingHostGuestsCount={pendingHostGuestsCount}
-                  guestMessage={guestMessage}
-                  guestHostConversionById={guestHostConversionById}
-                  getConversionSource={getConversionSource}
-                  getConversionSourceLabel={getConversionSourceLabel}
-                  guestEventCountByGuestId={guestEventCountByGuestId}
-                  guestSensitiveById={guestSensitiveById}
-                  toCatalogLabels={toCatalogLabels}
-                  uniqueValues={uniqueValues}
-                  toCatalogLabel={toCatalogLabel}
-                  getGuestAvatarUrl={getGuestAvatarUrl}
-                  openGuestDetail={openGuestDetail}
-                  handleStartEditGuest={handleStartEditGuest}
-                  handleOpenMergeGuest={handleOpenMergeGuest}
-                  handleCopyHostSignupLink={handleCopyHostSignupLink}
-                  handleShareHostSignupLink={handleShareHostSignupLink}
-                  handleRequestDeleteGuest={handleRequestDeleteGuest}
-                  isDeletingGuestId={isDeletingGuestId}
-                  guestPage={guestPage}
-                  guestTotalPages={guestTotalPages}
-                  setGuestPage={setGuestPage}
-                  mapsStatus={mapsStatus}
-                  mapsError={mapsError}
-                  orderedGuestMapPoints={orderedGuestMapPoints}
-                  GeoPointsMapPanel={GeoPointsMapPanel}
-                />
-              ) : null}
-
-              {guestsWorkspace === "detail" ? (
-                <GuestDetailView
-                  t={t}
-                  language={language}
-                  openWorkspace={openWorkspace}
-                  selectedGuestDetail={selectedGuestDetail}
-                  getGuestAvatarUrl={getGuestAvatarUrl}
-                  toCatalogLabel={toCatalogLabel}
-                  handleStartEditGuest={handleStartEditGuest}
-                  handleOpenMergeGuest={handleOpenMergeGuest}
-                  handleRequestDeleteGuest={handleRequestDeleteGuest}
-                  isDeletingGuestId={isDeletingGuestId}
-                  selectedGuestDetailInvitations={selectedGuestDetailInvitations}
-                  selectedGuestDetailStatusCounts={selectedGuestDetailStatusCounts}
-                  selectedGuestDetailRespondedRate={selectedGuestDetailRespondedRate}
-                  guestProfileTabs={guestProfileTabs}
-                  guestProfileViewTab={guestProfileViewTab}
-                  setGuestProfileViewTab={setGuestProfileViewTab}
-                  selectedGuestDetailConversion={selectedGuestDetailConversion}
-                  getConversionSource={getConversionSource}
-                  getConversionSourceLabel={getConversionSourceLabel}
-                  openInvitationCreate={openInvitationCreate}
-                  handleCopyHostSignupLink={handleCopyHostSignupLink}
-                  handleShareHostSignupLink={handleShareHostSignupLink}
-                  handleLinkProfileGuestToGlobal={handleLinkProfileGuestToGlobal}
-                  isLinkingGlobalGuest={isLinkingGlobalGuest}
-                  selectedGuestDetailNotes={selectedGuestDetailNotes}
-                  selectedGuestDetailTags={selectedGuestDetailTags}
-                  selectedGuestFoodGroups={selectedGuestFoodGroups}
-                  selectedGuestLifestyleGroups={selectedGuestLifestyleGroups}
-                  selectedGuestActiveTabRecommendations={selectedGuestActiveTabRecommendations}
-                  selectedGuestDetailPreference={selectedGuestDetailPreference}
-                  selectedGuestAllergyLabels={selectedGuestAllergyLabels}
-                  selectedGuestIntoleranceLabels={selectedGuestIntoleranceLabels}
-                  selectedGuestPetAllergyLabels={selectedGuestPetAllergyLabels}
-                  selectedGuestMedicalConditionLabels={selectedGuestMedicalConditionLabels}
-                  selectedGuestDietaryMedicalRestrictionLabels={selectedGuestDietaryMedicalRestrictionLabels}
-                  toList={toList}
-                  formatDate={formatDate}
-                  statusClass={statusClass}
-                  statusText={statusText}
-                  eventsById={eventsById}
-                  eventNamesById={eventNamesById}
-                  openEventDetail={openEventDetail}
-                />
-              ) : null}
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {activeView === "invitations" ? (
-        <section className="workspace-shell view-transition">
-          {invitationsWorkspace === "hub" ? (
-            <div className="workspace-card-grid">
-              {WORKSPACE_ITEMS.invitations.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
-                <article key={workspaceItem.key} className="workspace-card">
-                  <div className="workspace-card-icon">
-                    <Icon name={workspaceItem.icon} className="icon" />
-                  </div>
-                  <div className="workspace-card-content">
-                    <h3>{t(workspaceItem.labelKey)}</h3>
-                    <p>{t(workspaceItem.descriptionKey)}</p>
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => openWorkspace("invitations", workspaceItem.key)}
-                  >
-                    {t("workspace_open")}
-                  </button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div key={`invitations-${invitationsWorkspace}`} className="dashboard-grid single-section workspace-content">
-              {invitationsWorkspace === "create" ? (
-                <InvitationBuilderView
-                  t={t}
-                  handleCreateInvitation={handleCreateInvitation}
-                  selectedEventId={selectedEventId}
-                  setSelectedEventId={setSelectedEventId}
-                  events={events}
-                  invitationErrors={invitationErrors}
-                  selectedGuestId={selectedGuestId}
-                  setSelectedGuestId={setSelectedGuestId}
-                  guests={guests}
-                  allGuestsAlreadyInvitedForSelectedEvent={allGuestsAlreadyInvitedForSelectedEvent}
-                  invitedGuestIdsForSelectedEvent={invitedGuestIdsForSelectedEvent}
-                  bulkInvitationSearch={bulkInvitationSearch}
-                  setBulkInvitationSearch={setBulkInvitationSearch}
-                  INVITATION_BULK_SEGMENTS={INVITATION_BULK_SEGMENTS}
-                  bulkInvitationSegment={bulkInvitationSegment}
-                  setBulkInvitationSegment={setBulkInvitationSegment}
-                  bulkSegmentCounts={bulkSegmentCounts}
-                  handleSelectVisibleBulkGuests={handleSelectVisibleBulkGuests}
-                  bulkFilteredGuests={bulkFilteredGuests}
-                  handleClearBulkGuests={handleClearBulkGuests}
-                  bulkInvitationGuestIds={bulkInvitationGuestIds}
-                  toggleBulkInvitationGuest={toggleBulkInvitationGuest}
-                  isCreatingInvitation={isCreatingInvitation}
-                  handleCreateBulkInvitations={handleCreateBulkInvitations}
-                  isCreatingBulkInvitations={isCreatingBulkInvitations}
-                  invitationMessage={invitationMessage}
-                  lastInvitationUrl={lastInvitationUrl}
-                  handleCopyInvitationLink={handleCopyInvitationLink}
-                  lastInvitationShareText={lastInvitationShareText}
-                  handleCopyInvitationMessage={handleCopyInvitationMessage}
-                  lastInvitationWhatsappUrl={lastInvitationWhatsappUrl}
-                  lastInvitationEmailUrl={lastInvitationEmailUrl}
-                />
-              ) : null}
-
-              {invitationsWorkspace === "latest" ? (
-                <InvitationsListView
-                  t={t}
-                  language={language}
-                  invitationSearch={invitationSearch}
-                  setInvitationSearch={setInvitationSearch}
-                  invitationSort={invitationSort}
-                  setInvitationSort={setInvitationSort}
-                  invitationPageSize={invitationPageSize}
-                  setInvitationPageSize={setInvitationPageSize}
-                  INVITATIONS_PAGE_SIZE_DEFAULT={INVITATIONS_PAGE_SIZE_DEFAULT}
-                  PAGE_SIZE_OPTIONS={PAGE_SIZE_OPTIONS}
-                  invitationEventFilter={invitationEventFilter}
-                  setInvitationEventFilter={setInvitationEventFilter}
-                  invitationEventOptions={invitationEventOptions}
-                  invitationStatusFilter={invitationStatusFilter}
-                  setInvitationStatusFilter={setInvitationStatusFilter}
-                  filteredInvitations={filteredInvitations}
-                  invitationMessage={invitationMessage}
-                  openWorkspace={openWorkspace}
-                  pagedInvitations={pagedInvitations}
-                  eventNamesById={eventNamesById}
-                  guestNamesById={guestNamesById}
-                  guestsById={guestsById}
-                  eventsById={eventsById}
-                  buildInvitationSharePayload={buildInvitationSharePayload}
-                  buildAppUrl={buildAppUrl}
-                  getGuestAvatarUrl={getGuestAvatarUrl}
-                  openGuestDetail={openGuestDetail}
-                  openEventDetail={openEventDetail}
-                  formatDate={formatDate}
-                  statusClass={statusClass}
-                  statusText={statusText}
-                  handlePrepareInvitationShare={handlePrepareInvitationShare}
-                  handleCopyInvitationLink={handleCopyInvitationLink}
-                  handleRequestDeleteInvitation={handleRequestDeleteInvitation}
-                  invitationPage={invitationPage}
-                  invitationTotalPages={invitationTotalPages}
-                  setInvitationPage={setInvitationPage}
-                />
-              ) : null}
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {isImportWizardOpen ? createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-6 transition-opacity animate-in fade-in" onClick={handleCloseImportWizard}>
-          <section
-            className={`bg-white dark:bg-gray-900 sm:border border-black/10 dark:border-white/10 w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom-8 sm:zoom-in-95 min-w-0 ${importWizardStep === 3 ? "sm:max-w-5xl" : "sm:max-w-2xl"}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="import-wizard-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {/* HEADER DEL MODAL */}
-            <header className="flex items-start justify-between p-4 sm:p-6 md:p-8 border-b border-black/5 dark:border-white/10 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
-              <div className="flex flex-col gap-1 pr-4 mt-1 sm:mt-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">{importWizardStepLabel}</p>
-                <h3 id="import-wizard-title" className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight truncate">
-                  {importWizardStepTitle}
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">{importWizardStepHint}</p>
-              </div>
-              <button
-                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus:ring-2 focus:ring-blue-500/50 bg-black/5 dark:bg-white/5 sm:bg-transparent"
-                type="button"
-                onClick={handleCloseImportWizard}
-                aria-label={t("close_modal")}
-                title={t("close_modal")}
-              >
-                <Icon name="x" className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
-            </header>
-
-            {/* INDICADOR DE PASOS (WIZARD PROGRESS) */}
-            <div className="flex items-center gap-2 px-4 sm:px-6 md:px-8 py-3 sm:py-4 bg-white dark:bg-gray-900 border-b border-black/5 dark:border-white/5 shrink-0 overflow-x-auto scrollbar-none" role="list" aria-label={importWizardStepLabel}>
-              {Array.from({ length: IMPORT_WIZARD_STEP_TOTAL }).map((_, index) => {
-                const stepNumber = index + 1;
-                const isActive = importWizardStep === stepNumber;
-                const isDone = importWizardStep > stepNumber;
-                return (
-                  <div key={`wizard-step-${stepNumber}`} className="flex items-center gap-2 shrink-0">
-                    <span
-                      role="listitem"
-                      className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full text-[10px] sm:text-xs font-bold transition-all shadow-sm ${isActive ? "bg-blue-600 text-white ring-4 ring-blue-500/20" : isDone ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border border-gray-200 dark:border-gray-700"}`}
-                    >
-                      {isDone ? <Icon name="check" className="w-3 h-3 sm:w-4 sm:h-4" /> : stepNumber}
-                    </span>
-                    {stepNumber !== IMPORT_WIZARD_STEP_TOTAL && (
-                      <div className={`w-4 sm:w-8 md:w-12 h-0.5 rounded-full ${isDone ? "bg-blue-200 dark:bg-blue-900/50" : "bg-gray-100 dark:bg-gray-800"}`}></div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* BODY DEL MODAL */}
-            <div className="p-4 sm:p-6 md:p-8 overflow-y-auto flex-1 custom-scrollbar min-w-0 min-h-0">
-
-              {/* PASO 1: SELECCIONAR FUENTE */}
-              {importWizardStep === 1 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {importWizardSourceOptions.map((sourceItem) => (
-                    <button
-                      key={sourceItem.key}
-                      type="button"
-                      className={`flex flex-row sm:flex-col items-center sm:items-start text-left gap-4 p-4 sm:p-5 rounded-2xl border-2 transition-all outline-none group ${importWizardSource === sourceItem.key ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10 shadow-md" : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm"}`}
-                      onClick={() => setImportWizardSource(sourceItem.key)}
-                      aria-pressed={importWizardSource === sourceItem.key}
-                    >
-                      <div className={`p-3 rounded-xl shrink-0 ${importWizardSource === sourceItem.key ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400"} transition-colors`}>
-                        <Icon name={sourceItem.icon} className="w-5 h-5 sm:w-6 sm:h-6" />
-                      </div>
-                      <div className="flex flex-col gap-0.5 w-full">
-                        <div className="flex items-center justify-between sm:justify-start gap-2">
-                          <span className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">{sourceItem.title}</span>
-                          {sourceItem.isRecommended ? (
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-md text-[9px] font-bold uppercase tracking-wider shrink-0">
-                              Rec.
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{sourceItem.hint}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {/* PASO 2: TABS MÓVILES */}
-              {importWizardStep === 2 && isMobileImportExperience && importWizardSourceOptions.length > 1 ? (
-                <div className="flex overflow-x-auto gap-2 pb-4 mb-4 border-b border-black/5 dark:border-white/10 scrollbar-none" role="tablist" aria-label={t("import_wizard_step_1_title")}>
-                  {importWizardSourceOptions.map((sourceItem) => (
-                    <button
-                      key={`switch-${sourceItem.key}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={importWizardSource === sourceItem.key}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shadow-sm border outline-none ${importWizardSource === sourceItem.key ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-                      onClick={() => {
-                        setImportContactsMessage("");
-                        setImportWizardSource(sourceItem.key);
-                      }}
-                    >
-                      <Icon name={sourceItem.icon} className="w-3.5 h-3.5" />
-                      <span>{sourceItem.title}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {/* PASO 2: CSV / EXCEL */}
-              {importWizardStep === 2 && importWizardSource === "csv" ? (
-                <div className="flex flex-col gap-6">
-                  {/* ESTADO 1: NO HAY ARCHIVO SUBIDO */}
-                  {!importWizardUploadedFileName && !importContactsAnalysis.length ? (
-                    <>
-                      <label
-                        className="flex flex-col items-center justify-center gap-3 p-8 sm:p-10 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 bg-gray-50 dark:bg-gray-800/50 rounded-2xl transition-colors cursor-pointer text-center group outline-none focus-within:ring-2 focus-within:ring-blue-500/50"
-                        onDragOver={(event) => {
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = "copy";
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          handleImportWizardDrop(event);
-                        }}
-                      >
-                        <div className="p-4 bg-white dark:bg-gray-700 shadow-sm rounded-full text-gray-400 group-hover:text-blue-500 transition-colors">
-                          <Icon name="folder" className="w-8 h-8" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900 dark:text-white mb-1 text-sm sm:text-base">{t("import_wizard_csv_drop_title")}</p>
-                          <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">{t("import_wizard_csv_drop_hint")}</p>
-                        </div>
-                        <span className="mt-2 px-5 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 group-hover:bg-gray-50 dark:group-hover:bg-gray-600 shadow-sm transition-colors">
-                          {t("contact_import_open_file_button")}
-                        </span>
-                        <input
-                          ref={contactImportFileInputRef}
-                          type="file"
-                          accept=".csv,.vcf,.vcard,text/csv,text/vcard"
-                          onChange={handleImportContactsFile}
-                          className="hidden"
-                        />
-                      </label>
-
-                      <div className="flex items-center gap-4">
-                        <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                        <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">O enganxa text</span>
-                        <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                      </div>
-
-                      <label className="flex flex-col gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("contact_import_paste_label")}</span>
-                        <textarea
-                          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all outline-none shadow-sm resize-y"
-                          rows={3}
-                          value={importContactsDraft}
-                          onChange={(event) => setImportContactsDraft(event.target.value)}
-                          placeholder={t("contact_import_paste_placeholder")}
-                        />
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <button className="w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm transition-colors" type="button" onClick={handlePreviewContactsFromDraft}>
-                          {t("contact_import_preview_button")}
-                        </button>
-                        {importContactsDraft && (
-                          <button className="w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-bold rounded-xl text-sm transition-colors" type="button" onClick={handleClearImportContacts}>
-                            {t("contact_import_clear_button")}
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    /* ESTADO 2: ARCHIVO SUBIDO CON ÉXITO (UX CLARA) */
-                    <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-3xl gap-4 text-center animate-in fade-in zoom-in-95">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400">
-                        <Icon name="check" className="w-8 h-8 sm:w-10 sm:h-10" />
-                      </div>
-                      <div>
-                        <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2 truncate max-w-full px-4">
-                          {importWizardUploadedFileName || "Contactes processats"}
-                        </p>
-                        <p className="text-sm text-green-700 dark:text-green-400 font-medium">
-                          S'han trobat <strong>{importContactsAnalysis.length}</strong> contactes. Fes clic a <strong className="uppercase tracking-wider px-1">Següent</strong> per revisar-los a la taula.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleClearImportContacts}
-                        className="mt-2 px-4 py-2 text-xs font-bold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      >
-                        Cancel·lar i pujar un altre fitxer
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {/* PASO 2: GMAIL */}
-              {importWizardStep === 2 && importWizardSource === "gmail" ? (
-                <div className="flex flex-col items-center justify-center text-center gap-6 py-4 sm:py-8">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-50 dark:bg-blue-900/10 rounded-full flex items-center justify-center text-blue-500 mb-2">
-                    <Icon name="mail" className="w-8 h-8 sm:w-10 sm:h-10" />
-                  </div>
-                  <button
-                    className="w-full sm:w-auto px-6 sm:px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 text-base sm:text-lg"
-                    type="button"
-                    onClick={() => handleImportGoogleContacts({ fromWizard: true })}
-                    disabled={isImportingGoogleContacts || !canUseGoogleContacts}
-                  >
-                    <Icon name="sparkle" className="w-5 h-5" />
-                    {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
-                  </button>
-                  <div className="max-w-md flex flex-col gap-2">
-                    <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400">{t("import_wizard_gmail_privacy_note")}</p>
-                    {!canUseGoogleContacts ? <p className="text-sm font-bold text-red-500">{t("contact_import_google_unconfigured")}</p> : null}
-                  </div>
-                  {importContactsAnalysis.length > 0 ? (
-                    <p className="mt-2 sm:mt-4 inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-xl text-sm font-bold border border-green-200 dark:border-green-800/30 animate-in fade-in">
-                      <Icon name="check" className="w-4 h-4" /> {t("contact_import_preview_total")} {importContactsAnalysis.length} (Fes clic a Següent)
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {/* PASO 2: MÓVIL */}
-              {importWizardStep === 2 && importWizardSource === "mobile" ? (
-                <div className="flex flex-col gap-6">
-                  {canUseDeviceContacts ? (
-                    <article className="flex flex-col items-center text-center p-6 sm:p-8 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl gap-4">
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
-                        <Icon name="phone" className="w-7 h-7 sm:w-8 sm:h-8" />
-                      </div>
-                      <div>
-                        <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-1">{t("import_wizard_mobile_native_title")}</p>
-                        <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400">{t("import_wizard_mobile_native_hint")}</p>
-                      </div>
-                      <button
-                        className="mt-2 w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3"
-                        type="button"
-                        onClick={() => handlePickDeviceContacts({ fromWizard: true })}
-                      >
-                        <Icon name="sparkle" className="w-5 h-5" />
-                        {t("contact_import_device_button")}
-                      </button>
-                    </article>
-                  ) : (
-                    <article className="flex flex-col items-center text-center p-6 bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 rounded-3xl gap-3">
-                      <Icon name="info" className="w-8 h-8 text-orange-500" />
-                      <div>
-                        <p className="font-bold text-gray-900 dark:text-white mb-1">
-                          {isIOSDevice ? t("import_wizard_ios_recommendation_title") : t("import_wizard_mobile_fallback_title")}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {isIOSDevice ? t("import_wizard_ios_recommendation_hint") : t("import_wizard_mobile_fallback_hint")}
-                        </p>
-                        <p className="text-xs font-bold text-orange-600 dark:text-orange-400 mt-2 bg-orange-100/50 dark:bg-orange-900/30 py-1 px-3 rounded-lg inline-block">{contactPickerUnsupportedReason}</p>
-                      </div>
-                      {isIOSDevice && canUseGoogleContacts ? (
-                        <button className="mt-2 w-full sm:w-auto px-6 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2" type="button" onClick={() => setImportWizardSource("gmail")}>
-                          <Icon name="mail" className="w-4 h-4" />
-                          {t("import_wizard_ios_use_google_action")}
-                        </button>
-                      ) : null}
-                    </article>
-                  )}
-
-                  {!canUseDeviceContacts ? (
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 mt-2">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-40 h-40 sm:w-48 sm:h-48 bg-white p-2 rounded-2xl shadow-md border border-gray-100 flex items-center justify-center relative overflow-hidden">
-                          {importWizardQrDataUrl ? (
-                            <img src={importWizardQrDataUrl} alt={t("import_wizard_mobile_qr_alt")} className="w-full h-full object-contain" />
-                          ) : (
-                            <div className="flex flex-col items-center text-gray-300">
-                              <Icon name="phone" className="w-10 h-10 mb-2 opacity-50" />
-                              <span className="text-[10px] text-center font-bold px-4">{t("import_wizard_mobile_qr_hint")}</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-500 font-medium text-center max-w-[200px]">{t("import_wizard_mobile_qr_hint")}</p>
-                      </div>
-
-                      <div className="flex flex-col gap-3 w-full sm:w-auto">
-                        <button
-                          className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-bold text-sm transition-colors flex items-center justify-center sm:justify-start gap-2"
-                          type="button"
-                          onClick={handleShareImportWizardLink}
-                        >
-                          <Icon name="message" className="w-4 h-4" />
-                          {t("import_wizard_mobile_share_action")}
-                        </button>
-                        <button
-                          className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-bold text-sm transition-colors flex items-center justify-center sm:justify-start gap-2 disabled:opacity-50"
-                          type="button"
-                          onClick={() => handleImportGoogleContacts({ fromWizard: true })}
-                          disabled={isImportingGoogleContacts || !canUseGoogleContacts}
-                        >
-                          <Icon name="mail" className="w-4 h-4" />
-                          {isImportingGoogleContacts ? t("contact_import_google_loading") : t("contact_import_google_button")}
-                        </button>
-
-                        {!isMobileImportExperience ? (
-                          <div className="mt-2 flex flex-col gap-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">O envia l'enllaç per correu</span>
-                            <input
-                              type="email"
-                              className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                              value={importWizardShareEmail}
-                              onChange={(event) => setImportWizardShareEmail(event.target.value)}
-                              placeholder={t("placeholder_email")}
-                            />
-                            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-colors w-full mt-1" type="button" onClick={handleImportWizardEmailLink}>
-                              {t("import_wizard_mobile_email_action")}
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {/* PASO 3: REVISIÓN DE CONTACTOS Y TABLA */}
-              {importWizardStep === 3 ? (
-                <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
-                  {/* Tools Header */}
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                    <label className="flex-1 flex flex-col gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("search")}</span>
-                      <div className="relative">
-                        <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="search"
-                          className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow shadow-sm"
-                          value={importContactsSearch}
-                          onChange={(event) => setImportContactsSearch(event.target.value)}
-                          placeholder={t("contact_import_filter_placeholder")}
-                        />
-                      </div>
-                    </label>
-                    <div className="flex flex-row gap-3 sm:gap-4">
-                      <label className="flex flex-col gap-1.5 flex-1 sm:flex-none">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("pagination_items_per_page")}</span>
-                        <select
-                          className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer"
-                          value={importContactsPageSize}
-                          onChange={(event) => setImportContactsPageSize(Number(event.target.value) || IMPORT_PREVIEW_PAGE_SIZE_DEFAULT)}
-                        >
-                          {IMPORT_PREVIEW_PAGE_SIZE_OPTIONS.map((optionValue) => (
-                            <option key={optionValue} value={optionValue}>{optionValue}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1.5 flex-1 sm:flex-none">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("contact_import_duplicate_mode_label")}</span>
-                        <select
-                          className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm cursor-pointer"
-                          value={importDuplicateMode}
-                          onChange={(event) => handleImportDuplicateModeChange(event.target.value)}
-                        >
-                          <option value="skip">{t("contact_import_duplicate_mode_skip")}</option>
-                          <option value="merge">{t("contact_import_duplicate_mode_merge")}</option>
-                        </select>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Status Pills */}
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2.5 py-1 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 shadow-sm">
-                      {t("contact_import_preview_total")} <span className="ml-1 text-black dark:text-white">{importContactsAnalysis.length}</span>
-                    </span>
-                    <span className="px-2.5 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border border-green-200 dark:border-green-800/30 shadow-sm">
-                      Seleccionats: <span className="ml-1 text-green-900 dark:text-green-200">{importContactsSelectedReady.length}</span>
-                    </span>
-                  </div>
-
-                  {importContactsDuplicateCount > 0 ? (
-                    <div className="flex items-start gap-3 p-3 sm:p-4 bg-orange-50 text-orange-800 dark:bg-orange-900/10 dark:text-orange-200 border border-orange-200 dark:border-orange-800/30 rounded-xl">
-                      <Icon name="info" className="w-5 h-5 shrink-0 text-orange-500 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-sm mb-0.5">{t("import_wizard_duplicates_title")}</p>
-                        <p className="text-[11px] sm:text-xs opacity-90">
-                          {interpolateText(t("import_wizard_duplicates_hint"), { count: importContactsDuplicateCount })}
-                        </p>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Bulk Actions (Scroll horizontal en móvil si no caben) */}
-                  <div className="flex overflow-x-auto gap-2 pt-1 pb-2 scrollbar-none">
-                    <button className="whitespace-nowrap px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-[11px] sm:text-xs font-bold rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm transition-colors" type="button" onClick={handleSelectSuggestedImportContacts}>
-                      {t("contact_import_select_suggested")}
-                    </button>
-                    <button className="whitespace-nowrap px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-[11px] sm:text-xs font-bold rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm transition-colors" type="button" onClick={handleSelectCurrentImportPageReady}>
-                      {t("contact_import_select_page_ready")}
-                    </button>
-                    <button className="whitespace-nowrap px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-[11px] sm:text-xs font-bold rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm transition-colors" type="button" onClick={handleSelectAllReadyImportContacts}>
-                      {t("contact_import_select_all_ready")}
-                    </button>
-                    <button className="whitespace-nowrap px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-[11px] sm:text-xs font-bold rounded-lg border border-red-100 dark:border-red-900/30 transition-colors sm:ml-auto" type="button" onClick={handleClearReadyImportContactsSelection}>
-                      {t("contact_import_clear_selection")}
-                    </button>
-                  </div>
-
-                  {/* 🚀 TABLA RESPONSIVE PREMIUM (Tarjetas en móvil, Columnas % en PC) */}
-                  <div className="w-full mt-2">
-                    <table className="w-full text-left border-collapse md:table-fixed">
-                      {/* Cabecera: Oculta en móvil, visible en md */}
-                      <thead className="hidden md:table-header-group bg-gray-50 dark:bg-gray-800/50 text-[10px] uppercase tracking-widest text-gray-500 font-bold border-y border-gray-200 dark:border-gray-700">
-                        <tr>
-                          <th className="px-4 py-3 w-[5%] text-center">
-                            <Icon name="check" className="w-4 h-4 mx-auto opacity-50" />
-                          </th>
-                          <th className="px-4 py-3 w-[25%] truncate">{t("field_full_name")}</th>
-                          <th className="px-4 py-3 w-[25%] truncate">{t("email")}</th>
-                          <th className="px-4 py-3 w-[15%] truncate">{t("field_phone")}</th>
-                          <th className="px-4 py-3 w-[15%] truncate">{t("field_city")}</th>
-                          <th className="px-4 py-3 w-[15%] truncate">{t("status")}</th>
-                        </tr>
-                      </thead>
-
-                      {/* Cuerpo: Flex Column (Tarjetas) en móvil, Table Rows en md */}
-                      <tbody className="flex flex-col md:table-row-group gap-4 md:gap-0 text-sm">
-                        {pagedImportContacts.map((contactItem) => {
-                          const statusText = contactItem.duplicateExisting
-                            ? contactItem.willMerge
-                              ? t("contact_import_status_duplicate_merge")
-                              : t("contact_import_status_duplicate_existing")
-                            : contactItem.duplicateInPreview
-                              ? t("contact_import_status_duplicate_file")
-                              : contactItem.potentialLevel === "high"
-                                ? t("contact_import_status_high_potential")
-                                : contactItem.potentialLevel === "medium"
-                                  ? t("contact_import_status_medium_potential")
-                                  : t("contact_import_status_ready");
-
-                          const statusColors = contactItem.duplicateExisting
-                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                            : contactItem.duplicateInPreview
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              : contactItem.potentialLevel === "high"
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : contactItem.potentialLevel === "medium"
-                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                                  : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
-
-                          return (
-                            <tr key={contactItem.previewId} className="flex flex-col md:table-row bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 md:border-none md:border-b md:last:border-none rounded-2xl md:rounded-none shadow-sm md:shadow-none hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group overflow-hidden">
-
-                              {/* CELDA 1: Checkbox (Solo PC, en móvil va con el nombre) */}
-                              <td className="hidden md:table-cell px-4 py-3 text-center align-middle">
-                                <input
-                                  type="checkbox"
-                                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                  checked={selectedImportContactIds.includes(contactItem.previewId)}
-                                  disabled={!contactItem.canImport}
-                                  onChange={() => toggleImportContactSelection(contactItem.previewId)}
-                                />
-                              </td>
-
-                              {/* CELDA 2: Nombre (En móvil incluye el checkbox y fondo gris) */}
-                              <td className="flex md:table-cell items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800/50 md:bg-transparent border-b border-gray-200 dark:border-gray-700 md:border-none align-middle w-full md:w-auto">
-                                {/* Mostrar Checkbox en móvil junto al nombre */}
-                                <div className="md:hidden flex items-center shrink-0">
-                                  <input
-                                    type="checkbox"
-                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                    checked={selectedImportContactIds.includes(contactItem.previewId)}
-                                    disabled={!contactItem.canImport}
-                                    onChange={() => toggleImportContactSelection(contactItem.previewId)}
-                                  />
-                                </div>
-                                <span className="font-bold text-gray-900 dark:text-white truncate block">
-                                  {contactItem.firstName || t("field_guest")} {contactItem.lastName || ""}
-                                </span>
-                              </td>
-
-                              {/* CELDA 3: Correo */}
-                              <td className="flex md:table-cell justify-between items-center px-4 py-2.5 md:py-3 border-b border-gray-100 dark:border-gray-800 md:border-none align-middle w-full md:w-auto">
-                                <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-500 shrink-0 mr-4">{t("email")}</span>
-                                <span className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] md:max-w-full text-right md:text-left block">
-                                  {contactItem.email || <span className="opacity-30">-</span>}
-                                </span>
-                              </td>
-
-                              {/* CELDA 4: Teléfono */}
-                              <td className="flex md:table-cell justify-between items-center px-4 py-2.5 md:py-3 border-b border-gray-100 dark:border-gray-800 md:border-none align-middle w-full md:w-auto">
-                                <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-500 shrink-0 mr-4">{t("field_phone")}</span>
-                                <span className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] md:max-w-full text-right md:text-left block">
-                                  {contactItem.phone || <span className="opacity-30">-</span>}
-                                </span>
-                              </td>
-
-                              {/* CELDA 5: Ciudad */}
-                              <td className="flex md:table-cell justify-between items-center px-4 py-2.5 md:py-3 border-b border-gray-100 dark:border-gray-800 md:border-none align-middle w-full md:w-auto">
-                                <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-500 shrink-0 mr-4">{t("field_city")}</span>
-                                <span className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] md:max-w-full text-right md:text-left block">
-                                  {[contactItem.city, contactItem.country].filter(Boolean).join(", ") || <span className="opacity-30">-</span>}
-                                </span>
-                              </td>
-
-                              {/* CELDA 6: Estado */}
-                              <td className="flex md:table-cell justify-between md:items-start items-center px-4 py-3 md:py-3 align-middle w-full md:w-auto">
-                                <span className="md:hidden text-[10px] font-bold uppercase tracking-widest text-gray-500 shrink-0 mr-4">{t("status")}</span>
-                                <div className="flex flex-col gap-1 items-end md:items-start text-right md:text-left">
-                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusColors} inline-block`}>
-                                    {statusText}
-                                  </span>
-                                  {contactItem.duplicateExisting && contactItem.existingGuestName ? (
-                                    <span className="text-[10px] text-gray-500 mt-0.5">
-                                      {t("merge_guest_target_label")}: <strong className="text-gray-700 dark:text-gray-300">{contactItem.existingGuestName}</strong>
-                                    </span>
-                                  ) : null}
-                                  {contactItem.requiresMergeApproval ? (
-                                    <button
-                                      className="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline mt-0.5 whitespace-nowrap"
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        handleOpenLowConfidenceMergeReview(contactItem.previewId);
-                                      }}
-                                    >
-                                      {t("contact_import_merge_review_action")} →
-                                    </button>
-                                  ) : null}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Paginación */}
-                  {importContactsFiltered.length > 0 ? (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-1 pb-2">
-                      <p className="text-[11px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        {t("pagination_page")} {Math.min(importContactsPage, importContactsTotalPages)} <span className="opacity-50">/ {importContactsTotalPages}</span>
-                      </p>
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <button
-                          className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                          type="button"
-                          onClick={() => setImportContactsPage((prev) => Math.max(1, prev - 1))}
-                          disabled={importContactsPage <= 1}
-                        >
-                          {t("pagination_prev")}
-                        </button>
-                        <button
-                          className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                          type="button"
-                          onClick={() => setImportContactsPage((prev) => Math.min(importContactsTotalPages, prev + 1))}
-                          disabled={importContactsPage >= importContactsTotalPages}
-                        >
-                          {t("pagination_next")}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {/* PASO 4: RESULTADO (ÉXITO) */}
-              {importWizardStep === 4 ? (
-                <div className="flex flex-col items-center justify-center text-center py-4 sm:py-8 gap-6 sm:gap-8">
-                  <div className="relative">
-                    <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center relative z-10 ${importWizardResult.partial ? "bg-orange-100 text-orange-500 dark:bg-orange-900/30" : "bg-green-100 text-green-500 dark:bg-green-900/30"}`}>
-                      <Icon name={importWizardResult.partial ? "alert_triangle" : "check"} className="w-10 h-10 sm:w-12 sm:h-12" />
-                    </div>
-                    <div className={`absolute inset-0 rounded-full animate-ping opacity-20 ${importWizardResult.partial ? "bg-orange-500" : "bg-green-500"}`}></div>
-                  </div>
-
-                  <div className="w-full max-w-md bg-gray-50 dark:bg-gray-800/50 p-4 sm:p-6 rounded-3xl border border-gray-100 dark:border-gray-700">
-                    <p className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 sm:mb-6">{t("import_wizard_result_progress_complete")}</p>
-
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      <article className="flex flex-col gap-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                        <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">{importWizardResult.imported}</p>
-                        <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase">Nous</p>
-                      </article>
-                      <article className="flex flex-col gap-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                        <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">{importWizardResult.updated}</p>
-                        <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase">Actualitzats</p>
-                      </article>
-                      <article className="flex flex-col gap-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                        <p className={`text-xl sm:text-2xl font-black ${importWizardResult.failed > 0 ? "text-red-500" : "text-gray-900 dark:text-white"}`}>{importWizardResult.failed}</p>
-                        <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase">Errors</p>
-                      </article>
-                      <article className="flex flex-col gap-1 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                        <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">{importWizardResult.skipped}</p>
-                        <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase">Omesos</p>
-                      </article>
-                    </div>
-                  </div>
-
-                  {importWizardResult.partial ? (
-                    <div className="flex flex-col gap-1 items-center max-w-md">
-                      <p className="font-bold text-orange-600 dark:text-orange-400">{t("import_wizard_result_partial_title")}</p>
-                      <p className="text-xs sm:text-sm text-gray-500 text-center">
-                        {interpolateText(t("import_wizard_result_partial_hint"), { count: importWizardResult.failed })}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            {/* ERROR MESSAGES IN FOOTER */}
-            {(importWizardShareMessage || importContactsMessage) && (
-              <div className="px-4 sm:px-6 md:px-8 pb-2 shrink-0">
-                <InlineMessage text={importWizardShareMessage || importContactsMessage} />
-              </div>
-            )}
-
-            {/* FOOTER WIZARD */}
-            <footer className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 sm:gap-4 p-4 sm:p-6 md:p-8 bg-gray-50/50 dark:bg-gray-800/50 border-t border-black/5 dark:border-white/10 shrink-0 mt-auto">
-              <button
-                className="w-full sm:w-auto px-6 py-3 sm:py-3.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-2xl transition-colors border border-gray-200 dark:border-gray-700 shadow-sm disabled:opacity-50"
-                type="button"
-                onClick={handleImportWizardBack}
-                disabled={isImportingContacts}
-              >
-                {importWizardStep === 1 || importWizardStep === 4 ? t("cancel_action") : t("pagination_prev")}
-              </button>
-
-              <button
-                className={`w-full sm:w-auto px-8 py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:shadow-none flex items-center justify-center gap-2 relative overflow-hidden group ${importWizardCanContinue && importWizardStep === 2 ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900' : ''}`}
-                type="button"
-                onClick={handleImportWizardContinue}
-                disabled={!importWizardCanContinue}
-              >
-                {importWizardCanContinue && importWizardStep === 2 && (
-                  <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  {importWizardContinueLabel}
-                  {importWizardStep !== 4 && <Icon name="arrow_right" className="w-4 h-4" />}
-                </span>
-              </button>
-            </footer>
-          </section>
-        </div>,
-        document.body
-      ) : null}
-
-      {isEventPlannerContextOpen ? (
+      {routeActiveView === "overview" ? (
         <Suspense fallback={null}>
-          <EventPlannerContextModal
-            isOpen={isEventPlannerContextOpen}
-            onClose={() => {
-              setIsEventPlannerContextOpen(false);
-              setEventPlannerContextFocusField("");
-            }}
+          <DashboardOverview
             t={t}
-            draft={eventPlannerContextDraft}
-            setDraft={setEventPlannerContextDraft}
-            focusField={eventPlannerContextFocusField}
-            showTechnicalPrompt={showEventPlannerTechnicalPrompt}
-            onToggleTechnicalPrompt={() => setShowEventPlannerTechnicalPrompt((prev) => !prev)}
-            technicalPrompt={eventPlannerContextDraftPromptBundle.prompt}
-            onGenerate={handleGenerateFullEventPlanFromContext}
-            isGenerating={Boolean(selectedEventPlannerGenerationState?.isGenerating)}
+            isLoading={isLoading}
+            openWorkspace={openWorkspace}
+            events={events}
+            latestEventPreview={latestEventPreview}
+            guests={guests}
+            latestGuestPreview={latestGuestPreview}
+            invitations={invitations}
+            pendingInvites={pendingInvites}
+            pendingInvitationPreview={pendingInvitationPreview}
+            respondedInvitesRate={respondedInvitesRate}
+            respondedInvites={respondedInvites}
+            answeredInvitationPreview={answeredInvitationPreview}
+            upcomingEventsPreview={upcomingEventsPreview}
+            openEventDetail={openEventDetail}
+            interpolateText={interpolateText}
+            statusClass={statusClass}
+            statusText={statusText}
+            hostDisplayName={hostDisplayName}
+            hostInitials={hostInitials}
+            hostAvatarUrl={hostAvatarUrl}
+            convertedHostRate={convertedHostRate}
+            hostMemberSinceLabel={hostMemberSinceLabel}
+            hostRatingScore={hostRatingScore}
+            recentActivityItems={recentActivityItems}
+            hostPotentialGuestsCount={hostPotentialGuestsCount}
+            invitedPotentialHostsCount={invitedPotentialHostsCount}
+            convertedHostGuestsCount={convertedHostGuestsCount}
+            conversionWindowCounts={conversionWindowCounts}
+            conversionTrend14d={conversionTrend14d}
+            conversionTrendMax={conversionTrendMax}
           />
         </Suspense>
       ) : null}
 
-      {guestMergeSource ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={handleCloseMergeGuest} aria-hidden="true"></div>
-
-          <section
-            className="relative z-10 w-full max-w-2xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-7 flex flex-col max-h-[90vh] animate-in fade-in-0 zoom-in-95 duration-200"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="merge-guest-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {/* Cabecera */}
-            <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-black/5 dark:border-white/5 shrink-0">
-              <div className="flex flex-col gap-1">
-                <h3 id="merge-guest-title" className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
-                  {t("merge_guest_title")}
-                </h3>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 leading-relaxed">
-                  {t("merge_guest_hint")}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t("merge_guest_source_label")}: <span className="font-bold text-gray-900 dark:text-white">{`${guestMergeSource.first_name || ""} ${guestMergeSource.last_name || ""}`.trim() || t("field_guest")}</span>
-                </p>
-              </div>
-              <button onClick={handleCloseMergeGuest} className="p-1.5 -mr-1.5 -mt-6 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50" aria-label={t("cancel_action")}>
-                <Icon name="x" className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Contenido scrolleable */}
-            <div className="flex-1 overflow-y-auto space-y-6 min-h-0 pr-1 scrollbar-thin">
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 pl-1">{t("search")}</span>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Icon name="search" className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <input
-                    type="search"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/20 text-sm focus:border-blue-500 focus:ring-blue-500/50 outline-none transition-all text-gray-900 dark:text-white"
-                    value={guestMergeSearch}
-                    onChange={(event) => setGuestMergeSearch(event.target.value)}
-                    placeholder={t("merge_guest_search_placeholder")}
-                  />
-                </div>
-              </label>
-
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 pl-1">{t("merge_guest_target_label")}</span>
-                <select
-                  className="w-full px-4 py-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/20 text-sm focus:border-blue-500 focus:ring-blue-500/50 outline-none transition-all text-gray-900 dark:text-white disabled:opacity-50 appearance-none cursor-pointer"
-                  value={guestMergeTargetId}
-                  onChange={(event) => setGuestMergeTargetId(event.target.value)}
-                  disabled={guestMergeCandidates.length === 0}
-                >
-                  {guestMergeCandidates.length === 0 ? (
-                    <option value="">{t("merge_guest_no_candidates")}</option>
-                  ) : null}
-                  {guestMergeCandidates.map((guestItem) => (
-                    <option key={guestItem.id} value={guestItem.id} className="text-gray-900 dark:bg-gray-800 dark:text-white">
-                      {`${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {guestMergeCandidates.length > 0 ? (
-                <div className="border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5" role="list">
-                  <ul className="divide-y divide-black/5 dark:divide-white/5">
-                    {guestMergeCandidates.slice(0, 8).map((guestItem) => {
-                      const guestName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
-                      const isActive = guestMergeTargetId === guestItem.id;
-                      return (
-                        <li key={`merge-candidate-${guestItem.id}`}>
-                          <button
-                            className={`w-full flex items-center gap-3 p-4 text-left transition-colors cursor-pointer group outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 ${isActive ? "bg-blue-50/50 dark:bg-blue-900/20" : "bg-white/70 hover:bg-white dark:bg-black/20 dark:hover:bg-white/5"}`}
-                            type="button"
-                            onClick={() => setGuestMergeTargetId(guestItem.id)}
-                            aria-pressed={isActive}
-                          >
-                            <AvatarCircle size={36} label={guestName} fallback={guestName.charAt(0)} className={`shrink-0 transition-transform ${isActive ? "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-900" : "group-hover:scale-105"}`} />
-                            <div className="flex-1 min-w-0">
-                              <span className={`block text-sm font-bold truncate ${isActive ? "text-blue-700 dark:text-blue-400" : "text-gray-900 dark:text-white"}`}>{guestName}</span>
-                              <span className={`block text-xs truncate mt-0.5 ${isActive ? "text-blue-600/70 dark:text-blue-300/70" : "text-gray-500 dark:text-gray-400"}`}>
-                                {[guestItem.email, guestItem.phone].filter(Boolean).join(" · ") || "—"}
-                              </span>
-                            </div>
-                            <div className={`shrink-0 p-1.5 rounded-full border transition-colors ${isActive ? "border-blue-500 bg-blue-500 text-white" : "border-black/10 dark:border-white/10 group-hover:border-blue-500/50 text-transparent"}`}>
-                              {isActive ? <Icon name="check" className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full" />}
-                            </div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-
-            {/* Footer de Botones */}
-            <div className="flex items-center justify-end gap-3.5 pt-5 mt-5 border-t border-black/5 dark:border-white/5 shrink-0">
-              <button
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 bg-white/60 dark:bg-black/20 hover:bg-black/5 dark:hover:bg-white/5 border border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 transition-all active:scale-95 disabled:opacity-50 outline-none focus:ring-2 focus:ring-blue-500/50"
-                type="button"
-                onClick={handleCloseMergeGuest}
-                disabled={isMergingGuest}
-              >
-                {t("cancel_action")}
-              </button>
-              <button
-                className="px-6 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 outline-none focus:ring-2 focus:ring-blue-500/50 flex items-center justify-center min-w-[140px]"
-                type="button"
-                onClick={handleConfirmMergeGuest}
-                disabled={isMergingGuest || !guestMergeTargetId}
-              >
-                {isMergingGuest ? (
-                  <span className="flex items-center gap-2">
-                    <Icon name="loader" className="w-4 h-4 animate-spin" />
-                    {t("guest_merging")}
-                  </span>
-                ) : t("merge_guest_confirm")}
-              </button>
-            </div>
-          </section>
-        </div>
+      {routeActiveView === "profile" ? (
+        <Suspense fallback={null}>
+          <HostProfileView
+            interpolateText={interpolateText}
+            formatRelativeDate={formatRelativeDate}
+            normalizeLookupValue={normalizeLookupValue}
+            t={t}
+            language={language}
+            session={session}
+            isProfileGuestLinked={isProfileGuestLinked}
+            hostGuestProfilePercent={hostGuestProfilePercent}
+            hostGuestProfileCompletedCount={hostGuestProfileCompletedCount}
+            hostGuestProfileTotalCount={hostGuestProfileTotalCount}
+            hostGuestProfileSignals={hostGuestProfileSignals}
+            profileLinkedGuestId={profileLinkedGuestId}
+            openGuestAdvancedEditor={openGuestAdvancedEditor}
+            syncHostGuestProfileForm={syncHostGuestProfileForm}
+            isGlobalProfileClaimed={isGlobalProfileClaimed}
+            isGlobalProfileFeatureReady={isGlobalProfileFeatureReady}
+            handleClaimGlobalProfile={handleClaimGlobalProfile}
+            isClaimingGlobalProfile={isClaimingGlobalProfile}
+            handleLinkProfileGuestToGlobal={handleLinkProfileGuestToGlobal}
+            isLinkingGlobalGuest={isLinkingGlobalGuest}
+            handleLinkAllGuestsToGlobalProfiles={handleLinkAllGuestsToGlobalProfiles}
+            isLinkingAllGlobalGuests={isLinkingAllGlobalGuests}
+            globalShareTargetsVisible={globalShareTargetsVisible}
+            handleApplyGlobalShareAction={handleApplyGlobalShareAction}
+            isPausingGlobalShares={isPausingGlobalShares}
+            isRevokingGlobalShares={isRevokingGlobalShares}
+            globalProfileId={globalProfileId}
+            globalShareActiveCount={globalShareActiveCount}
+            globalShareSelfTargetCount={globalShareSelfTargetCount}
+            globalShareDraftByHostId={globalShareDraftByHostId}
+            inferGlobalSharePreset={inferGlobalSharePreset}
+            statusClass={statusClass}
+            handleApplyGlobalSharePreset={handleApplyGlobalSharePreset}
+            handleChangeGlobalShareDraft={handleChangeGlobalShareDraft}
+            previewGlobalShareHostId={previewGlobalShareHostId}
+            setPreviewGlobalShareHostId={setPreviewGlobalShareHostId}
+            handleRequestSaveGlobalShare={handleRequestSaveGlobalShare}
+            savingGlobalShareHostId={savingGlobalShareHostId}
+            globalShareHistoryItems={globalShareHistoryItems}
+            isLoadingGlobalShareHistory={isLoadingGlobalShareHistory}
+            formatGlobalShareEventType={formatGlobalShareEventType}
+            globalProfileMessage={globalProfileMessage}
+            isIntegrationDebugEnabled={isIntegrationDebugEnabled}
+            integrationChecksTotal={integrationChecksTotal}
+            integrationChecksOkCount={integrationChecksOkCount}
+            isIntegrationPanelOpen={isIntegrationPanelOpen}
+            setIsIntegrationPanelOpen={setIsIntegrationPanelOpen}
+            loadIntegrationStatusData={loadIntegrationStatusData}
+            isLoadingIntegrationStatus={isLoadingIntegrationStatus}
+            integrationStatus={integrationStatus}
+            integrationShareTargetCount={integrationShareTargetCount}
+            integrationSelfTargetCount={integrationSelfTargetCount}
+            integrationChecks={integrationChecks}
+            integrationStatusMessage={integrationStatusMessage}
+            handleSaveHostProfile={handleSaveHostProfile}
+            hostProfileName={hostProfileName}
+            setHostProfileName={setHostProfileName}
+            hostProfilePhone={hostProfilePhone}
+            setHostProfilePhone={setHostProfilePhone}
+            hostProfileCity={hostProfileCity}
+            setHostProfileCity={setHostProfileCity}
+            hostProfileCountry={hostProfileCountry}
+            setHostProfileCountry={setHostProfileCountry}
+            hostProfileRelationship={hostProfileRelationship}
+            setHostProfileRelationship={setHostProfileRelationship}
+            relationshipOptions={relationshipOptions}
+            cityOptions={cityOptions}
+            countryOptions={countryOptions}
+            isSavingHostProfile={isSavingHostProfile}
+            hostProfileMessage={hostProfileMessage}
+            handleSaveGuest={handleSaveGuest}
+            guestFirstName={guestFirstName}
+            setGuestFirstName={setGuestFirstName}
+            guestErrors={guestErrors}
+            guestLastName={guestLastName}
+            setGuestLastName={setGuestLastName}
+            guestPhotoUrl={guestPhotoUrl}
+            guestPhotoInputValue={guestPhotoInputValue}
+            handleGuestPhotoUrlChange={handleGuestPhotoUrlChange}
+            handleGuestPhotoFileChange={handleGuestPhotoFileChange}
+            handleRemoveGuestPhoto={handleRemoveGuestPhoto}
+            guestEmail={guestEmail}
+            guestPhone={guestPhone}
+            setGuestPhone={setGuestPhone}
+            guestRelationship={guestRelationship}
+            setGuestRelationship={setGuestRelationship}
+            guestCity={guestCity}
+            setGuestCity={setGuestCity}
+            guestCountry={guestCountry}
+            setGuestCountry={setGuestCountry}
+            guestAdvanced={guestAdvanced}
+            setGuestAdvancedField={setGuestAdvancedField}
+            selectedGuestAddressPlace={selectedGuestAddressPlace}
+            setSelectedGuestAddressPlace={setSelectedGuestAddressPlace}
+            mapsStatus={mapsStatus}
+            mapsError={mapsError}
+            isGuestAddressLoading={isGuestAddressLoading}
+            guestAddressPredictions={guestAddressPredictions}
+            handleSelectGuestAddressPrediction={handleSelectGuestAddressPrediction}
+            isSavingGuest={isSavingGuest}
+            isEditingGuest={isEditingGuest}
+            guestMessage={guestMessage}
+            openGuestDetail={openGuestDetail}
+            openWorkspace={openWorkspace}
+          />
+        </Suspense>
       ) : null}
 
-      {pendingImportMergeApprovalItem ? (
-        <div className="confirm-overlay" onClick={handleCloseLowConfidenceMergeReview}>
-          <section
-            className="confirm-dialog import-merge-review-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="import-merge-review-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 id="import-merge-review-title" className="item-title">
-              {t("contact_import_merge_review_title")}
-            </h3>
-            <p className="item-meta">{t("contact_import_merge_review_hint")}</p>
-            <div className="import-merge-review-head">
-              <span className="status-pill status-event-draft">
-                {t("contact_import_match_reason_label")}: {pendingImportMergeApprovalItem.duplicateReasonLabel || "—"}
-              </span>
-              <span className="status-pill status-maybe">
-                {t("contact_import_merge_confidence_label")}:{" "}
-                {t(`contact_import_merge_confidence_${pendingImportMergeApprovalItem.duplicateMergeConfidence || "low"}`)}
-              </span>
-            </div>
-            <p className="item-meta">
-              {interpolateText(t("contact_import_merge_review_summary"), { count: pendingImportMergeWillFillCount })}
-            </p>
-            <div className="import-merge-review-filters">
-              <span className="label-title">{t("contact_import_merge_review_filter_label")}</span>
-              <div className="list-filter-tabs list-filter-tabs-segmented" role="group" aria-label={t("contact_import_merge_review_filter_label")}>
-                <button
-                  className={`list-filter-tab ${importMergeReviewShowOnlyWillFill ? "active" : ""}`}
-                  type="button"
-                  onClick={() => setImportMergeReviewShowOnlyWillFill(true)}
-                >
-                  {t("contact_import_merge_review_filter_fill_only")}
-                </button>
-                <button
-                  className={`list-filter-tab ${!importMergeReviewShowOnlyWillFill ? "active" : ""}`}
-                  type="button"
-                  onClick={() => setImportMergeReviewShowOnlyWillFill(false)}
-                >
-                  {t("contact_import_merge_review_filter_all")}
-                </button>
-              </div>
-              <span className="item-meta import-merge-review-visible">
-                {interpolateText(t("contact_import_merge_review_visible"), {
-                  visible: pendingImportMergeVisibleCount,
-                  total: pendingImportMergeTotalCount
-                })}
-              </span>
-            </div>
-            <div className="import-merge-review-table-wrap">
-              <table className="import-merge-review-table">
-                <thead>
-                  <tr>
-                    <th>{t("contact_import_merge_review_apply")}</th>
-                    <th>{t("contact_import_merge_review_field")}</th>
-                    <th>{t("contact_import_merge_review_source")}</th>
-                    <th>{t("contact_import_merge_review_target")}</th>
-                    <th>{t("contact_import_merge_review_result")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingImportMergeVisibleRows.map((rowItem) => (
-                    <tr
-                      key={`merge-review-${rowItem.label}`}
-                      className={rowItem.willFill ? "import-merge-review-row is-will-fill" : "import-merge-review-row"}
-                    >
-                      <td className="import-merge-review-check">
-                        <input
-                          type="checkbox"
-                          checked={pendingImportMergeSelectedFieldKeysSet.has(rowItem.fieldKey)}
-                          disabled={!rowItem.willFill}
-                          onChange={() => handleTogglePendingImportMergeFieldKey(rowItem.fieldKey)}
-                        />
-                      </td>
-                      <th>{rowItem.label}</th>
-                      <td>{formatMergeReviewValue(rowItem.source)}</td>
-                      <td>{formatMergeReviewValue(rowItem.target)}</td>
-                      <td>
-                        <span className={`status-pill import-merge-review-result is-${rowItem.mergeResultKey}`}>
-                          {t(`contact_import_merge_review_result_${rowItem.mergeResultKey}`)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {pendingImportMergeVisibleRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="item-meta">
-                        {t("contact_import_merge_review_no_rows")}
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-            <div className="button-row">
-              <button className="btn btn-ghost" type="button" onClick={handleCloseLowConfidenceMergeReview}>
-                {t("cancel_action")}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={handleConfirmLowConfidenceMergeReview}
-                disabled={pendingImportMergeSelectableCount > 0 && pendingImportMergeSelectedFieldKeys.length === 0}
-              >
-                {t("contact_import_merge_approve_contact")}
-              </button>
-            </div>
-          </section>
-        </div>
+      {routeActiveView === "events" ? (
+        <Suspense fallback={null}>
+          <EventsWorkspaceContainer
+            {...{
+              routeEventsWorkspace,
+              routeEventPlannerTab,
+              WORKSPACE_ITEMS,
+              t,
+              openWorkspace,
+              language,
+              timezone,
+              handleSaveEvent,
+              isSavingEvent,
+              isEditingEvent,
+              handleCancelEditEvent,
+              eventTemplates,
+              activeEventTemplateKey,
+              handleApplyEventTemplate,
+              eventTitle,
+              setEventTitle,
+              eventErrors,
+              eventDescription,
+              setEventDescription,
+              eventType,
+              setEventType,
+              eventTypeOptions,
+              eventStatus,
+              setEventStatus,
+              eventStartAt,
+              setEventStartAt,
+              eventLocationName,
+              setEventLocationName,
+              eventLocationAddress,
+              setEventLocationAddress,
+              mapsStatus,
+              mapsError,
+              addressPredictions,
+              isAddressLoading,
+              handleSelectAddressPrediction,
+              selectedPlace,
+              getMapEmbedUrl,
+              eventPhaseProgress,
+              invitationCountForEditingEvent,
+              editingEventId,
+              eventAllowPlusOne,
+              setEventAllowPlusOne,
+              eventAutoReminders,
+              setEventAutoReminders,
+              eventDressCode,
+              setEventDressCode,
+              eventPlaylistMode,
+              setEventPlaylistMode,
+              eventBuilderPlaybookActions,
+              handleApplySuggestedEventSettings,
+              eventBuilderMealPlan,
+              handleCopyEventBuilderShoppingChecklist,
+              locationNameOptions,
+              locationAddressOptions,
+              eventMessage,
+              eventSearch,
+              setEventSearch,
+              eventSort,
+              setEventSort,
+              eventPageSize,
+              setEventPageSize,
+              EVENTS_PAGE_SIZE_DEFAULT,
+              PAGE_SIZE_OPTIONS,
+              eventStatusFilter,
+              setEventStatusFilter,
+              eventStatusCounts,
+              filteredEvents,
+              pagedEvents,
+              eventInvitationSummaryByEventId,
+              openEventDetail,
+              openEventPlanById,
+              handleStartEditEvent,
+              handleRequestDeleteEvent,
+              isDeletingEventId,
+              toCatalogLabel,
+              formatDate,
+              statusClass,
+              statusText,
+              eventPage,
+              eventTotalPages,
+              setEventPage,
+              orderedEventMapPoints,
+              GeoPointsMapPanel,
+              handleBackToEventDetail,
+              selectedEventDetail,
+              formatLongDate,
+              formatTimeLabel,
+              handleOpenEventPlan,
+              selectedEventDetailPrimaryShare,
+              openInvitationCreate,
+              selectedEventDetailInvitations,
+              selectedEventDetailStatusCounts,
+              invitationMessage,
+              normalizeEventDressCode,
+              normalizeEventPlaylistMode,
+              selectedEventChecklist,
+              selectedEventHealthAlerts,
+              selectedEventHealthAlertsConfirmedCount,
+              selectedEventHealthAlertsPendingCount,
+              eventPlannerSectionRef,
+              interpolateText,
+              selectedEventMealPlan,
+              selectedEventPlannerContextEffective,
+              selectedEventPlannerSavedLabel,
+              selectedEventPlannerSnapshotVersion,
+              selectedEventPlannerSnapshotHistory,
+              selectedEventPlannerVariantSeed,
+              selectedEventPlannerTabSeed,
+              selectedEventPlannerLastGeneratedByScope,
+              selectedEventPlannerGenerationState,
+              handleOpenEventPlannerContext,
+              handleRegenerateEventPlanner,
+              handleRestoreEventPlannerSnapshot,
+              handleExportEventPlannerShoppingList,
+              selectedEventDietTypesCount,
+              selectedEventAllergiesCount,
+              selectedEventMedicalConditionsCount,
+              selectedEventDietaryMedicalRestrictionsCount,
+              selectedEventCriticalRestrictions,
+              selectedEventHealthRestrictionHighlights,
+              selectedEventRestrictionsCount,
+              selectedEventIntolerancesCount,
+              handleEventPlannerTabChange,
+              selectedEventShoppingTotalIngredients,
+              selectedEventEstimatedCostRange,
+              selectedEventShoppingProgress,
+              selectedEventShoppingItems,
+              selectedEventShoppingCheckedSet,
+              handleCopySelectedEventShoppingChecklist,
+              handleMarkAllEventPlannerShoppingItems,
+              handleClearEventPlannerShoppingCheckedItems,
+              eventPlannerShoppingFilter,
+              setEventPlannerShoppingFilter,
+              selectedEventShoppingCounts,
+              selectedEventShoppingGroupsFiltered,
+              handleToggleEventPlannerShoppingItem,
+              selectedEventHostPlaybook,
+              handleCopyEventPlannerMessages,
+              handleCopyEventPlannerPrompt,
+              getGuestAvatarUrl,
+              selectedEventDetailGuests,
+              openGuestDetail,
+              handlePrepareInvitationShare,
+              handleRequestDeleteInvitation,
+              selectedEventRsvpTimeline,
+              events,
+              insightsEventId,
+              setInsightsEventId,
+              eventInsights,
+              insightsPlaybookActions
+            }}
+          />
+        </Suspense>
       ) : null}
 
-      {pendingGlobalShareSave ? (
-        <div className="confirm-overlay" onClick={() => setPendingGlobalShareSave(null)}>
-          <section
-            className="confirm-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-share-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 id="confirm-share-title" className="item-title">
-              {t("global_profile_share_confirm_title")}
-            </h3>
-            <p className="item-meta">{t("global_profile_share_confirm_hint")}</p>
-            <p className="hint">
-              {t("global_profile_share_confirm_target")}: {pendingGlobalShareSave.hostName}
-            </p>
-            <p className="hint">
-              {t("global_profile_share_confirm_level")}:{" "}
-              {pendingGlobalSharePreset === "basic"
-                ? t("global_profile_share_preset_basic")
-                : pendingGlobalSharePreset === "custom"
-                  ? t("global_profile_share_preset_custom")
-                  : t("global_profile_share_preset_private")}
-            </p>
-            <p className="hint">{t("global_profile_share_confirm_scopes")}</p>
-            <div className="profile-summary-signals">
-              {pendingGlobalShareScopes.length > 0 ? (
-                pendingGlobalShareScopes.map((scopeLabel) => (
-                  <span key={`pending-share-${scopeLabel}`} className="status-pill status-yes">
-                    {scopeLabel}
-                  </span>
-                ))
-              ) : (
-                <span className="status-pill status-draft">{t("global_profile_share_confirm_scopes_none")}</span>
-              )}
-            </div>
-            <div className="button-row">
-              <button
-                className="btn btn-ghost"
-                type="button"
-                onClick={() => setPendingGlobalShareSave(null)}
-                disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
-              >
-                {t("cancel_action")}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={handleConfirmSaveGlobalShare}
-                disabled={savingGlobalShareHostId === pendingGlobalShareSave.hostUserId}
-              >
-                {savingGlobalShareHostId === pendingGlobalShareSave.hostUserId
-                  ? t("global_profile_share_confirm_saving")
-                  : t("global_profile_share_confirm_apply")}
-              </button>
-            </div>
-          </section>
-        </div>
+      {routeActiveView === "guests" ? (
+        <Suspense fallback={null}>
+          <GuestsWorkspaceContainer
+            {...{
+              routeGuestsWorkspace,
+              routeGuestProfileTab,
+              routeGuestAdvancedTab,
+              WORKSPACE_ITEMS,
+              t,
+              openWorkspace,
+              language,
+              canUseDeviceContacts,
+              contactPickerUnsupportedReason,
+              handleFillGuestFromDeviceContact,
+              openFileImportFallback,
+              contactImportDetailsRef,
+              handlePickDeviceContacts,
+              handleImportGoogleContacts,
+              isImportingGoogleContacts,
+              canUseGoogleContacts,
+              contactImportFileInputRef,
+              handleImportContactsFile,
+              importContactsDraft,
+              setImportContactsDraft,
+              handlePreviewContactsFromDraft,
+              handleClearImportContacts,
+              importContactsAnalysis,
+              importContactsReady,
+              importContactsSelectedReady,
+              importContactsStatusSummary,
+              importDuplicateMode,
+              handleImportDuplicateModeChange,
+              importContactsSearch,
+              setImportContactsSearch,
+              importContactsGroupFilter,
+              setImportContactsGroupFilter,
+              importContactsGroupOptions,
+              importContactsPotentialFilter,
+              setImportContactsPotentialFilter,
+              importContactsSourceFilter,
+              setImportContactsSourceFilter,
+              importContactsSort,
+              setImportContactsSort,
+              IMPORT_CONTACTS_SORT_OPTIONS,
+              importContactsPageSize,
+              setImportContactsPageSize,
+              IMPORT_PREVIEW_PAGE_SIZE_DEFAULT,
+              IMPORT_PREVIEW_PAGE_SIZE_OPTIONS,
+              handleSelectSuggestedImportContacts,
+              handleSelectAllReadyImportContacts,
+              handleSelectHighPotentialImportContacts,
+              handleSelectDualChannelImportContacts,
+              handleSelectDuplicateMergeImportContacts,
+              handleApproveAllLowConfidenceMergeContacts,
+              handleSelectFilteredReadyImportContacts,
+              handleSelectCurrentImportPageReady,
+              handleSelectOnlyNewImportContacts,
+              handleClearReadyImportContactsSelection,
+              importContactsSuggested,
+              interpolateText,
+              pagedImportContacts,
+              selectedImportContactIds,
+              toggleImportContactSelection,
+              handleOpenLowConfidenceMergeReview,
+              importContactsFiltered,
+              importContactsPage,
+              importContactsTotalPages,
+              setImportContactsPage,
+              handleImportContacts,
+              isImportingContacts,
+              importContactsMessage,
+              handleSaveGuest,
+              guestFirstName,
+              setGuestFirstName,
+              guestErrors,
+              guestLastName,
+              setGuestLastName,
+              guestPhotoUrl,
+              guestPhotoInputValue,
+              handleGuestPhotoUrlChange,
+              handleGuestPhotoFileChange,
+              handleRemoveGuestPhoto,
+              guestEmail,
+              setGuestEmail,
+              guestPhone,
+              setGuestPhone,
+              guestRelationship,
+              setGuestRelationship,
+              relationshipOptions,
+              guestCity,
+              setGuestCity,
+              guestCountry,
+              setGuestCountry,
+              guestAdvanced,
+              setGuestAdvancedField,
+              guestAdvancedProfileCompleted,
+              guestAdvancedProfileSignals,
+              guestAdvancedProfilePercent,
+              guestNextBirthday,
+              handleCreateBirthdayEventFromGuest,
+              scrollToGuestAdvancedSection,
+              guestPriorityCompleted,
+              guestPriorityTotal,
+              guestPriorityPercent,
+              guestPriorityMissing,
+              getGuestAdvancedSectionFromPriorityKey,
+              handleOpenGuestAdvancedPriority,
+              guestAdvancedDetailsRef,
+              guestAdvancedToolbarRef,
+              guestAdvancedEditTabs,
+              guestAdvancedSignalsBySection,
+              guestAdvancedCurrentStep,
+              guestAdvancedCurrentTabLabel,
+              guestAdvancedCurrentChecklistDone,
+              guestAdvancedCurrentChecklistTotal,
+              guestAdvancedCurrentChecklist,
+              isSavingGuest,
+              guestLastSavedLabel,
+              handleGoToPreviousGuestAdvancedSection,
+              guestAdvancedPrevTab,
+              handleSaveGuestDraft,
+              handleSaveAndGoNextPendingGuestAdvancedSection,
+              guestAdvancedNextPendingTab,
+              guestAdvancedNextPendingLabel,
+              handleGoToNextGuestAdvancedSection,
+              guestAdvancedNextTab,
+              handleGoToFirstPendingGuestAdvancedSection,
+              guestAdvancedFirstPendingTab,
+              guestAdvancedFirstPendingLabel,
+              guestAdvancedSectionRefs,
+              setGuestErrors,
+              setGuestMessage,
+              selectedGuestAddressPlace,
+              normalizeLookupValue,
+              setSelectedGuestAddressPlace,
+              mapsStatus,
+              mapsError,
+              isGuestAddressLoading,
+              guestAddressPredictions,
+              handleSelectGuestAddressPrediction,
+              eventTypeOptions,
+              handleAdvancedMultiSelectChange,
+              dietTypeOptions,
+              tastingPreferenceOptions,
+              drinkOptions,
+              musicGenreOptions,
+              colorOptions,
+              sportOptions,
+              dayMomentOptions,
+              periodicityOptions,
+              punctualityOptions,
+              cuisineTypeOptions,
+              petOptions,
+              allergyOptions,
+              intoleranceOptions,
+              petAllergyOptions,
+              medicalConditionOptions,
+              dietaryMedicalRestrictionOptions,
+              cityOptions,
+              countryOptions,
+              isEditingGuest,
+              handleCancelEditGuest,
+              guestMessage,
+              MultiSelectField,
+              guestSearch,
+              setGuestSearch,
+              guestSort,
+              setGuestSort,
+              guestPageSize,
+              setGuestPageSize,
+              PAGE_SIZE_OPTIONS,
+              GUESTS_PAGE_SIZE_DEFAULT,
+              guestContactFilter,
+              setGuestContactFilter,
+              filteredGuests,
+              pagedGuests,
+              hostPotentialGuestsCount,
+              convertedHostGuestsCount,
+              pendingHostGuestsCount,
+              guestHostConversionById,
+              getConversionSource,
+              getConversionSourceLabel,
+              guestEventCountByGuestId,
+              guestSensitiveById,
+              toCatalogLabels,
+              uniqueValues,
+              toCatalogLabel,
+              getGuestAvatarUrl,
+              openGuestDetail,
+              handleStartEditGuest,
+              handleOpenMergeGuest,
+              handleCopyHostSignupLink,
+              handleShareHostSignupLink,
+              handleRequestDeleteGuest,
+              isDeletingGuestId,
+              guestPage,
+              guestTotalPages,
+              setGuestPage,
+              orderedGuestMapPoints,
+              GeoPointsMapPanel,
+              selectedGuestDetail,
+              selectedGuestDetailInvitations,
+              selectedGuestDetailStatusCounts,
+              selectedGuestDetailRespondedRate,
+              guestProfileTabs,
+              setGuestProfileViewTab: handleGuestProfileTabChange,
+              selectedGuestDetailConversion,
+              openInvitationCreate,
+              handleLinkProfileGuestToGlobal,
+              isLinkingGlobalGuest,
+              selectedGuestDetailNotes,
+              selectedGuestDetailTags,
+              selectedGuestFoodGroups,
+              selectedGuestLifestyleGroups,
+              selectedGuestActiveTabRecommendations,
+              selectedGuestDetailPreference,
+              selectedGuestAllergyLabels,
+              selectedGuestIntoleranceLabels,
+              selectedGuestPetAllergyLabels,
+              selectedGuestMedicalConditionLabels,
+              selectedGuestDietaryMedicalRestrictionLabels,
+              toList,
+              formatDate,
+              statusClass,
+              statusText,
+              eventsById,
+              eventNamesById,
+              openEventDetail
+            }}
+          />
+        </Suspense>
       ) : null}
 
-      {deleteTarget ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Overlay SIN onClick para evitar cierres accidentales en acción destructiva */}
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" aria-hidden="true"></div>
-
-          <section
-            className="relative z-10 w-full max-w-lg bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-7 animate-in fade-in-0 zoom-in-95 duration-200"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-delete-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {/* Cabecera con Icono de Alerta */}
-            <div className="flex items-start gap-4 pb-5 mb-5 border-b border-black/5 dark:border-white/5">
-              <div className="shrink-0 p-3 bg-red-100 dark:bg-red-900/30 rounded-2xl mt-1">
-                <Icon name="trash" className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <h3 id="confirm-delete-title" className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
-                  {deleteTarget.type === "event"
-                    ? t("delete_event_title")
-                    : deleteTarget.type === "guest"
-                      ? t("delete_guest_title")
-                      : t("delete_invitation_title")}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
-                  {deleteTarget.type === "event"
-                    ? t("delete_event_confirm")
-                    : deleteTarget.type === "guest"
-                      ? t("delete_guest_confirm")
-                      : t("delete_invitation_confirm")}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 bg-black/5 dark:bg-white/5 py-2 px-3 rounded-lg border border-black/5 dark:border-white/5">
-                  <span className="uppercase tracking-wider font-bold mr-1">{t("selected_item")}:</span>{" "}
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {deleteTarget.type === "event"
-                      ? deleteTarget.item?.title || "-"
-                      : deleteTarget.type === "guest"
-                        ? `${deleteTarget.item?.first_name || ""} ${deleteTarget.item?.last_name || ""}`.trim() || "-"
-                        : deleteTarget.itemLabel || "-"}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            {/* Footer de Botones */}
-            <div className="flex items-center justify-end gap-3.5 pt-2">
-              <button
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 bg-white/60 dark:bg-black/20 hover:bg-black/5 dark:hover:bg-white/5 border border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 transition-all active:scale-95 disabled:opacity-50 outline-none focus:ring-2 focus:ring-gray-500/50"
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                disabled={isDeleteConfirmLoading}
-              >
-                {t("cancel_action")}
-              </button>
-              <button
-                className="px-6 py-2.5 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 outline-none focus:ring-2 focus:ring-red-500/50 flex items-center justify-center min-w-[120px]"
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={isDeleteConfirmLoading}
-              >
-                {isDeleteConfirmLoading ? (
-                  <span className="flex items-center gap-2">
-                    <Icon name="loader" className="w-4 h-4 animate-spin" />
-                    {t("deleting")}
-                  </span>
-                ) : t("confirm_delete")}
-              </button>
-            </div>
-          </section>
-        </div>
+      {routeActiveView === "invitations" ? (
+        <Suspense fallback={null}>
+          <InvitationsWorkspaceContainer
+            {...{
+              routeInvitationsWorkspace,
+              WORKSPACE_ITEMS,
+              t,
+              openWorkspace,
+              handleCreateInvitation,
+              selectedEventId,
+              setSelectedEventId,
+              events,
+              invitationErrors,
+              selectedGuestId,
+              setSelectedGuestId,
+              guests,
+              allGuestsAlreadyInvitedForSelectedEvent,
+              invitedGuestIdsForSelectedEvent,
+              bulkInvitationSearch,
+              setBulkInvitationSearch,
+              INVITATION_BULK_SEGMENTS,
+              bulkInvitationSegment,
+              setBulkInvitationSegment,
+              bulkSegmentCounts,
+              handleSelectVisibleBulkGuests,
+              bulkFilteredGuests,
+              handleClearBulkGuests,
+              bulkInvitationGuestIds,
+              toggleBulkInvitationGuest,
+              isCreatingInvitation,
+              handleCreateBulkInvitations,
+              isCreatingBulkInvitations,
+              invitationMessage,
+              lastInvitationUrl,
+              handleCopyInvitationLink,
+              lastInvitationShareText,
+              handleCopyInvitationMessage,
+              lastInvitationWhatsappUrl,
+              lastInvitationEmailUrl,
+              language,
+              invitationSearch,
+              setInvitationSearch,
+              invitationSort,
+              setInvitationSort,
+              invitationPageSize,
+              setInvitationPageSize,
+              INVITATIONS_PAGE_SIZE_DEFAULT,
+              PAGE_SIZE_OPTIONS,
+              invitationEventFilter,
+              setInvitationEventFilter,
+              invitationEventOptions,
+              invitationStatusFilter,
+              setInvitationStatusFilter,
+              filteredInvitations,
+              pagedInvitations,
+              eventNamesById,
+              guestNamesById,
+              guestsById,
+              eventsById,
+              buildInvitationSharePayload,
+              buildAppUrl,
+              getGuestAvatarUrl,
+              openGuestDetail,
+              openEventDetail,
+              formatDate,
+              statusClass,
+              statusText,
+              handlePrepareInvitationShare,
+              handleRequestDeleteInvitation,
+              invitationPage,
+              invitationTotalPages,
+              setInvitationPage
+            }}
+          />
+        </Suspense>
       ) : null}
+
+      <DashboardModals
+        t={t}
+        isImportWizardOpen={isImportWizardOpen}
+        handleCloseImportWizard={handleCloseImportWizard}
+        importWizardStep={importWizardStep}
+        importWizardStepLabel={importWizardStepLabel}
+        importWizardStepTitle={importWizardStepTitle}
+        importWizardStepHint={importWizardStepHint}
+        IMPORT_WIZARD_STEP_TOTAL={IMPORT_WIZARD_STEP_TOTAL}
+        importWizardSourceOptions={importWizardSourceOptions}
+        importWizardSource={importWizardSource}
+        setImportWizardSource={setImportWizardSource}
+        isMobileImportExperience={isMobileImportExperience}
+        setImportContactsMessage={setImportContactsMessage}
+        importWizardUploadedFileName={importWizardUploadedFileName}
+        importContactsAnalysis={importContactsAnalysis}
+        handleImportWizardDrop={handleImportWizardDrop}
+        contactImportFileInputRef={contactImportFileInputRef}
+        handleImportContactsFile={handleImportContactsFile}
+        importContactsDraft={importContactsDraft}
+        setImportContactsDraft={setImportContactsDraft}
+        handlePreviewContactsFromDraft={handlePreviewContactsFromDraft}
+        handleClearImportContacts={handleClearImportContacts}
+        handleImportGoogleContacts={handleImportGoogleContacts}
+        isImportingGoogleContacts={isImportingGoogleContacts}
+        canUseGoogleContacts={canUseGoogleContacts}
+        canUseDeviceContacts={canUseDeviceContacts}
+        isIOSDevice={isIOSDevice}
+        contactPickerUnsupportedReason={contactPickerUnsupportedReason}
+        handlePickDeviceContacts={handlePickDeviceContacts}
+        importWizardQrDataUrl={importWizardQrDataUrl}
+        handleShareImportWizardLink={handleShareImportWizardLink}
+        importWizardShareEmail={importWizardShareEmail}
+        setImportWizardShareEmail={setImportWizardShareEmail}
+        handleImportWizardEmailLink={handleImportWizardEmailLink}
+        importContactsSearch={importContactsSearch}
+        setImportContactsSearch={setImportContactsSearch}
+        importContactsPageSize={importContactsPageSize}
+        setImportContactsPageSize={setImportContactsPageSize}
+        IMPORT_PREVIEW_PAGE_SIZE_DEFAULT={IMPORT_PREVIEW_PAGE_SIZE_DEFAULT}
+        IMPORT_PREVIEW_PAGE_SIZE_OPTIONS={IMPORT_PREVIEW_PAGE_SIZE_OPTIONS}
+        importDuplicateMode={importDuplicateMode}
+        handleImportDuplicateModeChange={handleImportDuplicateModeChange}
+        importContactsDuplicateCount={importContactsDuplicateCount}
+        interpolateText={interpolateText}
+        handleSelectSuggestedImportContacts={handleSelectSuggestedImportContacts}
+        handleSelectCurrentImportPageReady={handleSelectCurrentImportPageReady}
+        handleSelectAllReadyImportContacts={handleSelectAllReadyImportContacts}
+        handleClearReadyImportContactsSelection={handleClearReadyImportContactsSelection}
+        importContactsSelectedReady={importContactsSelectedReady}
+        pagedImportContacts={pagedImportContacts}
+        selectedImportContactIds={selectedImportContactIds}
+        toggleImportContactSelection={toggleImportContactSelection}
+        handleOpenLowConfidenceMergeReview={handleOpenLowConfidenceMergeReview}
+        importContactsFiltered={importContactsFiltered}
+        importContactsPage={importContactsPage}
+        importContactsTotalPages={importContactsTotalPages}
+        setImportContactsPage={setImportContactsPage}
+        importWizardResult={importWizardResult}
+        importWizardShareMessage={importWizardShareMessage}
+        importContactsMessage={importContactsMessage}
+        handleImportWizardBack={handleImportWizardBack}
+        isImportingContacts={isImportingContacts}
+        importWizardCanContinue={importWizardCanContinue}
+        handleImportWizardContinue={handleImportWizardContinue}
+        importWizardContinueLabel={importWizardContinueLabel}
+        isEventPlannerContextOpen={isEventPlannerContextOpen}
+        setIsEventPlannerContextOpen={setIsEventPlannerContextOpen}
+        setEventPlannerContextFocusField={setEventPlannerContextFocusField}
+        eventPlannerContextDraft={eventPlannerContextDraft}
+        setEventPlannerContextDraft={setEventPlannerContextDraft}
+        eventPlannerContextFocusField={eventPlannerContextFocusField}
+        showTechnicalPrompt={showEventPlannerTechnicalPrompt}
+        setShowTechnicalPrompt={setShowEventPlannerTechnicalPrompt}
+        eventPlannerContextDraftPromptBundle={eventPlannerContextDraftPromptBundle}
+        handleGenerateFullEventPlanFromContext={handleGenerateFullEventPlanFromContext}
+        selectedEventPlannerGenerationState={selectedEventPlannerGenerationState}
+        guestMergeSource={guestMergeSource}
+        handleCloseMergeGuest={handleCloseMergeGuest}
+        guestMergeSearch={guestMergeSearch}
+        setGuestMergeSearch={setGuestMergeSearch}
+        guestMergeTargetId={guestMergeTargetId}
+        setGuestMergeTargetId={setGuestMergeTargetId}
+        guestMergeCandidates={guestMergeCandidates}
+        isMergingGuest={isMergingGuest}
+        handleConfirmMergeGuest={handleConfirmMergeGuest}
+        pendingImportMergeApprovalItem={pendingImportMergeApprovalItem}
+        handleCloseLowConfidenceMergeReview={handleCloseLowConfidenceMergeReview}
+        pendingImportMergeWillFillCount={pendingImportMergeWillFillCount}
+        importMergeReviewShowOnlyWillFill={importMergeReviewShowOnlyWillFill}
+        setImportMergeReviewShowOnlyWillFill={setImportMergeReviewShowOnlyWillFill}
+        pendingImportMergeVisibleCount={pendingImportMergeVisibleCount}
+        pendingImportMergeTotalCount={pendingImportMergeTotalCount}
+        pendingImportMergeVisibleRows={pendingImportMergeVisibleRows}
+        pendingImportMergeSelectedFieldKeysSet={pendingImportMergeSelectedFieldKeysSet}
+        handleTogglePendingImportMergeFieldKey={handleTogglePendingImportMergeFieldKey}
+        formatMergeReviewValue={formatMergeReviewValue}
+        handleConfirmLowConfidenceMergeReview={handleConfirmLowConfidenceMergeReview}
+        pendingImportMergeSelectableCount={pendingImportMergeSelectableCount}
+        pendingImportMergeSelectedFieldKeys={pendingImportMergeSelectedFieldKeys}
+        pendingGlobalShareSave={pendingGlobalShareSave}
+        setPendingGlobalShareSave={setPendingGlobalShareSave}
+        pendingGlobalSharePreset={pendingGlobalSharePreset}
+        pendingGlobalShareScopes={pendingGlobalShareScopes}
+        savingGlobalShareHostId={savingGlobalShareHostId}
+        handleConfirmSaveGlobalShare={handleConfirmSaveGlobalShare}
+        deleteTarget={deleteTarget}
+        setDeleteTarget={setDeleteTarget}
+        isDeleteConfirmLoading={isDeleteConfirmLoading}
+        handleConfirmDelete={handleConfirmDelete}
+      />
     </DashboardLayout>
   );
 }

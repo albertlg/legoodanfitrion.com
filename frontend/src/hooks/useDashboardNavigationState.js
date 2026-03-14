@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 export function useDashboardNavigationState(initialRouteState) {
-  const [activeView, setActiveView] = useState(initialRouteState.activeView);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [eventsWorkspace, setEventsWorkspace] = useState(initialRouteState.eventsWorkspace);
   const [guestsWorkspace, setGuestsWorkspace] = useState(initialRouteState.guestsWorkspace);
@@ -18,8 +17,6 @@ export function useDashboardNavigationState(initialRouteState) {
   );
 
   return {
-    activeView,
-    setActiveView,
     isMenuOpen,
     setIsMenuOpen,
     eventsWorkspace,
