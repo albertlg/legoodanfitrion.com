@@ -4,6 +4,7 @@ import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { supabase } from "../lib/supabaseClient";
+import { Helmet } from "react-helmet-async";
 
 function toNullable(value) {
   const trimmed = value.trim();
@@ -200,6 +201,19 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
   return (
     <main className="relative min-h-screen bg-gray-50 dark:bg-[#131720] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white flex flex-col items-center py-8 px-4 overflow-hidden">
+      {/* 🚀 FIX SEO: Inyección dinámica de metadatos según el idioma */}
+      <Helmet htmlAttributes={{ lang: language }}>
+        <title>{t("seo_title")}</title>
+        <meta name="description" content={t("seo_desc")} />
+
+        {/* Open Graph Dinámico */}
+        <meta property="og:title" content={t("seo_title")} />
+        <meta property="og:description" content={t("seo_desc")} />
+
+        {/* Twitter Card Dinámico */}
+        <meta name="twitter:title" content={t("seo_title")} />
+        <meta name="twitter:description" content={t("seo_desc")} />
+      </Helmet>
 
       {/* Decorative Blobs */}
       <div className="fixed top-[-10%] right-[-5%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none z-0"></div>

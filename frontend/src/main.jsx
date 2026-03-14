@@ -1,8 +1,10 @@
 import { Component } from "react";
-import ReactDOM from "react-dom/client";
+// 🚀 FIX PRERENDER: Importamos hydrateRoot además de createRoot
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
+import { HelmetProvider } from "react-helmet-async";
 
 const rootNode = document.getElementById("root");
 
@@ -55,13 +57,26 @@ try {
   if (!rootNode) {
     throw new Error("No existe el nodo #root en index.html");
   }
-  ReactDOM.createRoot(rootNode).render(
+
+  const appContent = (
     <BootErrorBoundary>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <HelmetProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </HelmetProvider>
     </BootErrorBoundary>
   );
+
+  // 🚀 FIX PRERENDER: La magia de la hidratación
+  // Si hay HTML dentro del root (el plugin hizo su trabajo), hidratamos.
+  if (rootNode.hasChildNodes()) {
+    hydrateRoot(rootNode, appContent);
+  } else {
+    // Si está vacío (ej. en local o dev), renderizamos normal.
+    createRoot(rootNode).render(appContent);
+  }
+
 } catch (error) {
   if (rootNode) {
     rootNode.textContent = error?.message || "Error desconocido al renderizar la aplicación.";

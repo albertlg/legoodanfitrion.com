@@ -20,6 +20,7 @@
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-helmet-async": "^3.0.0",
     "react-router-dom": "^7.13.1",
     "tailwind-merge": "^3.5.0",
     "zod": "^3.24.1"
@@ -35,6 +36,7 @@
     "globals": "^15.11.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
-    "vite": "^5.4.8"
+    "vite": "^5.4.8",
+    "vite-plugin-prerender": "^1.0.8"
   }
 }

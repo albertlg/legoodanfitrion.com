@@ -4,6 +4,7 @@ import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
+import { Helmet } from "react-helmet-async";
 
 const NAV_ITEMS = [
   { key: "features", path: "/features", labelKey: "landing_nav_features" },
@@ -61,6 +62,63 @@ function LandingScreen({
     }, 3600);
   };
 
+  // 🚀 ESTADOS PARA LA MICRO-DEMO CRO
+  const [activeDemoTab, setActiveDemoTab] = useState(0);
+  const [mockLinkCopied, setMockLinkCopied] = useState(false);
+
+  // Función para simular el copiado del link
+  const handleMockCopy = () => {
+    trackEvent("demo_invite_link_copied", { template_index: activeDemoTab }); // <-- NUEVO
+    setMockLinkCopied(true);
+    setTimeout(() => setMockLinkCopied(false), 2000);
+  };
+
+  // 🚀 FIX: Array movido dentro del componente y usando traducciones reales
+  const DEMO_TEMPLATES = [
+    {
+      tabKey: "landing_demo_tab_1",
+      title: t("landing_demo_evt1_title"),
+      date: t("landing_demo_evt1_date"),
+      location: t("landing_demo_evt1_loc"),
+      stats: { guests: 18, confirmed: 15, allergies: 2 },
+      color: "blue"
+    },
+    {
+      tabKey: "landing_demo_tab_2",
+      title: t("landing_demo_evt2_title"),
+      date: t("landing_demo_evt2_date"),
+      location: t("landing_demo_evt2_loc"),
+      stats: { guests: 85, confirmed: 72, allergies: 6 },
+      color: "purple"
+    },
+    {
+      tabKey: "landing_demo_tab_3",
+      title: t("landing_demo_evt3_title"),
+      date: t("landing_demo_evt3_date"),
+      location: t("landing_demo_evt3_loc"),
+      stats: { guests: 42, confirmed: 38, allergies: 4 },
+      color: "green"
+    }
+  ];
+
+  const activeDemo = DEMO_TEMPLATES[activeDemoTab];
+
+  // 🚀 FASE 3 CRO: Utilidad de Tracking de Eventos
+  const trackEvent = (eventName, eventParams = {}) => {
+    // Si tienes GA4 configurado en el index.html
+    if (typeof window !== "undefined" && window.gtag) {
+      window.gtag("event", eventName, eventParams);
+    }
+    // Si usas otro sistema (ej. dataLayer de Google Tag Manager)
+    else if (typeof window !== "undefined" && window.dataLayer) {
+      window.dataLayer.push({ event: eventName, ...eventParams });
+    }
+    // Para depuración local (verás los eventos en tu consola)
+    if (import.meta.env.DEV) {
+      console.info(`📊 [CRO Track] ${eventName}`, eventParams);
+    }
+  };
+
   useEffect(
     () => () => {
       if (toastTimerRef.current) {
@@ -80,9 +138,20 @@ function LandingScreen({
           : "home";
 
   const primaryCta = session?.user?.id
-    ? { label: t("landing_cta_open_app"), onClick: onGoApp }
-    // 🚀 FIX CRO: Cambiamos "landing_cta_start" por la nueva clave enfocada a la acción
-    : { label: t("landing_cta_create_event"), onClick: onGoLogin };
+    ? {
+      label: t("landing_cta_open_app"),
+      onClick: () => {
+        trackEvent("cta_open_app_click");
+        onGoApp();
+      }
+    }
+    : {
+      label: t("landing_cta_create_event"),
+      onClick: () => {
+        trackEvent("cta_create_event_click", { location: "primary_button" });
+        onGoLogin();
+      }
+    };
 
   const handleJoinWaitlist = async (event) => {
     event.preventDefault();
@@ -160,6 +229,7 @@ function LandingScreen({
     const text = status === "already_joined" ? t("waitlist_join_exists") : t("waitlist_join_success");
     setWaitlistMessageType("success");
     setWaitlistMessage(text);
+    trackEvent("waitlist_joined", { source_path: currentPath });
     showToast(text, "success");
     setWaitlistEmail("");
   };
@@ -250,6 +320,7 @@ function LandingScreen({
     setContactMessageType("success");
     const text = t("landing_contact_form_success");
     setContactMessage(text);
+    trackEvent("contact_form_submitted", { source_path: currentPath });
     showToast(text, "success");
   };
 
@@ -296,6 +367,19 @@ function LandingScreen({
 
   return (
     <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
+      {/* 🚀 FIX SEO: Inyección dinámica de metadatos según el idioma */}
+      <Helmet htmlAttributes={{ lang: language }}>
+        <title>{t("seo_title")}</title>
+        <meta name="description" content={t("seo_desc")} />
+
+        {/* Open Graph Dinámico */}
+        <meta property="og:title" content={t("seo_title")} />
+        <meta property="og:description" content={t("seo_desc")} />
+
+        {/* Twitter Card Dinámico */}
+        <meta name="twitter:title" content={t("seo_title")} />
+        <meta name="twitter:description" content={t("seo_desc")} />
+      </Helmet>
 
       {/* Decorative Blobs (Background) */}
       <div className="fixed top-[-10%] right-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[120px] opacity-70 pointer-events-none z-0"></div>
@@ -477,6 +561,7 @@ function LandingScreen({
               </div>
             </section>
 
+            {/*
             <section id="landing-features" className="py-24 px-6 w-full max-w-7xl mx-auto flex flex-col items-center">
               <div className="text-center max-w-3xl mb-16">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">{t("landing_features_eyebrow")}</p>
@@ -506,6 +591,187 @@ function LandingScreen({
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_rsvp_title")}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{t("landing_feature_rsvp_desc")}</p>
                 </article>
+              </div>
+            </section>
+            */}
+            {/* 🚀 NUEVA SECCIÓN CRO: Antes / Después */}
+            <section id="landing-features" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
+              <div className="text-center max-w-3xl mb-16">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">{t("landing_vs_eyebrow")}</p>
+                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight text-balance">{t("landing_vs_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_vs_subtitle")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 w-full items-stretch">
+
+                {/* ❌ EL ANTES (Caos) */}
+                <article className="bg-red-50/50 dark:bg-red-950/20 backdrop-blur-sm rounded-3xl border border-red-100 dark:border-red-900/30 p-8 flex flex-col relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-400 to-red-500 opacity-80"></div>
+
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center">
+                      <Icon name="x" className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                      {t("landing_vs_before_title")}
+                    </h3>
+                  </div>
+
+                  <ul className="flex flex-col gap-5 text-gray-700 dark:text-gray-300">
+                    {[1, 2, 3, 4].map((num) => (
+                      <li key={`before-${num}`} className="flex items-start gap-3">
+                        <Icon name="x" className="w-5 h-5 text-red-400 dark:text-red-500 shrink-0 mt-0.5" />
+                        <span className="font-medium">{t(`landing_vs_before_${num}`)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+
+                {/* ✅ EL DESPUÉS (Paz mental) */}
+                <article className="bg-white/70 dark:bg-white/5 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-2xl p-8 flex flex-col relative overflow-hidden transform md:-translate-y-4">
+                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
+                      <Icon name="sparkle" className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
+                      {t("landing_vs_after_title")}
+                    </h3>
+                  </div>
+
+                  <ul className="flex flex-col gap-5 text-gray-900 dark:text-gray-100">
+                    {[1, 2, 3, 4].map((num) => (
+                      <li key={`after-${num}`} className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                          <Icon name="check" className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="font-bold">{t(`landing_vs_after_${num}`)}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* Micro-CTA dentro de la tarjeta de éxito */}
+                  <div className="mt-8 pt-6 border-t border-black/5 dark:border-white/10">
+                    <button
+                      className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3.5 rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                      type="button"
+                      onClick={primaryCta.onClick}
+                    >
+                      {t("landing_cta_create_event")} <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
+                    </button>
+                  </div>
+                </article>
+
+              </div>
+            </section>
+
+            {/* 🚀 NUEVA SECCIÓN CRO: Micro-Demo Interactiva (UI Simulada) */}
+            <section className="py-24 px-6 w-full max-w-5xl mx-auto flex flex-col items-center overflow-hidden">
+              <div className="text-center max-w-3xl mb-12">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">{t("landing_demo_eyebrow")}</p>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 text-balance">{t("landing_demo_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_demo_subtitle")}</p>
+              </div>
+
+              {/* Pestañas de Selección */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-8 bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl md:rounded-full">
+                {DEMO_TEMPLATES.map((template, index) => {
+                  const isActive = activeDemoTab === index;
+                  return (
+                    <button
+                      key={index}
+                      className={`px-5 py-2.5 rounded-xl md:rounded-full text-sm font-bold transition-all outline-none focus:ring-2 focus:ring-${template.color}-500/50 ${isActive
+                        ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-md scale-105"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
+                        }`}
+                      onClick={() => {
+                        setActiveDemoTab(index);
+                        trackEvent("demo_template_selected", { template_index: index, template_name: template.tabKey });
+                      }}
+                      aria-pressed={isActive}
+                    >
+                      {t(template.tabKey)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 💻 Ventana de la UI Simulada */}
+              <div className="w-full max-w-3xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Cabecera del Panel (Fake Header) */}
+                <div className="px-6 py-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-400/80"></div>
+                      <div className="w-3 h-3 rounded-full bg-yellow-400/80"></div>
+                      <div className="w-3 h-3 rounded-full bg-green-400/80"></div>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wider">LeGoodAnfitrión Panel</span>
+                  </div>
+                </div>
+
+                {/* Contenido Dinámico de la Demo (Cambia al hacer clic en las pestañas) */}
+                <div key={activeDemoTab} className="p-5 md:p-10 animate-in fade-in zoom-in-95 duration-300">
+
+                  {/* Título y Meta del Evento Simulado */}
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+                    <div>
+                      <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-3">
+                        {activeDemo.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5"><Icon name="calendar" className="w-4 h-4 shrink-0" /> {activeDemo.date}</span>
+                        <span className="flex items-center gap-1.5"><Icon name="location" className="w-4 h-4 shrink-0" /> {activeDemo.location}</span>
+                      </div>
+                    </div>
+                    {/* 🚀 FIX: w-max y self-start para que no se estire en móvil */}
+                    <span className={`w-max self-start md:self-center px-3 py-1 bg-${activeDemo.color}-100 text-${activeDemo.color}-800 dark:bg-${activeDemo.color}-900/30 dark:text-${activeDemo.color}-400 rounded-lg text-xs font-bold uppercase tracking-wider border border-${activeDemo.color}-200 dark:border-${activeDemo.color}-800/30`}>
+                      {t("landing_demo_mock_status_active")}
+                    </span>
+                  </div>
+
+                  {/* 🚀 FIX: Kpis / Stats rediseñados para no reventar en móvil */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8 md:mb-10">
+                    <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-3 sm:p-4 border border-black/5 dark:border-white/5 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
+                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 w-full truncate">{t("landing_demo_mock_guests")}</p>
+                      <p className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">{activeDemo.stats.guests}</p>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-3 sm:p-4 border border-green-100 dark:border-green-800/30 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
+                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400 mb-1 w-full truncate">{t("landing_demo_mock_confirmed")}</p>
+                      <p className="text-2xl sm:text-3xl font-black text-green-700 dark:text-green-400 flex items-center justify-center sm:justify-start gap-1 sm:gap-2">
+                        {activeDemo.stats.confirmed} <Icon name="check" className="w-4 h-4 sm:w-5 sm:h-5 hidden sm:block" />
+                      </p>
+                    </div>
+                    <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-3 sm:p-4 border border-orange-100 dark:border-orange-800/30 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
+                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 mb-1 w-full truncate">{t("landing_demo_mock_allergies")}</p>
+                      <p className="text-2xl sm:text-3xl font-black text-orange-700 dark:text-orange-400">{activeDemo.stats.allergies}</p>
+                    </div>
+                  </div>
+
+                  {/* Botones de Acción de la Fake UI */}
+                  <div className="flex flex-col sm:flex-row items-center gap-3 md:gap-4 pt-6 border-t border-black/5 dark:border-white/5">
+                    <button
+                      className="w-full sm:w-auto flex-1 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-5 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2 outline-none focus:ring-2 focus:ring-blue-500/50"
+                      onClick={handleMockCopy}
+                    >
+                      {mockLinkCopied ? (
+                        <><Icon name="check" className="w-4 h-4 text-green-500" /> <span className="text-green-600 dark:text-green-400">{t("landing_demo_mock_copied")}</span></>
+                      ) : (
+                        <><Icon name="link" className="w-4 h-4" /> {t("landing_demo_mock_copy_link")}</>
+                      )}
+                    </button>
+
+                    {/* Este sí es un botón real que lleva al registro */}
+                    <button
+                      className="w-full sm:w-auto flex-1 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 outline-none focus:ring-2 focus:ring-blue-500/50"
+                      onClick={primaryCta.onClick}
+                    >
+                      <Icon name="sparkle" className="w-4 h-4" /> {t("landing_demo_mock_cta")}
+                    </button>
+                  </div>
+
+                </div>
               </div>
             </section>
 

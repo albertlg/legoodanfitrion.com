@@ -99,6 +99,7 @@ import {
 import { useDashboardNavigationState } from "../hooks/useDashboardNavigationState";
 import { useEventPlannerState } from "../hooks/useEventPlannerState";
 import { useImportWizardState } from "../hooks/useImportWizardState";
+import { Helmet } from "react-helmet-async";
 
 const EventPlannerContextModal = lazy(() =>
   import("./dashboard/components/event-planner-context-modal").then((module) => ({
@@ -9180,6 +9181,19 @@ function DashboardScreen({
       sectionHeader={sectionHeader}
       interpolateText={interpolateText}
     >
+      {/* 🚀 FIX SEO: Inyección dinámica de metadatos según el idioma */}
+      <Helmet htmlAttributes={{ lang: language }}>
+        <title>{t("seo_title")}</title>
+        <meta name="description" content={t("seo_desc")} />
+
+        {/* Open Graph Dinámico */}
+        <meta property="og:title" content={t("seo_title")} />
+        <meta property="og:description" content={t("seo_desc")} />
+
+        {/* Twitter Card Dinámico */}
+        <meta name="twitter:title" content={t("seo_title")} />
+        <meta name="twitter:description" content={t("seo_desc")} />
+      </Helmet>
       {/* Decorative blobs for glassmorphism layout background */}
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
       <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/10 dark:bg-purple-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
