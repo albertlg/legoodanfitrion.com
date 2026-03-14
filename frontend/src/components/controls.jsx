@@ -28,7 +28,8 @@ function getResolvedTheme(themeMode) {
   return themeMode;
 }
 
-function Controls({ themeMode, setThemeMode, language, setLanguage, t }) {
+// 🚀 FIX: Añadimos la prop 'dropdownDirection' con valor por defecto "up"
+function Controls({ themeMode, setThemeMode, language, setLanguage, t, dropdownDirection = "up" }) {
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const languageMenuRef = useRef(null);
   const resolvedTheme = getResolvedTheme(themeMode);
@@ -64,6 +65,11 @@ function Controls({ themeMode, setThemeMode, language, setLanguage, t }) {
     setThemeMode(isDarkTheme ? "light" : "dark");
   };
 
+  // 🚀 FIX: Definimos las clases dinámicas según la dirección que nos pidan
+  const dropdownPositionClasses = dropdownDirection === "up"
+    ? "bottom-full mb-2 origin-bottom-left"
+    : "top-full mt-2 origin-top-left";
+
   return (
     <div className="flex items-center gap-1" aria-label={t("header_controls")}>
       {/* SELECTOR DE IDIOMA */}
@@ -92,10 +98,10 @@ function Controls({ themeMode, setThemeMode, language, setLanguage, t }) {
           <Icon name="chevron_down" className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${isLanguageMenuOpen ? "rotate-180" : ""}`} />
         </button>
 
-        {/* EL MENÚ DESPLEGABLE (AHORA ABRE HACIA ARRIBA CON bottom-full y mb-2) */}
+        {/* EL MENÚ DESPLEGABLE (AHORA ES DINÁMICO) */}
         {isLanguageMenuOpen ? (
           <div
-            className="absolute bottom-full mb-2 left-0 w-44 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-2xl z-[100] py-1.5 origin-bottom-left"
+            className={`absolute left-0 w-44 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-2xl z-[100] py-1.5 ${dropdownPositionClasses}`}
             role="menu"
             aria-label={t("language")}
           >

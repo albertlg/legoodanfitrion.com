@@ -412,7 +412,7 @@ function LandingScreen({
         <div className="flex items-center gap-3 sm:gap-4">
           {/* Controles Desktop */}
           <div className="hidden md:block">
-            <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
+            <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} dropdownDirection="down" />
           </div>
 
           <button
@@ -1041,7 +1041,9 @@ function LandingScreen({
               <BrandMark text="" fallback={t("logo_fallback")} className="w-5 h-5 opacity-50 grayscale" />
               <span className="font-bold tracking-tight text-gray-900 dark:text-white opacity-80">{t("app_name")}</span>
             </div>
-            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">© 2026 Reservados todos los derechos.</p>
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 text-center md:text-left">
+              {t("landing_footer_copyright")}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6">
