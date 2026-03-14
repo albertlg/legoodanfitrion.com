@@ -4960,6 +4960,11 @@ function DashboardScreen({
       return;
     }
 
+    await loadDashboardData();
+    if (savedEventId) {
+      navigateAppPath(`/app/events/${encodeURIComponent(savedEventId)}`);
+      return;
+    }
     setEditingEventId("");
     setEventTitle("");
     setEventType("");
@@ -4975,7 +4980,6 @@ function DashboardScreen({
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventMessage(t("event_created"));
-    await loadDashboardData();
   };
 
   const applyImportedContactsPreview = ({
@@ -6286,14 +6290,18 @@ function DashboardScreen({
     if (savedGuestId) {
       setEditingGuestId(savedGuestId);
       setSelectedGuestDetailId(savedGuestId);
-      navigateAppPath(
-        `/app/guests/${encodeURIComponent(savedGuestId)}/edit/advanced/${encodeURIComponent(routeGuestAdvancedTab)}`
-      );
+      if (successMessageMode === "form") {
+        navigateAppPath(`/app/guests/${encodeURIComponent(savedGuestId)}`);
+      } else {
+        navigateAppPath(
+          `/app/guests/${encodeURIComponent(savedGuestId)}/edit/advanced/${encodeURIComponent(routeGuestAdvancedTab)}`
+        );
+      }
       setGuestLastSavedAt(new Date().toISOString());
       if (avatarUploadWarning) {
         setGuestMessage(`${t("guest_saved_partial_warning")} ${t("guest_photo_storage_warning")} (${avatarUploadWarning})`);
       } else if (successMessageMode === "form") {
-        setGuestMessage(t("guest_created_continue_edit"));
+        setGuestMessage(t("guest_created"));
       } else if (successMessageMode === "step") {
         setGuestMessage(t("guest_step_saved"));
       } else if (successMessageMode === "draft") {
@@ -6921,6 +6929,7 @@ function DashboardScreen({
     setLastInvitationShareSubject(sharePayload?.shareSubject || "");
     setLastInvitationShareText(sharePayload?.shareText || "");
     await loadDashboardData();
+    navigateAppPath("/app/invitations");
   };
 
   const toggleBulkInvitationGuest = (guestId) => {
@@ -7021,6 +7030,7 @@ function DashboardScreen({
         failed: failedCount
       })
     );
+    navigateAppPath("/app/invitations");
   };
 
   const handleCopyInvitationLink = async (url) => {

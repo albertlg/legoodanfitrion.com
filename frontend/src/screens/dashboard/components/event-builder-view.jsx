@@ -453,6 +453,7 @@ export function EventBuilderWizardView(props) {
         eventTypeOptions, eventStatus, eventStartAt,
         setEventStartAt, eventLocationName, setEventLocationName,
         eventLocationAddress, setEventLocationAddress, mapsStatus,
+        addressPredictions, isAddressLoading, handleSelectAddressPrediction,
         selectedPlace, getMapEmbedUrl, eventAllowPlusOne, setEventAllowPlusOne,
         eventAutoReminders, setEventAutoReminders, eventMessage, locationNameOptions,
         locationAddressOptions
@@ -602,9 +603,29 @@ export function EventBuilderWizardView(props) {
                         />
                         {/* Lógica de Google Maps idéntica a tu vista avanzada... */}
                         {mapsStatus === "ready" && eventLocationAddress.trim().length >= 4 ? (
-                            <ul className="mt-2 flex flex-col gap-1 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden shadow-lg">
-                                {/* ... (Misma lógica de sugerencias que arriba) ... */}
+                            <ul className="mt-2 flex flex-col gap-1 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden shadow-lg" role="listbox" aria-label={t("address_suggestions")}>
+                                {isAddressLoading ? <li className="w-full text-left px-4 py-3 text-xs text-gray-500 italic">{t("address_searching")}</li> : null}
+                                {!isAddressLoading && addressPredictions.length === 0 ? (
+                                    <li className="w-full text-left px-4 py-3 text-xs text-gray-500 italic">{t("address_no_matches")}</li>
+                                ) : null}
+                                {addressPredictions.map((prediction) => (
+                                    <li key={prediction.place_id}>
+                                        <button
+                                            type="button"
+                                            className="w-full text-left px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-3"
+                                            onClick={() => handleSelectAddressPrediction(prediction)}
+                                        >
+                                            <Icon name="location" className="w-4 h-4 text-gray-400" />
+                                            {prediction.description}
+                                        </button>
+                                    </li>
+                                ))}
                             </ul>
+                        ) : null}
+
+                        {/* Feedback visual de que Google Maps lo ha validado correctamente */}
+                        {selectedPlace?.placeId ? (
+                            <p className="text-xs font-bold text-green-600 dark:text-green-400 mt-2">{t("address_validated")}</p>
                         ) : null}
                     </label>
 
