@@ -1,6 +1,5 @@
 import { Component } from "react";
-// 🚀 FIX PRERENDER: Importamos hydrateRoot además de createRoot
-import { createRoot, hydrateRoot } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
@@ -58,7 +57,7 @@ try {
     throw new Error("No existe el nodo #root en index.html");
   }
 
-  const appContent = (
+  createRoot(rootNode).render(
     <BootErrorBoundary>
       <HelmetProvider>
         <BrowserRouter>
@@ -67,15 +66,6 @@ try {
       </HelmetProvider>
     </BootErrorBoundary>
   );
-
-  // 🚀 FIX PRERENDER: La magia de la hidratación
-  // Si hay HTML dentro del root (el plugin hizo su trabajo), hidratamos.
-  if (rootNode.hasChildNodes()) {
-    hydrateRoot(rootNode, appContent);
-  } else {
-    // Si está vacío (ej. en local o dev), renderizamos normal.
-    createRoot(rootNode).render(appContent);
-  }
 
 } catch (error) {
   if (rootNode) {
