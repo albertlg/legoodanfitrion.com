@@ -2,35 +2,37 @@ import { Icon } from "../../../components/icons";
 import { EventBuilderView, EventBuilderWizardView } from "./event-builder-view";
 import { EventDetailView } from "./event-detail-view";
 import { EventsListView } from "./events-list-view";
+import { MagicCard } from "./ui/magic-card";
 
 function EventsWorkspaceContainer(props) {
-  const { routeEventsWorkspace, WORKSPACE_ITEMS, t, openWorkspace } = props;
+  const { routeEventsWorkspace, WORKSPACE_ITEMS, t, openWorkspace, events } = props;
+
+  // 🎨 Paleta rotativa para que cada tarjeta tenga un aura distinta
+  const magicColors = ["blue", "purple", "orange"];
 
   return (
     <section className="workspace-shell view-transition">
       {routeEventsWorkspace === "hub" ? (
-        <div className="workspace-card-grid">
+
+        // 🚀 2. Aplicamos un grid de Tailwind perfecto para las MagicCards
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4 md:p-8 w-full max-w-6xl mx-auto">
           {WORKSPACE_ITEMS.events
             .filter((item) => !["hub", "create", "plan"].includes(item.key))
-            .map((workspaceItem) => (
-              <article key={workspaceItem.key} className="workspace-card">
-                <div className="workspace-card-icon">
-                  <Icon name={workspaceItem.icon} className="icon" />
-                </div>
-                <div className="workspace-card-content">
-                  <h3>{t(workspaceItem.labelKey)}</h3>
-                  <p>{t(workspaceItem.descriptionKey)}</p>
-                </div>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  type="button"
-                  onClick={() => openWorkspace("events", workspaceItem.key)}
-                >
-                  {t("workspace_open")}
-                </button>
-              </article>
+            .map((workspaceItem, index) => (
+
+              // 🚀 3. ¡Inyectamos el componente!
+              <MagicCard
+                key={workspaceItem.key}
+                title={t(workspaceItem.labelKey)}
+                subtitle={t(workspaceItem.descriptionKey)}
+                icon={workspaceItem.icon}
+                colorVariant={magicColors[index % magicColors.length]}
+                onClick={() => openWorkspace("events", workspaceItem.key)}
+              />
+
             ))}
         </div>
+
       ) : (
         <div key={`events-${routeEventsWorkspace}`} className="dashboard-grid single-section workspace-content">
           {routeEventsWorkspace === "create" ? (

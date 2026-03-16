@@ -2,6 +2,7 @@ import { Icon } from "../../../components/icons";
 import { GuestBuilderView } from "./guest-builder-view";
 import { GuestDetailView } from "./guest-detail-view";
 import { GuestsListView } from "./guests-list-view";
+import { MagicCard } from "./ui/magic-card";
 
 function GuestsWorkspaceContainer(props) {
   const { routeGuestsWorkspace, WORKSPACE_ITEMS, t, openWorkspace } = props;
@@ -9,25 +10,23 @@ function GuestsWorkspaceContainer(props) {
   return (
     <section className="workspace-shell view-transition">
       {routeGuestsWorkspace === "hub" ? (
-        <div className="workspace-card-grid">
-          {WORKSPACE_ITEMS.guests.filter((item) => item.key !== "hub" && item.key !== "create").map((workspaceItem) => (
-            <article key={workspaceItem.key} className="workspace-card">
-              <div className="workspace-card-icon">
-                <Icon name={workspaceItem.icon} className="icon" />
-              </div>
-              <div className="workspace-card-content">
-                <h3>{t(workspaceItem.labelKey)}</h3>
-                <p>{t(workspaceItem.descriptionKey)}</p>
-              </div>
-              <button
-                className="btn btn-ghost btn-sm"
-                type="button"
-                onClick={() => openWorkspace("guests", workspaceItem.key)}
-              >
-                {t("workspace_open")}
-              </button>
-            </article>
-          ))}
+        /* NUEVO HUB DE INVITADOS CON MAGIC CARDS */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4 md:p-8 w-full max-w-6xl mx-auto">
+          {WORKSPACE_ITEMS.guests
+            .filter((item) => item.key !== "hub" && item.key !== "create")
+            .map((workspaceItem, index) => {
+              const magicColors = ["blue", "purple", "orange"];
+              return (
+                <MagicCard
+                  key={workspaceItem.key}
+                  title={t(workspaceItem.labelKey)}
+                  subtitle={t(workspaceItem.descriptionKey)}
+                  icon={workspaceItem.icon}
+                  colorVariant={magicColors[index % magicColors.length]}
+                  onClick={() => openWorkspace("guests", workspaceItem.key)}
+                />
+              );
+            })}
         </div>
       ) : (
         <div key={`guests-${routeGuestsWorkspace}`} className="dashboard-grid single-section workspace-content">
