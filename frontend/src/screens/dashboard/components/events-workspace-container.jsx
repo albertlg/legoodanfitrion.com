@@ -5,7 +5,7 @@ import { EventsListView } from "./events-list-view";
 import { MagicCard } from "./ui/magic-card";
 
 function EventsWorkspaceContainer(props) {
-  const { routeEventsWorkspace, WORKSPACE_ITEMS, t, openWorkspace, events } = props;
+  const { routeEventsWorkspace, WORKSPACE_ITEMS, t, openWorkspace } = props;
 
   // 🎨 Paleta rotativa para que cada tarjeta tenga un aura distinta
   const magicColors = ["blue", "purple", "orange"];

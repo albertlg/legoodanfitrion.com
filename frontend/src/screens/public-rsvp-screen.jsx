@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -45,7 +46,231 @@ function isLegacyRsvpFunctionError(error) {
   );
 }
 
+function trackPlgEvent(eventName, payload = {}) {
+  try {
+    const safePayload = payload && typeof payload === "object" ? payload : {};
+    // Placeholder de analíticas: en la próxima iteración se conectará al provider real.
+    console.log("[analytics][plg]", eventName, safePayload);
+  } catch {
+    // noop
+  }
+}
+
+function RsvpFormView({
+  t,
+  status,
+  setStatus,
+  guestName,
+  setGuestName,
+  plusOne,
+  setPlusOne,
+  dietaryNeeds,
+  dietaryOptions,
+  toggleDietaryNeed,
+  note,
+  setNote,
+  handleSubmit,
+  isSubmitting,
+  submitMessage
+}) {
+  return (
+    <form className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8 relative z-20" onSubmit={handleSubmit} aria-labelledby="rsvp-form-title">
+      <h2 id="rsvp-form-title" className="text-xl font-black text-gray-900 dark:text-white text-center pb-4 border-b border-black/5 dark:border-white/10">
+        {t("rsvp_title")}
+      </h2>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
+          <Icon name="user" className="w-3.5 h-3.5" />
+          {t("rsvp_name_optional")}
+        </span>
+        <input
+          type="text"
+          className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
+          value={guestName}
+          onChange={(event) => setGuestName(event.target.value)}
+          maxLength={120}
+        />
+      </label>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
+          <Icon name="check" className="w-3.5 h-3.5" />
+          {t("rsvp_question")}
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={t("rsvp_question")}>
+          <button
+            type="button"
+            className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "yes" ? "bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-500 dark:text-green-300 ring-4 ring-green-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-green-200 hover:bg-green-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-green-900/50 dark:hover:bg-green-900/10"}`}
+            aria-pressed={status === "yes"}
+            onClick={() => setStatus("yes")}
+          >
+            {statusText(t, "yes")}
+          </button>
+          <button
+            type="button"
+            className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "maybe" ? "bg-yellow-50 border-yellow-500 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-500 dark:text-yellow-300 ring-4 ring-yellow-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-yellow-200 hover:bg-yellow-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-yellow-900/50 dark:hover:bg-yellow-900/10"}`}
+            aria-pressed={status === "maybe"}
+            onClick={() => setStatus("maybe")}
+          >
+            {statusText(t, "maybe")}
+          </button>
+          <button
+            type="button"
+            className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "no" ? "bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-500 dark:text-red-300 ring-4 ring-red-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-red-200 hover:bg-red-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-red-900/50 dark:hover:bg-red-900/10"}`}
+            aria-pressed={status === "no"}
+            onClick={() => setStatus("no")}
+          >
+            {statusText(t, "no")}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 p-4 bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/5 rounded-2xl">
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-bold text-gray-900 dark:text-white">{t("rsvp_plus_one_question")}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("rsvp_plus_one_hint")}</span>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer mt-1 shrink-0">
+          <input
+            type="checkbox"
+            className="sr-only peer"
+            checked={plusOne}
+            onChange={(event) => setPlusOne(event.target.checked)}
+          />
+          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">{t("rsvp_dietary_label")}</p>
+        <div className="flex flex-wrap gap-2">
+          {dietaryOptions.map((optionItem) => {
+            const isActive = dietaryNeeds.includes(optionItem.value);
+            return (
+              <button
+                key={optionItem.value}
+                type="button"
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
+                onClick={() => toggleDietaryNeed(optionItem.value)}
+                aria-pressed={isActive}
+              >
+                {optionItem.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
+          <Icon name="mail" className="w-3.5 h-3.5" />
+          {t("rsvp_note_optional")}
+        </span>
+        <textarea
+          className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none resize-none"
+          rows="3"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder={t("rsvp_note_placeholder")}
+          maxLength={500}
+        />
+      </label>
+
+      <div className="pt-4 border-t border-black/5 dark:border-white/10">
+        <button
+          className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-lg rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed disabled:hover:shadow-none"
+          type="submit"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? t("submitting_rsvp") : t("submit_rsvp")}
+        </button>
+        {submitMessage ? (
+          <div className="mt-4 flex justify-center">
+            <InlineMessage text={submitMessage} />
+          </div>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function RsvpSuccessView({ t, onOpenGlobalGuestProfile, onOpenHostApp }) {
+  return (
+    <section className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8 relative z-20">
+
+      {/* 1. MENSAJE DE ÉXITO (Validación) */}
+      <div className="flex flex-col items-center text-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/30 flex items-center justify-center shadow-sm">
+          <Icon name="check" className="w-6 h-6 text-green-700 dark:text-green-300" />
+        </div>
+        <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          {t("rsvp_success_title")}
+        </h2>
+        <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 max-w-xl">
+          {t("rsvp_success_subtitle")}
+        </p>
+      </div>
+
+      {/* 2. 🚀 TARJETA PLG (Estilo Magic Card) */}
+      <div className="relative w-full rounded-[2rem] border border-black/10 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden group bg-gray-50 dark:bg-gray-900 mx-auto text-left">
+
+        {/* LA MAGIA: Bolas de color giratorias en el fondo */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-40 dark:opacity-30 mix-blend-multiply dark:mix-blend-screen transition-opacity duration-700">
+          <div
+            className="absolute -top-10 -left-10 w-64 h-64 rounded-full bg-gradient-to-tr from-blue-400 to-purple-400 blur-3xl animate-spin"
+            style={{ animationDuration: "15s" }}
+          ></div>
+          <div
+            className="absolute top-20 right-10 w-48 h-48 rounded-full bg-gradient-to-tr from-orange-300 to-pink-400 blur-3xl animate-spin"
+            style={{ animationDuration: "20s", animationDirection: "reverse" }}
+          ></div>
+        </div>
+
+        {/* CAPA DE CRISTAL: Glassmorphism */}
+        <div className="absolute inset-0 backdrop-blur-[60px] bg-white/60 dark:bg-black/40 z-0"></div>
+
+        {/* CONTENIDO REAL DE LA TARJETA */}
+        <div className="relative z-10 flex flex-col w-full h-full p-6 md:p-8 gap-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400 drop-shadow-sm">
+            {t("rsvp_plg_card_kicker")}
+          </p>
+          <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight">
+            {t("rsvp_plg_card_title")}
+          </h3>
+          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-w-md">
+            {t("rsvp_plg_card_description")}
+          </p>
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={onOpenGlobalGuestProfile}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg hover:shadow-blue-500/30"
+            >
+              <Icon name="sparkle" className="w-4 h-4" />
+              {t("rsvp_plg_primary_cta")}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. CTA SECUNDARIO (Convertirse en Anfitrión) */}
+      <div className="flex justify-center mt-2">
+        <button
+          type="button"
+          onClick={onOpenHostApp}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white/70 hover:bg-white dark:bg-black/20 dark:hover:bg-black/30 text-gray-900 dark:text-white font-bold text-sm transition-colors shadow-sm"
+        >
+          <Icon name="calendar" className="w-4 h-4" />
+          {t("rsvp_plg_secondary_cta")}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMode, t }) {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [invitation, setInvitation] = useState(null);
@@ -56,6 +281,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [dietaryNeeds, setDietaryNeeds] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+  const [isRsvpSaved, setIsRsvpSaved] = useState(false);
 
   const invitationLocation = String(
     invitation?.event_location_name ||
@@ -116,6 +342,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setNote(typeof first.response_note === "string" ? first.response_note : "");
       setPlusOne(Boolean(first.rsvp_plus_one));
       setDietaryNeeds(parseDietaryNeeds(first.rsvp_dietary_needs));
+      setIsRsvpSaved(false);
       setIsLoading(false);
     };
     load();
@@ -160,11 +387,19 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
     setIsSubmitting(false);
     if (error) {
+      setIsRsvpSaved(false);
       setSubmitMessage(`${t("error_submit_rsvp")} ${error.message}`);
       return;
     }
 
     setSubmitMessage(t("rsvp_saved"));
+    setIsRsvpSaved(true);
+    trackPlgEvent("rsvp_submitted_success", {
+      token,
+      status,
+      plusOne,
+      dietaryNeedsCount: dietaryNeeds.length
+    });
     if (data?.[0]) {
       setInvitation((prev) => ({
         ...prev,
@@ -190,6 +425,24 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
   const toggleDietaryNeed = (value) => {
     setDietaryNeeds((previous) => (previous.includes(value) ? previous.filter((item) => item !== value) : [...previous, value]));
+  };
+
+  const handleOpenGlobalGuestProfile = () => {
+    trackPlgEvent("rsvp_to_host_cta_click", {
+      token,
+      destination: "/login",
+      source: "rsvp_success"
+    });
+    navigate("/login");
+  };
+
+  const handleOpenHostApp = () => {
+    trackPlgEvent("rsvp_host_create_event_click", {
+      token,
+      destination: "/app/events/new",
+      source: "rsvp_success"
+    });
+    navigate("/app/events/new");
   };
 
   const statusColors = {
@@ -293,130 +546,31 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               </div>
             </article>
 
-            {/* FORMULARIO RSVP */}
-            <form className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8 relative z-20" onSubmit={handleSubmit} aria-labelledby="rsvp-form-title">
-              <h2 id="rsvp-form-title" className="text-xl font-black text-gray-900 dark:text-white text-center pb-4 border-b border-black/5 dark:border-white/10">
-                {t("rsvp_title")}
-              </h2>
-
-              <label className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
-                  <Icon name="user" className="w-3.5 h-3.5" />
-                  {t("rsvp_name_optional")}
-                </span>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
-                  value={guestName}
-                  onChange={(event) => setGuestName(event.target.value)}
-                  maxLength={120}
-                />
-              </label>
-
-              {/* Botones Sí/No gigantes */}
-              <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
-                  <Icon name="check" className="w-3.5 h-3.5" />
-                  {t("rsvp_question")}
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={t("rsvp_question")}>
-                  <button
-                    type="button"
-                    className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "yes" ? "bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-500 dark:text-green-300 ring-4 ring-green-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-green-200 hover:bg-green-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-green-900/50 dark:hover:bg-green-900/10"}`}
-                    aria-pressed={status === "yes"}
-                    onClick={() => setStatus("yes")}
-                  >
-                    {statusText(t, "yes")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "maybe" ? "bg-yellow-50 border-yellow-500 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-500 dark:text-yellow-300 ring-4 ring-yellow-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-yellow-200 hover:bg-yellow-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-yellow-900/50 dark:hover:bg-yellow-900/10"}`}
-                    aria-pressed={status === "maybe"}
-                    onClick={() => setStatus("maybe")}
-                  >
-                    {statusText(t, "maybe")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "no" ? "bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-500 dark:text-red-300 ring-4 ring-red-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-red-200 hover:bg-red-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-red-900/50 dark:hover:bg-red-900/10"}`}
-                    aria-pressed={status === "no"}
-                    onClick={() => setStatus("no")}
-                  >
-                    {statusText(t, "no")}
-                  </button>
-                </div>
-              </div>
-
-              {/* Toggle Plus One (Solo visible si el host lo habilitó) */}
-              <div className="flex items-start justify-between gap-4 p-4 bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/5 rounded-2xl">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">{t("rsvp_plus_one_question")}</span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("rsvp_plus_one_hint")}</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer mt-1 shrink-0">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={plusOne}
-                    onChange={(event) => setPlusOne(event.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              {/* Dieta */}
-              <div className="flex flex-col gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">{t("rsvp_dietary_label")}</p>
-                <div className="flex flex-wrap gap-2">
-                  {dietaryOptions.map((optionItem) => {
-                    const isActive = dietaryNeeds.includes(optionItem.value);
-                    return (
-                      <button
-                        key={optionItem.value}
-                        type="button"
-                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
-                        onClick={() => toggleDietaryNeed(optionItem.value)}
-                        aria-pressed={isActive}
-                      >
-                        {optionItem.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Notas */}
-              <label className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
-                  <Icon name="mail" className="w-3.5 h-3.5" />
-                  {t("rsvp_note_optional")}
-                </span>
-                <textarea
-                  className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none resize-none"
-                  rows="3"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder={t("rsvp_note_placeholder")}
-                  maxLength={500}
-                />
-              </label>
-
-              {/* Botón Enviar */}
-              <div className="pt-4 border-t border-black/5 dark:border-white/10">
-                <button
-                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-lg rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed disabled:hover:shadow-none"
-                  type="submit"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? t("submitting_rsvp") : t("submit_rsvp")}
-                </button>
-                {submitMessage ? (
-                  <div className="mt-4 flex justify-center">
-                    <InlineMessage text={submitMessage} />
-                  </div>
-                ) : null}
-              </div>
-            </form>
+            {isRsvpSaved ? (
+              <RsvpSuccessView
+                t={t}
+                onOpenGlobalGuestProfile={handleOpenGlobalGuestProfile}
+                onOpenHostApp={handleOpenHostApp}
+              />
+            ) : (
+              <RsvpFormView
+                t={t}
+                status={status}
+                setStatus={setStatus}
+                guestName={guestName}
+                setGuestName={setGuestName}
+                plusOne={plusOne}
+                setPlusOne={setPlusOne}
+                dietaryNeeds={dietaryNeeds}
+                dietaryOptions={dietaryOptions}
+                toggleDietaryNeed={toggleDietaryNeed}
+                note={note}
+                setNote={setNote}
+                handleSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                submitMessage={submitMessage}
+              />
+            )}
           </>
         ) : null}
 
