@@ -52,6 +52,13 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/ai", aiPlannerRoute);
 
-app.listen(port, () => {
-  console.log(`[backend] listening on http://localhost:${port}`);
-});
+// --- ESTE ES EL TRUCO PARA QUE FUNCIONE EN AMBOS ---
+
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`[backend] Motor encendido en http://localhost:${port}`);
+  });
+}
+
+// Exportación necesaria para Vercel
+export default app;
