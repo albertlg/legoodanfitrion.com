@@ -4,7 +4,7 @@ import createImageUrlBuilder from '@sanity/image-url';
 export const sanityClient = createClient({
     projectId: 'bmf59j7w', // El ID de tu proyecto que vimos en las capturas
     dataset: 'production',
-    useCdn: false, // Usa la caché global de Sanity para que la web vuele
+    useCdn: true, // Usa la caché global de Sanity para que la web vuele
     apiVersion: '2024-03-18', // Ponemos la fecha de hoy para fijar la versión de la API
 });
 
