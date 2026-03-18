@@ -485,19 +485,43 @@ export function HostPlanView({
                         {groupItem.items.map((shoppingItem) => {
                           const isChecked = selectedEventShoppingCheckedSet.has(shoppingItem.id);
                           return (
-                            <li key={shoppingItem.id} className={`flex items-start justify-between gap-3 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/50 dark:hover:bg-black/20 ${isChecked ? "opacity-60" : ""}`} onClick={() => handleToggleEventPlannerShoppingItem(shoppingItem.id)}>
-                              <div className="flex items-start gap-3 min-w-0">
+                            <li
+                              key={shoppingItem.id}
+                              className={`flex items-start gap-3 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/50 dark:hover:bg-black/20 ${isChecked ? "opacity-60" : ""}`}
+                              onClick={() => handleToggleEventPlannerShoppingItem(shoppingItem.id)}
+                            >
+                              {/* 1. Checkbox a la izquierda, bloqueado para que no se encoja */}
+                              <div className="mt-0.5 shrink-0">
                                 <input
                                   type="checkbox"
-                                  className="mt-0.5 w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer pointer-events-none"
+                                  className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer pointer-events-none"
                                   checked={isChecked}
                                   readOnly
                                 />
-                                <span className={`text-sm font-medium transition-all ${isChecked ? "text-gray-500 line-through" : "text-gray-800 dark:text-gray-200"}`}>{shoppingItem.name}</span>
                               </div>
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className="px-2 py-0.5 bg-black/5 dark:bg-white/10 rounded-md text-[10px] font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">{shoppingItem.quantity}</span>
-                                {shoppingItem.warning ? <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-md text-[9px] font-bold whitespace-nowrap">{shoppingItem.warning}</span> : null}
+
+                              {/* 2. Contenedor principal en columna */}
+                              <div className="flex flex-col flex-1 min-w-0 gap-1.5">
+
+                                {/* Fila A: Nombre y Cantidad */}
+                                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                                  <span className={`text-sm font-medium transition-all leading-snug ${isChecked ? "text-gray-500 line-through" : "text-gray-800 dark:text-gray-200"}`}>
+                                    {shoppingItem.name}
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-black/5 dark:bg-white/10 rounded-md text-[10px] font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 mt-0.5">
+                                    {shoppingItem.quantity}
+                                  </span>
+                                </div>
+
+                                {/* Fila B: Etiqueta roja de advertencia (Si existe) */}
+                                {shoppingItem.warning ? (
+                                  <div className="flex">
+                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-md text-[10px] font-bold leading-tight inline-block">
+                                      {shoppingItem.warning}
+                                    </span>
+                                  </div>
+                                ) : null}
+
                               </div>
                             </li>
                           );
