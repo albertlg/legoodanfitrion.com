@@ -65,6 +65,13 @@ export function HostPlanView({
   const generatingScope = String(selectedEventPlannerGenerationState?.scope || "");
   const isGeneratingAll = isGenerating && generatingScope === "all";
   const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
+  const regenerationTabScope = plannerTabs.some((tabItem) => tabItem.key === eventDetailPlannerTab)
+    ? eventDetailPlannerTab
+    : "menu";
+  const handleRegenerateCurrentTabClick = () => {
+    console.log("Botón regenerar pulsado. Scope enviado:", regenerationTabScope);
+    handleRegenerateEventPlanner(regenerationTabScope);
+  };
   const selectedPlannerVersionValue = String(
     Number(selectedEventPlannerSnapshotVersion || selectedEventPlannerSnapshotHistory?.[0]?.version || 0) || ""
   );
@@ -374,7 +381,7 @@ export function HostPlanView({
           <button
             className="hidden sm:flex bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-2 px-4 rounded-xl transition-all text-xs shadow-sm items-center justify-center gap-1.5 shrink-0"
             type="button"
-            onClick={() => handleRegenerateEventPlanner(eventDetailPlannerTab)}
+            onClick={handleRegenerateCurrentTabClick}
             disabled={isGenerating}
           >
             <Icon name="sparkle" className="w-3.5 h-3.5" />

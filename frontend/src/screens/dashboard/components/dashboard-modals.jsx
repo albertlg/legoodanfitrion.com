@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import { AILoader } from "../../../components/ai-loader";
 
 const EventPlannerContextModal = lazy(() =>
   import("./event-planner-context-modal").then((module) => ({
@@ -146,6 +147,8 @@ function DashboardModals(props) {
 
   return (
     <>
+      <AILoader t={t} isVisible={Boolean(selectedEventPlannerGenerationState?.isGenerating)} />
+
       {isImportWizardOpen ? (
         <Suspense fallback={null}>
           <ImportContactsWizardModal

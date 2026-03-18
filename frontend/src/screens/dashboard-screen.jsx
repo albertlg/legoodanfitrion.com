@@ -12,6 +12,7 @@ import {
   toCatalogLabels
 } from "../lib/guest-catalogs";
 import { buildAppUrl } from "../lib/app-url";
+import { requestEventPlannerAI } from "../lib/ai-planner-client";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
@@ -109,6 +110,158 @@ const InvitationsWorkspaceContainer = lazy(() =>
     default: module.InvitationsWorkspaceContainer
   }))
 );
+
+function toPlannerText(value, fallback = "") {
+  const normalized = String(value || "").trim();
+  return normalized || fallback;
+}
+
+function toPlannerArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function toPlannerObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeAiPlannerResult(aiPayload, { fallbackSections = {}, fallbackAlerts = {} } = {}) {
+  const mealPlan = toPlannerObject(aiPayload?.mealPlan);
+  const shoppingList = toPlannerObject(aiPayload?.shoppingList);
+  const playbook = toPlannerObject(aiPayload?.playbook);
+  const fallbackMenu = toPlannerObject(fallbackSections?.menu);
+  const fallbackShopping = toPlannerObject(fallbackSections?.shopping);
+  const fallbackAmbience = toPlannerObject(fallbackSections?.ambience);
+  const fallbackTimings = toPlannerObject(fallbackSections?.timings);
+  const fallbackCommunication = toPlannerObject(fallbackSections?.communication);
+  const fallbackRisks = toPlannerObject(fallbackSections?.risks);
+
+  const menuSections = toPlannerArray(mealPlan.menuSections).map((section, index) => {
+    const safeSection = toPlannerObject(section);
+    return {
+      id: toPlannerText(safeSection.id, `m${index + 1}`),
+      title: toPlannerText(safeSection.title, `Sección ${index + 1}`),
+      items: toPlannerArray(safeSection.items).map((item) => toPlannerText(item)).filter(Boolean)
+    };
+  });
+
+  const shoppingGroups = toPlannerArray(shoppingList.groups).map((group, groupIndex) => {
+    const safeGroup = toPlannerObject(group);
+    return {
+      id: toPlannerText(safeGroup.id, `g${groupIndex + 1}`),
+      title: toPlannerText(safeGroup.title, `Grupo ${groupIndex + 1}`),
+      items: toPlannerArray(safeGroup.items).map((item, itemIndex) => {
+        const safeItem = toPlannerObject(item);
+        return {
+          id: toPlannerText(safeItem.id, `s${groupIndex + 1}-${itemIndex + 1}`),
+          name: toPlannerText(safeItem.name, "Ingrediente"),
+          quantity: toPlannerText(safeItem.quantity, "1 ud"),
+          warning: toPlannerText(safeItem.warning)
+        };
+      })
+    };
+  });
+
+  const shoppingChecklist = shoppingGroups.flatMap((groupItem) =>
+    (groupItem.items || []).map((item) => `${item.name}${item.quantity ? ` (${item.quantity})` : ""}`)
+  );
+
+  const estimatedCostRange = toPlannerObject(shoppingList.estimatedCostRange);
+  const estimatedCostMin = Number(estimatedCostRange.min || 0);
+  const estimatedCostMax = Number(estimatedCostRange.max || 0);
+  const estimatedCost = Number.isFinite(estimatedCostMin) && Number.isFinite(estimatedCostMax)
+    ? Math.max(0, Math.round((Math.max(0, estimatedCostMin) + Math.max(0, estimatedCostMax)) / 2))
+    : Number(fallbackShopping.estimatedCost || 0);
+
+  const timeline = toPlannerArray(playbook.timeline).map((item, index) => {
+    const safeItem = toPlannerObject(item);
+    return {
+      id: toPlannerText(safeItem.id, `t${index + 1}`),
+      title: toPlannerText(safeItem.title, `Paso ${index + 1}`),
+      detail: toPlannerText(safeItem.detail)
+    };
+  });
+  const messages = toPlannerArray(playbook.messages).map((item, index) => {
+    const safeItem = toPlannerObject(item);
+    return {
+      id: toPlannerText(safeItem.id, `ms${index + 1}`),
+      title: toPlannerText(safeItem.title, `Mensaje ${index + 1}`),
+      text: toPlannerText(safeItem.text)
+    };
+  });
+  const risks = toPlannerArray(playbook.risks).map((item, index) => {
+    const safeItem = toPlannerObject(item);
+    const normalizedLevel = toPlannerText(safeItem.level, "maybe").toLowerCase();
+    const safeLevel = ["yes", "no", "maybe", "pending"].includes(normalizedLevel) ? normalizedLevel : "maybe";
+    return {
+      id: toPlannerText(safeItem.id, `r${index + 1}`),
+      label: toPlannerText(safeItem.label, `Riesgo ${index + 1}`),
+      detail: toPlannerText(safeItem.detail),
+      level: safeLevel
+    };
+  });
+
+  const nextSections = {
+    menu: {
+      menuSections: menuSections.length > 0 ? menuSections : toPlannerArray(fallbackMenu.menuSections),
+      recipeCards: toPlannerArray(fallbackMenu.recipeCards),
+      contextSummary: toPlannerText(mealPlan.contextSummary, toPlannerText(fallbackMenu.contextSummary))
+    },
+    shopping: {
+      shoppingGroups: shoppingGroups.length > 0 ? shoppingGroups : toPlannerArray(fallbackShopping.shoppingGroups),
+      shoppingChecklist: shoppingChecklist.length > 0 ? shoppingChecklist : toPlannerArray(fallbackShopping.shoppingChecklist),
+      estimatedCost
+    },
+    ambience: {
+      acceptanceRate: toPlannerText(playbook.acceptanceRate, toPlannerText(fallbackAmbience.acceptanceRate, "0%")),
+      actionableItems:
+        toPlannerArray(playbook.actionableItems).map((item) => toPlannerText(item)).filter(Boolean).length > 0
+          ? toPlannerArray(playbook.actionableItems).map((item) => toPlannerText(item)).filter(Boolean)
+          : toPlannerArray(fallbackAmbience.actionableItems),
+      ambience:
+        toPlannerArray(playbook.ambience).map((item) => toPlannerText(item)).filter(Boolean).length > 0
+          ? toPlannerArray(playbook.ambience).map((item) => toPlannerText(item)).filter(Boolean)
+          : toPlannerArray(fallbackAmbience.ambience),
+      conversation:
+        toPlannerArray(playbook.conversation).map((item) => toPlannerText(item)).filter(Boolean).length > 0
+          ? toPlannerArray(playbook.conversation).map((item) => toPlannerText(item)).filter(Boolean)
+          : toPlannerArray(fallbackAmbience.conversation)
+    },
+    timings: {
+      timeline: timeline.length > 0 ? timeline : toPlannerArray(fallbackTimings.timeline)
+    },
+    communication: {
+      messages: messages.length > 0 ? messages : toPlannerArray(fallbackCommunication.messages)
+    },
+    risks: {
+      risks: risks.length > 0 ? risks : toPlannerArray(fallbackRisks.risks)
+    }
+  };
+
+  const riskCriticalLabels = risks
+    .filter((riskItem) => ["no", "yes"].includes(String(riskItem.level || "").toLowerCase()))
+    .map((riskItem) => riskItem.label);
+  const shoppingWarnings = shoppingGroups.flatMap((groupItem) =>
+    (groupItem.items || []).map((item) => item.warning).filter(Boolean)
+  );
+
+  const nextAlerts = {
+    critical: uniqueValues([
+      ...toPlannerArray(fallbackAlerts.critical).map((item) => toPlannerText(item)).filter(Boolean),
+      ...riskCriticalLabels,
+      ...shoppingWarnings
+    ]).slice(0, 8),
+    warning: uniqueValues([
+      ...toPlannerArray(fallbackAlerts.warning).map((item) => toPlannerText(item)).filter(Boolean),
+      ...toPlannerArray(playbook.actionableItems).map((item) => toPlannerText(item)).filter(Boolean),
+      ...risks.map((item) => item.detail).filter(Boolean)
+    ]).slice(0, 8)
+  };
+
+  return {
+    sections: nextSections,
+    alerts: nextAlerts
+  };
+}
 
 function DashboardScreen({
   t,
@@ -2280,9 +2433,53 @@ function DashboardScreen({
       Number(selectedEventPlannerTabSeed.risks || 0),
     [selectedEventPlannerVariantSeed, selectedEventPlannerTabSeed]
   );
+  const selectedEventPlannerSnapshotState = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return null;
+    }
+    return eventPlannerSnapshotsByEventId[selectedEventDetail.id] || null;
+  }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id]);
   const selectedEventMealPlan = useMemo(
-    () => buildEventMealPlan(selectedEventInsightsEffective, selectedEventPlannerContextEffective, t, selectedEventMealPlanSeed),
-    [selectedEventInsightsEffective, selectedEventPlannerContextEffective, selectedEventMealPlanSeed, t]
+    () => {
+      const fallbackMealPlan = buildEventMealPlan(
+        selectedEventInsightsEffective,
+        selectedEventPlannerContextEffective,
+        t,
+        selectedEventMealPlanSeed
+      );
+      const snapshotSections = selectedEventPlannerSnapshotState?.sections;
+      if (!snapshotSections || typeof snapshotSections !== "object") {
+        return fallbackMealPlan;
+      }
+      const menuSection = toPlannerObject(snapshotSections.menu);
+      const shoppingSection = toPlannerObject(snapshotSections.shopping);
+      const snapshotCritical = toPlannerArray(selectedEventPlannerSnapshotState?.alerts?.critical);
+      return {
+        ...fallbackMealPlan,
+        contextSummary: toPlannerText(menuSection.contextSummary, fallbackMealPlan.contextSummary),
+        menuSections: toPlannerArray(menuSection.menuSections).length > 0
+          ? toPlannerArray(menuSection.menuSections)
+          : fallbackMealPlan.menuSections,
+        shoppingGroups: toPlannerArray(shoppingSection.shoppingGroups).length > 0
+          ? toPlannerArray(shoppingSection.shoppingGroups)
+          : fallbackMealPlan.shoppingGroups,
+        shoppingChecklist: toPlannerArray(shoppingSection.shoppingChecklist).length > 0
+          ? toPlannerArray(shoppingSection.shoppingChecklist)
+          : fallbackMealPlan.shoppingChecklist,
+        estimatedCost: Number(shoppingSection.estimatedCost || fallbackMealPlan.estimatedCost || 0),
+        restrictions: uniqueValues([
+          ...toPlannerArray(fallbackMealPlan.restrictions),
+          ...snapshotCritical.map((item) => toPlannerText(item)).filter(Boolean)
+        ]).slice(0, 8)
+      };
+    },
+    [
+      selectedEventInsightsEffective,
+      selectedEventPlannerContextEffective,
+      selectedEventMealPlanSeed,
+      selectedEventPlannerSnapshotState,
+      t
+    ]
   );
   const selectedEventConfirmedGuestRows = useMemo(
     () => selectedEventDetailGuests.filter((row) => String(row.invitation?.status || "").toLowerCase() === "yes"),
@@ -2507,8 +2704,8 @@ function DashboardScreen({
     ]
   );
   const selectedEventHostPlaybook = useMemo(
-    () =>
-      buildEventHostPlaybook({
+    () => {
+      const fallbackPlaybook = buildEventHostPlaybook({
         eventDetail: selectedEventDetail,
         eventContext: selectedEventPlannerContextEffective,
         eventInsights: selectedEventInsightsEffective,
@@ -2518,7 +2715,38 @@ function DashboardScreen({
         variantSeed: selectedEventHostPlanSeed,
         language,
         t
-      }),
+      });
+      const snapshotSections = selectedEventPlannerSnapshotState?.sections;
+      if (!snapshotSections || typeof snapshotSections !== "object") {
+        return fallbackPlaybook;
+      }
+      const ambienceSection = toPlannerObject(snapshotSections.ambience);
+      const timingsSection = toPlannerObject(snapshotSections.timings);
+      const communicationSection = toPlannerObject(snapshotSections.communication);
+      const risksSection = toPlannerObject(snapshotSections.risks);
+      return {
+        ...fallbackPlaybook,
+        acceptanceRate: toPlannerText(ambienceSection.acceptanceRate, fallbackPlaybook.acceptanceRate),
+        actionableItems: toPlannerArray(ambienceSection.actionableItems).length > 0
+          ? toPlannerArray(ambienceSection.actionableItems)
+          : fallbackPlaybook.actionableItems,
+        ambience: toPlannerArray(ambienceSection.ambience).length > 0
+          ? toPlannerArray(ambienceSection.ambience)
+          : fallbackPlaybook.ambience,
+        conversation: toPlannerArray(ambienceSection.conversation).length > 0
+          ? toPlannerArray(ambienceSection.conversation)
+          : fallbackPlaybook.conversation,
+        timeline: toPlannerArray(timingsSection.timeline).length > 0
+          ? toPlannerArray(timingsSection.timeline)
+          : fallbackPlaybook.timeline,
+        messages: toPlannerArray(communicationSection.messages).length > 0
+          ? toPlannerArray(communicationSection.messages)
+          : fallbackPlaybook.messages,
+        risks: toPlannerArray(risksSection.risks).length > 0
+          ? toPlannerArray(risksSection.risks)
+          : fallbackPlaybook.risks
+      };
+    },
     [
       selectedEventDetail,
       selectedEventPlannerContextEffective,
@@ -2527,10 +2755,43 @@ function DashboardScreen({
       selectedEventCriticalRestrictions,
       selectedEventHealthAlerts,
       selectedEventHostPlanSeed,
+      selectedEventPlannerSnapshotState,
       language,
       t
     ]
   );
+  const latestPlannerViewRef = useRef({
+    eventId: "",
+    mealPlan: null,
+    hostPlaybook: null,
+    estimatedCostRange: { min: 0, max: 0 },
+    shoppingCheckedSet: new Set()
+  });
+  useEffect(() => {
+    if (!selectedEventDetail?.id) {
+      latestPlannerViewRef.current = {
+        eventId: "",
+        mealPlan: null,
+        hostPlaybook: null,
+        estimatedCostRange: { min: 0, max: 0 },
+        shoppingCheckedSet: new Set()
+      };
+      return;
+    }
+    latestPlannerViewRef.current = {
+      eventId: selectedEventDetail.id,
+      mealPlan: selectedEventMealPlan,
+      hostPlaybook: selectedEventHostPlaybook,
+      estimatedCostRange: selectedEventEstimatedCostRange,
+      shoppingCheckedSet: new Set(selectedEventShoppingCheckedSet)
+    };
+  }, [
+    selectedEventDetail?.id,
+    selectedEventMealPlan,
+    selectedEventHostPlaybook,
+    selectedEventEstimatedCostRange,
+    selectedEventShoppingCheckedSet
+  ]);
   const selectedEventHostMessagesText = useMemo(() => {
     if (!selectedEventHostPlaybook?.messages?.length) {
       return "";
@@ -2540,12 +2801,6 @@ function DashboardScreen({
       ...selectedEventHostPlaybook.messages.map((item) => `${item.title}\n${item.text}`)
     ].join("\n\n");
   }, [selectedEventHostPlaybook, t]);
-  const selectedEventPlannerSnapshotState = useMemo(() => {
-    if (!selectedEventDetail?.id) {
-      return null;
-    }
-    return eventPlannerSnapshotsByEventId[selectedEventDetail.id] || null;
-  }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id]);
   const selectedEventPlannerSnapshotHistory = useMemo(() => {
     if (!selectedEventDetail?.id) {
       return [];
@@ -4255,6 +4510,9 @@ function DashboardScreen({
       if (!supabase || !session?.user?.id || !selectedEventDetail?.id || selectedEventDetail.id !== eventId) {
         return;
       }
+      const normalizedScope = String(scope || "all").trim().toLowerCase();
+      const safeScope = normalizedScope === "all" ? "all" : normalizeHostPlanTab(normalizedScope);
+      const isAllScope = safeScope === "all";
 
       const effectiveSignals = applyPlannerOverrides(
         selectedEventPlannerContext,
@@ -4292,6 +4550,42 @@ function DashboardScreen({
         hostPlaybook: nextHostPlaybook
       });
 
+      const rsvpSignals = selectedEventDetailGuests
+        .map((row) => {
+          const invitationItem = row?.invitation || {};
+          const rsvpStatus = String(invitationItem.status || "pending").trim().toLowerCase();
+          const note = String(
+            invitationItem.response_note ||
+            invitationItem.rsvp_note ||
+            invitationItem.note ||
+            ""
+          ).trim();
+          const dietaryNeeds = Array.isArray(invitationItem.rsvp_dietary_needs)
+            ? invitationItem.rsvp_dietary_needs.map((item) => String(item || "").trim()).filter(Boolean)
+            : [];
+          const plusOne = Boolean(invitationItem.rsvp_plus_one);
+          if (!note && dietaryNeeds.length === 0 && !plusOne) {
+            return null;
+          }
+          return {
+            guestId: String(invitationItem.guest_id || row?.guest?.id || "").trim(),
+            guestName: String(row?.name || t("field_guest")).trim(),
+            status: rsvpStatus || "pending",
+            note,
+            dietaryNeeds,
+            plusOne
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 32);
+      const rsvpNotesSummary = rsvpSignals
+        .map((item) => String(item.note || "").trim())
+        .filter(Boolean)
+        .slice(0, 8);
+      const rsvpNotesInstructions = rsvpNotesSummary.length > 0
+        ? `RSVP notes: ${rsvpNotesSummary.join(" | ")}`
+        : "";
+
       const snapshotContext = {
         eventId,
         preset: effectiveContext.preset || "social",
@@ -4320,37 +4614,248 @@ function DashboardScreen({
           ).slice(0, 8),
           diets: uniqueValues(toCatalogLabels("diet_type", selectedEventDietTypeValues, language)).slice(0, 8)
         },
-        extraInstructions: String(effectiveInsights.additionalInstructions || "").trim()
+        extraInstructions: [String(effectiveInsights.additionalInstructions || "").trim(), rsvpNotesInstructions]
+          .filter(Boolean)
+          .join("\n")
       };
 
-      const latestVersion = Number(eventPlannerSnapshotsByEventId[eventId]?.version || 0);
+      const fallbackAlerts = {
+        critical: nextCriticalRestrictions,
+        warning: (selectedEventHealthAlerts || []).map((item) =>
+          `${item.guestName || t("field_guest")}: ${(item.avoid || []).join(", ")}`
+        )
+      };
+
+      let effectiveSections = sections;
+      let effectiveAlerts = fallbackAlerts;
+      let effectiveSource = "local_heuristic";
+      let effectiveModelMeta = {
+        scope: safeScope,
+        engine: "local-host-plan-v2"
+      };
+
+      try {
+        const latestPlannerView = latestPlannerViewRef.current;
+        const hasFreshPlannerView = Boolean(
+          latestPlannerView?.eventId &&
+          latestPlannerView.eventId === eventId
+        );
+        const sourceMealPlan = hasFreshPlannerView
+          ? latestPlannerView.mealPlan
+          : selectedEventMealPlan;
+        const sourceHostPlaybook = hasFreshPlannerView
+          ? latestPlannerView.hostPlaybook
+          : selectedEventHostPlaybook;
+        const sourceEstimatedCostRange = hasFreshPlannerView
+          ? latestPlannerView.estimatedCostRange
+          : selectedEventEstimatedCostRange;
+        const sourceShoppingCheckedSet = hasFreshPlannerView
+          ? latestPlannerView.shoppingCheckedSet
+          : selectedEventShoppingCheckedSet;
+
+        const snapshotSectionsForMerge = toPlannerObject(selectedEventPlannerSnapshotState?.sections);
+        const snapshotAlertsForMerge = toPlannerObject(selectedEventPlannerSnapshotState?.alerts);
+        const hasSnapshotSectionsForMerge = Object.keys(snapshotSectionsForMerge).length > 0;
+
+        const currentSectionsForMerge = buildHostPlanSections({
+          mealPlan: {
+            contextSummary: String(sourceMealPlan?.contextSummary || "").trim(),
+            menuSections: Array.isArray(sourceMealPlan?.menuSections)
+              ? sourceMealPlan.menuSections
+              : [],
+            shoppingGroups: Array.isArray(sourceMealPlan?.shoppingGroups)
+              ? sourceMealPlan.shoppingGroups
+              : [],
+            shoppingChecklist: Array.isArray(sourceMealPlan?.shoppingChecklist)
+              ? sourceMealPlan.shoppingChecklist
+              : [],
+            estimatedCost: Number(sourceMealPlan?.estimatedCost || 0),
+            restrictions: Array.isArray(sourceMealPlan?.restrictions)
+              ? sourceMealPlan.restrictions
+              : []
+          },
+          hostPlaybook: {
+            acceptanceRate: String(sourceHostPlaybook?.acceptanceRate || "").trim(),
+            actionableItems: Array.isArray(sourceHostPlaybook?.actionableItems)
+              ? sourceHostPlaybook.actionableItems
+              : [],
+            ambience: Array.isArray(sourceHostPlaybook?.ambience)
+              ? sourceHostPlaybook.ambience
+              : [],
+            conversation: Array.isArray(sourceHostPlaybook?.conversation)
+              ? sourceHostPlaybook.conversation
+              : [],
+            timeline: Array.isArray(sourceHostPlaybook?.timeline)
+              ? sourceHostPlaybook.timeline
+              : [],
+            messages: Array.isArray(sourceHostPlaybook?.messages)
+              ? sourceHostPlaybook.messages
+              : [],
+            risks: Array.isArray(sourceHostPlaybook?.risks)
+              ? sourceHostPlaybook.risks
+              : []
+          }
+        });
+        const mergeBaseSections = hasSnapshotSectionsForMerge ? snapshotSectionsForMerge : currentSectionsForMerge;
+        const mergeBaseAlerts = {
+          critical: Array.isArray(snapshotAlertsForMerge.critical)
+            ? snapshotAlertsForMerge.critical
+            : fallbackAlerts.critical,
+          warning: Array.isArray(snapshotAlertsForMerge.warning)
+            ? snapshotAlertsForMerge.warning
+            : fallbackAlerts.warning
+        };
+
+        const currentPlanForAi = {
+          mealPlan: {
+            contextSummary: String(sourceMealPlan?.contextSummary || "").trim(),
+            menuSections: Array.isArray(sourceMealPlan?.menuSections)
+              ? sourceMealPlan.menuSections
+              : []
+          },
+          shoppingList: {
+            estimatedCostRange: {
+              min: Number(sourceEstimatedCostRange?.min || 0),
+              max: Number(sourceEstimatedCostRange?.max || 0)
+            },
+            groups: Array.isArray(sourceMealPlan?.shoppingGroups)
+              ? sourceMealPlan.shoppingGroups.map((groupItem, groupIndex) => ({
+                id: String(groupItem?.id || `g${groupIndex + 1}`),
+                title: String(groupItem?.title || "").trim(),
+                items: Array.isArray(groupItem?.items)
+                  ? groupItem.items.map((shoppingItem, itemIndex) => ({
+                    id: String(shoppingItem?.id || `s${groupIndex + 1}-${itemIndex + 1}`),
+                    name: String(shoppingItem?.name || "").trim(),
+                    quantity: String(shoppingItem?.quantity || "").trim(),
+                    warning: String(shoppingItem?.warning || "").trim(),
+                    checked: sourceShoppingCheckedSet.has(String(shoppingItem?.id || ""))
+                  }))
+                  : []
+              }))
+              : []
+          },
+          playbook: {
+            acceptanceRate: String(sourceHostPlaybook?.acceptanceRate || "").trim(),
+            actionableItems: Array.isArray(sourceHostPlaybook?.actionableItems)
+              ? sourceHostPlaybook.actionableItems
+              : [],
+            ambience: Array.isArray(sourceHostPlaybook?.ambience)
+              ? sourceHostPlaybook.ambience
+              : [],
+            conversation: Array.isArray(sourceHostPlaybook?.conversation)
+              ? sourceHostPlaybook.conversation
+              : [],
+            timeline: Array.isArray(sourceHostPlaybook?.timeline)
+              ? sourceHostPlaybook.timeline
+              : [],
+            messages: Array.isArray(sourceHostPlaybook?.messages)
+              ? sourceHostPlaybook.messages
+              : [],
+            risks: Array.isArray(sourceHostPlaybook?.risks)
+              ? sourceHostPlaybook.risks
+              : []
+          }
+        };
+
+        const plannerInputJson = {
+          locale: language,
+          event: {
+            id: eventId,
+            title: String(selectedEventDetail.title || "").trim(),
+            description: String(selectedEventDetail.description || "").trim(),
+            eventType: String(selectedEventDetail.event_type || "").trim(),
+            startAt: String(selectedEventDetail.start_at || "").trim(),
+            locationName: String(selectedEventDetail.location_name || "").trim(),
+            locationAddress: String(selectedEventDetail.location_address || "").trim()
+          },
+          statusCounts: {
+            yes: Number(selectedEventDetailStatusCounts.yes || 0),
+            no: Number(selectedEventDetailStatusCounts.no || 0),
+            maybe: Number(selectedEventDetailStatusCounts.maybe || 0),
+            pending: Number(selectedEventDetailStatusCounts.pending || 0)
+          },
+          context: snapshotContext,
+          guestRsvpSignals: rsvpSignals,
+          insights: {
+            timingRecommendation: String(effectiveInsights.timingRecommendation || "").trim(),
+            additionalInstructions: String(effectiveInsights.additionalInstructions || "").trim(),
+            avoidItems: uniqueValues(effectiveInsights.avoidItems || []).slice(0, 16),
+            foodSuggestions: uniqueValues(effectiveInsights.foodSuggestions || []).slice(0, 16),
+            drinkSuggestions: uniqueValues(effectiveInsights.drinkSuggestions || []).slice(0, 16),
+            tabooTopics: uniqueValues(effectiveInsights.tabooTopics || []).slice(0, 16)
+          }
+        };
+        console.log("Regeneración IA: scope enviado:", safeScope);
+
+        const aiResult = await requestEventPlannerAI({
+          eventContext: plannerInputJson,
+          currentPlan: currentPlanForAi,
+          scope: safeScope,
+          locale: language
+        });
+        const aiPayloadObject =
+          aiResult?.data && typeof aiResult.data === "object" && !Array.isArray(aiResult.data)
+            ? aiResult.data
+            : null;
+        const hasPlannerPayload = Boolean(
+          aiPayloadObject &&
+          (aiPayloadObject.mealPlan || aiPayloadObject.shoppingList || aiPayloadObject.playbook)
+        );
+        if (!hasPlannerPayload) {
+          throw new Error("Planner AI response missing planner payload");
+        }
+        const aiNormalized = normalizeAiPlannerResult(aiResult?.data, {
+          fallbackSections: mergeBaseSections,
+          fallbackAlerts: mergeBaseAlerts
+        });
+        if (aiNormalized?.sections) {
+          effectiveSections = isAllScope
+            ? aiNormalized.sections
+            : {
+              ...mergeBaseSections,
+              [safeScope]: aiNormalized.sections[safeScope] || mergeBaseSections[safeScope]
+            };
+          if (isAllScope || safeScope === "risks") {
+            effectiveAlerts = aiNormalized.alerts;
+          } else {
+            effectiveAlerts = mergeBaseAlerts;
+          }
+          effectiveSource = "google_gemini";
+          effectiveModelMeta = {
+            scope: safeScope,
+            engine: "google-gemini",
+            provider: "google",
+            model: String(aiResult?.meta?.model || "gemini-2.5-flash"),
+            source: "google_gemini"
+          };
+        }
+      } catch (error) {
+        console.warn("[planner-ai] fallback to local heuristic", error);
+      }
+
+      const nextVersion = Math.max(
+        1,
+        Math.trunc(Number(selectedEventPlannerSnapshotVersion || 0) + 1)
+      );
       const snapshot = createHostPlanSnapshot({
         eventId,
-        version: latestVersion + 1,
+        version: nextVersion,
         generatedAt: new Date().toISOString(),
         context: snapshotContext,
         contextOverrides: nextContextOverrides,
         seedAll: nextSeedAll,
         seedByTab: nextSeedByTab,
-        sections,
-        alerts: {
-          critical: nextCriticalRestrictions,
-          warning: (selectedEventHealthAlerts || []).map((item) =>
-            `${item.guestName || t("field_guest")}: ${(item.avoid || []).join(", ")}`
-          )
-        },
-        source: "local_heuristic",
-        modelMeta: {
-          scope: String(scope || "all"),
-          engine: "local-host-plan-v2"
-        }
+        sections: effectiveSections,
+        alerts: effectiveAlerts,
+        source: effectiveSource,
+        modelMeta: effectiveModelMeta
       });
 
       const persistResult = await supabase.rpc("upsert_event_host_plan", {
         p_event_id: eventId,
         p_plan_json: snapshot,
         p_context_json: snapshot.context,
-        p_scope: String(scope || "all"),
+        p_scope: safeScope,
         p_model_meta: snapshot.model_meta
       });
 
@@ -4379,7 +4884,7 @@ function DashboardScreen({
         const nextEntry = {
           version: Number(persistedState.version || 0),
           generatedAt: String(persistedState.generatedAt || ""),
-          scope: String(persistedState?.modelMeta?.scope || scope || "all"),
+          scope: String(persistedState?.modelMeta?.scope || safeScope || "all"),
           snapshotState: persistedState
         };
         const deduped = currentHistory.filter((item) => Number(item.version) !== Number(nextEntry.version));
@@ -4399,6 +4904,7 @@ function DashboardScreen({
     [
       language,
       selectedEventDetail,
+      selectedEventDetailGuests,
       selectedEventDetailStatusCounts,
       selectedEventDietTypeValues,
       selectedEventHealthAlerts,
@@ -4406,10 +4912,15 @@ function DashboardScreen({
       selectedEventSensitiveIntolerances,
       selectedEventSensitiveMedicalConditions,
       selectedEventDietaryMedicalRestrictions,
+      selectedEventMealPlan,
+      selectedEventHostPlaybook,
+      selectedEventEstimatedCostRange,
+      selectedEventShoppingCheckedSet,
       selectedEventInsights,
+      selectedEventPlannerSnapshotState,
+      selectedEventPlannerSnapshotVersion,
       session?.user?.id,
       t,
-      eventPlannerSnapshotsByEventId,
       setEventPlannerSnapshotsByEventId,
       setEventPlannerSnapshotHistoryByEventId
     ]

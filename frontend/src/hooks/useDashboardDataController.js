@@ -77,7 +77,9 @@ export function useDashboardDataController({
 
     const invitationsPromise = supabase
       .from("invitations")
-      .select("id, event_id, guest_id, status, public_token, created_at, responded_at, updated_at")
+      .select(
+        "id, event_id, guest_id, status, public_token, created_at, responded_at, updated_at, response_note, rsvp_plus_one, rsvp_dietary_needs"
+      )
       .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -142,6 +144,20 @@ export function useDashboardDataController({
         .limit(100);
       guestsData = fallbackGuests.data || [];
       guestsError = fallbackGuests.error;
+    }
+
+    if (
+      invitationsError &&
+      isCompatibilityError(invitationsError, ["response_note", "rsvp_plus_one", "rsvp_dietary_needs"])
+    ) {
+      const fallbackInvitations = await supabase
+        .from("invitations")
+        .select("id, event_id, guest_id, status, public_token, created_at, responded_at, updated_at")
+        .eq("host_user_id", sessionUserId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      invitationsData = fallbackInvitations.data || [];
+      invitationsError = fallbackInvitations.error;
     }
 
     if (!eventsError && routeEventDetailId && !(eventsData || []).some((eventItem) => eventItem.id === routeEventDetailId)) {

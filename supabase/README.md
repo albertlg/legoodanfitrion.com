@@ -243,6 +243,7 @@ where routine_schema = 'public'
 Nota de bootstrap:
 - `018_event_host_plans.sql` es la migracion canonica (tabla + RPC).
 - `020_create_event_host_plans.sql` queda como parche de compatibilidad legacy y no hace falta ejecutarlo manualmente.
+- `021_fix_upsert_event_host_plan_version.sql` parchea la RPC para garantizar `version` no nulo y alinear `source` con `model_meta.source` cuando exista.
 - Si tu entorno ejecuta todos los SQL por orden numerico, no hay conflicto: `020` solo refuerza `handle_updated_at()` y trigger.
 
 ## Paso 2 (verificación rápida)
