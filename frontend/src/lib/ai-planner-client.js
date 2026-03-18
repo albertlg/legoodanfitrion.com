@@ -1,4 +1,10 @@
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
+const configuredApiUrl = String(
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  ""
+).trim();
+const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "";
+const API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
 
 function toErrorMessage(status, payload) {
   const fromPayload = String(payload?.error || payload?.message || "").trim();
@@ -9,7 +15,16 @@ function toErrorMessage(status, payload) {
 }
 
 export async function requestEventPlannerAI({ eventContext, currentPlan = {}, scope = "all", locale = "es" }) {
-  const response = await fetch(`${API_BASE_URL}/api/ai/planner`, {
+  if (!API_BASE_URL) {
+    throw new Error(
+      "Planner AI API URL not configured. Define VITE_API_URL (or VITE_API_BASE_URL) in frontend environment."
+    );
+  }
+
+  const fullUrl = `${API_BASE_URL}/api/ai/planner`;
+  console.log("Enviando petición a:", fullUrl);
+
+  const response = await fetch(fullUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

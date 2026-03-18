@@ -7,12 +7,17 @@ dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const allowedOrigins = String(
+const envAllowedOrigins = String(
   process.env.CORS_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173"
 )
   .split(",")
   .map((item) => item.trim())
   .filter(Boolean);
+const defaultProductionOrigins = [
+  "https://legoodanfitrion.com",
+  "https://www.legoodanfitrion.com"
+];
+const allowedOrigins = Array.from(new Set([...envAllowedOrigins, ...defaultProductionOrigins]));
 
 const corsOptions = {
   origin(origin, callback) {
