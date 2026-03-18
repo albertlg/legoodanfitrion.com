@@ -3,8 +3,19 @@ const configuredApiUrl = String(
   import.meta.env.VITE_API_BASE_URL ||
   ""
 ).trim();
-const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "";
+const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "/api";
 const API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+
+function buildPlannerEndpoint(baseUrl) {
+  const normalizedBase = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  if (/(^|\/)api$/i.test(normalizedBase)) {
+    return `${normalizedBase}/ai/planner`;
+  }
+  return `${normalizedBase}/api/ai/planner`;
+}
 
 function toErrorMessage(status, payload) {
   const fromPayload = String(payload?.error || payload?.message || "").trim();
@@ -15,13 +26,13 @@ function toErrorMessage(status, payload) {
 }
 
 export async function requestEventPlannerAI({ eventContext, currentPlan = {}, scope = "all", locale = "es" }) {
-  if (!API_BASE_URL) {
+  const fullUrl = buildPlannerEndpoint(API_BASE_URL);
+  if (!fullUrl) {
     throw new Error(
       "Planner AI API URL not configured. Define VITE_API_URL (or VITE_API_BASE_URL) in frontend environment."
     );
   }
 
-  const fullUrl = `${API_BASE_URL}/api/ai/planner`;
   console.log("Enviando petición a:", fullUrl);
 
   const response = await fetch(fullUrl, {
