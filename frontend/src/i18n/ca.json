@@ -1403,5 +1403,15 @@
   "wizard_btn_save": "Guardar esdeveniment",
   "wizard_quick_templates_title": "Plantilles ràpides",
   "wizard_quick_templates_hint": "Aplica una base per accelerar la creació i personalitza-la després.",
+  "blog_nav_title": "Blog",
+  "blog_title": "L'art de ser un Gran Amfitrió",
+  "blog_subtitle": "Consells, receptes, guies de protocol i secrets per fer que els teus esdeveniments siguin inoblidables.",
+  "blog_empty": "Encara no hi ha articles publicats en aquest idioma.",
+  "blog_read_more": "Llegir article",
+  "blog_back": "Tornar al Blog",
+  "blog_toc_title": "Contingut",
+  "blog_not_found": "Article no trobat",
+  "blog_cta_footer": "T'ha agradat? Posa-ho en pràctica en el teu proper esdeveniment.",
+  "blog_cta_button": "Crear Esdeveniment amb LGA",
   "landing_footer_copyright": "Creat amb ❤ per: Albert L.G. © 2026 Tots els drets reservats."
 }

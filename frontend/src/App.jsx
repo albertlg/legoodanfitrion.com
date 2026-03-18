@@ -27,6 +27,10 @@ const PublicRsvpScreen = lazy(() =>
   import("./screens/public-rsvp-screen").then((module) => ({ default: module.PublicRsvpScreen }))
 );
 
+// --- NUEVAS PANTALLAS DEL BLOG ---
+const BlogIndexScreen = lazy(() => import("./screens/blog-index-screen").then((m) => ({ default: m.BlogIndexScreen })));
+const BlogPostScreen = lazy(() => import("./screens/blog-post-screen").then((m) => ({ default: m.BlogPostScreen })));
+
 function ScreenFallback() {
   return (
     <main className="page">
@@ -508,6 +512,29 @@ function App() {
           onGoLogin={() => navigate("/login")}
           onGoApp={() => navigate("/app")}
         />
+      </Suspense>
+    );
+  }
+
+  // 🚀 AQUI INYECTAMOS EL ROUTER DEL BLOG (PÚBLICO)
+  const isBlogRoute = route.path?.startsWith("/blog");
+  const isBlogPost = isBlogRoute && route.path.length > 6; // Verifica si hay algo después de /blog/
+  const blogSlug = isBlogPost ? route.path.split("/")[2] : null;
+
+  if (isBlogRoute) {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        {isBlogPost ? (
+          <BlogPostScreen
+            slug={blogSlug} language={language} setLanguage={setLanguage}
+            themeMode={themeMode} setThemeMode={setThemeMode} t={t} onNavigate={navigate}
+          />
+        ) : (
+          <BlogIndexScreen
+            language={language} setLanguage={setLanguage}
+            themeMode={themeMode} setThemeMode={setThemeMode} t={t} onNavigate={navigate}
+          />
+        )}
       </Suspense>
     );
   }

@@ -1403,5 +1403,15 @@
   "wizard_btn_save": "Enregistrer l'événement",
   "wizard_quick_templates_title": "Modèles rapides",
   "wizard_quick_templates_hint": "Appliquez une base pour accélérer la création et personnalisez-la ensuite.",
+  "blog_nav_title": "Blog",
+  "blog_title": "L'art d'être un Grand Hôte",
+  "blog_subtitle": "Conseils, recettes, guides de protocole et secrets pour rendre vos événements inoubliables.",
+  "blog_empty": "Aucun article n'a encore été publié dans cette langue.",
+  "blog_read_more": "Lire l'article",
+  "blog_back": "Retour au Blog",
+  "blog_toc_title": "Contenu",
+  "blog_not_found": "Article non trouvé",
+  "blog_cta_footer": "Vous avez aimé ? Mettez-le en pratique lors de votre prochain événement.",
+  "blog_cta_button": "Créer un événement avec LGA",
   "landing_footer_copyright": "Créé avec ❤ par : Albert L.G. © 2026 Tous droits réservés."
 }

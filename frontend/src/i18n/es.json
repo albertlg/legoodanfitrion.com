@@ -1403,5 +1403,15 @@
   "wizard_btn_save": "Guardar evento",
   "wizard_quick_templates_title": "Plantillas rápidas",
   "wizard_quick_templates_hint": "Aplica una base para acelerar la creación y personalízala después.",
+  "blog_nav_title": "Blog",
+  "blog_title": "El arte de ser un Gran Anfitrión",
+  "blog_subtitle": "Consejos, recetas, guías de protocolo y secretos para que tus eventos sean inolvidables.",
+  "blog_empty": "Todavía no hay artículos publicados en este idioma.",
+  "blog_read_more": "Leer artículo",
+  "blog_back": "Volver al Blog",
+  "blog_toc_title": "Contenido",
+  "blog_not_found": "Artículo no encontrado",
+  "blog_cta_footer": "¿Te ha gustado? Ponlo en práctica en tu próximo evento.",
+  "blog_cta_button": "Crear Evento con LGA",
   "landing_footer_copyright": "Creado con ❤ por: Albert L.G. © 2026 Reservados todos los derechos."
 }

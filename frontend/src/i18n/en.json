@@ -1403,5 +1403,15 @@
   "wizard_btn_save": "Save event",
   "wizard_quick_templates_title": "Quick templates",
   "wizard_quick_templates_hint": "Apply a base to speed up creation and customize it later.",
+  "blog_nav_title": "Blog",
+  "blog_title": "The art of being a Great Host",
+  "blog_subtitle": "Tips, recipes, protocol guides and secrets to make your events unforgettable.",
+  "blog_empty": "No articles published in this language yet.",
+  "blog_read_more": "Read article",
+  "blog_back": "Back to Blog",
+  "blog_toc_title": "Contents",
+  "blog_not_found": "Article not found",
+  "blog_cta_footer": "Liked it? Put it into practice at your next event.",
+  "blog_cta_button": "Create Event with LGA",
   "landing_footer_copyright": "Created with ❤ by: Albert L.G. © 2026 All rights reserved."
 }
