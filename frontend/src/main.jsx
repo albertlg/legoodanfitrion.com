@@ -1,5 +1,5 @@
 import { Component } from "react";
-import { createRoot } from "react-dom/client";
+import { hydrateRoot, createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
@@ -57,7 +57,8 @@ try {
     throw new Error("No existe el nodo #root en index.html");
   }
 
-  createRoot(rootNode).render(
+  // Agrupamos el árbol de componentes en una variable para no repetir código
+  const AppTree = (
     <BootErrorBoundary>
       <HelmetProvider>
         <BrowserRouter>
@@ -66,6 +67,15 @@ try {
       </HelmetProvider>
     </BootErrorBoundary>
   );
+
+  // 🚀 LA MAGIA DEL SEO: ¿Hay HTML prerenderizado?
+  if (rootNode.hasChildNodes()) {
+    // Sí: Solo le "inyectamos" la interactividad de React (Hidratación)
+    hydrateRoot(rootNode, AppTree);
+  } else {
+    // No: Lo montamos desde cero como una SPA normal
+    createRoot(rootNode).render(AppTree);
+  }
 
 } catch (error) {
   if (rootNode) {
