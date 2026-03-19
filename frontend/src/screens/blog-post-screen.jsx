@@ -24,7 +24,7 @@ const portableTextComponents = {
     },
 };
 
-export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
+export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
     const [post, setPost] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
@@ -230,8 +230,11 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                         <div className="flex flex-col gap-1">
                             <p className="font-black text-lg text-gray-900 dark:text-white">{t("blog_cta_footer")}</p>
                         </div>
-                        <button onClick={() => onNavigate("/login")} className="shrink-0 px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black shadow-lg hover:scale-[1.02] transition-transform">
-                            {t("blog_cta_button")}
+                        <button
+                            onClick={() => onNavigate(session?.user?.id ? "/app" : "/login")}
+                            className="shrink-0 px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black shadow-lg hover:scale-[1.02] transition-transform"
+                        >
+                            {session?.user?.id ? t("landing_cta_open_app") : t("blog_cta_button")}
                         </button>
                     </footer>
                 </article>

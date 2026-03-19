@@ -566,11 +566,13 @@ function App() {
           <BlogPostScreen
             slug={blogSlug} language={language} setLanguage={handleLanguageChange}
             themeMode={themeMode} setThemeMode={setThemeMode} t={t} onNavigate={navigate}
+            session={session}
           />
         ) : (
           <BlogIndexScreen
             language={language} setLanguage={handleLanguageChange}
             themeMode={themeMode} setThemeMode={setThemeMode} t={t} onNavigate={navigate}
+            session={session}
           />
         )}
       </Suspense>
