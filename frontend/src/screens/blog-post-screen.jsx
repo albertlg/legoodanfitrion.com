@@ -83,7 +83,7 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
         window.localStorage.setItem("legood-language", newLang);
 
         if (post && post.translations) {
-            const translation = post.translations.find(t => t.lang === newLang);
+            const translation = post.translations.find(t => t?.lang === newLang);
             if (translation && translation.slug) {
                 const newUrl = newLang === "es" ? `/blog/${translation.slug}` : `/${newLang}/blog/${translation.slug}`;
                 onNavigate(newUrl);
