@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "postbuild": "react-snap",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "lint": "eslint .",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "i18n:check": "node scripts/check-i18n.mjs",
     "lint:fix": "eslint . --fix"
   },
@@ -39,22 +38,7 @@
     "eslint-plugin-react-refresh": "^0.4.12",
     "globals": "^15.11.0",
     "postcss": "^8.5.8",
-    "react-snap": "^1.23.0",
     "tailwindcss": "^4.2.1",
     "vite": "^5.4.8"
-  },
-  "reactSnap": {
-    "source": "dist",
-    "include": [
-      "/",
-      "/features",
-      "/pricing",
-      "/contact",
-      "/blog"
-    ],
-    "puppeteerArgs": [
-      "--no-sandbox",
-      "--disable-setuid-sandbox"
-    ]
   }
 }
