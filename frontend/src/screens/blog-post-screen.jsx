@@ -6,6 +6,7 @@ import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { Helmet } from "react-helmet-async";
 import { SEO } from "../components/seo";
+import { GlobalFooter } from "../components/global-footer";
 
 const portableTextComponents = {
     block: {
@@ -226,7 +227,7 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                         <PortableText value={post.body} components={portableTextComponents} />
                     </div>
 
-                    <footer className="mt-20 p-8 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
+                    <div className="mt-20 p-8 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl flex flex-col sm:flex-row justify-between items-center gap-6 text-center sm:text-left">
                         <div className="flex flex-col gap-1">
                             <p className="font-black text-lg text-gray-900 dark:text-white">{t("blog_cta_footer")}</p>
                         </div>
@@ -236,9 +237,10 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                         >
                             {session?.user?.id ? t("landing_cta_open_app") : t("blog_cta_button")}
                         </button>
-                    </footer>
+                    </div>
                 </article>
             </div>
+            <GlobalFooter t={t} onNavigate={onNavigate} />
         </main>
     );
 }

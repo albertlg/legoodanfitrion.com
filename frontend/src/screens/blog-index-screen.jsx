@@ -4,6 +4,7 @@ import { Controls } from "../components/controls";
 import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { Helmet } from "react-helmet-async";
+import { GlobalFooter } from "../components/global-footer";
 
 const NAV_ITEMS = [
     { key: "features", path: "/features", labelKey: "landing_nav_features" },
@@ -251,21 +252,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
             </div>
 
             {/* FOOTER */}
-            <footer className="w-full bg-white/30 dark:bg-black/30 backdrop-blur-lg border-t border-black/5 dark:border-white/5 py-8 mt-auto relative z-20">
-                <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex flex-col items-center md:items-start gap-2">
-                        <div className="flex items-center gap-2">
-                            <BrandMark text="" fallback={t("logo_fallback")} className="w-5 h-5 opacity-50 grayscale" />
-                            <span className="font-bold tracking-tight text-gray-900 dark:text-white opacity-80">{t("app_name")}</span>
-                        </div>
-                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 text-center md:text-left">{t("landing_footer_copyright")}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-6">
-                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" onClick={() => onNavigate("/contact")}>{t("landing_footer_privacy")}</button>
-                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" onClick={() => onNavigate("/contact")}>{t("landing_footer_terms")}</button>
-                    </div>
-                </div>
-            </footer>
+            <GlobalFooter t={t} onNavigate={onNavigate} />
         </main>
     );
 }

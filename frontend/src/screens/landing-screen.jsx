@@ -5,6 +5,7 @@ import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
 import { SEO } from "../components/seo"; // 🚀 Importamos el SEO en lugar del Helmet
+import { GlobalFooter } from "../components/global-footer";
 
 const NAV_ITEMS = [
   { key: "features", path: "/features", labelKey: "landing_nav_features" },
@@ -961,31 +962,7 @@ function LandingScreen({
 
       </div>
 
-      <footer className="w-full bg-white/30 dark:bg-black/30 backdrop-blur-lg border-t border-black/5 dark:border-white/5 py-8 mt-auto relative z-20">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col items-center md:items-start gap-2">
-            <div className="flex items-center gap-2">
-              <BrandMark text="" fallback={t("logo_fallback")} className="w-5 h-5 opacity-50 grayscale" />
-              <span className="font-bold tracking-tight text-gray-900 dark:text-white opacity-80">{t("app_name")}</span>
-            </div>
-            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 text-center md:text-left">
-              {t("landing_footer_copyright")}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/privacy")}>
-              {t("landing_footer_privacy")}
-            </button>
-            <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/terms")}>
-              {t("landing_footer_terms")}
-            </button>
-            <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
-              {t("landing_nav_contact")}
-            </button>
-          </div>
-        </div>
-      </footer>
+      <GlobalFooter t={t} onNavigate={onNavigate} />
 
       {toast.visible ? (
         <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-300 ${toast.type === "error" ? "bg-red-600 text-white" : "bg-gray-900 dark:bg-white text-white dark:text-gray-900"}`} role="status" aria-live="polite">
