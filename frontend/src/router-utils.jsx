@@ -1,8 +1,19 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMemo, useCallback, useEffect } from "react";
 
-// 🚀 FIX: Añadimos "/blog" a las rutas de acceso libre (Landing)
-const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog"]);
+// 🚀 SEO: Idiomas soportados y Diccionario de Slugs Públicos
+const SUPPORTED_LANGUAGES = new Set(["es", "ca", "en", "fr", "it"]);
+const DEFAULT_LANGUAGE = "es";
+
+const ROUTES_DICT = {
+    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", privacy: "privacidad", terms: "terminos" },
+    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", privacy: "privacitat", terms: "termes" },
+    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", privacy: "privacy", terms: "terms" },
+    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", privacy: "confidentialite", terms: "conditions" },
+    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", privacy: "privacy", terms: "termini" }
+};
+
+const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/privacy", "/terms"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
 const EVENT_PLANNER_TABS = new Set(["menu", "shopping", "ambience", "timings", "communication", "risks"]);
@@ -13,6 +24,85 @@ export function normalizePathname(pathname) {
         return normalized.replace(/\/+$/, "");
     }
     return normalized;
+}
+
+// 🚀 SEO Helper: Traduce una URL pública a la ruta interna de React (Ej: /ca/preus -> /pricing)
+function getInternalPath(localizedPath, lang) {
+    if (localizedPath === "/") return "/";
+    const parts = localizedPath.split("/").filter(Boolean);
+    const rootSegment = parts[0]?.toLowerCase();
+    const dict = ROUTES_DICT[lang] || ROUTES_DICT[DEFAULT_LANGUAGE];
+
+    const internalKey = Object.keys(dict).find(key => dict[key] === rootSegment);
+    if (internalKey) {
+        parts[0] = internalKey;
+        return "/" + parts.join("/");
+    }
+    return localizedPath;
+}
+
+// 🚀 SEO Helper: Traduce una ruta interna a la URL pública del idioma (Ej: /pricing -> /ca/preus)
+export function getLocalizedPath(internalPath, lang) {
+    if (internalPath === "/") return "/";
+    const parts = internalPath.split("/").filter(Boolean);
+    const rootSegment = parts[0]?.toLowerCase();
+    const dict = ROUTES_DICT[lang] || ROUTES_DICT[DEFAULT_LANGUAGE];
+
+    if (dict[rootSegment]) {
+        parts[0] = dict[rootSegment];
+        return "/" + parts.join("/");
+    }
+    return internalPath;
+}
+
+// 🚀 SEO: Función super-inteligente que recuerda el idioma al cambiar de página
+export function extractLanguageFromPath(pathname) {
+    const segments = pathname.split("/").filter(Boolean);
+    const firstSegment = segments[0]?.toLowerCase() || "";
+
+    // 1. Si la URL tiene el prefijo de idioma explícito (ej: /ca/preus), MANDA LA URL
+    if (SUPPORTED_LANGUAGES.has(firstSegment)) {
+        const lang = firstSegment;
+        const rawBasePath = "/" + segments.slice(1).join("/");
+        return { lang, basePath: getInternalPath(rawBasePath === "/" ? "/" : rawBasePath, lang) };
+    }
+
+    // 2. Si no tiene prefijo, recuperamos el último idioma activo del usuario
+    let inferredLang = DEFAULT_LANGUAGE;
+    try {
+        const stored = window.localStorage.getItem("legood-language");
+        if (stored && SUPPORTED_LANGUAGES.has(stored)) {
+            inferredLang = stored;
+        }
+    } catch (e) { }
+
+    // 3. ¿Es un click en un enlace interno puro de tu menú? (ej: <Link to="/pricing"> o "/")
+    const isInternalRawSlug = ["features", "pricing", "contact", "blog", "privacy", "terms"].includes(firstSegment);
+    if (isInternalRawSlug || firstSegment === "") {
+        // Le inyectamos su idioma activo de forma transparente
+        return { lang: inferredLang, basePath: "/" + segments.join("/") };
+    }
+
+    // 4. ¿Es un slug traducido pero el usuario olvidó poner el /ca/ en el navegador? (ej: legoodanfitrion.com/preus)
+    let detectedLang = DEFAULT_LANGUAGE;
+    let foundInternal = firstSegment;
+
+    for (const [l, dict] of Object.entries(ROUTES_DICT)) {
+        const internalKey = Object.keys(dict).find(key => dict[key] === firstSegment);
+        if (internalKey) {
+            // Si es un slug compartido (como "blog"), respetamos el idioma inferido
+            const isSharedSlug = Object.values(ROUTES_DICT).every(d => Object.values(d).includes(firstSegment));
+            detectedLang = isSharedSlug ? inferredLang : l;
+            foundInternal = internalKey;
+            break;
+        }
+    }
+
+    const newSegments = [...segments];
+    if (newSegments.length > 0) newSegments[0] = foundInternal;
+    const basePath = "/" + newSegments.join("/");
+
+    return { lang: detectedLang, basePath: basePath === "/" ? "/" : basePath };
 }
 
 export function decodePathSegment(segment) {
@@ -234,7 +324,6 @@ export function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
 }
 
 export function buildCanonicalAppPath(appRoute) {
-    // ... (Se mantiene igual)
     const view = String(appRoute?.view || "overview").trim();
     const workspace = String(appRoute?.workspace || "").trim();
 
@@ -271,20 +360,41 @@ export function buildCanonicalAppPath(appRoute) {
     return "/app";
 }
 
-export function getCanonicalPathForRoute(route) {
+// 🚀 SEO: Añadimos el parámetro lang para reconstruir la URL completa correctamente
+export function getCanonicalPathForRoute(route, lang = DEFAULT_LANGUAGE) {
     if (!route || typeof route !== "object") return "/";
-    if (route.kind === "landing") return route.path; // 🚀 FIX: Dejamos pasar la ruta tal cual
-    if (route.kind === "blog") return route.path; // 🚀 FIX: Añadimos la categoría blog
-    if (route.kind === "login") return "/login";
-    if (route.kind === "rsvp") return route.token ? `/rsvp/${encodeURIComponent(route.token)}` : "/";
-    if (route.kind === "app") {
+
+    let basePath = "/";
+    if (route.kind === "landing") basePath = route.path;
+    else if (route.kind === "blog") basePath = route.path;
+    else if (route.kind === "privacy") basePath = "/privacy";
+    else if (route.kind === "terms") basePath = "/terms";
+    else if (route.kind === "login") basePath = "/login";
+    else if (route.kind === "rsvp") basePath = route.token ? `/rsvp/${encodeURIComponent(route.token)}` : "/";
+    else if (route.kind === "app") {
         const importWizardSource = String(route.appRoute?.importWizardSource || "").trim().toLowerCase();
         if (route.appRoute?.view === "guests" && route.appRoute?.workspace === "latest" && ["csv", "gmail", "mobile"].includes(importWizardSource)) {
-            return `/app/guests?import=${encodeURIComponent(importWizardSource)}&wizard=1`;
+            basePath = `/app/guests?import=${encodeURIComponent(importWizardSource)}&wizard=1`;
+        } else {
+            basePath = buildCanonicalAppPath(route.appRoute || { view: "overview" });
         }
-        return buildCanonicalAppPath(route.appRoute || { view: "overview" });
     }
-    return "/";
+
+    // Rutas privadas (App, RSVP, Login): No llevan traducciones en URL para no romper sesiones/tokens
+    if (route.kind === "app" || route.kind === "rsvp" || route.kind === "login") {
+        return basePath;
+    }
+
+    // Rutas públicas: Traducimos el slug al idioma correspondiente
+    const localizedBasePath = getLocalizedPath(basePath, lang);
+
+    // Si es el idioma por defecto (es), no le ponemos prefijo de carpeta (ej: /precios)
+    if (lang === DEFAULT_LANGUAGE) {
+        return localizedBasePath;
+    }
+
+    // Si es otro idioma, le ponemos el prefijo (ej: /ca/preus)
+    return localizedBasePath === "/" ? `/${lang}` : `/${lang}${localizedBasePath}`;
 }
 
 export function useAppRouter() {
@@ -297,27 +407,42 @@ export function useAppRouter() {
     }, [navigateFull]);
 
     const route = useMemo(() => {
-        const pathname = normalizePathname(location.pathname);
+        const rawPathname = normalizePathname(location.pathname);
+
+        // 🚀 SEO: Extraemos el idioma y la ruta interna (ej: /pricing)
+        const { lang, basePath } = extractLanguageFromPath(rawPathname);
         const queryToken = String(searchParams.get("token") || "").trim();
 
-        if (queryToken) return { kind: "rsvp", path: `/rsvp/${queryToken}`, token: queryToken };
+        const createRoute = (kind, path, extra = {}) => ({
+            kind,
+            path,           // La ruta SIN idioma (para que App.jsx funcione normal)
+            originalPath: rawPathname, // La ruta original en la barra de direcciones
+            urlLang: lang,  // El idioma extraído de la URL
+            ...extra
+        });
 
-        if (pathname.startsWith("/rsvp/")) {
-            const token = pathname.replace("/rsvp/", "").trim();
-            return token ? { kind: "rsvp", path: pathname, token } : { kind: "landing", path: "/" };
+        if (queryToken) return createRoute("rsvp", `/rsvp/${queryToken}`, { token: queryToken });
+
+        if (basePath.startsWith("/rsvp/")) {
+            const token = basePath.replace("/rsvp/", "").trim();
+            return token ? createRoute("rsvp", basePath, { token }) : createRoute("landing", "/");
         }
-        if (pathname === "/login") return { kind: "login", path: "/login" };
-        if (pathname === "/profile") return { kind: "app", path: "/profile", appRoute: { view: "profile" } };
-        if (pathname === "/app" || pathname.startsWith("/app/")) return { kind: "app", path: pathname, appRoute: parseAppRoute(pathname, searchParams) };
 
-        // 🚀 FIX: Lógica para detectar el blog
-        if (pathname.startsWith("/blog")) {
-            return { kind: "blog", path: pathname };
+        if (basePath === "/login") return createRoute("login", "/login");
+        if (basePath === "/profile") return createRoute("app", "/profile", { appRoute: { view: "profile" } });
+        if (basePath === "/app" || basePath.startsWith("/app/")) {
+            return createRoute("app", basePath, { appRoute: parseAppRoute(basePath, searchParams) });
         }
 
-        if (LANDING_PATHS.has(pathname)) return { kind: "landing", path: pathname };
+        // Ya validado internamente (ej: /blog)
+        if (basePath.startsWith("/blog")) return createRoute("blog", basePath);
+        // 🚀 AÑADIMOS LAS DOS RUTAS LEGALES AQUÍ
+        if (basePath === "/privacy") return createRoute("privacy", basePath);
+        if (basePath === "/terms") return createRoute("terms", basePath);
 
-        return { kind: "landing", path: "/" };
+        if (LANDING_PATHS.has(basePath)) return createRoute("landing", basePath);
+
+        return createRoute("landing", "/");
     }, [location.pathname, searchParams]);
 
     const isRecoveryMode = useMemo(() => {
@@ -328,10 +453,13 @@ export function useAppRouter() {
     }, [searchParams, location.hash]);
 
     useEffect(() => {
-        const canonicalPath = getCanonicalPathForRoute(route);
+        // 🚀 SEO: Comprobamos si la URL actual está perfectamente formateada para el idioma
+        const canonicalPath = getCanonicalPathForRoute(route, route.urlLang);
         const currentPath = normalizePathname(location.pathname);
-        // Desactivamos la redirección estricta si estamos en el blog para evitar bucles
-        if (route.kind !== "blog" && canonicalPath && canonicalPath !== currentPath) {
+
+        // 🚀 FIX: Hemos quitado la excepción del blog. Ahora TODOS los enlaces
+        // internos que estén "pelados" serán corregidos instantáneamente.
+        if (canonicalPath && canonicalPath !== currentPath) {
             navigateFull(canonicalPath, { replace: true });
         }
     }, [route, location.pathname, navigateFull]);

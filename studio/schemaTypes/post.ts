@@ -55,6 +55,14 @@ export default defineType({
       title: 'Body',
       type: 'blockContent',
     }),
+    defineField({
+      name: 'excerpt',
+      title: 'Excerpt',
+      description: 'Short summary of the post (max 160 characters)',
+      type: 'text',
+      rows: 3,
+      validation: Rule => Rule.required().max(160),
+    }),
   ],
 
   preview: {

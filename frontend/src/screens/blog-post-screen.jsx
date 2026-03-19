@@ -5,6 +5,7 @@ import { Controls } from "../components/controls";
 import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { Helmet } from "react-helmet-async";
+import { SEO } from "../components/seo";
 
 const portableTextComponents = {
     block: {
@@ -26,57 +27,72 @@ const portableTextComponents = {
 export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
     const [post, setPost] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
 
-    // 1️⃣ PRIMER EFECTO: Traer el post y los slugs de sus traducciones
+    // 1️⃣ PRIMER EFECTO: Traer el post validando el idioma (A prueba de carreras de red)
     useEffect(() => {
+        let isMounted = true; // 🚀 FIX: Creamos un "semáforo" para esta petición
+
         setIsLoading(true);
+        setNotFound(false);
         sanityClient
             .fetch(
-                `*[_type == "post" && slug.current == $slug][0]{
-                  _id, title, publishedAt, body, language,
+                `*[_type == "post" && slug.current == $slug && language == $lang][0]{
+                  _id, title, publishedAt, body, language, excerpt,
                   mainImage,
                   "authorName": author->name,
                   "authorImage": author->image,
                   "categories": coalesce(categories[]->title, []),
-                  // 🚀 FIX: La flecha "value->" entra en el documento real traducido para sacar el slug
                   "translations": *[_type == "translation.metadata" && references(^._id)][0].translations[].value->{
                     "lang": language,
                     "slug": slug.current
                   }
                 }`,
-                { slug }
+                { slug, lang: language }
             )
             .then((data) => {
-                setPost(data);
+                if (!isMounted) return; // 🚀 FIX: Si se disparó otra petición mientras tanto, ignoramos esta
+
+                if (data) {
+                    setPost(data);
+                } else {
+                    setNotFound(true);
+                }
                 setIsLoading(false);
             })
             .catch((error) => {
+                if (!isMounted) return; // 🚀 FIX: Lo mismo para los errores
                 console.error("Error fetching post:", error);
+                setNotFound(true);
                 setIsLoading(false);
             });
-    }, [slug]);
 
-    // 2️⃣ SEGUNDO EFECTO (CORREGIDO): Escuchar cambios de idioma y navegar
-    useEffect(() => {
-        // Solo actuamos si el post ya cargó y el idioma de la app ha cambiado
-        if (post && post.language && language !== post.language) {
+        // 🚀 FIX: Función de limpieza. Cuando el componente se actualiza con un nuevo idioma, 
+        // pone el semáforo de la petición anterior en rojo.
+        return () => {
+            isMounted = false;
+        };
+    }, [slug, language]);
 
-            // 🔍 DEBUG: Esto te chivará en la consola del navegador si Sanity está enviando bien las traducciones
-            console.log("Traducciones detectadas por Sanity:", post.translations);
+    // 🚀 FIX: Interceptamos el selector de idioma localmente ANTES de que App.jsx rompa la URL
+    const handleLocalLanguageChange = (newLang) => {
+        if (newLang === language) return;
 
-            // Buscamos si existe la traducción para el nuevo idioma
-            const translation = post.translations?.find(t => t.lang === language);
+        // 🚀 FIX CLAVE: Guardamos el idioma antes de navegar
+        window.localStorage.setItem("legood-language", newLang);
 
+        if (post && post.translations) {
+            const translation = post.translations.find(t => t.lang === newLang);
             if (translation && translation.slug) {
-                // ✅ Si existe y está PUBLICADA, viajamos a la nueva URL
-                onNavigate(`/blog/${translation.slug}`);
-            } else {
-                // 🚀 FIX: Si NO existe (o está en Draft), NO lo echamos a /blog.
-                // Lo dejamos leyendo tranquilamente.
-                console.warn(`Aviso: No hay traducción publicada para el idioma '${language}'. Nos quedamos en el post actual.`);
+                const newUrl = newLang === "es" ? `/blog/${translation.slug}` : `/${newLang}/blog/${translation.slug}`;
+                onNavigate(newUrl);
+                return;
             }
         }
-    }, [language, post, onNavigate]);
+
+        const fallbackUrl = newLang === "es" ? `/blog` : `/${newLang}/blog`;
+        onNavigate(fallbackUrl);
+    };
 
     const tocHeadings = useMemo(() => {
         if (!post?.body) return [];
@@ -93,20 +109,29 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
         );
     }
 
-    if (!post) {
+    if (notFound || !post) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-[#0A0D14] flex flex-col items-center justify-center p-4">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{t("blog_not_found")}</h1>
-                <button onClick={() => onNavigate("/blog")} className="px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold">{t("blog_back")}</button>
+                <Icon name="sparkle" className="w-12 h-12 text-gray-400 dark:text-gray-600 mb-6" />
+                <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-2 text-center">{t("blog_not_found")}</h1>
+                <p className="text-gray-500 dark:text-gray-400 mb-8 text-center max-w-md">{t("blog_not_found_subtitle")}</p>
+                <button onClick={() => onNavigate("/blog")} className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:scale-[1.02]">{t("blog_back")}</button>
             </div>
         );
     }
 
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans overflow-hidden flex flex-col">
-            <Helmet htmlAttributes={{ lang: language }}>
-                <title>{post.title} | {t("app_name")}</title>
-            </Helmet>
+            {/* 🚀 SEO DINÁMICO: El componente maestro se encarga de todo el hreflang */}
+            <SEO
+                title={`${post.title} | ${t("app_name")}`}
+                description={post.excerpt || t("blog_subtitle")}
+                image={post.mainImage ? urlFor(post.mainImage).width(1200).height(630).url() : null}
+                language={language}
+                slug={slug} // Pasamos el slug que entra por Props, sin necesidad de pedírselo a Sanity
+                isBlogPost={true}
+                translations={post.translations || []}
+            />
 
             <div className="fixed top-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-[100px] pointer-events-none z-0"></div>
 
@@ -115,7 +140,8 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                     <Icon name="arrow_left" className="w-5 h-5" />
                     <span className="hidden sm:inline">{t("blog_back")}</span>
                 </button>
-                <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} dropdownDirection="down" />
+                {/* 🚀 FIX: Inyectamos nuestro interceptor aquí */}
+                <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={handleLocalLanguageChange} t={t} dropdownDirection="down" />
             </header>
 
             <div className="flex-1 relative z-10 max-w-7xl mx-auto px-6 py-32 flex flex-col lg:flex-row gap-12 items-start w-full">
@@ -148,7 +174,6 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                             <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                                 {new Date(post.publishedAt).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
-                            {/* 🚀 LOS BADGES DE CATEGORÍAS */}
                             {post.categories && post.categories.length > 0 && (
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">•</span>
@@ -181,7 +206,7 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                                     {post.authorName || "Equipo LGA"}
                                 </span>
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                                    Autor
+                                    {t("blog_author_label")}
                                 </span>
                             </div>
                         </div>

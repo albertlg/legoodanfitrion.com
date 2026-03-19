@@ -4,7 +4,8 @@ import { Controls } from "./components/controls";
 import es from "./i18n/es.json";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
-import { useAppRouter } from "./router-utils";
+import { useAppRouter, getCanonicalPathForRoute, normalizePathname } from "./router-utils";
+import { LegalScreen } from "./screens/legal-screen";
 
 const DEFAULT_LANGUAGE = "es";
 const SUPPORTED_LANGUAGES = ["es", "ca", "en", "fr", "it"];
@@ -41,7 +42,15 @@ function ScreenFallback() {
   );
 }
 
-function detectLanguage() {
+// 🚀 SEO: Nueva detección de idioma inteligente
+function detectLanguage(urlLang, originalPath) {
+  // 1. Si la URL tiene un idioma explícito en la carpeta (ej: /ca/preus) manda la URL
+  const hasExplicitUrlLang = originalPath.match(new RegExp(`^/${urlLang}(/|$)`));
+  if (hasExplicitUrlLang) {
+    return urlLang;
+  }
+
+  // 2. Si no hay idioma explícito (ej: rutas privadas como /app, o la raíz /), usamos las preferencias
   const stored = window.localStorage.getItem("legood-language");
   if (stored && SUPPORTED_LANGUAGES.includes(stored)) {
     return stored;
@@ -98,7 +107,10 @@ function normalizeAuthErrorMessage(error, t) {
 
 function App() {
   const { route, navigate, isRecoveryMode: initialRecoveryMode } = useAppRouter();
-  const [language, setLanguage] = useState(detectLanguage);
+
+  // 🚀 SEO 1: Inicializamos el idioma pasándole lo que ha detectado el router
+  const [language, setLanguage] = useState(() => detectLanguage(route.urlLang, route.originalPath));
+
   const [loadedLocales, setLoadedLocales] = useState(() => ({ [DEFAULT_LANGUAGE]: es }));
   const [themeMode, setThemeMode] = useState(getThemeModeInitial);
   const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
@@ -120,6 +132,32 @@ function App() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
+
+  // 🚀 SEO: Sincronización maestra. La URL es la única jefa en rutas públicas.
+  useEffect(() => {
+    if (route.kind !== "app" && route.kind !== "login" && route.kind !== "rsvp") {
+      // Si el idioma de la URL no coincide con el de la app, lo actualizamos.
+      if (language !== route.urlLang) {
+        setLanguage(route.urlLang);
+      }
+    }
+  }, [route.urlLang, route.kind, language]);
+
+  // 🚀 SEO: Función para interceptar los clicks en el selector de idioma
+  const handleLanguageChange = useCallback((newLang) => {
+
+    // 🚀 FIX CLAVE: Guardamos el idioma en el navegador ANTES de navegar
+    // para que el Smart Router no se confunda y nos devuelva al idioma anterior.
+    window.localStorage.setItem("legood-language", newLang);
+
+    if (route.kind !== "app" && route.kind !== "login" && route.kind !== "rsvp") {
+      const newCanonicalPath = getCanonicalPathForRoute(route, newLang);
+      navigate(newCanonicalPath, { replace: true });
+    } else {
+      setLanguage(newLang);
+    }
+  }, [route, navigate]);
+
   useEffect(() => {
     if (loadedLocales[language] || !LOCALE_LOADERS[language]) {
       return;
@@ -472,7 +510,7 @@ function App() {
               themeMode={themeMode}
               setThemeMode={setThemeMode}
               language={language}
-              setLanguage={setLanguage}
+              setLanguage={handleLanguageChange}
               t={t}
             />
           </header>
@@ -488,7 +526,7 @@ function App() {
         <PublicRsvpScreen
           token={route.token}
           language={language}
-          setLanguage={setLanguage}
+          setLanguage={handleLanguageChange}
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           t={t}
@@ -503,7 +541,7 @@ function App() {
         <LandingScreen
           t={t}
           language={language}
-          setLanguage={setLanguage}
+          setLanguage={handleLanguageChange}
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           currentPath={route.path}
@@ -526,17 +564,24 @@ function App() {
       <Suspense fallback={<ScreenFallback />}>
         {isBlogPost ? (
           <BlogPostScreen
-            slug={blogSlug} language={language} setLanguage={setLanguage}
+            slug={blogSlug} language={language} setLanguage={handleLanguageChange}
             themeMode={themeMode} setThemeMode={setThemeMode} t={t} onNavigate={navigate}
           />
         ) : (
           <BlogIndexScreen
-            language={language} setLanguage={setLanguage}
+            language={language} setLanguage={handleLanguageChange}
             themeMode={themeMode} setThemeMode={setThemeMode} t={t} onNavigate={navigate}
           />
         )}
       </Suspense>
     );
+  }
+
+  if (route.kind === "privacy") {
+    return <LegalScreen type="privacy" t={t} language={language} onNavigate={navigate} />;
+  }
+  if (route.kind === "terms") {
+    return <LegalScreen type="terms" t={t} language={language} onNavigate={navigate} />;
   }
 
   if (route.kind === "login" && isRecoveryMode) {
@@ -545,7 +590,7 @@ function App() {
         <AuthScreen
           t={t}
           language={language}
-          setLanguage={setLanguage}
+          setLanguage={handleLanguageChange}
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           isLoadingAuth={isLoadingAuth}
@@ -590,7 +635,7 @@ function App() {
         <AuthScreen
           t={t}
           language={language}
-          setLanguage={setLanguage}
+          setLanguage={handleLanguageChange}
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           isLoadingAuth={isLoadingAuth}
@@ -630,7 +675,7 @@ function App() {
       <DashboardScreen
         t={t}
         language={language}
-        setLanguage={setLanguage}
+        setLanguage={handleLanguageChange}
         themeMode={themeMode}
         setThemeMode={setThemeMode}
         session={session}
