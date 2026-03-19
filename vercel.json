@@ -6,6 +6,17 @@
         },
         {
             "source": "/(.*)",
+            "has": [
+                {
+                    "type": "header",
+                    "key": "user-agent",
+                    "value": ".*(googlebot|bingbot|yandex|baiduspider|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator|whatsapp).*"
+                }
+            ],
+            "destination": "https://service.prerender.io/Pcx95YMiMcvsLMjJrvxj/https://legoodanfitrion.com/$1"
+        },
+        {
+            "source": "/(.*)",
             "destination": "/index.html"
         }
     ]
