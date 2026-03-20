@@ -478,6 +478,7 @@ function DashboardScreen({
   const [guestSensitiveById, setGuestSensitiveById] = useState({});
   const [guestHostConversionById, setGuestHostConversionById] = useState({});
   const [invitations, setInvitations] = useState([]);
+  const [receivedInvitations, setReceivedInvitations] = useState([]);
   const [isDeletingEventId, setIsDeletingEventId] = useState("");
   const [isDeletingGuestId, setIsDeletingGuestId] = useState("");
   const [isDeletingInvitationId, setIsDeletingInvitationId] = useState("");
@@ -3437,6 +3438,7 @@ function DashboardScreen({
     setGuestPreferencesById,
     setGuestSensitiveById,
     setGuestHostConversionById,
+    setReceivedInvitations,
     setHostProfileName,
     setHostProfilePhone,
     setHostProfileCity,
@@ -4313,6 +4315,17 @@ function DashboardScreen({
     }
     navigateAppPath(`/app/guests/${encodeURIComponent(fallbackGuestId)}`);
     setGuestsMapFocusId(fallbackGuestId);
+    setIsNotificationMenuOpen(false);
+    closeMobileMenu();
+  };
+
+  const openReceivedInvitationRsvp = (publicToken) => {
+    const normalizedToken = String(publicToken || "").trim();
+    if (!normalizedToken) {
+      return;
+    }
+    markUserNavigationIntent();
+    navigateAppPath(`/rsvp/${encodeURIComponent(normalizedToken)}`);
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -7775,6 +7788,8 @@ function DashboardScreen({
             conversionWindowCounts={conversionWindowCounts}
             conversionTrend14d={conversionTrend14d}
             conversionTrendMax={conversionTrendMax}
+            receivedInvitations={receivedInvitations}
+            openReceivedInvitationRsvp={openReceivedInvitationRsvp}
           />
         </Suspense>
       ) : null}
@@ -8353,7 +8368,9 @@ function DashboardScreen({
               handleRequestDeleteInvitation,
               invitationPage,
               invitationTotalPages,
-              setInvitationPage
+              setInvitationPage,
+              receivedInvitations,
+              openReceivedInvitationRsvp
             }}
           />
         </Suspense>

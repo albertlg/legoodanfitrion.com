@@ -106,7 +106,38 @@ export function DashboardOverview({
     conversionWindowCounts,
     conversionTrend14d,
     conversionTrendMax,
+    receivedInvitations = [],
+    openReceivedInvitationRsvp,
 }) {
+    const formatInvitationDate = (value) => {
+        if (!value) {
+            return t("no_date");
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return t("no_date");
+        }
+        return new Intl.DateTimeFormat(undefined, {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit"
+        }).format(date);
+    };
+
+    const getInvitationStatusBadgeClass = (status) => {
+        const normalizedStatus = String(status || "").toLowerCase();
+        if (normalizedStatus === "yes") {
+            return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30";
+        }
+        if (normalizedStatus === "no") {
+            return "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30";
+        }
+        if (normalizedStatus === "maybe") {
+            return "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30";
+        }
+        return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30";
+    };
 
     // 🚀 ESTADO DE CARGA (Skeleton)
     if (isLoading) {
@@ -369,6 +400,88 @@ export function DashboardOverview({
                                             <div className="shrink-0">
                                                 <span className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${statusColors}`}>
                                                     {statusText(t, eventItem.status)}
+                                                </span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </article>
+
+                    {/* INVITACIONES RECIBIDAS (network effect) */}
+                    <article className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2.5rem] border border-black/5 dark:border-white/10 shadow-sm p-6 md:p-8 flex flex-col gap-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-black/5 dark:border-white/10 pb-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+                                    <Icon name="mail" className="w-5 h-5 text-emerald-500" />
+                                    {t("overview_received_invitations_title")}
+                                </h2>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {t("overview_received_invitations_hint")}
+                                </p>
+                            </div>
+                            <button
+                                className="px-5 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-xl transition-colors whitespace-nowrap"
+                                type="button"
+                                onClick={() => openWorkspace("invitations", "latest")}
+                            >
+                                {t("overview_received_invitations_open")}
+                            </button>
+                        </div>
+
+                        {receivedInvitations.length === 0 ? (
+                            <div className="py-8 text-center bg-black/5 dark:bg-white/5 rounded-2xl border border-dashed border-black/10 dark:border-white/10">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {t("overview_received_invitations_empty")}
+                                </p>
+                            </div>
+                        ) : (
+                            <ul className="flex flex-col gap-3">
+                                {receivedInvitations.slice(0, 6).map((invitationItem) => {
+                                    const hostName = String(invitationItem.host_full_name || "").trim() || t("host_default_name");
+                                    const eventTitle =
+                                        String(invitationItem.event_title || "").trim() || t("field_event");
+                                    const responseAtLabel = formatInvitationDate(
+                                        invitationItem.event_start_at || invitationItem.invitation_created_at
+                                    );
+                                    return (
+                                        <li
+                                            key={`received-invitation-${invitationItem.invitation_id}`}
+                                            className="group p-4 rounded-2xl border border-transparent hover:border-black/5 dark:hover:border-white/10 hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 outline-none focus:ring-2 focus:ring-emerald-500/40"
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => openReceivedInvitationRsvp?.(invitationItem.invitation_public_token)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter" || event.key === " ") {
+                                                    event.preventDefault();
+                                                    openReceivedInvitationRsvp?.(invitationItem.invitation_public_token);
+                                                }
+                                            }}
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-gray-900 dark:text-white truncate">
+                                                    {eventTitle}
+                                                </p>
+                                                <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                                                    <span className="flex items-center gap-1">
+                                                        <Icon name="user" className="w-3 h-3" />
+                                                        {hostName}
+                                                    </span>
+                                                    <span>·</span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Icon name="calendar" className="w-3 h-3" />
+                                                        {responseAtLabel}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0">
+                                                <span
+                                                    className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${getInvitationStatusBadgeClass(
+                                                        invitationItem.invitation_status
+                                                    )}`}
+                                                >
+                                                    {statusText(t, invitationItem.invitation_status)}
                                                 </span>
                                             </div>
                                         </li>

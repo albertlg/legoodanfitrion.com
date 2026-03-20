@@ -36,6 +36,7 @@ export function useDashboardDataController({
   setGuestPreferencesById,
   setGuestSensitiveById,
   setGuestHostConversionById,
+  setReceivedInvitations,
   setHostProfileName,
   setHostProfilePhone,
   setHostProfileCity,
@@ -83,6 +84,7 @@ export function useDashboardDataController({
       .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })
       .limit(100);
+    const receivedInvitationsPromise = supabase.rpc("get_my_received_invitations");
 
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
@@ -119,8 +121,9 @@ export function useDashboardDataController({
     let [
       { data: guestsData, error: guestsError },
       { data: invitationsData, error: invitationsError },
-      { data: hostProfileData, error: hostProfileError }
-    ] = await Promise.all([guestsPromise, invitationsPromise, hostProfilePromise]);
+      { data: hostProfileData, error: hostProfileError },
+      { data: receivedInvitationsData, error: receivedInvitationsError }
+    ] = await Promise.all([guestsPromise, invitationsPromise, hostProfilePromise, receivedInvitationsPromise]);
 
     if (
       guestsError &&
@@ -158,6 +161,14 @@ export function useDashboardDataController({
         .limit(100);
       invitationsData = fallbackInvitations.data || [];
       invitationsError = fallbackInvitations.error;
+    }
+
+    if (
+      receivedInvitationsError &&
+      isCompatibilityError(receivedInvitationsError, ["get_my_received_invitations"])
+    ) {
+      receivedInvitationsData = [];
+      receivedInvitationsError = null;
     }
 
     if (!eventsError && routeEventDetailId && !(eventsData || []).some((eventItem) => eventItem.id === routeEventDetailId)) {
@@ -257,11 +268,19 @@ export function useDashboardDataController({
       }
     }
 
-    if (eventsError || guestsError || invitationsError || hostProfileError || eventPlannerError) {
+    if (
+      eventsError ||
+      guestsError ||
+      invitationsError ||
+      receivedInvitationsError ||
+      hostProfileError ||
+      eventPlannerError
+    ) {
       setDashboardError(
         eventsError?.message ||
           guestsError?.message ||
           invitationsError?.message ||
+          receivedInvitationsError?.message ||
           hostProfileError?.message ||
           eventPlannerError?.message ||
           t("error_load_data")
@@ -382,6 +401,7 @@ export function useDashboardDataController({
     setEventSettingsCacheById(cachedEventSettingsById);
     setGuests(guestsData || []);
     setInvitations(invitationsData || []);
+    setReceivedInvitations(receivedInvitationsData || []);
     const latestPlannerByEventId = {};
     const plannerHistoryByEventId = {};
     for (const row of eventPlannerRows) {
@@ -481,6 +501,7 @@ export function useDashboardDataController({
     setEvents,
     setGuestHostConversionById,
     setGuestPreferencesById,
+    setReceivedInvitations,
     setGuestSensitiveById,
     setGuests,
     setHostProfileCity,
