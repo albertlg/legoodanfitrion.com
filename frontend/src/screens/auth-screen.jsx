@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { FieldMeta } from "../components/field-meta";
@@ -36,23 +37,49 @@ function AuthScreen({
   onGoogleSignIn,
   onBackToLanding
 }) {
+
+  // 1. Estados para capturar los datos temporales (PLG)
+  const [plgIntent, setPlgIntent] = useState("");
+  const [plgName, setPlgName] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      setPlgIntent(searchParams.get("intent") || "");
+      setPlgName(sessionStorage.getItem("lga_temp_name") || "");
+    }
+  }, []);
+
+  // 2. Textos Dinámicos 100% Internacionalizados 🌍
+  let displayTitle = isRecoveryMode ? t("auth_recovery_title") : t("auth_welcome_back");
+  let displayHint = isRecoveryMode ? t("auth_recovery_hint") : t("auth_welcome_hint");
+
+  if (!isRecoveryMode && plgIntent === "claim_profile") {
+    // 🚀 FIX: Reemplazamos {{name}} manualmente con Javascript
+    displayTitle = plgName
+      ? t("auth_plg_claim_title_name").replace("{{name}}", plgName)
+      : t("auth_plg_claim_title");
+    displayHint = t("auth_plg_claim_hint");
+  } else if (!isRecoveryMode && plgIntent === "create_event") {
+    // 🚀 FIX: Lo mismo para la intención de anfitrión
+    displayTitle = plgName
+      ? t("auth_plg_host_title_name").replace("{{name}}", plgName)
+      : t("auth_plg_host_title");
+    displayHint = t("auth_plg_host_hint");
+  }
+
   return (
     <main className="page page-auth min-h-screen flex items-center justify-center p-4 md:p-8 relative overflow-hidden bg-gray-50 dark:bg-black">
-      {/* 🚀 FIX SEO: Inyección dinámica de metadatos según el idioma */}
       <Helmet htmlAttributes={{ lang: language }}>
         <title>{t("seo_title")}</title>
         <meta name="description" content={t("seo_desc")} />
-
-        {/* Open Graph Dinámico */}
         <meta property="og:title" content={t("seo_title")} />
         <meta property="og:description" content={t("seo_desc")} />
-
-        {/* Twitter Card Dinámico */}
         <meta name="twitter:title" content={t("seo_title")} />
         <meta name="twitter:description" content={t("seo_desc")} />
       </Helmet>
 
-      {/* Decorative background blobs to enhance glassmorphism (optional, matches the RSVP style) */}
+      {/* Decorative background blobs */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
       <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-500/20 dark:bg-purple-600/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-pink-500/20 dark:bg-pink-600/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
@@ -75,8 +102,9 @@ function AuthScreen({
           ) : null}
 
           <BrandMark text={t("app_name")} fallback={t("logo_fallback")} className="mb-4 drop-shadow-sm scale-125" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{isRecoveryMode ? t("auth_recovery_title") : t("auth_welcome_back")}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{isRecoveryMode ? t("auth_recovery_hint") : t("auth_welcome_hint")}</p>
+
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{displayTitle}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{displayHint}</p>
         </header>
 
         {isLoadingAuth ? <p className="text-center text-sm font-medium text-blue-600 dark:text-blue-400 mb-4">{t("loading_session")}</p> : null}
@@ -87,6 +115,7 @@ function AuthScreen({
 
         {isRecoveryMode ? (
           <form id="auth-recovery-panel" className="flex flex-col gap-4" onSubmit={onUpdatePassword} noValidate>
+            {/* ... Panel de recuperación (sin cambios) ... */}
             <label className="block">
               <span className="block mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                 <Icon name="shield" className="w-3.5 h-3.5" />
@@ -129,7 +158,12 @@ function AuthScreen({
             </div>
           </form>
         ) : (
-          <form id="auth-access-panel" className="flex flex-col gap-4" onSubmit={onSignIn} noValidate>
+          <form
+            id="auth-access-panel"
+            className="flex flex-col gap-4"
+            onSubmit={plgIntent ? (e) => { e.preventDefault(); onSignUp(); } : onSignIn}
+            noValidate
+          >
             <button
               className="w-full py-3 bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl hover:bg-white/80 dark:hover:bg-white/5 transition-all flex justify-center items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200 shadow-sm"
               type="button"
@@ -198,19 +232,26 @@ function AuthScreen({
               </button>
             </div>
 
-            <button className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl shadow-md hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 mt-4" type="submit" disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}>
-              {isSigningIn ? t("signing_in") : t("sign_in")}
+            {/* 3. Botones Internacionalizados */}
+            <button
+              className={`w-full py-3.5 text-white font-bold rounded-xl shadow-md hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 mt-4 ${plgIntent ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-900 dark:bg-white dark:text-gray-900'}`}
+              type="submit"
+              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
+            >
+              {plgIntent
+                ? (isSigningUp ? t("signing_up") : t("auth_plg_create_account_btn"))
+                : (isSigningIn ? t("signing_in") : t("sign_in"))}
             </button>
 
             <div className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
-              {t("auth_no_account")}{" "}
+              {plgIntent ? t("auth_plg_already_have_account") : t("auth_no_account")}{" "}
               <button
                 className="font-bold text-gray-900 dark:text-white hover:underline transition-all"
                 type="button"
-                onClick={onSignUp}
+                onClick={plgIntent ? onSignIn : onSignUp}
                 disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
               >
-                {isSigningUp ? t("signing_up") : t("sign_up")}
+                {plgIntent ? t("sign_in") : (isSigningUp ? t("signing_up") : t("sign_up"))}
               </button>
             </div>
           </form>

@@ -453,21 +453,38 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   };
 
   const handleOpenGlobalGuestProfile = () => {
+    // 🚀 1. Guardamos la "magia" temporalmente
+    if (guestName) sessionStorage.setItem("lga_temp_name", guestName);
+    if (dietaryNeeds && dietaryNeeds.length > 0) {
+      sessionStorage.setItem("lga_temp_diet", JSON.stringify(dietaryNeeds));
+    }
+
     trackPlgEvent("rsvp_to_host_cta_click", {
       token,
       destination: "/login",
       source: "rsvp_success"
     });
-    navigate("/login");
+
+    // 🚀 2. Navegamos al login indicando sus intenciones
+    navigate("/login?intent=claim_profile");
   };
 
   const handleOpenHostApp = () => {
+    // 🚀 1. Guardamos su nombre para personalizar su bienvenida si se registra
+    if (guestName) sessionStorage.setItem("lga_temp_name", guestName);
+
     trackPlgEvent("rsvp_host_create_event_click", {
       token,
       destination: "/app/events/new",
       source: "rsvp_success"
     });
-    navigate("/app/events/new");
+
+    // 🚀 2. Aquí hay un detalle técnico importante:
+    // Si el usuario no está logueado y va a "/app/events/new", supongo que tu app 
+    // lo redirige automáticamente al "/login". 
+    // Para asegurarnos de que la pantalla de login le hable de "Crear su primer evento",
+    // lo mandamos directamente al login con la redirección preparada:
+    navigate("/login?intent=create_event&next=/app/events/new");
   };
 
   const statusColors = {
