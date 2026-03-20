@@ -219,7 +219,7 @@ export function GuestDetailView({
 
                 {/* Dropdown de Acciones Extra */}
                 <div className="relative ml-auto sm:ml-0">
-                    <button className="peer bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-white font-bold p-2.5 rounded-xl transition-all text-xs flex items-center justify-center outline-none focus:ring-2 focus:ring-blue-500/50">
+                    <button className="peer bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-white font-bold p-2.5 rounded-xl transition-all text-xs flex items-center justify-center outline-none focus:ring-2 focus:ring-blue-500/50" aria-label={t("open_menu")} title={t("open_menu")}>
                         <Icon name="more_horizontal" className="w-4 h-4" />
                     </button>
 

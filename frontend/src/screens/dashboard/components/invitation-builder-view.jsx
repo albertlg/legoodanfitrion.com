@@ -246,7 +246,7 @@ export function InvitationBuilderView({
                         <div className="flex flex-col sm:flex-row gap-2">
                             <input className="w-full bg-white dark:bg-black/40 border border-green-200 dark:border-green-800/50 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white outline-none shadow-sm" value={lastInvitationUrl} readOnly />
                             <div className="flex gap-2 shrink-0">
-                                <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center justify-center flex-1 sm:flex-none" type="button" onClick={() => handleCopyInvitationLink(lastInvitationUrl)}>
+                                <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center justify-center flex-1 sm:flex-none" type="button" onClick={() => handleCopyInvitationLink(lastInvitationUrl)} aria-label={t("copy_link")} title={t("copy_link")}>
                                     <Icon name="copy" className="w-3.5 h-3.5" />
                                 </button>
                                 <a className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center justify-center gap-1.5 flex-1 sm:flex-none" href={lastInvitationUrl} target="_blank" rel="noreferrer">
