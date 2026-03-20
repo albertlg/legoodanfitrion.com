@@ -46,6 +46,13 @@ function isLegacyRsvpFunctionError(error) {
   );
 }
 
+const RSVP_SOUND_BY_STATUS = {
+  yes: "/sounds/clink.mp3",
+  maybe: "/sounds/pop.mp3",
+  pending: "/sounds/pop.mp3",
+  no: "/sounds/break.mp3"
+};
+
 function trackPlgEvent(eventName, payload = {}) {
   try {
     const safePayload = payload && typeof payload === "object" ? payload : {};
@@ -55,6 +62,8 @@ function trackPlgEvent(eventName, payload = {}) {
     // noop
   }
 }
+
+const RSVP_REFRESH_MARKER_KEY = "lga_rsvp_refresh_at";
 
 function RsvpFormView({
   t,
@@ -310,13 +319,17 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     [t]
   );
 
-  // 🔊 Función para el sonido
-  const playClinkSound = () => {
+  // 🔊 Reproduce sonido según estado RSVP.
+  // Archivos esperados en: /public/sounds/{clink,pop,break}.mp3
+  const playRsvpSound = (rsvpStatus) => {
     try {
-      // Vite lee automáticamente de la carpeta public
-      const audio = new Audio('/sounds/clink.mp3');
-      audio.volume = 0.6; // Al 60% para que sea elegante y no un susto
-      audio.play().catch(err => console.log("El navegador bloqueó el audio automático"));
+      const normalizedStatus = String(rsvpStatus || "maybe").trim().toLowerCase();
+      const soundUrl = RSVP_SOUND_BY_STATUS[normalizedStatus] || RSVP_SOUND_BY_STATUS.maybe;
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.6;
+      audio.play().catch(() => {
+        // Algunos navegadores bloquean audio si consideran que ya no hay gesto del usuario.
+      });
     } catch (error) {
       console.log("Error reproduciendo el sonido", error);
     }
@@ -371,10 +384,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    // 🚀 1. EFECTO WOW INMEDIATO (Sonido y Haptics)
-    // Se lanza al instante para que parezca súper rápido y evitar bloqueos en iOS
-    playClinkSound();
-    triggerHaptics();
     if (!supabase) {
       return;
     }
@@ -419,6 +428,23 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
     setSubmitMessage(t("rsvp_saved"));
     setIsRsvpSaved(true);
+    try {
+      const refreshMarker = String(Date.now());
+      window.localStorage.setItem(RSVP_REFRESH_MARKER_KEY, refreshMarker);
+      // Dispara evento cross-tab para dashboards abiertos en otras pestañas.
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: RSVP_REFRESH_MARKER_KEY,
+          newValue: refreshMarker,
+          storageArea: window.localStorage
+        })
+      );
+    } catch {
+      // noop: la actualización del RSVP ya se guardó; el refresh se hará al volver.
+    }
+    // 🚀 Feedback de éxito dinámico según respuesta RSVP.
+    playRsvpSound(status);
+    triggerHaptics();
     trackPlgEvent("rsvp_submitted_success", {
       token,
       status,

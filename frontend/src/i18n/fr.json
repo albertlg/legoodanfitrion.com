@@ -235,6 +235,7 @@
   "invitation_share_subject": "Invitation a {event}",
   "invitation_share_subject_fallback": "Invitation a l'evenement",
   "invitation_share_template": "Bonjour {guest}, je t'invite a \"{event}\". Date : {date}. Lieu : {location}. Merci de confirmer ici : {url}",
+  "invitation_share_card_personal_message": "Bonjour ! Voici ton invitation. Confirme ta presence via ton lien personnel : {url}",
   "copy_ok": "Lien copie dans le presse-papiers.",
   "copy_fail": "Copie automatique impossible. Copiez le lien manuellement.",
   "event_created": "Evenement cree avec succes.",

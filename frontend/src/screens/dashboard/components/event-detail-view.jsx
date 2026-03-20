@@ -165,7 +165,18 @@ export function EventDetailView({
       const blob = await toBlob(shareNode, {
         cacheBust: true,
         pixelRatio: 2,
-        backgroundColor: "#0b1220"
+        backgroundColor: "#0b1220",
+        skipFonts: true,
+        preferredFontFormat: "woff2",
+        filter: (node) => {
+          if (node && typeof node === "object" && "tagName" in node) {
+            const tagName = String(node.tagName || "").toUpperCase();
+            if (tagName === "LINK") {
+              return false;
+            }
+          }
+          return true;
+        }
       });
       if (!blob) {
         throw new Error("empty_blob");

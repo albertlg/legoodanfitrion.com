@@ -263,6 +263,8 @@ function normalizeAiPlannerResult(aiPayload, { fallbackSections = {}, fallbackAl
   };
 }
 
+const RSVP_REFRESH_MARKER_KEY = "lga_rsvp_refresh_at";
+
 function DashboardScreen({
   t,
   language,
@@ -362,6 +364,7 @@ function DashboardScreen({
   const contactImportFileInputRef = useRef(null);
   const notificationMenuRef = useRef(null);
   const importWizardAutoloadHandledRef = useRef(false);
+  const lastRsvpRefreshMarkerRef = useRef("");
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
@@ -3450,6 +3453,62 @@ function DashboardScreen({
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+    let seededMarker = "";
+    try {
+      seededMarker = String(window.localStorage.getItem(RSVP_REFRESH_MARKER_KEY) || "").trim();
+    } catch {
+      seededMarker = "";
+    }
+    if (!lastRsvpRefreshMarkerRef.current && seededMarker) {
+      lastRsvpRefreshMarkerRef.current = seededMarker;
+    }
+
+    const refreshIfRsvpChanged = () => {
+      if (!session?.user?.id) {
+        return;
+      }
+      let marker = "";
+      try {
+        marker = String(window.localStorage.getItem(RSVP_REFRESH_MARKER_KEY) || "").trim();
+      } catch {
+        marker = "";
+      }
+      if (!marker || marker === lastRsvpRefreshMarkerRef.current) {
+        return;
+      }
+      lastRsvpRefreshMarkerRef.current = marker;
+      loadDashboardData();
+    };
+
+    const handleStorage = (event) => {
+      if (event?.key && event.key !== RSVP_REFRESH_MARKER_KEY) {
+        return;
+      }
+      refreshIfRsvpChanged();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshIfRsvpChanged();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", refreshIfRsvpChanged);
+    window.addEventListener("pageshow", refreshIfRsvpChanged);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", refreshIfRsvpChanged);
+      window.removeEventListener("pageshow", refreshIfRsvpChanged);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadDashboardData, session?.user?.id]);
 
   useEffect(() => {
     if (!selectedEventId && events.length > 0) {

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { getInitials } from "../../../lib/formatters";
+import { ShareCard } from "../../../components/events/ShareCard";
 
 export function InvitationsListView({
   t,
@@ -46,6 +48,9 @@ export function InvitationsListView({
 }) {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [invitationTab, setInvitationTab] = useState("sent");
+  const [isSharingInvitationId, setIsSharingInvitationId] = useState("");
+  const [shareImageMessage, setShareImageMessage] = useState("");
+  const shareCardRefs = useRef({});
   const [receivedSearch, setReceivedSearch] = useState("");
   const [receivedStatusFilter, setReceivedStatusFilter] = useState("all");
   const [receivedPageSize, setReceivedPageSize] = useState(INVITATIONS_PAGE_SIZE_DEFAULT);
@@ -105,6 +110,112 @@ export function InvitationsListView({
       hour: "2-digit",
       minute: "2-digit"
     }).format(date);
+  };
+
+  const interpolateText = (template, values = {}) =>
+    String(template || "").replace(/\{(\w+)\}/g, (_, key) =>
+      Object.prototype.hasOwnProperty.call(values, key) ? String(values[key] ?? "") : `{${key}}`
+    );
+
+  const handleShareInvitationImage = async ({
+    invitation,
+    eventName,
+    guestName
+  }) => {
+    const invitationId = String(invitation?.id || "").trim();
+    const publicToken = String(invitation?.public_token || "").trim();
+    const shareNode = invitationId ? shareCardRefs.current[invitationId] : null;
+    const personalUrl = publicToken ? buildAppUrl(`/rsvp/${encodeURIComponent(publicToken)}`) : "";
+    if (!shareNode) {
+      setShareImageMessage(t("event_share_card_error"));
+      return;
+    }
+    if (!personalUrl) {
+      setShareImageMessage(t("event_share_card_missing_rsvp"));
+      return;
+    }
+    setIsSharingInvitationId(invitationId);
+    setShareImageMessage("");
+    try {
+      const blob = await toBlob(shareNode, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#0b1220",
+        skipFonts: true,
+        preferredFontFormat: "woff2",
+        filter: (node) => {
+          if (node && typeof node === "object" && "tagName" in node) {
+            const tagName = String(node.tagName || "").toUpperCase();
+            if (tagName === "LINK") {
+              return false;
+            }
+          }
+          return true;
+        }
+      });
+      if (!blob) {
+        throw new Error("empty_blob");
+      }
+
+      const filenameBase = String(eventName || "event")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-_]/g, "");
+      const fileName = `${filenameBase || "event"}-${String(guestName || "guest")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-_]/g, "") || "guest"}-invitation.png`;
+
+      const shareFile = new File([blob], fileName, { type: "image/png" });
+      const shareTitle = interpolateText(t("event_share_card_share_title"), {
+        event: eventName || t("field_event")
+      });
+      const shareText = interpolateText(t("invitation_share_card_personal_message"), {
+        url: personalUrl
+      });
+
+      const canShareFiles =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        (typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] }));
+
+      if (canShareFiles) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: personalUrl,
+          files: [shareFile]
+        });
+        setShareImageMessage(t("event_share_card_shared_ok"));
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(shareText);
+      } catch {
+        // noop: en fallback priorizamos descarga aunque no se pueda copiar texto.
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      setShareImageMessage(t("event_share_card_downloaded_ok"));
+    } catch (error) {
+      if (String(error?.name || "").toLowerCase() === "aborterror") {
+        setShareImageMessage("");
+      } else {
+        setShareImageMessage(t("event_share_card_error"));
+      }
+    } finally {
+      setIsSharingInvitationId("");
+    }
   };
 
   return (
@@ -260,10 +371,10 @@ export function InvitationsListView({
               </h3>
             </div>
 
-            {invitationMessage ? (
+            {invitationMessage || shareImageMessage ? (
               <div className="px-5 py-3 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5">
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 rounded-xl text-sm">
-                  {invitationMessage}
+                  {invitationMessage || shareImageMessage}
                 </div>
               </div>
             ) : null}
@@ -319,6 +430,13 @@ export function InvitationsListView({
                         const url = sharePayload?.url || buildAppUrl(`/rsvp/${encodeURIComponent(invitation.public_token)}`);
                         const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                         const invitationStatus = String(invitation.status || "pending").toLowerCase();
+                        const hostName = t("host_default_name");
+                        const eventDateLabel = eventItem?.start_at
+                          ? formatDate(eventItem.start_at, language, t("no_date"))
+                          : t("no_date");
+                        const eventLocationLabel = String(
+                          eventItem?.location_name || eventItem?.location_address || "-"
+                        ).trim();
                         const mobileRsvpLabel =
                           invitationStatus === "pending"
                             ? t("invitation_mobile_rsvp_respond_now")
@@ -461,6 +579,25 @@ export function InvitationsListView({
                                         onClick={() => setOpenDropdownId(null)}
                                       >
                                         <button
+                                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          type="button"
+                                          onClick={() =>
+                                            handleShareInvitationImage({
+                                              invitation,
+                                              eventName,
+                                              guestName
+                                            })
+                                          }
+                                          disabled={isSharingInvitationId === invitation.id}
+                                        >
+                                          <Icon name="camera" className="w-4 h-4" />
+                                          <span>
+                                            {isSharingInvitationId === invitation.id
+                                              ? t("event_share_card_generating")
+                                              : t("event_share_card_action")}
+                                          </span>
+                                        </button>
+                                        <button
                                           className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
                                           type="button"
                                           onClick={() => {
@@ -493,6 +630,30 @@ export function InvitationsListView({
                                       </div>
                                     </>
                                   ) : null}
+                                </div>
+                              </div>
+
+                              <div className="fixed -left-[9999px] top-0 opacity-0 pointer-events-none" aria-hidden="true">
+                                <div
+                                  ref={(node) => {
+                                    if (node) {
+                                      shareCardRefs.current[invitation.id] = node;
+                                    } else {
+                                      delete shareCardRefs.current[invitation.id];
+                                    }
+                                  }}
+                                >
+                                  <ShareCard
+                                    eventName={eventName || t("field_event")}
+                                    eventDate={eventDateLabel}
+                                    eventLocation={eventLocationLabel}
+                                    hostName={hostName}
+                                    appName={t("app_name")}
+                                    footerMessage={t("event_share_card_footer_message")}
+                                    dateLabel={t("date")}
+                                    locationLabel={t("field_place")}
+                                    hostLabel={t("event_share_card_host_label")}
+                                  />
                                 </div>
                               </div>
                             </td>
@@ -645,7 +806,12 @@ export function InvitationsListView({
                       const eventDateLabel = formatReceivedDate(
                         invitationItem?.event_start_at || invitationItem?.invitation_created_at
                       );
-                      const publicToken = String(invitationItem?.invitation_public_token || "").trim();
+                      const publicToken = String(
+                        invitationItem?.invitation_public_token ||
+                          invitationItem?.public_token ||
+                          invitationItem?.rsvp_public_token ||
+                          ""
+                      ).trim();
                       return (
                         <tr
                           key={`received-${invitationItem?.invitation_id || publicToken || eventTitle}`}
