@@ -188,7 +188,7 @@ export function GuestDetailView({
                                     }}
                                     disabled={isDeletingGuestId === selectedGuestDetail.id}
                                 >
-                                    <Icon name="x" className="w-3.5 h-3.5" />
+                                    <Icon name="close" className="w-3.5 h-3.5" />
                                     {isDeletingGuestId === selectedGuestDetail.id ? t("deleting") : t("delete_guest")}
                                 </button>
                             </div>

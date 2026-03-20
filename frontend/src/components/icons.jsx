@@ -20,7 +20,7 @@ const ICON_PATHS = {
   sparkle:
     "m12 3 1.6 4.2L18 9l-4.4 1.8L12 15l-1.6-4.2L6 9l4.4-1.8L12 3Zm7 12 .8 2 .2.4.4.2 2 .8-2 .8-.4.2-.2.4-.8 2-.8-2-.2-.4-.4-.2-2-.8 2-.8.4-.2.2-.4.8-2Z",
   check: "M20 6 9 17l-5-5",
-  x: "m18 6-12 12M6 6l12 12",
+  close: "M18 6 6 18M6 6l12 12",
   edit: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
   clock: "M12 7v5l3 2m7-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
   folder: "M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8.5a2.5 2.5 0 0 1-2.5 2.5H5.5A2.5 2.5 0 0 1 3 17.5V7Z",
@@ -44,11 +44,13 @@ const ICON_PATHS = {
   heart: "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z",
   // 🚀 REDES SOCIALES
   instagram: "M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5z M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z M17.5 6.5h.01",
-  x: "M4 4l11.733 16h4.267l-11.733 -16z M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"
+  social_x: "M4 4l11.733 16h4.267l-11.733 -16z M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772",
+  info: "M12 16h.01M12 8h.01M12 12h.01M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"
 };
 
 function Icon({ name, className = "icon", title }) {
-  const path = ICON_PATHS[name] || ICON_PATHS.sparkle;
+  const normalizedName = name === "x" ? "close" : name;
+  const path = ICON_PATHS[normalizedName] || ICON_PATHS.sparkle;
   return (
     <svg
       className={className}

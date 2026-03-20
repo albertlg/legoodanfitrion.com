@@ -518,7 +518,7 @@ export function DashboardOverview({
                                         if (statusVal === "yes" || statusVal === "accepted") iconName = "check";
                                     } else if (statusVal === "no" || statusVal === "rejected" || statusVal === "cancelled") {
                                         iconColors = "bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400";
-                                        if (statusVal === "no" || statusVal === "rejected") iconName = "x";
+                                        if (statusVal === "no" || statusVal === "rejected") iconName = "close";
                                     } else if (statusVal === "pending" || statusVal === "draft") {
                                         iconColors = "bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400";
                                     }

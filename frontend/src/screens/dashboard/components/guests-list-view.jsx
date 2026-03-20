@@ -445,7 +445,7 @@ export function GuestsListView({
                                                                                 onClick={() => handleRequestDeleteGuest(guestItem)}
                                                                                 disabled={isDeletingGuestId === guestItem.id}
                                                                             >
-                                                                                <Icon name="x" className="w-4 h-4" />
+                                                                                <Icon name="close" className="w-4 h-4" />
                                                                                 <span>{isDeletingGuestId === guestItem.id ? t("deleting") : t("delete_guest")}</span>
                                                                             </button>
                                                                         </div>

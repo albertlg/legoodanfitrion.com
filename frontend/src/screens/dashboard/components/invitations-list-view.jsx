@@ -624,7 +624,7 @@ export function InvitationsListView({
                                           type="button"
                                           onClick={() => handleRequestDeleteInvitation(invitation, itemLabel)}
                                         >
-                                          <Icon name="x" className="w-4 h-4" />
+                                          <Icon name="close" className="w-4 h-4" />
                                           <span>{t("delete_invitation")}</span>
                                         </button>
                                       </div>

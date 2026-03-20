@@ -680,7 +680,7 @@ export function HostPlanView({
                       ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-900/30 text-orange-800 dark:text-orange-300"
                       : "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30 text-blue-800 dark:text-blue-300";
 
-                const iconName = isSuccess ? "check" : isError ? "x" : "shield";
+                const iconName = isSuccess ? "check" : isError ? "close" : "shield";
 
                 return (
                   <li key={riskItem.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border shadow-sm ${colorClasses}`}>

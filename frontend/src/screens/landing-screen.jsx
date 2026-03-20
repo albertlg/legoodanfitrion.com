@@ -443,7 +443,7 @@ function LandingScreen({
         <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-black/5 dark:border-white/5">
           <BrandMark text="" fallback={t("logo_fallback")} className="w-6 h-6" />
           <button className="p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-            <Icon name="x" className="w-5 h-5" />
+            <Icon name="close" className="w-5 h-5" />
           </button>
         </div>
 
@@ -561,7 +561,7 @@ function LandingScreen({
                   <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-400 to-red-500 opacity-80"></div>
                   <div className="flex items-center gap-4 mb-8">
                     <div className="w-12 h-12 shrink-0 rounded-2xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center">
-                      <Icon name="x" className="w-6 h-6" />
+                      <Icon name="close" className="w-6 h-6" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
                       {t("landing_vs_before_title")}
@@ -570,7 +570,7 @@ function LandingScreen({
                   <ul className="flex flex-col gap-5 text-gray-700 dark:text-gray-300">
                     {[1, 2, 3, 4].map((num) => (
                       <li key={`before-${num}`} className="flex items-start gap-3">
-                        <Icon name="x" className="w-5 h-5 text-red-400 dark:text-red-500 shrink-0 mt-0.5" />
+                        <Icon name="close" className="w-5 h-5 text-red-400 dark:text-red-500 shrink-0 mt-0.5" />
                         <span className="font-medium">{t(`landing_vs_before_${num}`)}</span>
                       </li>
                     ))}
@@ -966,7 +966,7 @@ function LandingScreen({
 
       {toast.visible ? (
         <div className={`fixed bottom-6 right-6 z-[100] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-300 ${toast.type === "error" ? "bg-red-600 text-white" : "bg-gray-900 dark:bg-white text-white dark:text-gray-900"}`} role="status" aria-live="polite">
-          <Icon name={toast.type === "error" ? "x" : "check"} className="w-5 h-5" />
+          <Icon name={toast.type === "error" ? "close" : "check"} className="w-5 h-5" />
           <span className="text-sm font-bold">{toast.text}</span>
         </div>
       ) : null}

@@ -104,7 +104,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                 <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-black/5 dark:border-white/5">
                     <BrandMark text="" fallback={t("logo_fallback")} className="w-6 h-6" />
                     <button className="p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                        <Icon name="x" className="w-5 h-5" />
+                        <Icon name="close" className="w-5 h-5" />
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-2">

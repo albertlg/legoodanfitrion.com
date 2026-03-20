@@ -563,7 +563,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
         {pageError ? (
           <div className="bg-red-50/80 dark:bg-red-900/20 backdrop-blur-xl border border-red-200 dark:border-red-800/30 rounded-3xl shadow-sm p-8 text-center">
-            <Icon name="x" className="w-8 h-8 text-red-500 mx-auto mb-3" />
+            <Icon name="close" className="w-8 h-8 text-red-500 mx-auto mb-3" />
             <p className="text-sm font-bold text-red-800 dark:text-red-300">{pageError}</p>
           </div>
         ) : null}

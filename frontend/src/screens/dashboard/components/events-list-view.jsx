@@ -350,7 +350,7 @@ export function EventsListView({
                                         onClick={() => handleRequestDeleteEvent(eventItem)}
                                         disabled={isDeletingEventId === eventItem.id}
                                       >
-                                        <Icon name="x" className="w-4 h-4" />
+                                        <Icon name="close" className="w-4 h-4" />
                                         <span>{isDeletingEventId === eventItem.id ? t("deleting") : t("delete_event")}</span>
                                       </button>
                                     </div>

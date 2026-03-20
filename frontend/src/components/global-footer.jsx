@@ -55,7 +55,7 @@ export function GlobalFooter({ t, onNavigate }) {
                             className="p-2 -m-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                             aria-label="X (Twitter) de LeGoodAnfitrión"
                         >
-                            <Icon name="x" className="w-5 h-5" />
+                            <Icon name="social_x" className="w-5 h-5" />
                         </a>
                     </div>
 

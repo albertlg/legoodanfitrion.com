@@ -564,7 +564,7 @@ export function EventDetailView({
                                       aria-label={t("delete_invitation")}
                                       title={t("delete_invitation")}
                                     >
-                                      <Icon name="x" className="w-5 h-5" />
+                                      <Icon name="close" className="w-5 h-5" />
                                     </button>
                                   </div>
                                 </td>

@@ -48,7 +48,7 @@ export function GuestMergeModal({
             className="p-1.5 -mr-1.5 -mt-6 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
             aria-label={t("cancel_action")}
           >
-            <Icon name="x" className="w-5 h-5" />
+            <Icon name="close" className="w-5 h-5" />
           </button>
         </div>
 

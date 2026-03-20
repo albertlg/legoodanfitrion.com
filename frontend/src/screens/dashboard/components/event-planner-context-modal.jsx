@@ -135,7 +135,7 @@ export function EventPlannerContextModal({
             aria-label={t("close_modal")}
             title={t("close_modal")}
           >
-            <Icon name="x" className="w-5 h-5" />
+            <Icon name="close" className="w-5 h-5" />
           </button>
         </header>
 
