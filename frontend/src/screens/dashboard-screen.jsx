@@ -1348,6 +1348,66 @@ function DashboardScreen({
         };
       });
   }, [events, eventInvitationSummaryByEventId, language, t]);
+  const dashboardChecklistEvent = useMemo(() => {
+    const upcomingEventId = String(upcomingEventsPreview?.[0]?.id || "").trim();
+    if (upcomingEventId && eventsById[upcomingEventId]) {
+      return eventsById[upcomingEventId];
+    }
+    return events[0] || null;
+  }, [events, eventsById, upcomingEventsPreview]);
+  const dashboardHostChecklist = useMemo(() => {
+    const targetEventId = String(dashboardChecklistEvent?.id || "").trim();
+    const targetEventTitle = String(dashboardChecklistEvent?.title || "").trim();
+    const invitationSummary = targetEventId ? eventInvitationSummaryByEventId[targetEventId] || null : null;
+    const plannerSnapshot = targetEventId ? eventPlannerSnapshotsByEventId[targetEventId] || null : null;
+    const snapshotMenuSections = Array.isArray(plannerSnapshot?.sections?.menu?.menuSections)
+      ? plannerSnapshot.sections.menu.menuSections
+      : [];
+    const hasSnapshotMenu = snapshotMenuSections.some((sectionItem) => {
+      const items = Array.isArray(sectionItem?.items) ? sectionItem.items : [];
+      return items.some((menuItem) => String(menuItem || "").trim().length > 0);
+    });
+
+    const checklistItems = [
+      {
+        key: "create_event",
+        done: Boolean(targetEventId && targetEventTitle),
+        auto: true,
+        label: t("host_checklist_item_create_event")
+      },
+      {
+        key: "send_invitations",
+        done: Number(invitationSummary?.total || 0) > 0,
+        auto: true,
+        label: t("host_checklist_item_send_invitations")
+      },
+      {
+        key: "first_confirmation",
+        done: Number(invitationSummary?.yes || 0) > 0,
+        auto: true,
+        label: t("host_checklist_item_first_confirmation")
+      },
+      {
+        key: "define_menu",
+        done: hasSnapshotMenu,
+        auto: true,
+        label: t("host_checklist_item_define_menu")
+      }
+    ];
+
+    const total = checklistItems.length;
+    const completed = checklistItems.filter((item) => item.done).length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return {
+      eventId: targetEventId,
+      eventTitle: targetEventTitle || t("field_event"),
+      items: checklistItems,
+      total,
+      completed,
+      percent
+    };
+  }, [dashboardChecklistEvent, eventInvitationSummaryByEventId, eventPlannerSnapshotsByEventId, t]);
   const hostRatingScore = useMemo(() => {
     const responseWeight = respondedInvitesRate / 100;
     const completionWeight = Math.min(1, events.filter((eventItem) => eventItem.status === "completed").length / 8);
@@ -7864,6 +7924,7 @@ function DashboardScreen({
             conversionTrendMax={conversionTrendMax}
             receivedInvitations={receivedInvitations}
             openReceivedInvitationRsvp={openReceivedInvitationRsvp}
+            dashboardHostChecklist={dashboardHostChecklist}
           />
         </Suspense>
       ) : null}

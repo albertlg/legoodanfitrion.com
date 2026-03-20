@@ -544,7 +544,7 @@ export function EventDetailView({
                                 <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-none sm:border-none align-middle text-right">
                                   <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity mt-2 sm:mt-0">
                                     <button
-                                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                                      className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                                       type="button"
                                       onClick={() => {
                                         const prepared = handlePrepareInvitationShare(row.invitation);
@@ -555,16 +555,16 @@ export function EventDetailView({
                                       aria-label={t("invitation_send_message_action")}
                                       title={t("invitation_send_message_action")}
                                     >
-                                      <Icon name="message" className="w-4 h-4" />
+                                      <Icon name="message" className="w-5 h-5" />
                                     </button>
                                     <button
-                                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                      className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                                       type="button"
                                       onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
                                       aria-label={t("delete_invitation")}
                                       title={t("delete_invitation")}
                                     >
-                                      <Icon name="x" className="w-4 h-4" />
+                                      <Icon name="x" className="w-5 h-5" />
                                     </button>
                                   </div>
                                 </td>

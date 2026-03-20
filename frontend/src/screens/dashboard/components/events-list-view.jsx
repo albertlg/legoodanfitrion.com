@@ -35,7 +35,8 @@ export function EventsListView({
   mapsError,
   orderedEventMapPoints,
   // eslint-disable-next-line no-unused-vars
-  GeoPointsMapPanel
+  GeoPointsMapPanel,
+  openWorkspace
 }) {
   // 🟢 1. EL ESTADO DEL MENÚ AÑADIDO AQUÍ
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -121,7 +122,7 @@ export function EventsListView({
         </div>
 
         {/* 2. PESTAÑAS DE FILTRO */}
-        <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5">
+        <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
           <div className="flex flex-wrap gap-2 items-center" role="group" aria-label={t("filter_status")}>
             {[
               { key: "all", label: t("all_status") },
@@ -161,6 +162,16 @@ export function EventsListView({
                 <Icon name="calendar" className="w-6 h-6 text-gray-400" />
               </div>
               <p className="text-gray-500 font-medium">{t("no_events")}</p>
+              <div className="mt-4">
+                <button
+                  className="px-5 py-2.5 bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2"
+                  type="button"
+                  onClick={() => openWorkspace("events", "create")}
+                >
+                  <Icon name="plus" className="w-4 h-4" />
+                  {t("quick_create_event")}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="w-full">
@@ -264,13 +275,13 @@ export function EventsListView({
                           <td className="align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 relative">
                             <div className="flex items-center justify-end gap-1 w-full relative">
                               <button
-                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 rounded-lg transition-colors shrink-0"
+                                className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 rounded-lg transition-colors shrink-0"
                                 type="button"
                                 onClick={() => openEventDetail(eventItem.id)}
                                 aria-label={t("view_detail")}
                                 title={t("view_detail")}
                               >
-                                <Icon name="eye" className="w-4 h-4" />
+                                <Icon name="eye" className="w-5 h-5" />
                               </button>
 
                               <div
@@ -279,7 +290,7 @@ export function EventsListView({
                                 onMouseLeave={() => setOpenDropdownId(null)}
                               >
                                 <button
-                                  className={`p-1.5 rounded-lg transition-colors focus:outline-none ${openDropdownId === eventItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
+                                  className={`p-2.5 rounded-lg transition-colors focus:outline-none ${openDropdownId === eventItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
                                   type="button"
                                   aria-label={t("open_menu")}
                                   title={t("actions_label")}
@@ -360,7 +371,7 @@ export function EventsListView({
 
         {/* Pagination */}
         {filteredEvents.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 border-t border-black/5 dark:border-white/10 bg-white/30 dark:bg-black/10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 border-t border-black/5 dark:border-white/10 bg-white/30 dark:bg-black/10 backdrop-blur-md">
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
               {t("pagination_page")} <span className="font-bold text-gray-900 dark:text-white">{eventPage}</span> / <span className="font-bold text-gray-900 dark:text-white">{eventTotalPages}</span>
             </p>

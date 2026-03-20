@@ -160,7 +160,7 @@ function RsvpFormView({
               <button
                 key={optionItem.value}
                 type="button"
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
+                className={`px-4 py-3 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
                 onClick={() => toggleDietaryNeed(optionItem.value)}
                 aria-pressed={isActive}
               >
@@ -196,7 +196,7 @@ function RsvpFormView({
         </button>
         {submitMessage ? (
           <div className="mt-4 flex justify-center">
-            <InlineMessage text={submitMessage} />
+            <InlineMessage text={submitMessage} type="error" />
           </div>
         ) : null}
       </div>

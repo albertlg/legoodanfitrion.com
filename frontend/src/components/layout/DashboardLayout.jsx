@@ -102,13 +102,13 @@ export function DashboardLayout({
 
                     {/* Botón de Logout (Solo icono rojo) */}
                     <button
-                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors shrink-0"
+                        className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors shrink-0"
                         type="button"
                         onClick={onSignOut}
                         title={t("sign_out") || "Cerrar sesión"}
                         aria-label={t("sign_out") || "Cerrar sesión"}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                             <polyline points="16 17 21 12 16 7"></polyline>
                             <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -156,7 +156,8 @@ export function DashboardLayout({
                         <button
                             onClick={toggleMobileMenu}
                             className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50 shrink-0"
-                            aria-label="Abrir menú"
+                            aria-label={t("open_menu")}
+                            aria-expanded={isMenuOpen}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-900 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                         </button>
@@ -202,6 +203,8 @@ export function DashboardLayout({
                             <button
                                 className={`relative p-2 rounded-full transition-colors border outline-none focus:ring-2 focus:ring-blue-500/50 ${isNotificationMenuOpen ? "bg-black/5 dark:bg-white/10 border-black/10 dark:border-white/20" : "bg-transparent hover:bg-black/5 dark:hover:bg-white/5 border-transparent"}`}
                                 type="button"
+                                aria-label={t("notifications_toggle")}
+                                aria-expanded={isNotificationMenuOpen}
                                 onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
                             >
                                 <Icon name="bell" className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -305,6 +308,8 @@ export function DashboardLayout({
                                 <button
                                     className={`relative p-2.5 rounded-full transition-colors border outline-none focus:ring-2 focus:ring-blue-500/50 ${isNotificationMenuOpen ? "bg-black/5 dark:bg-white/10 border-black/10 dark:border-white/20" : "bg-white/50 dark:bg-white/5 border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/10"}`}
                                     type="button"
+                                    aria-label={t("notifications_toggle")}
+                                    aria-expanded={isNotificationMenuOpen}
                                     onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
                                 >
                                     <Icon name="bell" className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -372,7 +377,7 @@ export function DashboardLayout({
                 <div className="flex items-center justify-between px-5 pt-6 pb-2 border-b border-black/5 dark:border-white/5">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 m-0">{t("nav_sections")}</p>
                     <button
-                        className="p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white"
+                        className="p-2.5 -mr-2.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white"
                         type="button"
                         onClick={closeMobileMenu}
                     >

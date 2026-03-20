@@ -1,5 +1,6 @@
 import { Icon } from "../icons";
 import { AvatarCircle } from "../avatar-circle";
+import { HostChecklistCard } from "./HostChecklistCard";
 
 function DashboardOverviewSkeleton({ t }) {
     return (
@@ -108,6 +109,7 @@ export function DashboardOverview({
     conversionTrendMax,
     receivedInvitations = [],
     openReceivedInvitationRsvp,
+    dashboardHostChecklist,
 }) {
     const formatInvitationDate = (value) => {
         if (!value) {
@@ -599,6 +601,12 @@ export function DashboardOverview({
                             </div>
                         </div>
                     </article>
+
+                    <HostChecklistCard
+                        t={t}
+                        checklist={dashboardHostChecklist}
+                        onOpenEvent={openEventDetail}
+                    />
                 </div>
             </div>
 
