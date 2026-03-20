@@ -2493,6 +2493,48 @@ body {
     }
   }
 
+  @keyframes host-check-pop {
+    0% {
+      transform: scale(0.975);
+    }
+
+    45% {
+      transform: scale(1.02);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes host-check-glow {
+    0% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+
+    45% {
+      box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.18);
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+
+  .host-check-item-pop {
+    animation: host-check-pop 420ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+  }
+
+  .host-check-icon-pop {
+    animation:
+      host-check-pop 360ms cubic-bezier(0.2, 0.78, 0.2, 1) both,
+      host-check-glow 620ms ease-out both;
+  }
+
+  .host-check-badge-pop {
+    animation: host-check-pop 340ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+  }
+
   .overview-grid {
     display: grid;
     gap: 0.9rem;
@@ -7159,7 +7201,10 @@ body {
     .btn,
     .nav-btn,
     .control-icon-btn,
-    .hamburger-btn {
+    .hamburger-btn,
+    .host-check-item-pop,
+    .host-check-icon-pop,
+    .host-check-badge-pop {
       animation: none !important;
       transition: none !important;
     }
