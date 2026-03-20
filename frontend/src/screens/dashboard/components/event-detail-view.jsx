@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useRef, useState } from "react";
+import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
 import { getInitials } from "../../../lib/formatters";
+import { ShareCard } from "../../../components/events/ShareCard";
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -124,12 +126,16 @@ export function EventDetailView({
   handleCopyEventPlannerPrompt,
   getMapEmbedUrl,
   getGuestAvatarUrl,
+  hostDisplayName,
   selectedEventDetailGuests,
   openGuestDetail,
   handlePrepareInvitationShare,
   handleRequestDeleteInvitation,
   selectedEventRsvpTimeline
 }) {
+  const shareCardRef = useRef(null);
+  const [isSharingInvitationImage, setIsSharingInvitationImage] = useState(false);
+  const [shareCardMessage, setShareCardMessage] = useState("");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const eventDateLabel = formatLongDate(selectedEventDetail?.start_at, language, t("no_date"));
   const eventTimeLabel = formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"));
@@ -137,6 +143,82 @@ export function EventDetailView({
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
+  const shareCardHostName = String(hostDisplayName || selectedEventDetail?.host_name || t("host_default_name")).trim();
+
+  const handleShareInvitationImage = async () => {
+    if (!selectedEventDetail) {
+      return;
+    }
+    const shareNode = shareCardRef.current;
+    if (!shareNode) {
+      setShareCardMessage(t("event_share_card_error"));
+      return;
+    }
+    const rsvpUrl = String(selectedEventDetailPrimaryShare?.url || "").trim();
+    if (!rsvpUrl) {
+      setShareCardMessage(t("event_share_card_missing_rsvp"));
+      return;
+    }
+    setIsSharingInvitationImage(true);
+    setShareCardMessage("");
+    try {
+      const blob = await toBlob(shareNode, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#0b1220"
+      });
+      if (!blob) {
+        throw new Error("empty_blob");
+      }
+      const filenameBase = String(selectedEventDetail?.title || "event")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-_]/g, "");
+      const fileName = `${filenameBase || "event"}-invitation.png`;
+      const shareFile = new File([blob], fileName, { type: "image/png" });
+      const shareTitle = interpolateText(t("event_share_card_share_title"), {
+        event: selectedEventDetail?.title || t("field_event")
+      });
+      const shareText = interpolateText(t("event_share_card_share_text"), {
+        event: selectedEventDetail?.title || t("field_event"),
+        url: rsvpUrl
+      });
+      const canShareFiles =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        (typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] }));
+
+      if (canShareFiles) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: rsvpUrl,
+          files: [shareFile]
+        });
+        setShareCardMessage(t("event_share_card_shared_ok"));
+        return;
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      setShareCardMessage(t("event_share_card_downloaded_ok"));
+    } catch (error) {
+      if (String(error?.name || "").toLowerCase() === "aborterror") {
+        setShareCardMessage("");
+      } else {
+        setShareCardMessage(t("event_share_card_error"));
+      }
+    } finally {
+      setIsSharingInvitationImage(false);
+    }
+  };
 
   return (
     <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
@@ -249,6 +331,15 @@ export function EventDetailView({
                 <Icon name="edit" className="w-4 h-4" />
                 {t("event_detail_edit_action")}
               </button>
+              <button
+                className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                type="button"
+                onClick={handleShareInvitationImage}
+                disabled={isSharingInvitationImage}
+              >
+                <Icon name="camera" className="w-4 h-4" />
+                {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
+              </button>
 
               <div className="relative group">
                 <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center" aria-label={t("open_menu")} title={t("open_menu")}>
@@ -310,6 +401,7 @@ export function EventDetailView({
       ) : null}
 
       <InlineMessage text={invitationMessage} />
+      <InlineMessage text={shareCardMessage} />
 
       {/* Contenido Principal Grid */}
       {!selectedEventDetail ? (
@@ -658,6 +750,24 @@ export function EventDetailView({
 
         </div>
       )}
+
+      {selectedEventDetail ? (
+        <div className="fixed -left-[9999px] top-0 opacity-0 pointer-events-none" aria-hidden="true">
+          <div ref={shareCardRef}>
+            <ShareCard
+              eventName={selectedEventDetail.title || t("field_event")}
+              eventDate={`${eventDateLabel} · ${eventTimeLabel}`}
+              eventLocation={eventPlaceLabel}
+              hostName={shareCardHostName}
+              appName={t("app_name")}
+              footerMessage={t("event_share_card_footer_message")}
+              dateLabel={t("date")}
+              locationLabel={t("field_place")}
+              hostLabel={t("event_share_card_host_label")}
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

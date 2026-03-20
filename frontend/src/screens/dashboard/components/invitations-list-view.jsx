@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { getInitials } from "../../../lib/formatters";
@@ -46,6 +46,10 @@ export function InvitationsListView({
 }) {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [invitationTab, setInvitationTab] = useState("sent");
+  const [receivedSearch, setReceivedSearch] = useState("");
+  const [receivedStatusFilter, setReceivedStatusFilter] = useState("all");
+  const [receivedPageSize, setReceivedPageSize] = useState(INVITATIONS_PAGE_SIZE_DEFAULT);
+  const [receivedPage, setReceivedPage] = useState(1);
 
   const sortedReceivedInvitations = useMemo(() => {
     const list = Array.isArray(receivedInvitations) ? [...receivedInvitations] : [];
@@ -56,6 +60,38 @@ export function InvitationsListView({
     });
     return list;
   }, [receivedInvitations]);
+  const filteredReceivedInvitations = useMemo(() => {
+    const normalizedSearch = String(receivedSearch || "").trim().toLowerCase();
+    const normalizedStatus = String(receivedStatusFilter || "all").toLowerCase();
+    return sortedReceivedInvitations.filter((invitationItem) => {
+      const eventTitle = String(invitationItem?.event_title || "").toLowerCase();
+      const hostName = String(invitationItem?.host_full_name || "").toLowerCase();
+      const statusValue = String(invitationItem?.invitation_status || "pending").toLowerCase();
+      const matchesSearch =
+        !normalizedSearch || eventTitle.includes(normalizedSearch) || hostName.includes(normalizedSearch);
+      const matchesStatus = normalizedStatus === "all" || statusValue === normalizedStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [receivedSearch, receivedStatusFilter, sortedReceivedInvitations]);
+  const receivedTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredReceivedInvitations.length / Math.max(1, receivedPageSize))),
+    [filteredReceivedInvitations.length, receivedPageSize]
+  );
+  const pagedReceivedInvitations = useMemo(() => {
+    const safePage = Math.max(1, receivedPage);
+    const startIndex = (safePage - 1) * Math.max(1, receivedPageSize);
+    return filteredReceivedInvitations.slice(startIndex, startIndex + Math.max(1, receivedPageSize));
+  }, [filteredReceivedInvitations, receivedPage, receivedPageSize]);
+
+  useEffect(() => {
+    setReceivedPage(1);
+  }, [receivedSearch, receivedStatusFilter, receivedPageSize]);
+
+  useEffect(() => {
+    if (receivedPage > receivedTotalPages) {
+      setReceivedPage(receivedTotalPages);
+    }
+  }, [receivedPage, receivedTotalPages]);
 
   const formatReceivedDate = (value) => {
     const date = new Date(value || 0);
@@ -499,7 +535,83 @@ export function InvitationsListView({
           </>
         ) : (
           <div className="flex flex-col relative">
-            {sortedReceivedInvitations.length === 0 ? (
+            <div className="flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
+              <div className="flex flex-col md:flex-row gap-4 flex-1">
+                <label className="flex flex-col flex-1 max-w-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                    {t("search")}
+                  </span>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Icon name="search" className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="search"
+                      value={receivedSearch}
+                      onChange={(event) => setReceivedSearch(event.target.value)}
+                      placeholder={t("search_invitations_placeholder")}
+                      className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex flex-wrap gap-3 items-end">
+                <label className="flex flex-col">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                    {t("pagination_items_per_page")}
+                  </span>
+                  <select
+                    value={receivedPageSize}
+                    onChange={(event) =>
+                      setReceivedPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)
+                    }
+                    className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                      <option key={`received-page-size-${optionValue}`} value={optionValue}>
+                        {optionValue}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5">
+              <div className="flex flex-wrap gap-2 items-center" role="group" aria-label={t("filter_status")}>
+                {[
+                  { key: "all", label: t("all_status") },
+                  { key: "pending", label: t("status_pending") },
+                  { key: "yes", label: t("status_yes") },
+                  { key: "maybe", label: t("status_maybe") },
+                  { key: "no", label: t("status_no") }
+                ].map((statusOption) => {
+                  const isActive = receivedStatusFilter === statusOption.key;
+                  return (
+                    <button
+                      key={`received-status-${statusOption.key}`}
+                      className={
+                        isActive
+                          ? "bg-gray-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      }
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => setReceivedStatusFilter(statusOption.key)}
+                    >
+                      {statusOption.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white mt-6 mb-4">
+                {t("results_count")}: {filteredReceivedInvitations.length}
+              </h3>
+            </div>
+
+            {filteredReceivedInvitations.length === 0 ? (
               <div className="px-5 py-16 text-center flex flex-col items-center justify-center gap-2">
                 <div className="w-12 h-12 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center mb-2">
                   <Icon name="mail" className="w-6 h-6 text-gray-400" />
@@ -526,7 +638,7 @@ export function InvitationsListView({
                     </tr>
                   </thead>
                   <tbody className="block md:table-row-group divide-y-0 md:divide-y divide-black/5 dark:divide-white/5">
-                    {sortedReceivedInvitations.map((invitationItem) => {
+                    {pagedReceivedInvitations.map((invitationItem) => {
                       const eventTitle = invitationItem?.event_title || t("field_event");
                       const hostName = invitationItem?.host_full_name || t("host_default_name");
                       const statusValue = invitationItem?.invitation_status || "pending";
@@ -570,6 +682,34 @@ export function InvitationsListView({
                 </table>
               </div>
             )}
+
+            {filteredReceivedInvitations.length > 0 ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 border-t border-black/5 dark:border-white/10 bg-white/30 dark:bg-black/10">
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                  {t("pagination_page")}{" "}
+                  <span className="font-bold text-gray-900 dark:text-white">{receivedPage}</span> /{" "}
+                  <span className="font-bold text-gray-900 dark:text-white">{receivedTotalPages}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={() => setReceivedPage((prev) => Math.max(1, prev - 1))}
+                    disabled={receivedPage <= 1}
+                  >
+                    {t("pagination_prev")}
+                  </button>
+                  <button
+                    className="px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={() => setReceivedPage((prev) => Math.min(receivedTotalPages, prev + 1))}
+                    disabled={receivedPage >= receivedTotalPages}
+                  >
+                    {t("pagination_next")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

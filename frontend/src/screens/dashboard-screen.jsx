@@ -8049,6 +8049,7 @@ function DashboardScreen({
               handleCopyEventPlannerMessages,
               handleCopyEventPlannerPrompt,
               getGuestAvatarUrl,
+              hostDisplayName,
               selectedEventDetailGuests,
               openGuestDetail,
               handlePrepareInvitationShare,

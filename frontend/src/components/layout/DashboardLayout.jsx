@@ -127,7 +127,7 @@ export function DashboardLayout({
         <div className="flex flex-col md:flex-row h-screen bg-gray-50 dark:bg-black w-full max-w-7xl mx-auto overflow-hidden relative shadow-2xl border-x border-black/5 dark:border-white/5">
 
             {/* --- DESKTOP SIDEBAR --- */}
-            <aside className="hidden md:flex flex-col w-64 border-r border-black/10 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-xl z-30 flex-shrink-0">
+            <aside className="hidden md:flex flex-col w-64 border-r border-white/60 dark:border-white/10 bg-slate-100/50 dark:bg-gray-900/50 backdrop-blur-2xl z-30 flex-shrink-0 shadow-[2px_0_16px_-4px_rgba(0,0,0,0.05)]">
                 <div className="p-6 border-b border-black/5 dark:border-white/5">
                     <div className="flex items-center gap-2 cursor-pointer" aria-hidden="true" onClick={() => changeView("overview")}>
                         <BrandMark text={t("app_name")} fallback={t("logo_fallback")} className="drop-shadow-sm hover:scale-105 transition-transform" />
@@ -151,7 +151,7 @@ export function DashboardLayout({
             <div className="flex-1 flex flex-col h-screen overflow-y-auto relative min-w-0">
 
                 {/* --- MOBILE HEADER ALWAYS VISIBLE --- */}
-                <header className="md:hidden flex-shrink-0 flex items-center justify-between px-4 h-16 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-b border-black/5 dark:border-white/10 sticky top-0 z-40 transition-colors">
+                <header className="md:hidden flex-shrink-0 flex items-center justify-between px-4 h-16 bg-slate-100/60 dark:bg-gray-900/70 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 sticky top-0 z-40 transition-colors shadow-sm">
                     <div className="flex items-center gap-3 min-w-0 pr-2">
                         <button
                             onClick={toggleMobileMenu}
@@ -250,7 +250,7 @@ export function DashboardLayout({
 
                 {/* --- DESKTOP HEADER --- */}
                 {!hideHeader ? (
-                    <header className="hidden md:flex flex-none h-[72px] border-b border-black/10 dark:border-white/10 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl sticky top-0 z-40 items-center justify-between px-6 lg:px-8 shadow-sm transition-colors">
+                    <header className="hidden md:flex flex-none h-[72px] border-b border-white/60 dark:border-white/10 bg-slate-100/60 dark:bg-gray-900/70 backdrop-blur-2xl sticky top-0 z-40 items-center justify-between px-6 lg:px-8 shadow-sm transition-colors">
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2 md:hidden cursor-pointer" aria-hidden="true" onClick={() => changeView("overview")}>
                                 <BrandMark text={t("app_name")} fallback={t("logo_fallback")} />
@@ -389,7 +389,7 @@ export function DashboardLayout({
                 </div>
             </aside>
 
-            <nav className="md:hidden backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border-t border-gray-200 dark:border-white/10 fixed bottom-0 left-0 right-0 z-[9990] flex items-center justify-around pb-safe pt-1 px-2 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.1)]" aria-label={t("nav_sections")}>
+            <nav className="md:hidden backdrop-blur-2xl bg-slate-100/70 dark:bg-gray-900/80 border-t border-white/60 dark:border-white/10 fixed bottom-0 left-0 right-0 z-[9990] flex items-center justify-around pb-safe pt-1 px-2 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.1)]" aria-label={t("nav_sections")}>
                 {VIEW_CONFIG?.map((item) => (
                     <button
                         key={`mobile-bottom-${item.key}`}
