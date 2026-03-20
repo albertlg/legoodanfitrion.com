@@ -310,6 +310,27 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     [t]
   );
 
+  // 🔊 Función para el sonido
+  const playClinkSound = () => {
+    try {
+      // Vite lee automáticamente de la carpeta public
+      const audio = new Audio('/sounds/clink.mp3');
+      audio.volume = 0.6; // Al 60% para que sea elegante y no un susto
+      audio.play().catch(err => console.log("El navegador bloqueó el audio automático"));
+    } catch (error) {
+      console.log("Error reproduciendo el sonido", error);
+    }
+  };
+
+  // 📳 Función para la vibración (Android)
+  const triggerHaptics = () => {
+    // Comprobamos que estamos en el navegador y soporta vibración
+    if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+      // Vibra 50ms, pausa 50ms, vibra 50ms (efecto de doble confirmación)
+      window.navigator.vibrate([50, 50, 50]);
+    }
+  };
+
   useEffect(() => {
     if (!supabase) {
       setIsLoading(false);
@@ -350,6 +371,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    // 🚀 1. EFECTO WOW INMEDIATO (Sonido y Haptics)
+    // Se lanza al instante para que parezca súper rápido y evitar bloqueos en iOS
+    playClinkSound();
+    triggerHaptics();
     if (!supabase) {
       return;
     }
