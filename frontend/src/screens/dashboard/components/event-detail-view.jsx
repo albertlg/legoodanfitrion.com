@@ -124,6 +124,7 @@ export function EventDetailView({
   selectedEventHostPlaybook,
   handleCopyEventPlannerMessages,
   handleCopyEventPlannerPrompt,
+  eventPlannerMessage,
   getMapEmbedUrl,
   getGuestAvatarUrl,
   hostDisplayName,
@@ -755,6 +756,7 @@ export function EventDetailView({
                 selectedEventHostPlaybook={selectedEventHostPlaybook}
                 handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
                 handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
+                eventPlannerMessage={eventPlannerMessage}
               />
             </div>
           ) : null}

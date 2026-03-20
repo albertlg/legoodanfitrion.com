@@ -326,7 +326,9 @@ function DashboardScreen({
     eventPlannerContextDraft,
     setEventPlannerContextDraft,
     eventDetailShoppingCheckedByEventId,
-    setEventDetailShoppingCheckedByEventId
+    setEventDetailShoppingCheckedByEventId,
+    eventPlannerMessage,
+    setEventPlannerMessage
   } = useEventPlannerState();
 
   const [eventTitle, setEventTitle] = useState("");
@@ -3545,6 +3547,11 @@ function DashboardScreen({
     setIsEventPlannerContextOpen,
     setShowEventPlannerTechnicalPrompt
   ]);
+  useEffect(() => {
+    if (!eventPlannerMessage) return;
+    const timerId = setTimeout(() => setEventPlannerMessage(""), 5000);
+    return () => clearTimeout(timerId);
+  }, [eventPlannerMessage, setEventPlannerMessage]);
 
   useEffect(() => {
     if (editingEventId) {
@@ -4698,8 +4705,26 @@ function DashboardScreen({
         )
       };
 
-      let effectiveSections = sections;
-      let effectiveAlerts = fallbackAlerts;
+      const snapshotSectionsForMerge = toPlannerObject(selectedEventPlannerSnapshotState?.sections);
+      const snapshotAlertsForMerge = toPlannerObject(selectedEventPlannerSnapshotState?.alerts);
+      const hasSnapshotSectionsForMerge = Object.keys(snapshotSectionsForMerge).length > 0;
+      const precomputedMergeBaseSections = hasSnapshotSectionsForMerge ? snapshotSectionsForMerge : sections;
+      const precomputedMergeBaseAlerts = {
+        critical: Array.isArray(snapshotAlertsForMerge.critical)
+          ? snapshotAlertsForMerge.critical
+          : fallbackAlerts.critical,
+        warning: Array.isArray(snapshotAlertsForMerge.warning)
+          ? snapshotAlertsForMerge.warning
+          : fallbackAlerts.warning
+      };
+
+      let effectiveSections = isAllScope
+        ? sections
+        : {
+            ...precomputedMergeBaseSections,
+            [safeScope]: sections[safeScope] || precomputedMergeBaseSections[safeScope]
+          };
+      let effectiveAlerts = isAllScope ? fallbackAlerts : precomputedMergeBaseAlerts;
       let effectiveSource = "local_heuristic";
       let effectiveModelMeta = {
         scope: safeScope,
@@ -4724,10 +4749,6 @@ function DashboardScreen({
         const sourceShoppingCheckedSet = hasFreshPlannerView
           ? latestPlannerView.shoppingCheckedSet
           : selectedEventShoppingCheckedSet;
-
-        const snapshotSectionsForMerge = toPlannerObject(selectedEventPlannerSnapshotState?.sections);
-        const snapshotAlertsForMerge = toPlannerObject(selectedEventPlannerSnapshotState?.alerts);
-        const hasSnapshotSectionsForMerge = Object.keys(snapshotSectionsForMerge).length > 0;
 
         const currentSectionsForMerge = buildHostPlanSections({
           mealPlan: {
@@ -4769,14 +4790,7 @@ function DashboardScreen({
           }
         });
         const mergeBaseSections = hasSnapshotSectionsForMerge ? snapshotSectionsForMerge : currentSectionsForMerge;
-        const mergeBaseAlerts = {
-          critical: Array.isArray(snapshotAlertsForMerge.critical)
-            ? snapshotAlertsForMerge.critical
-            : fallbackAlerts.critical,
-          warning: Array.isArray(snapshotAlertsForMerge.warning)
-            ? snapshotAlertsForMerge.warning
-            : fallbackAlerts.warning
-        };
+        const mergeBaseAlerts = precomputedMergeBaseAlerts;
 
         const currentPlanForAi = {
           mealPlan: {
@@ -4933,7 +4947,7 @@ function DashboardScreen({
 
       if (persistResult.error) {
         if (!isMissingDbFeatureError(persistResult.error, ["event_host_plans", "upsert_event_host_plan"])) {
-          setInvitationMessage(`${t("error_save_data")} ${persistResult.error.message}`);
+          setEventPlannerMessage(`${t("error_save_data")} ${persistResult.error.message}`);
         }
         return;
       }
@@ -5034,7 +5048,7 @@ function DashboardScreen({
           [eventId]: []
         }));
         setEventPlannerShoppingFilter("all");
-        setInvitationMessage(
+        setEventPlannerMessage(
           `${interpolateText(t("event_planner_regenerated_message"), { count: nextRound })} ${interpolateText(
             t("event_planner_context_applied"),
             { value: selectedEventPlannerContextEffective.summary || selectedEventPlannerContext.summary }
@@ -5060,14 +5074,14 @@ function DashboardScreen({
           [safeTab]: nextTabRound
         }
       }));
-      if (safeTab === "menu" || safeTab === "shopping") {
+      if (safeTab === "shopping") {
         setEventDetailShoppingCheckedByEventId((prev) => ({
           ...prev,
           [eventId]: []
         }));
         setEventPlannerShoppingFilter("all");
       }
-      setInvitationMessage(
+      setEventPlannerMessage(
         interpolateText(t("event_planner_regenerated_tab_message"), {
           tab: getPlannerTabLabel(safeTab),
           count: nextTabRound
@@ -5134,7 +5148,7 @@ function DashboardScreen({
         [eventId]: []
       }));
       setEventPlannerShoppingFilter("all");
-      setInvitationMessage(
+      setEventPlannerMessage(
         interpolateText(t("event_planner_version_restored"), {
           version: Number(targetSnapshotState.version || parsedVersion)
         })
@@ -5216,7 +5230,7 @@ function DashboardScreen({
     }
     const payload = exportLines.join("\n").trim();
     if (!payload) {
-      setInvitationMessage(t("event_menu_shopping_empty"));
+      setEventPlannerMessage(t("event_menu_shopping_empty"));
       return;
     }
     const filenameBase = String(selectedEventDetail?.title || "event")
@@ -5233,18 +5247,18 @@ function DashboardScreen({
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-    setInvitationMessage(t("event_planner_export_done"));
+    setEventPlannerMessage(t("event_planner_export_done"));
   };
   const handleCopySelectedEventShoppingChecklist = async () => {
     if (!selectedEventShoppingChecklistText) {
-      setInvitationMessage(t("event_menu_shopping_empty"));
+      setEventPlannerMessage(t("event_menu_shopping_empty"));
       return;
     }
     try {
       await navigator.clipboard.writeText(selectedEventShoppingChecklistText);
-      setInvitationMessage(t("event_menu_shopping_copied"));
+      setEventPlannerMessage(t("event_menu_shopping_copied"));
     } catch {
-      setInvitationMessage(t("copy_fail"));
+      setEventPlannerMessage(t("copy_fail"));
     }
   };
   const handleCopyEventPlannerPrompt = async () => {
@@ -5252,27 +5266,27 @@ function DashboardScreen({
       (isEventPlannerContextOpen ? eventPlannerContextDraftPromptBundle?.prompt : selectedEventPlannerPromptBundle?.prompt) || ""
     ).trim();
     if (!promptText) {
-      setInvitationMessage(t("event_planner_prompt_empty"));
+      setEventPlannerMessage(t("event_planner_prompt_empty"));
       return;
     }
     try {
       await navigator.clipboard.writeText(promptText);
-      setInvitationMessage(t("event_planner_prompt_copied"));
+      setEventPlannerMessage(t("event_planner_prompt_copied"));
     } catch {
-      setInvitationMessage(t("copy_fail"));
+      setEventPlannerMessage(t("copy_fail"));
     }
   };
   const handleCopyEventPlannerMessages = async () => {
     const payload = String(selectedEventHostMessagesText || "").trim();
     if (!payload) {
-      setInvitationMessage(t("event_planner_prompt_empty"));
+      setEventPlannerMessage(t("event_planner_prompt_empty"));
       return;
     }
     try {
       await navigator.clipboard.writeText(payload);
-      setInvitationMessage(t("event_planner_messages_copied"));
+      setEventPlannerMessage(t("event_planner_messages_copied"));
     } catch {
-      setInvitationMessage(t("copy_fail"));
+      setEventPlannerMessage(t("copy_fail"));
     }
   };
   const handleEventPlannerTabChange = (nextTab) => {
@@ -5280,6 +5294,7 @@ function DashboardScreen({
       ? String(nextTab || "").trim().toLowerCase()
       : "menu";
     markUserNavigationIntent();
+    setEventPlannerMessage("");
     if (!selectedEventDetail?.id) {
       return;
     }
@@ -8107,6 +8122,7 @@ function DashboardScreen({
               selectedEventHostPlaybook,
               handleCopyEventPlannerMessages,
               handleCopyEventPlannerPrompt,
+              eventPlannerMessage,
               getGuestAvatarUrl,
               hostDisplayName,
               selectedEventDetailGuests,

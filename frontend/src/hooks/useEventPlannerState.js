@@ -32,6 +32,7 @@ export function useEventPlannerState() {
     additionalInstructions: ""
   });
   const [eventDetailShoppingCheckedByEventId, setEventDetailShoppingCheckedByEventId] = useState({});
+  const [eventPlannerMessage, setEventPlannerMessage] = useState("");
 
   return {
     eventPlannerRegenerationByEventId,
@@ -55,6 +56,8 @@ export function useEventPlannerState() {
     eventPlannerContextDraft,
     setEventPlannerContextDraft,
     eventDetailShoppingCheckedByEventId,
-    setEventDetailShoppingCheckedByEventId
+    setEventDetailShoppingCheckedByEventId,
+    eventPlannerMessage,
+    setEventPlannerMessage
   };
 }

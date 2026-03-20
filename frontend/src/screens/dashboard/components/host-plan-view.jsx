@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "../../../components/icons";
+import { InlineMessage } from "../../../components/inline-message";
 
 export function HostPlanView({
   standalone = false,
@@ -51,7 +52,8 @@ export function HostPlanView({
   handleToggleEventPlannerShoppingItem,
   selectedEventHostPlaybook,
   handleCopyEventPlannerMessages,
-  handleCopyEventPlannerPrompt
+  handleCopyEventPlannerPrompt,
+  eventPlannerMessage
 }) {
   const plannerTabs = [
     { key: "menu", label: t("event_planner_tab_menu") },
@@ -396,6 +398,8 @@ export function HostPlanView({
           </p>
         ) : null}
       </div>
+
+      <InlineMessage text={eventPlannerMessage} />
 
       {/* CONTENIDO DE LAS PESTAÑAS */}
       <div className="bg-white/40 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5 p-4 md:p-6 shadow-inner min-h-[300px]">
