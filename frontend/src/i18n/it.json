@@ -1320,6 +1320,8 @@
   "host_checklist_open_event": "Apri evento",
   "host_checklist_progress_label": "Progresso",
   "host_checklist_auto_badge": "Auto",
+  "host_checklist_item_open_action": "Apri",
+  "host_checklist_item_unavailable_action": "Non ancora disponibile",
   "host_checklist_item_create_event": "Crea il tuo evento",
   "host_checklist_item_send_invitations": "Invia gli inviti",
   "host_checklist_item_first_confirmation": "Ricevi la prima conferma",

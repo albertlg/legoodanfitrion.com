@@ -426,7 +426,7 @@ export function EventDetailView({
               {/* Columna Izquierda (7/12) */}
               <div className="col-span-12 lg:col-span-7 flex flex-col gap-6">
 
-                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                <article id="event-invitations" className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 scroll-mt-28">
                   {!hasEventHeroCover ? <p className="text-lg font-black text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
@@ -577,7 +577,7 @@ export function EventDetailView({
                   )}
                 </article>
 
-                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                <article id="event-rsvp-timeline" className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 scroll-mt-28">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}

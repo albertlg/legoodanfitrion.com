@@ -605,7 +605,6 @@ export function DashboardOverview({
                     <HostChecklistCard
                         t={t}
                         checklist={dashboardHostChecklist}
-                        onOpenEvent={openEventDetail}
                     />
                 </div>
             </div>

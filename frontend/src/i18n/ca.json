@@ -1359,6 +1359,8 @@
   "host_checklist_open_event": "Obrir esdeveniment",
   "host_checklist_progress_label": "Progrés",
   "host_checklist_auto_badge": "Auto",
+  "host_checklist_item_open_action": "Obrir",
+  "host_checklist_item_unavailable_action": "Encara no disponible",
   "host_checklist_item_create_event": "Crea el teu esdeveniment",
   "host_checklist_item_send_invitations": "Envia les invitacions",
   "host_checklist_item_first_confirmation": "Rep la primera confirmació",

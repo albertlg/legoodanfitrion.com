@@ -1373,25 +1373,37 @@ function DashboardScreen({
         key: "create_event",
         done: Boolean(targetEventId && targetEventTitle),
         auto: true,
-        label: t("host_checklist_item_create_event")
+        label: t("host_checklist_item_create_event"),
+        targetPath: targetEventId
+          ? `/app/events/${encodeURIComponent(targetEventId)}`
+          : "/app/events/new"
       },
       {
         key: "send_invitations",
         done: Number(invitationSummary?.total || 0) > 0,
         auto: true,
-        label: t("host_checklist_item_send_invitations")
+        label: t("host_checklist_item_send_invitations"),
+        targetPath: targetEventId
+          ? `/app/events/${encodeURIComponent(targetEventId)}#event-invitations`
+          : "/app/invitations/new"
       },
       {
         key: "first_confirmation",
         done: Number(invitationSummary?.yes || 0) > 0,
         auto: true,
-        label: t("host_checklist_item_first_confirmation")
+        label: t("host_checklist_item_first_confirmation"),
+        targetPath: targetEventId
+          ? `/app/events/${encodeURIComponent(targetEventId)}#event-rsvp-timeline`
+          : "/app/invitations"
       },
       {
         key: "define_menu",
         done: hasSnapshotMenu,
         auto: true,
-        label: t("host_checklist_item_define_menu")
+        label: t("host_checklist_item_define_menu"),
+        targetPath: targetEventId
+          ? `/app/events/${encodeURIComponent(targetEventId)}/plan/menu`
+          : "/app/events/new"
       }
     ];
 
@@ -1402,6 +1414,9 @@ function DashboardScreen({
     return {
       eventId: targetEventId,
       eventTitle: targetEventTitle || t("field_event"),
+      openEventPath: targetEventId
+        ? `/app/events/${encodeURIComponent(targetEventId)}`
+        : "/app/events/new",
       items: checklistItems,
       total,
       completed,

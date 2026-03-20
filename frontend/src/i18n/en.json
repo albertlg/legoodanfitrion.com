@@ -1359,6 +1359,8 @@
   "host_checklist_open_event": "Open event",
   "host_checklist_progress_label": "Progress",
   "host_checklist_auto_badge": "Auto",
+  "host_checklist_item_open_action": "Open",
+  "host_checklist_item_unavailable_action": "Not available yet",
   "host_checklist_item_create_event": "Create your event",
   "host_checklist_item_send_invitations": "Send invitations",
   "host_checklist_item_first_confirmation": "Get your first confirmation",
