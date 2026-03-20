@@ -4405,7 +4405,14 @@ function DashboardScreen({
       setGuestCity(hostProfileCity || "");
       setGuestCountry(hostProfileCountry || "");
       setGuestPhotoUrl("");
-      setGuestAdvanced(GUEST_ADVANCED_INITIAL_STATE);
+      // PLG: pre-poblar dietary needs del RSVP si existen en metadata
+      const rsvpDiet = session?.user?.user_metadata?.rsvp_dietary_needs;
+      if (Array.isArray(rsvpDiet) && rsvpDiet.length > 0) {
+        const dietLabel = toCatalogLabel("diet_type", rsvpDiet[0], language);
+        setGuestAdvanced({ ...GUEST_ADVANCED_INITIAL_STATE, dietType: dietLabel || "" });
+      } else {
+        setGuestAdvanced(GUEST_ADVANCED_INITIAL_STATE);
+      }
       setSelectedGuestAddressPlace(null);
     }
     setGuestAddressPredictions([]);

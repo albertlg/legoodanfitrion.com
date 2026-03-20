@@ -235,6 +235,24 @@ function App() {
       if (event === "SIGNED_OUT") {
         setIsRecoveryMode(false);
       }
+      // PLG: si el usuario hace login (o confirma email) y aún tiene dietary needs
+      // pendientes del RSVP, inyectarlos en su metadata para pre-poblar el perfil
+      if (event === "SIGNED_IN" && nextSession?.user?.id) {
+        try {
+          const rawDiet = sessionStorage.getItem("lga_temp_diet");
+          if (rawDiet) {
+            const parsed = JSON.parse(rawDiet);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const existingDiet = nextSession.user.user_metadata?.rsvp_dietary_needs;
+              if (!existingDiet || existingDiet.length === 0) {
+                supabase.auth.updateUser({ data: { rsvp_dietary_needs: parsed } });
+              }
+              sessionStorage.removeItem("lga_temp_diet");
+              sessionStorage.removeItem("lga_temp_name");
+            }
+          }
+        } catch (_ignored) { /* parse error — skip */ }
+      }
     });
 
     return () => {
@@ -374,16 +392,33 @@ function App() {
       return;
     }
     setIsSigningUp(true);
+    // PLG: capturar datos del RSVP para pre-poblar el perfil
+    const tempName = sessionStorage.getItem("lga_temp_name") || "";
+    const signupMetadata = { full_name: tempName || email.split("@")[0] };
+    try {
+      const rawDiet = sessionStorage.getItem("lga_temp_diet");
+      if (rawDiet) {
+        const parsed = JSON.parse(rawDiet);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          signupMetadata.rsvp_dietary_needs = parsed;
+        }
+      }
+    } catch (_ignored) { /* sessionStorage parse error — skip silently */ }
     const { error } = await supabase.auth.signUp({
       email,
       password: loginPassword,
-      options: { data: { full_name: email.split("@")[0] } }
+      options: { data: signupMetadata }
     });
     setIsSigningUp(false);
     if (error) {
       setAuthError(normalizeAuthErrorMessage(error, t));
       return;
     }
+    // PLG: limpiar datos temporales tras signup exitoso
+    try {
+      sessionStorage.removeItem("lga_temp_diet");
+      sessionStorage.removeItem("lga_temp_name");
+    } catch (_ignored) {}
     setAccountMessage(t("account_created"));
   };
 
