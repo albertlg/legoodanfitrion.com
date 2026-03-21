@@ -12,7 +12,7 @@ import {
   toCatalogLabels
 } from "../lib/guest-catalogs";
 import { buildAppUrl } from "../lib/app-url";
-import { requestEventPlannerAI } from "../lib/ai-planner-client";
+import { requestEventIcebreakerAI, requestEventPlannerAI } from "../lib/ai-planner-client";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
@@ -353,6 +353,7 @@ function DashboardScreen({
   const [eventMessage, setEventMessage] = useState("");
   const [eventErrors, setEventErrors] = useState({});
   const [editingEventId, setEditingEventId] = useState("");
+  const [eventIcebreakerByEventId, setEventIcebreakerByEventId] = useState({});
   const [isSavingEvent, setIsSavingEvent] = useState(false);
 
   const geocoderRef = useRef(null);
@@ -2916,6 +2917,20 @@ function DashboardScreen({
     }
     return eventPlannerGenerationByEventId[selectedEventDetail.id] || null;
   }, [eventPlannerGenerationByEventId, selectedEventDetail?.id]);
+  const selectedEventIcebreakerState = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return null;
+    }
+    return (
+      eventIcebreakerByEventId[selectedEventDetail.id] || {
+        isOpen: false,
+        isLoading: false,
+        error: "",
+        data: null,
+        generatedAt: ""
+      }
+    );
+  }, [eventIcebreakerByEventId, selectedEventDetail?.id]);
   const selectedEventPlannerSavedLabel = useMemo(() => {
     if (!selectedEventPlannerSnapshotState?.version) {
       return "";
@@ -5404,6 +5419,100 @@ function DashboardScreen({
     navigateAppPath(`/app/events/${encodeURIComponent(selectedEventDetail.id)}`);
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
+  };
+  const handleCloseEventIcebreakerPanel = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const eventId = selectedEventDetail.id;
+    setEventIcebreakerByEventId((prev) => ({
+      ...prev,
+      [eventId]: {
+        ...(prev[eventId] || {}),
+        isOpen: false
+      }
+    }));
+  };
+  const handleOpenEventIcebreakerPanel = () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const eventId = selectedEventDetail.id;
+    const current = eventIcebreakerByEventId[eventId] || {};
+    if (!current.data && !current.error) {
+      return;
+    }
+    setEventIcebreakerByEventId((prev) => ({
+      ...prev,
+      [eventId]: {
+        ...current,
+        isOpen: true
+      }
+    }));
+  };
+  const handleGenerateEventIcebreaker = async () => {
+    if (!selectedEventDetail?.id) {
+      return;
+    }
+    const eventId = selectedEventDetail.id;
+    const currentState = eventIcebreakerByEventId[eventId];
+    if (currentState?.isLoading) {
+      return;
+    }
+    setEventIcebreakerByEventId((prev) => ({
+      ...prev,
+      [eventId]: {
+        ...(prev[eventId] || {}),
+        isOpen: true,
+        isLoading: true,
+        error: ""
+      }
+    }));
+    try {
+      const icebreakerInputJson = {
+        locale: language,
+        event: {
+          id: eventId,
+          title: String(selectedEventDetail.title || "").trim(),
+          description: String(selectedEventDetail.description || "").trim(),
+          eventType: String(selectedEventDetail.event_type || "").trim(),
+          startAt: String(selectedEventDetail.start_at || "").trim(),
+          locationName: String(selectedEventDetail.location_name || "").trim(),
+          locationAddress: String(selectedEventDetail.location_address || "").trim()
+        }
+      };
+      const aiResult = await requestEventIcebreakerAI({
+        eventContext: icebreakerInputJson,
+        locale: language
+      });
+      const normalizedData = {
+        badJoke: String(aiResult?.data?.badJoke || "").trim(),
+        conversationTopics: Array.isArray(aiResult?.data?.conversationTopics)
+          ? aiResult.data.conversationTopics.map((item) => String(item || "").trim()).filter(Boolean)
+          : [],
+        quickGameIdea: String(aiResult?.data?.quickGameIdea || "").trim()
+      };
+      setEventIcebreakerByEventId((prev) => ({
+        ...prev,
+        [eventId]: {
+          isOpen: true,
+          isLoading: false,
+          error: "",
+          data: normalizedData,
+          generatedAt: new Date().toISOString()
+        }
+      }));
+    } catch (error) {
+      setEventIcebreakerByEventId((prev) => ({
+        ...prev,
+        [eventId]: {
+          ...(prev[eventId] || {}),
+          isOpen: true,
+          isLoading: false,
+          error: String(error?.message || t("event_icebreaker_error"))
+        }
+      }));
+    }
   };
 
   const resolveCreatedGuestId = useCallback(
@@ -8154,6 +8263,10 @@ function DashboardScreen({
               formatLongDate,
               formatTimeLabel,
               handleOpenEventPlan,
+              selectedEventIcebreakerState,
+              handleGenerateEventIcebreaker,
+              handleCloseEventIcebreakerPanel,
+              handleOpenEventIcebreakerPanel,
               selectedEventDetailPrimaryShare,
               openInvitationCreate,
               selectedEventDetailInvitations,

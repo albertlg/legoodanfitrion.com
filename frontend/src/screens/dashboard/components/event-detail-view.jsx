@@ -69,6 +69,10 @@ export function EventDetailView({
   language,
   formatTimeLabel,
   handleOpenEventPlan,
+  selectedEventIcebreakerState,
+  handleGenerateEventIcebreaker,
+  handleCloseEventIcebreakerPanel,
+  handleOpenEventIcebreakerPanel,
   handleStartEditEvent,
   selectedEventDetailPrimaryShare,
   openInvitationCreate,
@@ -145,6 +149,22 @@ export function EventDetailView({
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
   const shareCardHostName = String(hostDisplayName || selectedEventDetail?.host_name || t("host_default_name")).trim();
+  const isIcebreakerLoading = Boolean(selectedEventIcebreakerState?.isLoading);
+  const isIcebreakerOpen = Boolean(selectedEventIcebreakerState?.isOpen);
+  const icebreakerData = selectedEventIcebreakerState?.data || null;
+  const hasIcebreakerData = Boolean(
+    icebreakerData &&
+      (icebreakerData.badJoke ||
+        (Array.isArray(icebreakerData.conversationTopics) && icebreakerData.conversationTopics.length > 0) ||
+        icebreakerData.quickGameIdea)
+  );
+  const icebreakerTopics = Array.isArray(icebreakerData?.conversationTopics)
+    ? icebreakerData.conversationTopics.filter(Boolean)
+    : [];
+  const icebreakerError = String(selectedEventIcebreakerState?.error || "").trim();
+  const icebreakerGeneratedAtLabel = selectedEventIcebreakerState?.generatedAt
+    ? formatDate(selectedEventIcebreakerState.generatedAt, language, t("no_date"))
+    : "";
 
   const handleShareInvitationImage = async () => {
     if (!selectedEventDetail) {
@@ -630,6 +650,42 @@ export function EventDetailView({
                   </button>
                 </article>
 
+                <article className="bg-gradient-to-br from-fuchsia-600 via-purple-600 to-indigo-700 rounded-2xl p-5 shadow-lg flex flex-col gap-3 text-white border border-white/15">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-white/20 border border-white/30 backdrop-blur-md">
+                        <Icon name="sparkle" className="w-4 h-4 text-yellow-300" />
+                      </span>
+                      <p className="text-sm font-black tracking-wide">{t("event_icebreaker_title")}</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-black/20 border border-white/20">
+                      IA
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/90 leading-relaxed">{t("event_icebreaker_hint")}</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      className="bg-white text-purple-700 hover:bg-gray-100 font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-md flex-1 inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={() => handleGenerateEventIcebreaker?.()}
+                      disabled={isIcebreakerLoading}
+                    >
+                      <Icon name={isIcebreakerLoading ? "clock" : "sparkle"} className={`w-4 h-4 ${isIcebreakerLoading ? "animate-pulse" : ""}`} />
+                      <span>{isIcebreakerLoading ? t("event_icebreaker_loading_label") : t("event_icebreaker_action_generate")}</span>
+                    </button>
+                    {hasIcebreakerData ? (
+                      <button
+                        className="bg-white/15 hover:bg-white/25 border border-white/25 text-white font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex-1 inline-flex items-center justify-center gap-2"
+                        type="button"
+                        onClick={() => handleOpenEventIcebreakerPanel?.()}
+                      >
+                        <Icon name="eye" className="w-4 h-4" />
+                        <span>{t("event_icebreaker_action_open")}</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+
                 <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="check" className="w-4 h-4 text-green-500" />
@@ -778,6 +834,94 @@ export function EventDetailView({
               locationLabel={t("field_place")}
               hostLabel={t("event_share_card_host_label")}
             />
+          </div>
+        </div>
+      ) : null}
+
+      {selectedEventDetail && isIcebreakerOpen ? (
+        <div className="fixed inset-0 z-[90] bg-black/55 backdrop-blur-sm p-4 sm:p-6 flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 border border-fuchsia-200 dark:border-fuchsia-700/30">
+                  <Icon name="sparkle" className="w-4.5 h-4.5" />
+                </span>
+                <div className="flex flex-col">
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white">{t("event_icebreaker_modal_title")}</h3>
+                  {icebreakerGeneratedAtLabel ? (
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {interpolateText(t("event_icebreaker_generated_at"), { date: icebreakerGeneratedAtLabel })}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <button
+                className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors"
+                type="button"
+                onClick={() => handleCloseEventIcebreakerPanel?.()}
+                aria-label={t("close_modal")}
+                title={t("close_modal")}
+              >
+                <Icon name="close" className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isIcebreakerLoading ? (
+              <div className="rounded-2xl border border-fuchsia-200/70 dark:border-fuchsia-700/30 bg-fuchsia-50/70 dark:bg-fuchsia-950/20 p-5 text-center flex flex-col gap-2 items-center">
+                <Icon name="sparkle" className="w-8 h-8 text-fuchsia-500 animate-pulse" />
+                <p className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300">{t("event_icebreaker_loading_title")}</p>
+                <p className="text-xs text-fuchsia-600/90 dark:text-fuchsia-300/90">{t("event_icebreaker_loading_label")}</p>
+              </div>
+            ) : null}
+
+            {!isIcebreakerLoading && icebreakerError ? (
+              <div className="rounded-2xl border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-900/20 p-4 flex flex-col gap-2">
+                <p className="text-sm font-bold text-red-700 dark:text-red-300">{t("event_icebreaker_error")}</p>
+                <p className="text-xs text-red-600 dark:text-red-300/90">{icebreakerError}</p>
+                <button
+                  className="self-start mt-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700/50 font-bold px-3 py-2 rounded-lg text-xs transition-colors"
+                  type="button"
+                  onClick={() => handleGenerateEventIcebreaker?.()}
+                >
+                  {t("event_icebreaker_retry")}
+                </button>
+              </div>
+            ) : null}
+
+            {!isIcebreakerLoading && hasIcebreakerData ? (
+              <div className="flex flex-col gap-4">
+                <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    {t("event_icebreaker_bad_joke_title")}
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white leading-relaxed">
+                    {icebreakerData.badJoke || "—"}
+                  </p>
+                </article>
+
+                <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    {t("event_icebreaker_topics_title")}
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1.5">
+                    {(icebreakerTopics.length > 0 ? icebreakerTopics : [t("event_icebreaker_topics_empty")]).map((topicItem, index) => (
+                      <li key={`topic-${index}`} className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                        {topicItem}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+
+                <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    {t("event_icebreaker_game_title")}
+                  </p>
+                  <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                    {icebreakerData.quickGameIdea || "—"}
+                  </p>
+                </article>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

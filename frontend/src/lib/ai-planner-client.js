@@ -6,15 +6,23 @@ const configuredApiUrl = String(
 const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "/api";
 const API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
 
-function buildPlannerEndpoint(baseUrl) {
+function buildAiEndpoint(baseUrl, routeName) {
   const normalizedBase = String(baseUrl || "").trim().replace(/\/+$/, "");
   if (!normalizedBase) {
     return "";
   }
   if (/(^|\/)api$/i.test(normalizedBase)) {
-    return `${normalizedBase}/ai/planner`;
+    return `${normalizedBase}/ai/${routeName}`;
   }
-  return `${normalizedBase}/api/ai/planner`;
+  return `${normalizedBase}/api/ai/${routeName}`;
+}
+
+function buildPlannerEndpoint(baseUrl) {
+  return buildAiEndpoint(baseUrl, "planner");
+}
+
+function buildIcebreakerEndpoint(baseUrl) {
+  return buildAiEndpoint(baseUrl, "icebreaker");
 }
 
 function toErrorMessage(status, payload) {
@@ -71,5 +79,50 @@ export async function requestEventPlannerAI({ eventContext, currentPlan = {}, sc
     data: payload.data,
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
     fallback: Boolean(payload?.fallback)
+  };
+}
+
+export async function requestEventIcebreakerAI({
+  eventContext,
+  locale = "es"
+}) {
+  const fullUrl = buildIcebreakerEndpoint(API_BASE_URL);
+  if (!fullUrl) {
+    throw new Error(
+      "Planner AI API URL not configured. Define VITE_API_URL (or VITE_API_BASE_URL) in frontend environment."
+    );
+  }
+
+  console.log("Enviando petición a:", fullUrl);
+
+  const response = await fetch(fullUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      eventContext: eventContext && typeof eventContext === "object" ? eventContext : {},
+      locale: String(locale || "es").trim().toLowerCase()
+    })
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(toErrorMessage(response.status, payload));
+  }
+
+  if (!payload || typeof payload !== "object" || !payload.data) {
+    throw new Error("Icebreaker AI response has no data payload.");
+  }
+
+  return {
+    data: payload.data,
+    meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {}
   };
 }

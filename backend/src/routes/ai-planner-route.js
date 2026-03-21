@@ -29,6 +29,16 @@ const PLANNER_RESPONSE_EXAMPLE = {
   }
 };
 
+const ICEBREAKER_RESPONSE_EXAMPLE = {
+  badJoke: "¿Cuál es el colmo de un anfitrión? Que sus invitados digan: \"mejor en tu casa que en la mía\".",
+  conversationTopics: [
+    "¿Qué canción describe mejor tu semana y por qué?",
+    "Si tuvieras que organizar una cena temática imposible, ¿cuál sería?"
+  ],
+  quickGameIdea:
+    "Juego relámpago (5 min): cada persona comparte una anécdota en 20 segundos y el grupo vota la más inesperada."
+};
+
 const SUPPORTED_LOCALES = new Set(["es", "ca", "en", "fr", "it"]);
 const SUPPORTED_SCOPES = new Set(["all", "menu", "shopping", "ambience", "timings", "communication", "risks"]);
 
@@ -86,6 +96,29 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {} } =
     "8) Si faltan datos, rellena de forma segura y conservadora.",
     "9) risks[].level debe ser uno de: yes | no | maybe | pending.",
     scopeRule
+  ].join("\n");
+}
+
+function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {} } = {}) {
+  const safeLocale = normalizeLocale(locale, "es");
+  const safeEventContext = ensureObject(eventContext);
+  const safeEvent = ensureObject(safeEventContext.event);
+  const title = normalizeText(safeEvent.title || "evento social");
+  const description = normalizeText(safeEvent.description || "encuentro entre invitados");
+
+  return [
+    "Eres LeGoodAnfitrión Icebreaker AI.",
+    "Actúa como animador de fiestas: divertido, cercano y rápido.",
+    "Devuelve SOLO JSON válido, sin markdown y sin bloques ```.",
+    `IMPORTANT: All text fields in the output JSON MUST be written in the language corresponding to the locale code: ${safeLocale}.`,
+    "Debes responder EXACTAMENTE con esta estructura y claves:",
+    JSON.stringify(ICEBREAKER_RESPONSE_EXAMPLE, null, 2),
+    "Reglas obligatorias:",
+    "1) Genera un chiste malo (amable, no ofensivo) relacionado con el evento.",
+    "2) Propón exactamente 2 temas de conversación poco comunes y fáciles de lanzar en grupo.",
+    "3) Propón 1 juego rápido de máximo 5 minutos para romper el hielo.",
+    "4) Mantén tono fresco y usable en móvil, con frases cortas.",
+    `5) Contexto del evento: título="${title}", descripción="${description}".`
   ].join("\n");
 }
 
@@ -312,6 +345,29 @@ function mergePlannerByScope({ generated = {}, currentPlan = {}, scope = "all" }
   return merged;
 }
 
+function sanitizeIcebreakerResponse(payload) {
+  const source = ensureObject(payload);
+  const topics = normalizeArray(source.conversationTopics)
+    .map((item) => normalizeText(item))
+    .filter(Boolean)
+    .slice(0, 2);
+
+  return {
+    badJoke: normalizeText(source.badJoke, "¿Plan B? Sonreír, brindar y reiniciar conversación."),
+    conversationTopics:
+      topics.length >= 2
+        ? topics
+        : [
+            topics[0] || "¿Cuál fue tu mejor viaje improvisado y qué salió mal?",
+            topics[1] || "Si esta fiesta tuviera banda sonora, ¿qué canción abriría?"
+          ].slice(0, 2),
+    quickGameIdea: normalizeText(
+      source.quickGameIdea,
+      "Juego de 5 minutos: ronda de 'dos verdades y una mentira' en grupos de 3."
+    )
+  };
+}
+
 function withTimeout(promise, timeoutMs, timeoutLabel = "Operation timeout") {
   const normalizedTimeout = Number(timeoutMs);
   const safeTimeout = Number.isFinite(normalizedTimeout) && normalizedTimeout > 0 ? normalizedTimeout : 60000;
@@ -443,6 +499,116 @@ router.post("/planner", async (req, res) => {
     console.error(error);
     return res.status(500).json({
       error: `Error generando plan con Gemini: ${String(error?.message || "unknown error")}`,
+      fallback: true
+    });
+  }
+});
+
+router.post("/icebreaker", async (req, res) => {
+  console.log("--- NUEVA PETICIÓN IA / ICEBREAKER ---");
+  console.log(
+    "Clave detectada:",
+    process.env.GEMINI_API_KEY
+      ? `SÍ (Empieza por ${String(process.env.GEMINI_API_KEY).substring(0, 5)}...)`
+      : "UNDEFINED"
+  );
+
+  const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
+  if (!apiKey) {
+    return res.status(503).json({
+      error: "GEMINI_API_KEY no configurada en backend/.env"
+    });
+  }
+
+  const requestPayload = ensureObject(req.body);
+  const eventContext = ensureObject(requestPayload.eventContext);
+  const locale = normalizeLocale(
+    requestPayload.locale || eventContext.locale || req.headers["accept-language"],
+    "es"
+  );
+
+  try {
+    const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const userPayload = {
+      locale,
+      eventContext
+    };
+
+    let response;
+    try {
+      console.log("Iniciando llamada a Gemini (icebreaker)...");
+      response = await withTimeout(
+        client.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `INPUT_JSON:\n${JSON.stringify(userPayload, null, 2)}`
+                }
+              ]
+            }
+          ],
+          config: {
+            responseMimeType: "application/json",
+            systemInstruction: buildIcebreakerSystemPrompt({ locale, eventContext }),
+            temperature: 0.7
+          }
+        }),
+        Number(process.env.GEMINI_TIMEOUT_MS || 60000),
+        "Gemini icebreaker request timeout"
+      );
+      console.log("Llamada a Gemini (icebreaker) completada.");
+    } catch (error) {
+      console.error("[ai/icebreaker] Error durante llamada a Gemini:");
+      console.error(error);
+      return res.status(500).json({
+        error: String(error?.message || "Error desconocido en llamada a Gemini"),
+        fallback: true
+      });
+    }
+
+    const textResponse = getResponseText(response);
+    console.log("Respuesta bruta icebreaker. Longitud:", String(textResponse || "").length);
+    const cleanJson = String(textResponse || "")
+      .replace(/^```json/m, "")
+      .replace(/^```/m, "")
+      .replace(/```$/m, "")
+      .trim();
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch (error) {
+      console.error("Error parseando JSON de Gemini (icebreaker):", error?.message || error);
+      try {
+        parsed = safeJsonParse(textResponse);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    if (!parsed) {
+      return res.status(502).json({
+        error: "Gemini devolvió una respuesta no parseable como JSON en icebreaker.",
+        fallback: true
+      });
+    }
+
+    return res.json({
+      data: sanitizeIcebreakerResponse(parsed),
+      meta: {
+        provider: "google-gemini",
+        model: "gemini-2.5-flash",
+        locale
+      }
+    });
+  } catch (error) {
+    console.error("[ai/icebreaker] Error no controlado en endpoint /icebreaker:");
+    console.error(error);
+    return res.status(500).json({
+      error: `Error generando rompehielos con Gemini: ${String(error?.message || "unknown error")}`,
       fallback: true
     });
   }
