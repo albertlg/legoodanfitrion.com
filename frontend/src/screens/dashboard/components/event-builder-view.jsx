@@ -222,7 +222,7 @@ export function EventBuilderView({
                                             className="w-full text-left px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-3"
                                             onClick={() => handleSelectAddressPrediction(prediction)}
                                         >
-                                            <Icon name="location" className="w-4 h-4 text-gray-400" />
+                                            <Icon name="location" className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                                             {prediction.description}
                                         </button>
                                     </li>
@@ -615,7 +615,7 @@ export function EventBuilderWizardView(props) {
                                             className="w-full text-left px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-3"
                                             onClick={() => handleSelectAddressPrediction(prediction)}
                                         >
-                                            <Icon name="location" className="w-4 h-4 text-gray-400" />
+                                            <Icon name="location" className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                                             {prediction.description}
                                         </button>
                                     </li>

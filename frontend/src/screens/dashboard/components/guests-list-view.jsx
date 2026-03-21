@@ -135,8 +135,8 @@ export function GuestsListView({
                                 <button
                                     key={contactOption.key}
                                     className={isActive
-                                        ? "bg-gray-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                                        : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                                        ? "bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                                        : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
                                     }
                                     type="button"
                                     aria-pressed={isActive}
@@ -179,7 +179,7 @@ export function GuestsListView({
                     {filteredGuests.length === 0 ? (
                         <div className="px-5 py-16 text-center flex flex-col items-center justify-center gap-2">
                             <div className="w-12 h-12 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center mb-2">
-                                <Icon name="users" className="w-6 h-6 text-gray-400" />
+                                <Icon name="users" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
                             </div>
                             <p className="text-gray-500 font-medium">{t("no_guests")}</p>
                             <div className="mt-4">
@@ -247,7 +247,7 @@ export function GuestsListView({
                                                             />
                                                             <div className="min-w-0 flex-1 overflow-hidden">
                                                                 <button
-                                                                    className="font-bold text-[15px] text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 block truncate w-full text-left focus:outline-none transition-colors"
+                                                                    className="font-bold text-[15px] text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 block truncate w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
                                                                     type="button"
                                                                     onClick={() => openGuestDetail(guestItem.id)}
                                                                     title={guestFullName}
@@ -359,7 +359,7 @@ export function GuestsListView({
                                                                 onMouseLeave={() => setOpenDropdownId(null)}
                                                             >
                                                                 <button
-                                                                    className={`p-2.5 rounded-lg transition-colors focus:outline-none ${openDropdownId === guestItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
+                                                                    className={`p-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${openDropdownId === guestItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
                                                                     type="button"
                                                                     aria-label={t("open_menu")}
                                                                     title={t("actions_label")}

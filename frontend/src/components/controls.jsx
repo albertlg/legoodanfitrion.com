@@ -71,7 +71,7 @@ function Controls({ themeMode, setThemeMode, language, setLanguage, t, dropdownD
     : "top-full mt-2 origin-top-left";
 
   return (
-    <div className="flex items-center gap-1" aria-label={t("header_controls")}>
+    <div className="flex items-center gap-1.5" aria-label={t("header_controls")}>
       {/* SELECTOR DE IDIOMA */}
       <div className="relative" ref={languageMenuRef}>
         <button

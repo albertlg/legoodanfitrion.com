@@ -229,7 +229,7 @@ export function HostPlanView({
                   onClick={() => handleOpenEventPlannerContext(chip.focusField)}
                   disabled={isGenerating}
                 >
-                  <Icon name={chip.icon} className="w-3 h-3 text-gray-400" />
+                  <Icon name={chip.icon} className="w-3 h-3 text-gray-400 dark:text-gray-500" />
                   {chip.label}
                 </button>
               ))}

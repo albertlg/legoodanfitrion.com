@@ -298,7 +298,7 @@ export function GuestDetailView({
                             type="button"
                             role="tab"
                             aria-selected={isActive}
-                            className={`flex items-center gap-2 px-3.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border outline-none shrink-0 ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                            className={`flex items-center gap-2 px-3.5 py-2 md:px-4 md:py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border outline-none shrink-0 ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
                             onClick={() => setGuestProfileViewTab(tabItem.key)}
                         >
                             <Icon name={tabIcon} className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isActive ? "opacity-100" : "opacity-50"}`} />

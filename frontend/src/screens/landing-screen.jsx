@@ -338,7 +338,7 @@ function LandingScreen({
 
       <form className="w-full max-w-md flex flex-col sm:flex-row items-center gap-3 bg-white/60 dark:bg-black/20 p-2 rounded-2xl border border-black/10 dark:border-white/10 shadow-lg backdrop-blur-xl" onSubmit={handleJoinWaitlist} noValidate>
         <input
-          className="w-full px-4 py-3 sm:py-0 bg-transparent border-none focus:outline-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-500"
+          className="w-full px-4 py-3 sm:py-0 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-900 dark:text-white placeholder-gray-500"
           type="email"
           value={waitlistEmail}
           onChange={(event) => setWaitlistEmail(event.target.value)}
@@ -348,7 +348,7 @@ function LandingScreen({
           disabled={isJoiningWaitlist}
         />
         <button
-          className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-xl font-bold shadow-md hover:scale-[1.02] transition-transform whitespace-nowrap shrink-0 disabled:opacity-50"
+          className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-xl font-bold shadow-md hover:scale-[1.02] transition-transform whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           type="submit"
           disabled={isJoiningWaitlist}
         >
@@ -486,13 +486,13 @@ function LandingScreen({
           <>
             <section className="flex flex-col justify-center items-center text-center px-6 min-h-[75vh] max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
 
-              <h1 className="px-4 py-1.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 shadow-sm">
+              <span className="px-4 py-1.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 shadow-sm">
                 {t("landing_badge")}
-              </h1>
+              </span>
 
-              <p className="text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] mb-6 max-w-4xl text-balance">
+              <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] mb-6 max-w-4xl text-balance">
                 {t("landing_title")}
-              </p>
+              </h1>
 
               <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto font-medium leading-relaxed text-balance">
                 {t("landing_subtitle")}
@@ -563,9 +563,9 @@ function LandingScreen({
                     <div className="w-12 h-12 shrink-0 rounded-2xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center">
                       <Icon name="close" className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
                       {t("landing_vs_before_title")}
-                    </h3>
+                    </h2>
                   </div>
                   <ul className="flex flex-col gap-5 text-gray-700 dark:text-gray-300">
                     {[1, 2, 3, 4].map((num) => (
@@ -583,9 +583,9 @@ function LandingScreen({
                     <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
                       <Icon name="sparkle" className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
+                    <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
                       {t("landing_vs_after_title")}
-                    </h3>
+                    </h2>
                   </div>
                   <ul className="flex flex-col gap-5 text-gray-900 dark:text-gray-100">
                     {[1, 2, 3, 4].map((num) => (
@@ -654,9 +654,9 @@ function LandingScreen({
                 <div key={activeDemoTab} className="p-5 md:p-10 animate-in fade-in zoom-in-95 duration-300">
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
                     <div>
-                      <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-3">
+                      <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-3">
                         {activeDemo.title}
-                      </h3>
+                      </h2>
                       <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-gray-600 dark:text-gray-400">
                         <span className="flex items-center gap-1.5"><Icon name="calendar" className="w-4 h-4 shrink-0" /> {activeDemo.date}</span>
                         <span className="flex items-center gap-1.5"><Icon name="location" className="w-4 h-4 shrink-0" /> {activeDemo.location}</span>
@@ -733,21 +733,21 @@ function LandingScreen({
                   <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-6">
                     <Icon name="calendar" className="w-6 h-6" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_events_title")}</h3>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_events_title")}</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_events_desc")}</p>
                 </article>
                 <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
                   <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-6">
                     <Icon name="user" className="w-6 h-6" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_guests_title")}</h3>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_guests_title")}</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_guests_desc")}</p>
                 </article>
                 <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
                   <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-6">
                     <Icon name="mail" className="w-6 h-6" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_rsvp_title")}</h3>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_rsvp_title")}</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_rsvp_desc")}</p>
                 </article>
               </div>
@@ -811,7 +811,7 @@ function LandingScreen({
                   <span className="w-max px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 border border-yellow-200 dark:border-yellow-800/30 shadow-sm">
                     {t("public_coming_badge")}
                   </span>
-                  <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">{t("public_coming_title")}</h3>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">{t("public_coming_title")}</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">{t("public_coming_subtitle")}</p>
 
                   <ul className="flex flex-col gap-4 text-gray-500 dark:text-gray-500">
@@ -845,7 +845,7 @@ function LandingScreen({
 
                 <article className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-3xl shadow-sm p-8 md:p-10 flex flex-col gap-6">
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-2xl font-black text-gray-900 dark:text-white">{t("landing_contact_channels_title")}</h3>
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white">{t("landing_contact_channels_title")}</h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_contact_channels_hint")}</p>
                   </div>
 
@@ -871,7 +871,7 @@ function LandingScreen({
                   noValidate
                 >
                   <div className="flex flex-col gap-2 border-b border-black/5 dark:border-white/10 pb-4">
-                    <h3 className="text-xl font-black text-gray-900 dark:text-white">{t("landing_contact_form_title")}</h3>
+                    <h2 className="text-xl font-black text-gray-900 dark:text-white">{t("landing_contact_form_title")}</h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_contact_form_hint")}</p>
                   </div>
 
@@ -911,7 +911,7 @@ function LandingScreen({
                     </label>
                   </div>
 
-                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-base shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 mt-2" type="submit" disabled={isSendingContact}>
+                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-base shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed mt-2" type="submit" disabled={isSendingContact}>
                     {isSendingContact ? t("landing_contact_form_submitting") : t("landing_contact_form_submit")}
                   </button>
 

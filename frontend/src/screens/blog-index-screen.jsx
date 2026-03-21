@@ -90,8 +90,10 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                         {t("landing_cta_create_event")}
                     </button>
                     <button
-                        className="md:hidden p-2 -mr-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none"
+                        className="md:hidden p-2 -mr-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
                         onClick={() => setIsMobileMenuOpen(true)}
+                        aria-label={t("open_menu")}
+                        aria-expanded={isMobileMenuOpen}
                     >
                         <Icon name="menu" className="w-6 h-6" />
                     </button>
@@ -157,8 +159,8 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                                     : `/${language}/blog/${post.slug?.current}`;
 
                                 return (
+                                    <article key={post._id}>
                                     <a
-                                        key={post._id}
                                         href={postUrl}
                                         onClick={(e) => {
                                             // 🚀 Evitamos que el navegador recargue la página entera
@@ -244,6 +246,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
 
                                         </div>
                                     </a>
+                                    </article>
                                 );
                             })}
                         </div>

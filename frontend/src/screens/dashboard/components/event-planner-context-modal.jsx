@@ -148,8 +148,8 @@ export function EventPlannerContextModal({
             open={openSections.event}
             onToggle={(event) => updateSectionOpen("event", event.currentTarget?.open)}
           >
-            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none">
-              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180" />
               {t("event_planner_context_section_event")}
             </summary>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
@@ -273,8 +273,8 @@ export function EventPlannerContextModal({
             open={openSections.guests}
             onToggle={(event) => updateSectionOpen("guests", event.currentTarget?.open)}
           >
-            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none">
-              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180" />
               {t("event_planner_context_section_guests")}
             </summary>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
@@ -339,8 +339,8 @@ export function EventPlannerContextModal({
             open={openSections.host}
             onToggle={(event) => updateSectionOpen("host", event.currentTarget?.open)}
           >
-            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none">
-              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180" />
               {t("event_planner_context_section_host")}
             </summary>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
@@ -375,8 +375,8 @@ export function EventPlannerContextModal({
             open={openSections.style}
             onToggle={(event) => updateSectionOpen("style", event.currentTarget?.open)}
           >
-            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none">
-              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180" />
               {t("event_planner_context_section_style")}
             </summary>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6">
@@ -411,8 +411,8 @@ export function EventPlannerContextModal({
             open={openSections.instructions}
             onToggle={(event) => updateSectionOpen("instructions", event.currentTarget?.open)}
           >
-            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none">
-              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <summary className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white cursor-pointer select-none mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+              <Icon name="chevron_down" className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180" />
               {t("event_planner_context_section_instructions")}
             </summary>
             <div className="pl-6">

@@ -147,7 +147,7 @@ export function InvitationBuilderView({
                             {INVITATION_BULK_SEGMENTS.map((segmentKey) => (
                                 <button
                                     key={segmentKey}
-                                    className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all shadow-sm border ${bulkInvitationSegment === segmentKey ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                                    className={`px-3 py-2 rounded-full text-[11px] font-bold transition-all shadow-sm border ${bulkInvitationSegment === segmentKey ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
                                     type="button"
                                     aria-pressed={bulkInvitationSegment === segmentKey}
                                     onClick={() => setBulkInvitationSegment(segmentKey)}

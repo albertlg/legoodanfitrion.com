@@ -159,7 +159,7 @@ export function EventsListView({
           {filteredEvents.length === 0 ? (
             <div className="px-5 py-16 text-center flex flex-col items-center justify-center gap-2">
               <div className="w-12 h-12 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center mb-2">
-                <Icon name="calendar" className="w-6 h-6 text-gray-400" />
+                <Icon name="calendar" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
               </div>
               <p className="text-gray-500 font-medium">{t("no_events")}</p>
               <div className="mt-4">
@@ -212,7 +212,7 @@ export function EventsListView({
                           <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 overflow-hidden">
                             <div className="flex flex-col gap-1 w-full overflow-hidden">
                               <p className="font-bold text-[15px] text-gray-900 dark:text-white truncate block w-full">
-                                <button className="hover:text-blue-600 dark:hover:text-blue-400 w-full text-left transition-colors focus:outline-none truncate block" type="button" onClick={() => openEventDetail(eventItem.id)} title={eventItem.title}>
+                                <button className="hover:text-blue-600 dark:hover:text-blue-400 w-full text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 truncate block" type="button" onClick={() => openEventDetail(eventItem.id)} title={eventItem.title}>
                                   {eventItem.title}
                                 </button>
                               </p>
@@ -290,7 +290,7 @@ export function EventsListView({
                                 onMouseLeave={() => setOpenDropdownId(null)}
                               >
                                 <button
-                                  className={`p-2.5 rounded-lg transition-colors focus:outline-none ${openDropdownId === eventItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
+                                  className={`p-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${openDropdownId === eventItem.id ? "text-gray-900 bg-gray-200 dark:bg-gray-700 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-white"}`}
                                   type="button"
                                   aria-label={t("open_menu")}
                                   title={t("actions_label")}
