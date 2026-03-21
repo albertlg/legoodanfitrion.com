@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
@@ -55,6 +55,26 @@ function getEventCoverImageUrl(eventItem) {
     return explicitCover;
   }
   return getFallbackEventCoverUrl(eventItem.event_type);
+}
+
+const LOCALE_BY_LANGUAGE = {
+  es: "es-ES",
+  ca: "ca-ES",
+  en: "en-GB",
+  fr: "fr-FR",
+  it: "it-IT"
+};
+
+function formatMoneyAmount(value, language) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "0,00";
+  }
+  const locale = LOCALE_BY_LANGUAGE[String(language || "").trim().toLowerCase()] || "es-ES";
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Math.max(0, numericValue));
 }
 
 export function EventDetailView({
@@ -141,6 +161,11 @@ export function EventDetailView({
   const shareCardRef = useRef(null);
   const [isSharingInvitationImage, setIsSharingInvitationImage] = useState(false);
   const [shareCardMessage, setShareCardMessage] = useState("");
+  const [splitTotalAmount, setSplitTotalAmount] = useState("");
+  const [splitBizumTarget, setSplitBizumTarget] = useState("");
+  const [splitGeneratedMessage, setSplitGeneratedMessage] = useState("");
+  const [splitHelperMessage, setSplitHelperMessage] = useState("");
+  const [splitHelperMessageType, setSplitHelperMessageType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const eventDateLabel = formatLongDate(selectedEventDetail?.start_at, language, t("no_date"));
   const eventTimeLabel = formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"));
@@ -165,6 +190,21 @@ export function EventDetailView({
   const icebreakerGeneratedAtLabel = selectedEventIcebreakerState?.generatedAt
     ? formatDate(selectedEventIcebreakerState.generatedAt, language, t("no_date"))
     : "";
+  const confirmedGuestsCount = Math.max(0, Number(selectedEventDetailStatusCounts?.yes || 0));
+  const splitTotalNumeric = Number(splitTotalAmount);
+  const safeSplitTotal = Number.isFinite(splitTotalNumeric) && splitTotalNumeric > 0 ? splitTotalNumeric : 0;
+  const splitPerPersonAmount = confirmedGuestsCount > 0 ? safeSplitTotal / confirmedGuestsCount : 0;
+  const splitPerPersonLabel = formatMoneyAmount(splitPerPersonAmount, language);
+  const canGenerateSplitMessage =
+    safeSplitTotal > 0 && confirmedGuestsCount > 0 && Boolean(String(splitBizumTarget || "").trim());
+
+  useEffect(() => {
+    setSplitTotalAmount("");
+    setSplitBizumTarget("");
+    setSplitGeneratedMessage("");
+    setSplitHelperMessage("");
+    setSplitHelperMessageType("info");
+  }, [selectedEventDetail?.id]);
 
   const handleShareInvitationImage = async () => {
     if (!selectedEventDetail) {
@@ -249,6 +289,42 @@ export function EventDetailView({
       }
     } finally {
       setIsSharingInvitationImage(false);
+    }
+  };
+
+  const handleGenerateSplitMessage = () => {
+    if (!canGenerateSplitMessage) {
+      setSplitHelperMessageType("error");
+      setSplitHelperMessage(t("event_expenses_missing_data"));
+      return;
+    }
+    const totalLabel = `${formatMoneyAmount(safeSplitTotal, language)} €`;
+    const amountLabel = `${formatMoneyAmount(splitPerPersonAmount, language)} €`;
+    const nextMessage = interpolateText(t("event_expenses_generated_template"), {
+      event: selectedEventDetail?.title || t("field_event"),
+      total: totalLabel,
+      count: confirmedGuestsCount,
+      amount: amountLabel,
+      bizum: String(splitBizumTarget || "").trim()
+    });
+    setSplitGeneratedMessage(nextMessage);
+    setSplitHelperMessage("");
+  };
+
+  const handleCopySplitMessage = async () => {
+    const payload = String(splitGeneratedMessage || "").trim();
+    if (!payload) {
+      setSplitHelperMessageType("error");
+      setSplitHelperMessage(t("event_expenses_message_empty"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(payload);
+      setSplitHelperMessageType("success");
+      setSplitHelperMessage(t("event_expenses_copied"));
+    } catch {
+      setSplitHelperMessageType("error");
+      setSplitHelperMessage(t("event_expenses_copy_error"));
     }
   };
 
@@ -684,6 +760,99 @@ export function EventDetailView({
                       </button>
                     ) : null}
                   </div>
+                </article>
+
+                <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="activity" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_expenses_title")}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_expenses_hint")}</p>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("event_expenses_total_label")}
+                    </span>
+                    <input
+                      className="w-full bg-white/85 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-xl font-black text-gray-900 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      placeholder={t("event_expenses_total_placeholder")}
+                      value={splitTotalAmount}
+                      onChange={(event) => {
+                        setSplitTotalAmount(event.target.value);
+                        if (splitHelperMessage) {
+                          setSplitHelperMessage("");
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    {confirmedGuestsCount > 0
+                      ? interpolateText(t("event_expenses_people_label"), { count: confirmedGuestsCount })
+                      : t("event_expenses_people_zero")}
+                  </p>
+
+                  <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col gap-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
+                      {t("event_expenses_per_person_label")}
+                    </span>
+                    <p className="text-3xl font-black text-emerald-700 dark:text-emerald-300 leading-none">
+                      {interpolateText(t("event_expenses_per_person_value"), { amount: splitPerPersonLabel })}
+                    </p>
+                  </div>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("event_expenses_bizum_label")}
+                    </span>
+                    <input
+                      className="w-full bg-white/85 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                      type="text"
+                      placeholder={t("event_expenses_bizum_placeholder")}
+                      value={splitBizumTarget}
+                      onChange={(event) => {
+                        setSplitBizumTarget(event.target.value);
+                        if (splitHelperMessage) {
+                          setSplitHelperMessage("");
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-xl transition-colors text-xs inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={handleGenerateSplitMessage}
+                    disabled={!canGenerateSplitMessage}
+                  >
+                    <Icon name="message" className="w-4 h-4" />
+                    <span>{t("event_expenses_generate_action")}</span>
+                  </button>
+
+                  <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("event_expenses_message_title")}
+                      </p>
+                      <button
+                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={handleCopySplitMessage}
+                        disabled={!splitGeneratedMessage}
+                      >
+                        {t("event_expenses_copy_action")}
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                      {splitGeneratedMessage || t("event_expenses_message_empty")}
+                    </p>
+                  </div>
+
+                  <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
                 </article>
 
                 <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
