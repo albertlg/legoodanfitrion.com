@@ -264,9 +264,11 @@ export function EventDetailView({
         (typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] }));
 
       if (canShareFiles) {
-        // Only send files + text. Omit title to prevent WhatsApp
-        // from rendering a duplicate link preview card alongside the image.
+        // Send title + text + files. We omit `url` to prevent WhatsApp
+        // from generating a duplicate link-preview card alongside the image.
+        // The URL is already embedded inside shareText.
         await navigator.share({
+          title: shareTitle,
           text: shareText,
           files: [shareFile]
         });
@@ -274,19 +276,10 @@ export function EventDetailView({
         return;
       }
 
-      // Desktop fallback: copy image + text to clipboard, then also download.
-      // Write a single ClipboardItem with image/png and text/plain to avoid
-      // WhatsApp Web pasting the image twice (no text/html with embedded <img>).
+      // Desktop fallback: copy the text (with RSVP link) to clipboard,
+      // then download the image as a separate file.
       try {
-        if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard?.write === "function") {
-          const clipItem = new ClipboardItem({
-            "image/png": blob,
-            "text/plain": new Blob([shareText], { type: "text/plain" })
-          });
-          await navigator.clipboard.write([clipItem]);
-        } else {
-          await navigator.clipboard.writeText(shareText);
-        }
+        await navigator.clipboard.writeText(shareText);
       } catch (_clipError) {
         // Non-critical: proceed with download even if clipboard fails
       }

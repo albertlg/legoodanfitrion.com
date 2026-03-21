@@ -8643,7 +8643,9 @@ function DashboardScreen({
               invitationTotalPages,
               setInvitationPage,
               receivedInvitations,
-              openReceivedInvitationRsvp
+              openReceivedInvitationRsvp,
+              hostDisplayName,
+              hostAvatarUrl
             }}
           />
         </Suspense>

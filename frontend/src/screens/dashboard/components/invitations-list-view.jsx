@@ -44,7 +44,9 @@ export function InvitationsListView({
   invitationTotalPages,
   setInvitationPage,
   receivedInvitations = [],
-  openReceivedInvitationRsvp
+  openReceivedInvitationRsvp,
+  hostDisplayName,
+  hostAvatarUrl
 }) {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [invitationTab, setInvitationTab] = useState("sent");
@@ -184,6 +186,7 @@ export function InvitationsListView({
 
       if (canShareFiles) {
         await navigator.share({
+          title: shareTitle,
           text: shareText,
           files: [shareFile]
         });
@@ -429,7 +432,7 @@ export function InvitationsListView({
                         const url = sharePayload?.url || buildAppUrl(`/rsvp/${encodeURIComponent(invitation.public_token)}`);
                         const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                         const invitationStatus = String(invitation.status || "pending").toLowerCase();
-                        const hostName = t("host_default_name");
+                        const hostName = String(hostDisplayName || t("host_default_name")).trim();
                         const eventDateLabel = eventItem?.start_at
                           ? formatDate(eventItem.start_at, language, t("no_date"))
                           : t("no_date");
@@ -647,6 +650,7 @@ export function InvitationsListView({
                                     eventDate={eventDateLabel}
                                     eventLocation={eventLocationLabel}
                                     hostName={hostName}
+                                    hostAvatarUrl={hostAvatarUrl}
                                     appName={t("app_name")}
                                     subtitle={t("event_share_card_subtitle")}
                                     footerMessage={t("event_share_card_footer_message")}
