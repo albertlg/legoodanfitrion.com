@@ -5,7 +5,7 @@
             "destination": "/api/index.js"
         },
         {
-            "source": "/((?!.*\\.(?:txt|xml|png|jpg|jpeg|svg|ico|css|js)$).*)",
+            "source": "/([^.]*)",
             "has": [
                 {
                     "type": "header",
