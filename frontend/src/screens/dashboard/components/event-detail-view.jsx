@@ -261,8 +261,8 @@ export function EventDetailView({
         : shareLocationName || shareLocationAddress;
       const shareText = interpolateText(t("event_share_card_share_text"), {
         event: selectedEventDetail?.title || t("field_event"),
-        date: `${eventDateLabel} · ${eventTimeLabel}`,
-        location: shareLocation,
+        date: `\u{1F4C5} ${eventDateLabel} \u{00B7} ${eventTimeLabel}`,
+        location: `\u{1F4CD} ${shareLocation}`,
         url: rsvpUrl
       });
       const canShareFiles =
