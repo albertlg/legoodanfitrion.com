@@ -1033,6 +1033,7 @@ export function EventDetailView({
               eventName={selectedEventDetail.title || t("field_event")}
               eventDate={`${eventDateLabel} · ${eventTimeLabel}`}
               eventLocation={eventPlaceLabel}
+              eventLocationAddress={selectedEventDetail.location_address || ""}
               hostName={shareCardHostName}
               hostAvatarUrl={hostAvatarUrl}
               appName={t("app_name")}

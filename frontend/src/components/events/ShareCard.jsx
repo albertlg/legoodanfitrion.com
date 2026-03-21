@@ -51,6 +51,7 @@ export function ShareCard({
   eventName,
   eventDate,
   eventLocation,
+  eventLocationAddress,
   hostName,
   hostAvatarUrl,
   appName = "LeGoodAnfitrión",
@@ -60,6 +61,9 @@ export function ShareCard({
   locationLabel = "Lugar",
   hostLabel = "Anfitrión"
 }) {
+  // Para el mapa: priorizar la dirección validada por Google Maps,
+  // fallback al nombre del lugar si no hay dirección.
+  const mapQuery = eventLocationAddress || eventLocation;
   // Iniciales del anfitrión para el avatar fallback
   const hostInitials = String(hostName || "")
     .trim()
@@ -116,7 +120,7 @@ export function ShareCard({
                 <p className="text-[10px] uppercase tracking-widest text-white/70 font-bold mb-0.5">{locationLabel}</p>
                 <p className="text-sm font-semibold text-white leading-snug break-words">{eventLocation}</p>
               </div>
-              <MapPreview location={eventLocation} />
+              <MapPreview location={mapQuery} />
             </div>
 
             {/* Anfitrión + avatar */}

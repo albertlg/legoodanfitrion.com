@@ -649,6 +649,7 @@ export function InvitationsListView({
                                     eventName={eventName || t("field_event")}
                                     eventDate={eventDateLabel}
                                     eventLocation={eventLocationLabel}
+                                    eventLocationAddress={eventItem?.location_address || ""}
                                     hostName={hostName}
                                     hostAvatarUrl={hostAvatarUrl}
                                     appName={t("app_name")}
