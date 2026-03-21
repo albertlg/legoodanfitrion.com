@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Homepage -->
+  <url>
+    <loc>https://legoodanfitrion.com/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/" />
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Features -->
+  <url>
+    <loc>https://legoodanfitrion.com/caracteristicas</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/caracteristicas" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/caracteristiques" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/features" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/fonctionnalites" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/funzionalita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/caracteristicas" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Pricing -->
+  <url>
+    <loc>https://legoodanfitrion.com/precios</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/precios" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/preus" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/pricing" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/tarifs" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/prezzi" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/precios" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Contact -->
+  <url>
+    <loc>https://legoodanfitrion.com/contacto</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/contacto" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/contacte" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/contact" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/contact" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/contatti" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/contacto" />
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Blog -->
+  <url>
+    <loc>https://legoodanfitrion.com/blog</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/blog" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/blog" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/blog" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/blog" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/blog" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/blog" />
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Privacy -->
+  <url>
+    <loc>https://legoodanfitrion.com/privacidad</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/privacidad" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/privacitat" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/confidentialite" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/privacidad" />
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <!-- Terms -->
+  <url>
+    <loc>https://legoodanfitrion.com/terminos</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/terminos" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/termes" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/terms" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/conditions" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/termini" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/terminos" />
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+</urlset>
