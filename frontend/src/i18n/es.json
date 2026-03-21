@@ -883,7 +883,7 @@
   "event_share_card_footer_message": "Confirma tu asistencia en el enlace adjunto",
   "event_share_card_host_label": "Anfitrión",
   "event_share_card_share_title": "Invitación a {event}",
-  "event_share_card_share_text": "Te invito a \"{event}\". Confirma aquí: {url}",
+  "event_share_card_share_text": "Te invito a \"{event}\"\n📅 {date}\n📍 {location}\n\nConfirma tu asistencia aquí: {url}",
   "event_share_card_shared_ok": "Invitación compartida como imagen.",
   "event_share_card_downloaded_ok": "Imagen descargada. Puedes compartirla por WhatsApp.",
   "event_share_card_error": "No se pudo generar la imagen de invitación. Inténtalo de nuevo.",

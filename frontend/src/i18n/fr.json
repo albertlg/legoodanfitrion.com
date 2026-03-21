@@ -883,7 +883,7 @@
   "event_share_card_footer_message": "Confirme ta présence via le lien joint",
   "event_share_card_host_label": "Hote",
   "event_share_card_share_title": "Invitation a {event}",
-  "event_share_card_share_text": "Je t'invite à \"{event}\". Confirme ici : {url}",
+  "event_share_card_share_text": "Je t'invite à \"{event}\"\n📅 {date}\n📍 {location}\n\nConfirme ta présence ici : {url}",
   "event_share_card_shared_ok": "Invitation partagee au format image.",
   "event_share_card_downloaded_ok": "Image téléchargée. Tu peux maintenant la partager sur WhatsApp.",
   "event_share_card_error": "Impossible de generer l'image d'invitation. Reessayez.",

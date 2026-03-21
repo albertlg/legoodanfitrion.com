@@ -883,7 +883,7 @@
   "event_share_card_footer_message": "Confirma la teva assistència a l'enllaç adjunt",
   "event_share_card_host_label": "Amfitrió",
   "event_share_card_share_title": "Invitació a {event}",
-  "event_share_card_share_text": "Et convido a \"{event}\". Confirma aquí: {url}",
+  "event_share_card_share_text": "Et convido a \"{event}\"\n📅 {date}\n📍 {location}\n\nConfirma la teva assistència aquí: {url}",
   "event_share_card_shared_ok": "Invitació compartida com a imatge.",
   "event_share_card_downloaded_ok": "Imatge descarregada. La pots compartir per WhatsApp.",
   "event_share_card_error": "No s'ha pogut generar la imatge de la invitació. Torna-ho a provar.",

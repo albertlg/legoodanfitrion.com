@@ -254,8 +254,15 @@ export function EventDetailView({
       const shareTitle = interpolateText(t("event_share_card_share_title"), {
         event: selectedEventDetail?.title || t("field_event")
       });
+      const shareLocationAddress = String(selectedEventDetail?.location_address || "").trim();
+      const shareLocationName = String(eventPlaceLabel || "").trim();
+      const shareLocation = shareLocationAddress && shareLocationName && shareLocationAddress !== shareLocationName
+        ? `${shareLocationName} (${shareLocationAddress})`
+        : shareLocationName || shareLocationAddress;
       const shareText = interpolateText(t("event_share_card_share_text"), {
         event: selectedEventDetail?.title || t("field_event"),
+        date: `${eventDateLabel} · ${eventTimeLabel}`,
+        location: shareLocation,
         url: rsvpUrl
       });
       const canShareFiles =
