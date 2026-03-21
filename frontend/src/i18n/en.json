@@ -234,7 +234,7 @@
   "invitation_list_bulk_delete_target": "{count} selected invitations",
   "invitation_share_subject": "Invitation to {event}",
   "invitation_share_subject_fallback": "Event invitation",
-  "invitation_share_template": "Hi {guest}, I'd like to invite you to \"{event}\". Date: {date}. Place: {location}. Please RSVP here: {url}",
+  "invitation_share_template": "Hi {guest}, I'd like to invite you to \"{event}\"\n📅 {date}\n📍 {location}\n\nPlease RSVP here: {url}",
   "invitation_share_card_personal_message": "Hi! You're invited to \"{event}\"\n📅 {date}\n📍 {location}\n\nPlease confirm your attendance using your personal link: {url}",
   "copy_ok": "Link copied to clipboard.",
   "copy_fail": "Could not copy automatically. Please copy the link manually.",

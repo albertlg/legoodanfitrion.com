@@ -234,7 +234,7 @@
   "invitation_list_bulk_delete_target": "{count} inviti selezionati",
   "invitation_share_subject": "Invito a {evento}",
   "invitation_share_subject_fallback": "Invito evento",
-  "invitation_share_template": "Ciao {guest}, ti invito a \"{event}\". Data: {date}. Luogo: {location}. Conferma qui: {url}",
+  "invitation_share_template": "Ciao {guest}, ti invito a \"{event}\"\n📅 {date}\n📍 {location}\n\nConferma la tua presenza qui: {url}",
   "invitation_share_card_personal_message": "Ciao! Sei invitato/a a \"{event}\"\n📅 {date}\n📍 {location}\n\nConferma la tua presenza con il tuo link personale: {url}",
   "copy_ok": "Link copiato negli appunti.",
   "copy_fail": "Impossibile copiare automaticamente. Copia il link manualmente.",

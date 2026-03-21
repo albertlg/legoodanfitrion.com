@@ -2272,7 +2272,11 @@ function DashboardScreen({
         ? `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")
         : guestNamesById[invitationItem.guest_id] || t("field_guest");
       const eventDate = formatDate(eventItem?.start_at, language, t("no_date"));
-      const eventLocation = eventItem?.location_name || eventItem?.location_address || "-";
+      const locationName = String(eventItem?.location_name || "").trim();
+      const locationAddress = String(eventItem?.location_address || "").trim();
+      const eventLocation = locationAddress && locationName && locationAddress !== locationName
+        ? `${locationName} (${locationAddress})`
+        : locationName || locationAddress || "-";
       const url = buildAppUrl(`/rsvp/${encodeURIComponent(invitationItem.public_token)}`);
       const shareSubject = interpolateText(t("invitation_share_subject"), {
         event: eventName
