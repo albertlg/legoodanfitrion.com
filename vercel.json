@@ -5,19 +5,7 @@
             "destination": "/api/index.js"
         },
         {
-            "source": "/llms.txt",
-            "destination": "/llms.txt"
-        },
-        {
-            "source": "/robots.txt",
-            "destination": "/robots.txt"
-        },
-        {
-            "source": "/sitemap.xml",
-            "destination": "/sitemap.xml"
-        },
-        {
-            "source": "/(.*)",
+            "source": "/([^.]*)",
             "has": [
                 {
                     "type": "header",
