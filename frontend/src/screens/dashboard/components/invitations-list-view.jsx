@@ -122,7 +122,8 @@ export function InvitationsListView({
   const handleShareInvitationImage = async ({
     invitation,
     eventName,
-    guestName
+    guestName,
+    eventItem
   }) => {
     const invitationId = String(invitation?.id || "").trim();
     const publicToken = String(invitation?.public_token || "").trim();
@@ -175,7 +176,16 @@ export function InvitationsListView({
       const shareTitle = interpolateText(t("event_share_card_share_title"), {
         event: eventName || t("field_event")
       });
+      const invLocationName = String(eventItem?.location_name || "").trim();
+      const invLocationAddress = String(eventItem?.location_address || "").trim();
+      const invLocation = invLocationAddress && invLocationName && invLocationAddress !== invLocationName
+        ? `${invLocationName} (${invLocationAddress})`
+        : invLocationName || invLocationAddress;
+      const invDate = eventItem?.start_at ? formatDate(eventItem.start_at, language, "") : "";
       const shareText = interpolateText(t("invitation_share_card_personal_message"), {
+        event: eventName || t("field_event"),
+        date: invDate,
+        location: invLocation,
         url: personalUrl
       });
 
@@ -587,7 +597,8 @@ export function InvitationsListView({
                                             handleShareInvitationImage({
                                               invitation,
                                               eventName,
-                                              guestName
+                                              guestName,
+                                              eventItem
                                             })
                                           }
                                           disabled={isSharingInvitationId === invitation.id}
