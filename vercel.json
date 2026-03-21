@@ -1,11 +1,19 @@
 {
     "rewrites": [
         {
+            "source": "/(.*\\.txt)",
+            "destination": "/$1"
+        },
+        {
+            "source": "/(.*\\.xml)",
+            "destination": "/$1"
+        },
+        {
             "source": "/api/(.*)",
             "destination": "/api/index.js"
         },
         {
-            "source": "/([^.]*)",
+            "source": "/(.*)",
             "has": [
                 {
                     "type": "header",
