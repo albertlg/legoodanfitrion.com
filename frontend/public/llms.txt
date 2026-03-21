@@ -1,0 +1,52 @@
+# LeGoodAnfitrion
+
+> AI-powered event hosting platform for managing guests, sending RSVP invitations, and planning menus — all from one place.
+
+LeGoodAnfitrion is a SaaS web application that helps hosts organize private events (dinners, parties, celebrations) with smart guest management and AI-assisted planning. Available in 5 languages: Spanish, English, Catalan, French, and Italian.
+
+## Core Features
+
+- **Event Management:** Create events with date, time, location, checklists, and custom settings. Track event phases from planning to completion.
+- **Smart Guest Profiles:** Store guest preferences, dietary restrictions (vegan, vegetarian, gluten-free, lactose-free), allergies, and contact details. A Global Guest Profile follows the guest across events so they never repeat their info.
+- **RSVP Invitations:** Generate personalized invitation links. Share via WhatsApp or email. Track responses (attending / maybe / not attending) in real time.
+- **Share Cards:** Auto-generate beautiful invitation images optimized for sharing on WhatsApp and social media.
+- **AI Menu Planner:** Based on confirmed guests and their dietary needs, AI suggests a full menu, shopping list, ambience ideas, and timing schedule — adapted to restrictions automatically.
+- **Expense Splitter:** Calculate per-person costs and generate ready-to-send Bizum/WhatsApp payment messages.
+- **Icebreaker Mode:** AI generates conversation starters, a bad joke, and a 5-minute party game to rescue awkward silences.
+- **Smart Hosting Suggestions:** AI analyzes guest data and event context to recommend seating, music, and activity ideas.
+
+## How It Works
+
+1. Host creates an event and adds guests.
+2. RSVP invitations are sent via personalized links.
+3. Guests confirm attendance and optionally share dietary needs.
+4. AI generates a tailored menu and shopping list based on confirmed guests.
+5. Host manages everything from a single dashboard.
+
+## Target Audience
+
+- People who host dinners, birthday parties, and social gatherings.
+- Hosts who want to avoid the hassle of collecting RSVPs via scattered WhatsApp messages.
+- Anyone who needs to plan menus around dietary restrictions and allergies.
+- Event organizers looking for a simple, elegant all-in-one tool.
+
+## Pricing
+
+Currently free during open beta. All features (events, guests, RSVP, AI planning) are included at no cost.
+
+## Technology
+
+Built with React, TailwindCSS, and Supabase. AI features powered by large language models. Multilingual support (ES, EN, CA, FR, IT) with full i18n.
+
+## Key URLs
+
+- Homepage: https://legoodanfitrion.com
+- Features: https://legoodanfitrion.com/features
+- Pricing: https://legoodanfitrion.com/pricing
+- Blog: https://legoodanfitrion.com/blog
+- Contact: https://legoodanfitrion.com/contact
+
+## Optional
+
+- Privacy Policy: https://legoodanfitrion.com/privacy
+- Terms of Service: https://legoodanfitrion.com/terms
