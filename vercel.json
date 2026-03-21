@@ -1,12 +1,16 @@
 {
     "rewrites": [
         {
-            "source": "/(.*\\.txt)",
-            "destination": "/$1"
+            "source": "/llms.txt",
+            "destination": "/llms.txt"
         },
         {
-            "source": "/(.*\\.xml)",
-            "destination": "/$1"
+            "source": "/robots.txt",
+            "destination": "/robots.txt"
+        },
+        {
+            "source": "/sitemap.xml",
+            "destination": "/sitemap.xml"
         },
         {
             "source": "/api/(.*)",
