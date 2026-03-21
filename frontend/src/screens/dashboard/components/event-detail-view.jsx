@@ -328,6 +328,18 @@ export function EventDetailView({
     }
   };
 
+  const handleSendSplitMessageWhatsApp = () => {
+    const payload = String(splitGeneratedMessage || "").trim();
+    if (!payload) {
+      setSplitHelperMessageType("error");
+      setSplitHelperMessage(t("event_expenses_message_empty"));
+      return;
+    }
+    const encodedText = encodeURIComponent(payload);
+    const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
 
@@ -838,14 +850,27 @@ export function EventDetailView({
                       <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         {t("event_expenses_message_title")}
                       </p>
-                      <button
-                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                        type="button"
-                        onClick={handleCopySplitMessage}
-                        disabled={!splitGeneratedMessage}
-                      >
-                        {t("event_expenses_copy_action")}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          type="button"
+                          onClick={handleCopySplitMessage}
+                          disabled={!splitGeneratedMessage}
+                        >
+                          {t("event_expenses_copy_action")}
+                        </button>
+                        <button
+                          className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-green-600/60 bg-green-500 hover:bg-green-600 text-white transition-colors inline-flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                          type="button"
+                          onClick={handleSendSplitMessageWhatsApp}
+                          disabled={!splitGeneratedMessage}
+                          aria-label={t("event_expenses_whatsapp_action")}
+                          title={t("event_expenses_whatsapp_action")}
+                        >
+                          <Icon name="message" className="w-3.5 h-3.5" />
+                          <span>{t("event_expenses_whatsapp_action")}</span>
+                        </button>
+                      </div>
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
                       {splitGeneratedMessage || t("event_expenses_message_empty")}
