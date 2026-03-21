@@ -143,6 +143,7 @@ export function InvitationsListView({
         backgroundColor: "#0b1220",
         skipFonts: true,
         preferredFontFormat: "woff2",
+        fetchRequestInit: { mode: "cors", credentials: "omit" },
         filter: (node) => {
           if (node && typeof node === "object" && "tagName" in node) {
             const tagName = String(node.tagName || "").toUpperCase();
@@ -183,9 +184,7 @@ export function InvitationsListView({
 
       if (canShareFiles) {
         await navigator.share({
-          title: shareTitle,
           text: shareText,
-          url: personalUrl,
           files: [shareFile]
         });
         setShareImageMessage(t("event_share_card_shared_ok"));
@@ -649,6 +648,7 @@ export function InvitationsListView({
                                     eventLocation={eventLocationLabel}
                                     hostName={hostName}
                                     appName={t("app_name")}
+                                    subtitle={t("event_share_card_subtitle")}
                                     footerMessage={t("event_share_card_footer_message")}
                                     dateLabel={t("date")}
                                     locationLabel={t("field_place")}

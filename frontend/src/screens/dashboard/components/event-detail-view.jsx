@@ -152,6 +152,7 @@ export function EventDetailView({
   getMapEmbedUrl,
   getGuestAvatarUrl,
   hostDisplayName,
+  hostAvatarUrl,
   selectedEventDetailGuests,
   openGuestDetail,
   handlePrepareInvitationShare,
@@ -229,6 +230,7 @@ export function EventDetailView({
         backgroundColor: "#0b1220",
         skipFonts: true,
         preferredFontFormat: "woff2",
+        fetchRequestInit: { mode: "cors", credentials: "omit" },
         filter: (node) => {
           if (node && typeof node === "object" && "tagName" in node) {
             const tagName = String(node.tagName || "").toUpperCase();
@@ -262,14 +264,31 @@ export function EventDetailView({
         (typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] }));
 
       if (canShareFiles) {
+        // Only send files + text. Omit title to prevent WhatsApp
+        // from rendering a duplicate link preview card alongside the image.
         await navigator.share({
-          title: shareTitle,
           text: shareText,
-          url: rsvpUrl,
           files: [shareFile]
         });
         setShareCardMessage(t("event_share_card_shared_ok"));
         return;
+      }
+
+      // Desktop fallback: copy image + text to clipboard, then also download.
+      // Write a single ClipboardItem with image/png and text/plain to avoid
+      // WhatsApp Web pasting the image twice (no text/html with embedded <img>).
+      try {
+        if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard?.write === "function") {
+          const clipItem = new ClipboardItem({
+            "image/png": blob,
+            "text/plain": new Blob([shareText], { type: "text/plain" })
+          });
+          await navigator.clipboard.write([clipItem]);
+        } else {
+          await navigator.clipboard.writeText(shareText);
+        }
+      } catch (_clipError) {
+        // Non-critical: proceed with download even if clipboard fails
       }
 
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -1022,7 +1041,9 @@ export function EventDetailView({
               eventDate={`${eventDateLabel} · ${eventTimeLabel}`}
               eventLocation={eventPlaceLabel}
               hostName={shareCardHostName}
+              hostAvatarUrl={hostAvatarUrl}
               appName={t("app_name")}
+              subtitle={t("event_share_card_subtitle")}
               footerMessage={t("event_share_card_footer_message")}
               dateLabel={t("date")}
               locationLabel={t("field_place")}

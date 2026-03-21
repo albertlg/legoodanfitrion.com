@@ -825,6 +825,7 @@
   "event_detail_empty": "Non ci sono ancora eventi.",
   "event_detail_edit_action": "Modifica evento",
   "event_detail_create_invitation_action": "Crea invito per questo evento",
+  "event_share_card_subtitle": "Storia dell'Invito",
   "event_share_card_action": "Condividi invito (immagine)",
   "event_share_card_generating": "Generazione immagine...",
   "event_share_card_missing_rsvp": "Crea prima un invito RSVP per condividere l'immagine.",

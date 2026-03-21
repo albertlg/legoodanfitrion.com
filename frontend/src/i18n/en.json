@@ -876,6 +876,7 @@
   "event_detail_empty": "There are no events yet.",
   "event_detail_edit_action": "Edit event",
   "event_detail_create_invitation_action": "Create invitation for this event",
+  "event_share_card_subtitle": "Invitation Story",
   "event_share_card_action": "Share invitation (image)",
   "event_share_card_generating": "Generating image...",
   "event_share_card_missing_rsvp": "Create an RSVP invitation first to share the image.",

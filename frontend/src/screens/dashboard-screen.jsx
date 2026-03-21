@@ -8321,6 +8321,7 @@ function DashboardScreen({
               eventPlannerMessage,
               getGuestAvatarUrl,
               hostDisplayName,
+              hostAvatarUrl,
               selectedEventDetailGuests,
               openGuestDetail,
               handlePrepareInvitationShare,
