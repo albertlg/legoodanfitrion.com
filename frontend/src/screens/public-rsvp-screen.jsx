@@ -204,9 +204,18 @@ function RsvpFormView({
   );
 }
 
-function RsvpSuccessView({ t, onOpenGlobalGuestProfile, onOpenHostApp }) {
+function RsvpSuccessView({ t, onOpenGlobalGuestProfile, onOpenHostApp, dietaryNeeds, dietaryOptions }) {
+  // Texto dinámico personalizado según dietas seleccionadas
+  const hasDiets = Array.isArray(dietaryNeeds) && dietaryNeeds.length > 0;
+  const dietLabels = hasDiets
+    ? dietaryNeeds.map((v) => {
+        const opt = (dietaryOptions || []).find((o) => o.value === v);
+        return opt ? opt.label : v;
+      }).join(", ")
+    : "";
+
   return (
-    <section className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8 relative z-20">
+    <section className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-6 relative z-20">
 
       {/* 1. MENSAJE DE ÉXITO (Validación) */}
       <div className="flex flex-col items-center text-center gap-3">
@@ -221,7 +230,7 @@ function RsvpSuccessView({ t, onOpenGlobalGuestProfile, onOpenHostApp }) {
         </p>
       </div>
 
-      {/* 2. 🚀 TARJETA PLG (Estilo Magic Card) */}
+      {/* 2. 🚀 TARJETA PLG INVITADO (Estilo Magic Card) */}
       <div className="relative w-full rounded-[2rem] border border-black/10 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden group bg-gray-50 dark:bg-gray-900 mx-auto text-left">
 
         {/* LA MAGIA: Bolas de color giratorias en el fondo */}
@@ -245,10 +254,12 @@ function RsvpSuccessView({ t, onOpenGlobalGuestProfile, onOpenHostApp }) {
             {t("rsvp_plg_card_kicker")}
           </p>
           <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight">
-            {t("rsvp_plg_card_title")}
+            {hasDiets
+              ? t("rsvp_plg_card_title_diet").replace("{{diets}}", dietLabels)
+              : t("rsvp_plg_card_title")}
           </h3>
           <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-w-md">
-            {t("rsvp_plg_card_description")}
+            {hasDiets ? t("rsvp_plg_card_description_diet") : t("rsvp_plg_card_description")}
           </p>
           <div className="pt-4">
             <button
@@ -256,23 +267,57 @@ function RsvpSuccessView({ t, onOpenGlobalGuestProfile, onOpenHostApp }) {
               onClick={onOpenGlobalGuestProfile}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg hover:shadow-blue-500/30"
             >
-              <Icon name="sparkle" className="w-4 h-4" />
+              <Icon name="user" className="w-4 h-4" />
               {t("rsvp_plg_primary_cta")}
             </button>
           </div>
         </div>
       </div>
 
-      {/* 3. CTA SECUNDARIO (Convertirse en Anfitrión) */}
-      <div className="flex justify-center mt-2">
-        <button
-          type="button"
-          onClick={onOpenHostApp}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white/70 hover:bg-white dark:bg-black/20 dark:hover:bg-black/30 text-gray-900 dark:text-white font-bold text-sm transition-colors shadow-sm"
-        >
-          <Icon name="calendar" className="w-4 h-4" />
-          {t("rsvp_plg_secondary_cta")}
-        </button>
+      {/* 3. 🚀 TARJETA PLG ANFITRIÓN (Mismo nivel visual) */}
+      <div className="relative w-full rounded-[2rem] border border-purple-200/60 dark:border-purple-500/20 shadow-2xl flex flex-col overflow-hidden group bg-gray-50 dark:bg-gray-900 mx-auto text-left">
+
+        {/* Borde superior con gradiente */}
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 z-20"></div>
+
+        {/* Bolas decorativas */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-30 dark:opacity-20 mix-blend-multiply dark:mix-blend-screen">
+          <div
+            className="absolute -bottom-10 -right-10 w-56 h-56 rounded-full bg-gradient-to-tr from-purple-400 to-pink-400 blur-3xl animate-spin"
+            style={{ animationDuration: "18s" }}
+          ></div>
+          <div
+            className="absolute top-10 left-10 w-40 h-40 rounded-full bg-gradient-to-tr from-orange-300 to-yellow-400 blur-3xl animate-spin"
+            style={{ animationDuration: "22s", animationDirection: "reverse" }}
+          ></div>
+        </div>
+
+        {/* Glassmorphism */}
+        <div className="absolute inset-0 backdrop-blur-[60px] bg-white/60 dark:bg-black/40 z-0"></div>
+
+        {/* Contenido */}
+        <div className="relative z-10 flex flex-col w-full h-full p-6 md:p-8 gap-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-700 dark:text-purple-400 drop-shadow-sm flex items-center gap-1.5">
+            <Icon name="sparkle" className="w-3.5 h-3.5" />
+            {t("rsvp_plg_host_kicker")}
+          </p>
+          <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight">
+            {t("rsvp_plg_host_title")}
+          </h3>
+          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-w-md">
+            {t("rsvp_plg_host_description")}
+          </p>
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={onOpenHostApp}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg hover:shadow-purple-500/30"
+            >
+              <Icon name="calendar" className="w-4 h-4" />
+              {t("rsvp_plg_host_cta")}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -619,6 +664,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 t={t}
                 onOpenGlobalGuestProfile={handleOpenGlobalGuestProfile}
                 onOpenHostApp={handleOpenHostApp}
+                dietaryNeeds={dietaryNeeds}
+                dietaryOptions={dietaryOptions}
               />
             ) : (
               <RsvpFormView
