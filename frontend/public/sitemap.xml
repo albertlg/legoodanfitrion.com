@@ -67,6 +67,19 @@
     <priority>0.7</priority>
   </url>
 
+  <!-- About -->
+  <url>
+    <loc>https://legoodanfitrion.com/sobre-nosotros</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/sobre-nosotros" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/sobre-nosaltres" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/about" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/a-propos" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/chi-siamo" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/sobre-nosotros" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
   <!-- Privacy -->
   <url>
     <loc>https://legoodanfitrion.com/privacidad</loc>
