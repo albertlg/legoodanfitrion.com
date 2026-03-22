@@ -134,6 +134,36 @@ export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThem
                 translations={post.translations || []}
             />
 
+            {/* 🚀 GEO: Article schema para AI discoverability */}
+            <Helmet>
+                <script type="application/ld+json">{JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "Article",
+                    "headline": post.title,
+                    "description": post.excerpt || "",
+                    ...(post.mainImage ? { "image": urlFor(post.mainImage).width(1200).height(675).url() } : {}),
+                    "datePublished": post.publishedAt,
+                    "author": {
+                        "@type": "Person",
+                        "name": post.authorName || "Equipo LGA",
+                        ...(post.authorImage ? { "image": urlFor(post.authorImage).width(200).height(200).url() } : {})
+                    },
+                    "publisher": {
+                        "@type": "Organization",
+                        "name": "LeGoodAnfitrion",
+                        "logo": {
+                            "@type": "ImageObject",
+                            "url": "https://legoodanfitrion.com/android-chrome-512x512.png"
+                        }
+                    },
+                    "mainEntityOfPage": {
+                        "@type": "WebPage",
+                        "@id": `https://legoodanfitrion.com${language === "es" ? "" : `/${language}`}/blog/${slug}`
+                    },
+                    "inLanguage": language
+                })}</script>
+            </Helmet>
+
             <div className="fixed top-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-[100px] pointer-events-none z-0"></div>
 
             <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5">

@@ -5,6 +5,7 @@ import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
 import { SEO } from "../components/seo"; // 🚀 Importamos el SEO en lugar del Helmet
+import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
 
 const NAV_ITEMS = [
@@ -19,7 +20,14 @@ const FAQ_ITEMS = [
   { key: "faq_1", questionKey: "landing_faq_q1", answerKey: "landing_faq_a1" },
   { key: "faq_2", questionKey: "landing_faq_q2", answerKey: "landing_faq_a2" },
   { key: "faq_3", questionKey: "landing_faq_q3", answerKey: "landing_faq_a3" },
-  { key: "faq_4", questionKey: "landing_faq_q4", answerKey: "landing_faq_a4" }
+  { key: "faq_4", questionKey: "landing_faq_q4", answerKey: "landing_faq_a4" },
+  { key: "faq_5", questionKey: "landing_faq_q5", answerKey: "landing_faq_a5" },
+  { key: "faq_6", questionKey: "landing_faq_q6", answerKey: "landing_faq_a6" },
+  { key: "faq_7", questionKey: "landing_faq_q7", answerKey: "landing_faq_a7" },
+  { key: "faq_8", questionKey: "landing_faq_q8", answerKey: "landing_faq_a8" },
+  { key: "faq_9", questionKey: "landing_faq_q9", answerKey: "landing_faq_a9" },
+  { key: "faq_10", questionKey: "landing_faq_q10", answerKey: "landing_faq_a10" },
+  { key: "faq_11", questionKey: "landing_faq_q11", answerKey: "landing_faq_a11" }
 ];
 
 function LandingScreen({
@@ -379,6 +387,24 @@ function LandingScreen({
         slug={currentSeo.slug}
         image="https://legoodanfitrion.com/og-home.jpg"
       />
+
+      {/* 🚀 GEO: FAQPage schema en la Home para AI discoverability */}
+      {pageMode === "home" && (
+        <Helmet>
+          <script type="application/ld+json">{JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": FAQ_ITEMS.map((item) => ({
+              "@type": "Question",
+              "name": t(item.questionKey),
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": t(item.answerKey)
+              }
+            }))
+          })}</script>
+        </Helmet>
+      )}
 
       {/* Decorative Blobs (Background) */}
       <div className="fixed top-[-10%] right-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[120px] opacity-70 pointer-events-none z-0"></div>
