@@ -99,27 +99,32 @@ begin
       select count(distinct id) from public.guests
     ),
 
-    -- All active hosts (no limit, paginated on frontend)
+    -- All registered users (includes those with 0 events)
     'top_hosts', (
       select coalesce(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
       from (
         select
           coalesce(p.full_name, split_part(u.email, '@', 1)) as name,
           u.email,
-          count(distinct e.id) as event_count,
-          count(distinct i.id) filter (where i.status = 'yes') as confirmed_guests,
+          coalesce(ec.event_count, 0) as event_count,
+          coalesce(ec.confirmed_guests, 0) as confirmed_guests,
           coalesce(gc.total_contacts, 0) as total_contacts
-        from public.events e
-        join auth.users u on e.host_user_id = u.id
-        left join public.profiles p on e.host_user_id = p.id
-        left join public.invitations i on i.event_id = e.id
+        from auth.users u
+        left join public.profiles p on p.id = u.id
+        left join lateral (
+          select
+            count(distinct e.id) as event_count,
+            count(distinct i.id) filter (where i.status = 'yes') as confirmed_guests
+          from public.events e
+          left join public.invitations i on i.event_id = e.id
+          where e.host_user_id = u.id
+        ) ec on true
         left join lateral (
           select count(*) as total_contacts
           from public.guests g
-          where g.host_user_id = e.host_user_id
+          where g.host_user_id = u.id
         ) gc on true
-        group by p.full_name, u.email, gc.total_contacts
-        order by event_count desc
+        order by event_count desc, u.created_at desc
         limit 500
       ) t
     ),
