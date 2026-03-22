@@ -94,26 +94,37 @@ begin
       where email is not null and email <> ''
     ),
 
-    -- Top 5 most active hosts
+    -- Total network size: unique contacts in the guests CRM (the "dark matter")
+    'total_network_size', (
+      select count(distinct id) from public.guests
+    ),
+
+    -- All active hosts (no limit, paginated on frontend)
     'top_hosts', (
       select coalesce(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
       from (
         select
           coalesce(p.full_name, split_part(u.email, '@', 1)) as name,
           u.email,
-          count(e.id) as event_count,
-          count(distinct i.id) filter (where i.status = 'yes') as confirmed_guests
+          count(distinct e.id) as event_count,
+          count(distinct i.id) filter (where i.status = 'yes') as confirmed_guests,
+          coalesce(gc.total_contacts, 0) as total_contacts
         from public.events e
         join auth.users u on e.host_user_id = u.id
         left join public.profiles p on e.host_user_id = p.id
         left join public.invitations i on i.event_id = e.id
-        group by p.full_name, u.email
+        left join lateral (
+          select count(*) as total_contacts
+          from public.guests g
+          where g.host_user_id = e.host_user_id
+        ) gc on true
+        group by p.full_name, u.email, gc.total_contacts
         order by event_count desc
-        limit 5
+        limit 500
       ) t
     ),
 
-    -- Last 10 events created
+    -- All events (no limit, paginated on frontend)
     'recent_events', (
       select coalesce(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
       from (
@@ -131,7 +142,27 @@ begin
         join auth.users u on e.host_user_id = u.id
         left join public.profiles p on e.host_user_id = p.id
         order by e.created_at desc
-        limit 10
+        limit 1000
+      ) t
+    ),
+
+    -- Recent RSVPs (all responded invitations, paginated on frontend)
+    'recent_rsvps', (
+      select coalesce(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
+      from (
+        select
+          coalesce(i.guest_display_name, g.first_name || ' ' || coalesce(g.last_name, ''), i.invitee_email, 'Anónimo') as guest_name,
+          e.title as event_title,
+          i.status,
+          i.responded_at,
+          i.rsvp_plus_one,
+          i.response_note
+        from public.invitations i
+        join public.events e on i.event_id = e.id
+        left join public.guests g on i.guest_id = g.id
+        where i.status in ('yes', 'no', 'maybe')
+        order by i.responded_at desc nulls last
+        limit 1000
       ) t
     ),
 
@@ -149,6 +180,22 @@ begin
       ) t
     ),
 
+    -- Active hosts (users who created at least 1 event)
+    'active_hosts', (
+      select count(distinct host_user_id) from public.events
+    ),
+
+    -- Average guests per event (viral factor)
+    'avg_guests_per_event', (
+      select coalesce(round(avg(cnt)::numeric, 1), 0)
+      from (
+        select e.id, count(i.id) as cnt
+        from public.events e
+        left join public.invitations i on i.event_id = e.id
+        group by e.id
+      ) sub
+    ),
+
     -- Waitlist leads total
     'total_waitlist', (
       select count(*) from public.waitlist_leads
@@ -158,6 +205,56 @@ begin
     'waitlist_converted', (
       select count(*) from public.waitlist_leads
       where converted_user_id is not null
+    ),
+
+    -- Waitlist users detail (email + signup date + converted flag)
+    'waitlist_users', (
+      select coalesce(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
+      from (
+        select
+          w.email,
+          w.created_at,
+          (w.converted_user_id is not null) as converted
+        from public.waitlist_leads w
+        order by w.created_at desc
+        limit 500
+      ) t
+    ),
+
+    -- Trending events: top 5 by RSVPs in last 7 days
+    'trending_events', (
+      select coalesce(jsonb_agg(row_to_json(t)::jsonb), '[]'::jsonb)
+      from (
+        select
+          e.title,
+          coalesce(p.full_name, split_part(u.email, '@', 1)) as host_name,
+          count(i.id) as rsvps_7d
+        from public.invitations i
+        join public.events e on i.event_id = e.id
+        join auth.users u on e.host_user_id = u.id
+        left join public.profiles p on e.host_user_id = p.id
+        where i.status in ('yes', 'no', 'maybe')
+          and i.responded_at >= now() - interval '7 days'
+        group by e.id, e.title, p.full_name, u.email
+        order by rsvps_7d desc
+        limit 5
+      ) t
+    ),
+
+    -- System health: orphan events (no valid host in auth.users)
+    'orphan_events', (
+      select count(*) from public.events e
+      where not exists (
+        select 1 from auth.users u where u.id = e.host_user_id
+      )
+    ),
+
+    -- System health: orphan RSVPs (invitation references non-existent event)
+    'orphan_rsvps', (
+      select count(*) from public.invitations i
+      where not exists (
+        select 1 from public.events e where e.id = i.event_id
+      )
     )
 
   ) into result;

@@ -534,19 +534,9 @@ function App() {
   // Admin route guard: redirect non-admins after auth loads
   useEffect(() => {
     if (isLoadingAuth || route.kind !== "admin") return;
-    const rawEnv = import.meta.env.VITE_ADMIN_EMAILS;
-    const adminEmails = (rawEnv || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
     const userEmail = session?.user?.email?.toLowerCase() || "";
     const isAdmin = session?.user?.id && adminEmails.includes(userEmail);
-    console.log("--- DEBUG BUNKER ---");
-    console.log("1. isLoadingAuth:", isLoadingAuth);
-    console.log("2. session?.user:", session?.user);
-    console.log("3. Email del usuario actual:", session?.user?.email);
-    console.log("4. Variable ENV pura (VITE_ADMIN_EMAILS):", rawEnv);
-    console.log("5. adminEmails parsed:", adminEmails);
-    console.log("6. userEmail normalizado:", userEmail);
-    console.log("7. isAdmin?:", isAdmin);
-    console.log("--------------------");
     if (!isAdmin) navigate("/", { replace: true });
   }, [isLoadingAuth, navigate, route.kind, session?.user?.email, session?.user?.id]);
 
