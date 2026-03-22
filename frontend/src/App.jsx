@@ -32,6 +32,7 @@ const PublicRsvpScreen = lazy(() =>
 const BlogIndexScreen = lazy(() => import("./screens/blog-index-screen").then((m) => ({ default: m.BlogIndexScreen })));
 const BlogPostScreen = lazy(() => import("./screens/blog-post-screen").then((m) => ({ default: m.BlogPostScreen })));
 const AboutScreen = lazy(() => import("./screens/about-screen").then((m) => ({ default: m.AboutScreen })));
+const AdminDashboardScreen = lazy(() => import("./screens/admin-dashboard-screen").then((m) => ({ default: m.AdminDashboardScreen })));
 
 function ScreenFallback() {
   return (
@@ -530,6 +531,25 @@ function App() {
     navigate("/app", { replace: true });
   }, [isLoadingAuth, isRecoveryMode, navigate, route.kind, session?.user?.id]);
 
+  // Admin route guard: redirect non-admins after auth loads
+  useEffect(() => {
+    if (isLoadingAuth || route.kind !== "admin") return;
+    const rawEnv = import.meta.env.VITE_ADMIN_EMAILS;
+    const adminEmails = (rawEnv || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const userEmail = session?.user?.email?.toLowerCase() || "";
+    const isAdmin = session?.user?.id && adminEmails.includes(userEmail);
+    console.log("--- DEBUG BUNKER ---");
+    console.log("1. isLoadingAuth:", isLoadingAuth);
+    console.log("2. session?.user:", session?.user);
+    console.log("3. Email del usuario actual:", session?.user?.email);
+    console.log("4. Variable ENV pura (VITE_ADMIN_EMAILS):", rawEnv);
+    console.log("5. adminEmails parsed:", adminEmails);
+    console.log("6. userEmail normalizado:", userEmail);
+    console.log("7. isAdmin?:", isAdmin);
+    console.log("--------------------");
+    if (!isAdmin) navigate("/", { replace: true });
+  }, [isLoadingAuth, navigate, route.kind, session?.user?.email, session?.user?.id]);
+
   if (!hasSupabaseEnv && route.kind !== "landing") {
     return (
       <main className="page">
@@ -567,6 +587,21 @@ function App() {
           setThemeMode={setThemeMode}
           t={t}
         />
+      </Suspense>
+    );
+  }
+
+  if (route.kind === "admin") {
+    if (isLoadingAuth) return <ScreenFallback />;
+    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const userEmail = session?.user?.email?.toLowerCase() || "";
+    const isAdmin = session?.user?.id && adminEmails.includes(userEmail);
+    if (!isAdmin) {
+      return <ScreenFallback />;
+    }
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <AdminDashboardScreen session={session} t={t} onNavigate={navigate} />
       </Suspense>
     );
   }

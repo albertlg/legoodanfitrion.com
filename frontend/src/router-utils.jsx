@@ -371,6 +371,7 @@ export function getCanonicalPathForRoute(route, lang = DEFAULT_LANGUAGE) {
     else if (route.kind === "terms") basePath = "/terms";
     else if (route.kind === "login") basePath = "/login";
     else if (route.kind === "rsvp") basePath = route.token ? `/rsvp/${encodeURIComponent(route.token)}` : "/";
+    else if (route.kind === "admin") return "/lg-hq-admin-2026";
     else if (route.kind === "app") {
         const importWizardSource = String(route.appRoute?.importWizardSource || "").trim().toLowerCase();
         if (route.appRoute?.view === "guests" && route.appRoute?.workspace === "latest" && ["csv", "gmail", "mobile"].includes(importWizardSource)) {
@@ -428,6 +429,7 @@ export function useAppRouter() {
             return token ? createRoute("rsvp", basePath, { token }) : createRoute("landing", "/");
         }
 
+        if (basePath === "/lg-hq-admin-2026") return createRoute("admin", "/lg-hq-admin-2026");
         if (basePath === "/login") return createRoute("login", "/login");
         if (basePath === "/profile") return createRoute("app", "/profile", { appRoute: { view: "profile" } });
         if (basePath === "/app" || basePath.startsWith("/app/")) {
