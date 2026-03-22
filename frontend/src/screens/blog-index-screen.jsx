@@ -10,7 +10,8 @@ const NAV_ITEMS = [
     { key: "features", path: "/features", labelKey: "landing_nav_features" },
     { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
     { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
-    { key: "blog", path: "/blog", labelKey: "blog_nav_title" }
+    { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
+    { key: "about", path: "/about", labelKey: "landing_nav_about" }
 ];
 
 export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {

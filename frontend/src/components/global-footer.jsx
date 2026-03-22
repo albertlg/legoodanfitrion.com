@@ -32,6 +32,9 @@ export function GlobalFooter({ t, onNavigate }) {
                         <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
                             {t("landing_nav_contact")}
                         </button>
+                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/about")}>
+                            {t("landing_nav_about")}
+                        </button>
                     </div>
 
                     {/* Separador Visual (Solo en Desktop) */}

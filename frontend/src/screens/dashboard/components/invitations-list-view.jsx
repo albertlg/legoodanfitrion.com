@@ -184,8 +184,8 @@ export function InvitationsListView({
       const invDate = eventItem?.start_at ? formatDate(eventItem.start_at, language, "") : "";
       const shareText = interpolateText(t("invitation_share_card_personal_message"), {
         event: eventName || t("field_event"),
-        date: invDate,
-        location: invLocation,
+        date: `${String.fromCodePoint(0x1F4C5)} ${invDate}`,
+        location: `${String.fromCodePoint(0x1F4CD)} ${invLocation}`,
         url: personalUrl
       });
 

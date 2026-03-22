@@ -31,6 +31,7 @@ const PublicRsvpScreen = lazy(() =>
 // --- NUEVAS PANTALLAS DEL BLOG ---
 const BlogIndexScreen = lazy(() => import("./screens/blog-index-screen").then((m) => ({ default: m.BlogIndexScreen })));
 const BlogPostScreen = lazy(() => import("./screens/blog-post-screen").then((m) => ({ default: m.BlogPostScreen })));
+const AboutScreen = lazy(() => import("./screens/about-screen").then((m) => ({ default: m.AboutScreen })));
 
 function ScreenFallback() {
   return (
@@ -565,6 +566,21 @@ function App() {
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           t={t}
+        />
+      </Suspense>
+    );
+  }
+
+  if (route.kind === "landing" && route.path === "/about") {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <AboutScreen
+          t={t}
+          language={language}
+          setLanguage={handleLanguageChange}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          onNavigate={navigate}
         />
       </Suspense>
     );

@@ -2284,8 +2284,8 @@ function DashboardScreen({
       const shareText = interpolateText(t("invitation_share_template"), {
         guest: guestName,
         event: eventName,
-        date: eventDate,
-        location: eventLocation,
+        date: `${String.fromCodePoint(0x1F4C5)} ${eventDate}`,
+        location: `${String.fromCodePoint(0x1F4CD)} ${eventLocation}`,
         url
       });
       return {

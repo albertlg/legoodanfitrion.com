@@ -6,14 +6,14 @@ const SUPPORTED_LANGUAGES = new Set(["es", "ca", "en", "fr", "it"]);
 const DEFAULT_LANGUAGE = "es";
 
 const ROUTES_DICT = {
-    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", privacy: "privacidad", terms: "terminos" },
-    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", privacy: "privacitat", terms: "termes" },
-    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", privacy: "privacy", terms: "terms" },
-    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", privacy: "confidentialite", terms: "conditions" },
-    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", privacy: "privacy", terms: "termini" }
+    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", about: "sobre-nosotros", privacy: "privacidad", terms: "terminos" },
+    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", about: "sobre-nosaltres", privacy: "privacitat", terms: "termes" },
+    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", about: "about", privacy: "privacy", terms: "terms" },
+    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", about: "a-propos", privacy: "confidentialite", terms: "conditions" },
+    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", about: "chi-siamo", privacy: "privacy", terms: "termini" }
 };
 
-const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/privacy", "/terms"]);
+const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/about", "/privacy", "/terms"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
 const EVENT_PLANNER_TABS = new Set(["menu", "shopping", "ambience", "timings", "communication", "risks"]);
@@ -77,7 +77,7 @@ export function extractLanguageFromPath(pathname) {
     } catch (e) { }
 
     // 3. ¿Es un click en un enlace interno puro de tu menú? (ej: <Link to="/pricing"> o "/")
-    const isInternalRawSlug = ["features", "pricing", "contact", "blog", "privacy", "terms"].includes(firstSegment);
+    const isInternalRawSlug = ["features", "pricing", "contact", "blog", "about", "privacy", "terms"].includes(firstSegment);
     if (isInternalRawSlug || firstSegment === "") {
         // Le inyectamos su idioma activo de forma transparente
         return { lang: inferredLang, basePath: "/" + segments.join("/") };
