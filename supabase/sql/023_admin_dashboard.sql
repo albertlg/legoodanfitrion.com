@@ -206,10 +206,14 @@ begin
       select count(*) from public.waitlist_leads
     ),
 
-    -- Waitlist converted
+    -- Waitlist converted (cross-check by normalized email)
     'waitlist_converted', (
-      select count(*) from public.waitlist_leads
-      where converted_user_id is not null
+      select count(*) from public.waitlist_leads w
+      where w.converted_user_id is not null
+         or exists (
+           select 1 from auth.users u
+           where lower(trim(u.email)) = w.email_normalized
+         )
     ),
 
     -- Waitlist users detail (email + signup date + converted flag)
@@ -219,7 +223,10 @@ begin
         select
           w.email,
           w.created_at,
-          (w.converted_user_id is not null) as converted
+          (w.converted_user_id is not null or exists (
+            select 1 from auth.users u
+            where lower(trim(u.email)) = w.email_normalized
+          )) as converted
         from public.waitlist_leads w
         order by w.created_at desc
         limit 500
