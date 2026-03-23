@@ -25,6 +25,14 @@ export function EventBuilderView({
     setEventStatus,
     eventStartAt,
     setEventStartAt,
+    eventSchedulingMode,
+    setEventSchedulingMode,
+    eventPollOptionDraft,
+    setEventPollOptionDraft,
+    eventPollOptions,
+    handleAddEventPollOption,
+    handleUpdateEventPollOption,
+    handleRemoveEventPollOption,
     eventLocationName,
     setEventLocationName,
     eventLocationAddress,
@@ -152,18 +160,109 @@ export function EventBuilderView({
                 <section className="bg-white/40 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5 p-5 flex flex-col gap-6 shadow-inner">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200 border-b border-black/5 dark:border-white/10 pb-2">{t("event_phase_logistics")}</h3>
 
-                    <label>
-                        <span className="flex items-center gap-2 mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            <Icon name="calendar" className="w-4 h-4" />
-                            {t("field_datetime")}
-                        </span>
-                        <input
-                            type="datetime-local"
-                            className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
-                            value={eventStartAt}
-                            onChange={(event) => setEventStartAt(event.target.value)}
-                        />
-                    </label>
+                    <div className="bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/10 rounded-xl p-4 flex flex-col gap-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                            {t("event_date_mode_label")}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setEventSchedulingMode("fixed")}
+                                className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${eventSchedulingMode !== "tbd"
+                                    ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                    : "bg-white/70 dark:bg-black/30 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/5"
+                                    }`}
+                                aria-pressed={eventSchedulingMode !== "tbd"}
+                            >
+                                {t("event_date_mode_fixed")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setEventSchedulingMode("tbd")}
+                                className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${eventSchedulingMode === "tbd"
+                                    ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                    : "bg-white/70 dark:bg-black/30 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/5"
+                                    }`}
+                                aria-pressed={eventSchedulingMode === "tbd"}
+                            >
+                                {t("event_date_mode_poll")}
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {eventSchedulingMode === "tbd" ? t("event_date_mode_poll_hint") : t("event_date_mode_fixed_hint")}
+                        </p>
+                    </div>
+
+                    {eventSchedulingMode === "tbd" ? (
+                        <div className="bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/10 rounded-xl p-4 flex flex-col gap-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                {t("event_date_poll_options_title")}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_date_poll_options_hint")}</p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="datetime-local"
+                                    className="flex-1 bg-white/80 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                    value={eventPollOptionDraft}
+                                    onChange={(event) => setEventPollOptionDraft(event.target.value)}
+                                    aria-label={t("event_date_poll_option_label")}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddEventPollOption}
+                                    className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-colors"
+                                >
+                                    <Icon name="plus" className="w-4 h-4" />
+                                    {t("event_date_poll_add_option")}
+                                </button>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {eventPollOptions.length === 0 ? (
+                                    <p className="text-xs italic text-gray-500 dark:text-gray-400">{t("event_date_poll_options_empty")}</p>
+                                ) : (
+                                    eventPollOptions.map((optionItem, index) => (
+                                        <div
+                                            key={optionItem.localId}
+                                            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white/70 dark:bg-black/30 border border-black/5 dark:border-white/10 rounded-xl p-2"
+                                        >
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-2">
+                                                #{index + 1}
+                                            </span>
+                                            <input
+                                                type="datetime-local"
+                                                className="flex-1 bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none"
+                                                value={optionItem.startAt}
+                                                onChange={(event) => handleUpdateEventPollOption(optionItem.localId, event.target.value)}
+                                                aria-label={t("event_date_poll_option_label")}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveEventPollOption(optionItem.localId)}
+                                                className="inline-flex items-center justify-center gap-1 text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            >
+                                                <Icon name="trash" className="w-4 h-4" />
+                                                {t("event_date_poll_option_remove")}
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <FieldMeta errorText={eventErrors.pollOptions ? t(eventErrors.pollOptions) : ""} />
+                        </div>
+                    ) : (
+                        <label>
+                            <span className="flex items-center gap-2 mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                <Icon name="calendar" className="w-4 h-4" />
+                                {t("field_datetime")}
+                            </span>
+                            <input
+                                type="datetime-local"
+                                className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                value={eventStartAt}
+                                onChange={(event) => setEventStartAt(event.target.value)}
+                            />
+                        </label>
+                    )}
 
                     <label>
                         <span className="flex items-center gap-2 mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -451,7 +550,10 @@ export function EventBuilderWizardView(props) {
         handleApplyEventTemplate, eventTitle, setEventTitle, eventErrors,
         eventDescription, setEventDescription, eventType, setEventType,
         eventTypeOptions, eventStatus, eventStartAt,
-        setEventStartAt, eventLocationName, setEventLocationName,
+        setEventStartAt, eventSchedulingMode, setEventSchedulingMode,
+        eventPollOptionDraft, setEventPollOptionDraft, eventPollOptions,
+        handleAddEventPollOption, handleUpdateEventPollOption, handleRemoveEventPollOption,
+        eventLocationName, setEventLocationName,
         eventLocationAddress, setEventLocationAddress, mapsStatus,
         addressPredictions, isAddressLoading, handleSelectAddressPrediction,
         selectedPlace, getMapEmbedUrl, eventAllowPlusOne, setEventAllowPlusOne,
@@ -559,18 +661,99 @@ export function EventBuilderWizardView(props) {
 
                 {/* PASO 2: LOGÍSTICA */}
                 <div className={currentStep === 2 ? "flex flex-col gap-6 animate-in slide-in-from-right-8 duration-300" : "hidden"}>
-                    <label>
-                        <span className="flex items-center gap-2 mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                            <Icon name="calendar" className="w-4 h-4 text-blue-500" />
-                            {t("field_datetime")}
-                        </span>
-                        <input
-                            type="datetime-local"
-                            className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
-                            value={eventStartAt}
-                            onChange={(event) => setEventStartAt(event.target.value)}
-                        />
-                    </label>
+                    <div className="bg-white/70 dark:bg-black/30 border border-black/10 dark:border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                            {t("event_date_mode_label")}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setEventSchedulingMode("fixed")}
+                                className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${eventSchedulingMode !== "tbd"
+                                    ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                    : "bg-white dark:bg-black/20 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+                                    }`}
+                            >
+                                {t("event_date_mode_fixed")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setEventSchedulingMode("tbd")}
+                                className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${eventSchedulingMode === "tbd"
+                                    ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                    : "bg-white dark:bg-black/20 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+                                    }`}
+                            >
+                                {t("event_date_mode_poll")}
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {eventSchedulingMode === "tbd" ? t("event_date_mode_poll_hint") : t("event_date_mode_fixed_hint")}
+                        </p>
+                    </div>
+
+                    {eventSchedulingMode === "tbd" ? (
+                        <div className="bg-white/70 dark:bg-black/30 border border-black/10 dark:border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+                            <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                {t("event_date_poll_options_title")}
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="datetime-local"
+                                    className="flex-1 bg-white dark:bg-black/30 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none"
+                                    value={eventPollOptionDraft}
+                                    onChange={(event) => setEventPollOptionDraft(event.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddEventPollOption}
+                                    className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-3 rounded-xl transition-colors"
+                                >
+                                    <Icon name="plus" className="w-4 h-4" />
+                                    {t("event_date_poll_add_option")}
+                                </button>
+                            </div>
+                            {eventPollOptions.length === 0 ? (
+                                <p className="text-xs italic text-gray-500 dark:text-gray-400">{t("event_date_poll_options_empty")}</p>
+                            ) : (
+                                <div className="flex flex-col gap-2">
+                                    {eventPollOptions.map((optionItem, index) => (
+                                        <div key={optionItem.localId} className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-7 shrink-0">#{index + 1}</span>
+                                            <input
+                                                type="datetime-local"
+                                                className="flex-1 bg-white dark:bg-black/30 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none"
+                                                value={optionItem.startAt}
+                                                onChange={(event) => handleUpdateEventPollOption(optionItem.localId, event.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveEventPollOption(optionItem.localId)}
+                                                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                aria-label={t("event_date_poll_option_remove")}
+                                            >
+                                                <Icon name="trash" className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <FieldMeta errorText={eventErrors.pollOptions ? t(eventErrors.pollOptions) : ""} />
+                        </div>
+                    ) : (
+                        <label>
+                            <span className="flex items-center gap-2 mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                <Icon name="calendar" className="w-4 h-4 text-blue-500" />
+                                {t("field_datetime")}
+                            </span>
+                            <input
+                                type="datetime-local"
+                                className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                value={eventStartAt}
+                                onChange={(event) => setEventStartAt(event.target.value)}
+                            />
+                        </label>
+                    )}
 
                     <label>
                         <span className="flex items-center gap-2 mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">

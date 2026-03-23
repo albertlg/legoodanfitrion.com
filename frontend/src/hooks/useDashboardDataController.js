@@ -36,6 +36,8 @@ export function useDashboardDataController({
   setGuestPreferencesById,
   setGuestSensitiveById,
   setGuestHostConversionById,
+  setEventDateOptions,
+  setEventDateVotes,
   setReceivedInvitations,
   setHostProfileName,
   setHostProfilePhone,
@@ -89,7 +91,7 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })
@@ -105,7 +107,10 @@ export function useDashboardDataController({
         "allow_plus_one",
         "auto_reminders",
         "dress_code",
-        "playlist_mode"
+        "playlist_mode",
+        "schedule_mode",
+        "poll_status",
+        "expenses"
       ])
     ) {
       const fallback = await supabase
@@ -175,7 +180,7 @@ export function useDashboardDataController({
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
         .eq("host_user_id", sessionUserId)
         .eq("id", routeEventDetailId)
@@ -191,7 +196,10 @@ export function useDashboardDataController({
           "allow_plus_one",
           "auto_reminders",
           "dress_code",
-          "playlist_mode"
+          "playlist_mode",
+          "schedule_mode",
+          "poll_status",
+          "expenses"
         ])
       ) {
         routeEventResult = await supabase
@@ -250,6 +258,9 @@ export function useDashboardDataController({
 
     let eventPlannerRows = [];
     let eventPlannerError = null;
+    let eventDateOptionsRows = [];
+    let eventDateVotesRows = [];
+    let eventDatePollError = null;
     const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
     if (eventIdsForPlans.length > 0) {
       const plannerResult = await supabase
@@ -266,6 +277,67 @@ export function useDashboardDataController({
       } else {
         eventPlannerRows = Array.isArray(plannerResult.data) ? plannerResult.data : [];
       }
+
+      const optionsResult = await supabase
+        .from("event_date_options")
+        .select("*")
+        .in("event_id", eventIdsForPlans)
+        .order("starts_at", { ascending: true });
+
+      if (optionsResult.error) {
+        if (
+          isCompatibilityError(optionsResult.error, ["starts_at", "option_order", "start_at"]) ||
+          isMissingRelationError(optionsResult.error, "event_date_options")
+        ) {
+          const fallbackOptions = await supabase
+            .from("event_date_options")
+            .select("*")
+            .in("event_id", eventIdsForPlans);
+          if (fallbackOptions.error) {
+            if (!isMissingRelationError(fallbackOptions.error, "event_date_options")) {
+              eventDatePollError = fallbackOptions.error;
+            }
+          } else {
+            eventDateOptionsRows = Array.isArray(fallbackOptions.data) ? fallbackOptions.data : [];
+          }
+        } else {
+          eventDatePollError = optionsResult.error;
+        }
+      } else {
+        eventDateOptionsRows = Array.isArray(optionsResult.data) ? optionsResult.data : [];
+      }
+
+      if (!eventDatePollError && eventDateOptionsRows.length > 0) {
+        const optionIds = uniqueValues(eventDateOptionsRows.map((item) => item?.id).filter(Boolean));
+        if (optionIds.length > 0) {
+          const votesResult = await supabase
+            .from("event_date_votes")
+            .select("*")
+            .in("option_id", optionIds);
+          if (votesResult.error) {
+            if (
+              isCompatibilityError(votesResult.error, ["option_id"]) ||
+              isMissingRelationError(votesResult.error, "event_date_votes")
+            ) {
+              const fallbackVotes = await supabase
+                .from("event_date_votes")
+                .select("*")
+                .in("event_id", eventIdsForPlans);
+              if (fallbackVotes.error) {
+                if (!isMissingRelationError(fallbackVotes.error, "event_date_votes")) {
+                  eventDatePollError = fallbackVotes.error;
+                }
+              } else {
+                eventDateVotesRows = Array.isArray(fallbackVotes.data) ? fallbackVotes.data : [];
+              }
+            } else {
+              eventDatePollError = votesResult.error;
+            }
+          } else {
+            eventDateVotesRows = Array.isArray(votesResult.data) ? votesResult.data : [];
+          }
+        }
+      }
     }
 
     if (
@@ -274,7 +346,8 @@ export function useDashboardDataController({
       invitationsError ||
       receivedInvitationsError ||
       hostProfileError ||
-      eventPlannerError
+      eventPlannerError ||
+      eventDatePollError
     ) {
       setDashboardError(
         eventsError?.message ||
@@ -283,6 +356,7 @@ export function useDashboardDataController({
           receivedInvitationsError?.message ||
           hostProfileError?.message ||
           eventPlannerError?.message ||
+          eventDatePollError?.message ||
           t("error_load_data")
       );
       setIsLoading(false);
@@ -464,6 +538,8 @@ export function useDashboardDataController({
     setGuestHostConversionById(
       Object.fromEntries((guestHostConversionRows || []).map((conversionItem) => [conversionItem.guest_id, conversionItem]))
     );
+    setEventDateOptions(eventDateOptionsRows || []);
+    setEventDateVotes(eventDateVotesRows || []);
     const selfEmailKey = normalizeEmailKey(sessionUserEmail || "");
     const selfPhoneKey = normalizePhoneKey(hostProfileData?.phone || "");
     const selfGuest =
@@ -500,6 +576,8 @@ export function useDashboardDataController({
     setEventSettingsCacheById,
     setEvents,
     setGuestHostConversionById,
+    setEventDateOptions,
+    setEventDateVotes,
     setGuestPreferencesById,
     setReceivedInvitations,
     setGuestSensitiveById,

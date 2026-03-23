@@ -46,6 +46,36 @@ function isLegacyRsvpFunctionError(error) {
   );
 }
 
+const EVENT_DATE_OPTION_DATETIME_KEYS = ["starts_at", "start_at", "proposed_at", "option_at", "datetime_at"];
+const DATE_VOTE_STATUS_KEYS = ["status", "vote", "availability", "response", "answer"];
+
+function getEventDateOptionStartAt(optionItem) {
+  if (!optionItem || typeof optionItem !== "object") {
+    return "";
+  }
+  for (const key of EVENT_DATE_OPTION_DATETIME_KEYS) {
+    const value = String(optionItem?.[key] || "").trim();
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function normalizeDateVoteStatus(voteStatus) {
+  const normalized = String(voteStatus || "").trim().toLowerCase();
+  if (["yes", "si", "sí"].includes(normalized)) {
+    return "yes";
+  }
+  if (["no"].includes(normalized)) {
+    return "no";
+  }
+  if (["maybe", "potser", "tal vez", "tal_vez", "forse"].includes(normalized)) {
+    return "maybe";
+  }
+  return "pending";
+}
+
 const RSVP_SOUND_BY_STATUS = {
   yes: "/sounds/clink.mp3",
   maybe: "/sounds/pop.mp3",
@@ -67,6 +97,7 @@ const RSVP_REFRESH_MARKER_KEY = "lga_rsvp_refresh_at";
 
 function RsvpFormView({
   t,
+  language,
   status,
   setStatus,
   guestName,
@@ -79,6 +110,14 @@ function RsvpFormView({
   note,
   setNote,
   handleSubmit,
+  isDatePollOpen,
+  allowPlusOne,
+  datePollOptions,
+  dateVotesByOptionId,
+  onVoteDateOption,
+  isSubmittingDateVoteOptionId,
+  dateVoteMessage,
+  dateVoteMessageType,
   isSubmitting,
   submitMessage
 }) {
@@ -102,54 +141,69 @@ function RsvpFormView({
         />
       </label>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
-          <Icon name="check" className="w-3.5 h-3.5" />
-          {t("rsvp_question")}
-        </span>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={t("rsvp_question")}>
-          <button
-            type="button"
-            className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "yes" ? "bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-500 dark:text-green-300 ring-4 ring-green-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-green-200 hover:bg-green-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-green-900/50 dark:hover:bg-green-900/10"}`}
-            aria-pressed={status === "yes"}
-            onClick={() => setStatus("yes")}
-          >
-            {statusText(t, "yes")}
-          </button>
-          <button
-            type="button"
-            className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "maybe" ? "bg-yellow-50 border-yellow-500 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-500 dark:text-yellow-300 ring-4 ring-yellow-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-yellow-200 hover:bg-yellow-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-yellow-900/50 dark:hover:bg-yellow-900/10"}`}
-            aria-pressed={status === "maybe"}
-            onClick={() => setStatus("maybe")}
-          >
-            {statusText(t, "maybe")}
-          </button>
-          <button
-            type="button"
-            className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "no" ? "bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-500 dark:text-red-300 ring-4 ring-red-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-red-200 hover:bg-red-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-red-900/50 dark:hover:bg-red-900/10"}`}
-            aria-pressed={status === "no"}
-            onClick={() => setStatus("no")}
-          >
-            {statusText(t, "no")}
-          </button>
+      {isDatePollOpen ? (
+        <RsvpDatePollView
+          t={t}
+          language={language}
+          options={datePollOptions}
+          votesByOptionId={dateVotesByOptionId}
+          onVote={onVoteDateOption}
+          isSubmittingOptionId={isSubmittingDateVoteOptionId}
+          submitMessage={dateVoteMessage}
+          submitMessageType={dateVoteMessageType}
+        />
+      ) : (
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
+            <Icon name="check" className="w-3.5 h-3.5" />
+            {t("rsvp_question")}
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label={t("rsvp_question")}>
+            <button
+              type="button"
+              className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "yes" ? "bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-500 dark:text-green-300 ring-4 ring-green-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-green-200 hover:bg-green-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-green-900/50 dark:hover:bg-green-900/10"}`}
+              aria-pressed={status === "yes"}
+              onClick={() => setStatus("yes")}
+            >
+              {statusText(t, "yes")}
+            </button>
+            <button
+              type="button"
+              className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "maybe" ? "bg-yellow-50 border-yellow-500 text-yellow-700 dark:bg-yellow-900/30 dark:border-yellow-500 dark:text-yellow-300 ring-4 ring-yellow-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-yellow-200 hover:bg-yellow-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-yellow-900/50 dark:hover:bg-yellow-900/10"}`}
+              aria-pressed={status === "maybe"}
+              onClick={() => setStatus("maybe")}
+            >
+              {statusText(t, "maybe")}
+            </button>
+            <button
+              type="button"
+              className={`py-4 px-4 rounded-2xl font-black text-sm border-2 transition-all shadow-sm ${status === "no" ? "bg-red-50 border-red-500 text-red-700 dark:bg-red-900/30 dark:border-red-500 dark:text-red-300 ring-4 ring-red-500/20 scale-[1.02]" : "bg-white border-transparent text-gray-600 hover:border-red-200 hover:bg-red-50/50 dark:bg-black/20 dark:text-gray-400 dark:hover:border-red-900/50 dark:hover:bg-red-900/10"}`}
+              aria-pressed={status === "no"}
+              onClick={() => setStatus("no")}
+            >
+              {statusText(t, "no")}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex items-start justify-between gap-4 p-4 bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/5 rounded-2xl">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-bold text-gray-900 dark:text-white">{t("rsvp_plus_one_question")}</span>
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("rsvp_plus_one_hint")}</span>
+      {allowPlusOne ? (
+        <div className="flex items-start justify-between gap-4 p-4 bg-white/40 dark:bg-black/20 border border-black/5 dark:border-white/5 rounded-2xl">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-bold text-gray-900 dark:text-white">{t("rsvp_plus_one_question")}</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t("rsvp_plus_one_hint")}</span>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer mt-1 shrink-0">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={plusOne}
+              onChange={(event) => setPlusOne(event.target.checked)}
+            />
+            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+          </label>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer mt-1 shrink-0">
-          <input
-            type="checkbox"
-            className="sr-only peer"
-            checked={plusOne}
-            onChange={(event) => setPlusOne(event.target.checked)}
-          />
-          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-        </label>
-      </div>
+      ) : null}
 
       <div className="flex flex-col gap-2">
         <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">{t("rsvp_dietary_label")}</p>
@@ -201,6 +255,91 @@ function RsvpFormView({
         ) : null}
       </div>
     </form>
+  );
+}
+
+function RsvpDatePollView({
+  t,
+  language,
+  options,
+  votesByOptionId,
+  onVote,
+  isSubmittingOptionId,
+  submitMessage,
+  submitMessageType = "success"
+}) {
+  const statusButtonClass = (isActive, status) => {
+    if (status === "yes") {
+      return isActive
+        ? "bg-green-600 text-white border-green-700 ring-2 ring-green-400/40"
+        : "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700/40 hover:bg-green-100 dark:hover:bg-green-900/30";
+    }
+    if (status === "maybe") {
+      return isActive
+        ? "bg-amber-500 text-white border-amber-600 ring-2 ring-amber-400/40"
+        : "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700/40 hover:bg-amber-100 dark:hover:bg-amber-900/30";
+    }
+    return isActive
+      ? "bg-red-600 text-white border-red-700 ring-2 ring-red-400/40"
+      : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/40 hover:bg-red-100 dark:hover:bg-red-900/30";
+  };
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-black text-gray-900 dark:text-white">{t("rsvp_poll_title")}</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300">{t("rsvp_poll_subtitle")}</p>
+      </div>
+      {(Array.isArray(options) ? options : []).map((optionItem, index) => {
+        const optionId = String(optionItem?.id || "").trim();
+        const currentVote = normalizeDateVoteStatus(votesByOptionId?.[optionId] || "pending");
+        const optionDateText = formatDate(optionItem?.startAt, language, t("no_date"));
+        const isSavingThisOption = isSubmittingOptionId === optionId;
+        return (
+          <article
+            key={optionId || `option-${index}`}
+            className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 p-4 flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">{optionDateText}</p>
+              <span className="text-[10px] px-2 py-1 rounded-full bg-black/5 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-bold uppercase tracking-wide">
+                {t("event_date_poll_vote_matrix_option")} #{index + 1}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { value: "yes", emoji: "✅", label: t("status_yes") },
+                { value: "maybe", emoji: "🤷", label: t("status_maybe") },
+                { value: "no", emoji: "❌", label: t("status_no") }
+              ].map((action) => (
+                <button
+                  key={`${optionId}-${action.value}`}
+                  type="button"
+                  onClick={() => onVote(optionId, action.value)}
+                  disabled={Boolean(isSubmittingOptionId)}
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed ${statusButtonClass(currentVote === action.value, action.value)}`}
+                >
+                  <span>{action.emoji}</span>
+                  <span>{action.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              {currentVote === "pending"
+                ? t("status_pending")
+                : `${t("rsvp_poll_your_vote")}: ${statusText(t, currentVote)}`}
+            </p>
+            {isSavingThisOption ? (
+              <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-300">{t("submitting_rsvp")}</p>
+            ) : null}
+          </article>
+        );
+      })}
+      {(!Array.isArray(options) || options.length === 0) ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400 italic">{t("event_date_poll_options_empty")}</p>
+      ) : null}
+      {submitMessage ? <InlineMessage text={submitMessage} type={submitMessageType} /> : null}
+    </section>
   );
 }
 
@@ -327,6 +466,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [publicData, setPublicData] = useState(null);
+  const [publicEvent, setPublicEvent] = useState(null);
   const [invitation, setInvitation] = useState(null);
   const [status, setStatus] = useState("yes");
   const [guestName, setGuestName] = useState("");
@@ -334,8 +475,19 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [plusOne, setPlusOne] = useState(false);
   const [dietaryNeeds, setDietaryNeeds] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingDateVoteOptionId, setIsSubmittingDateVoteOptionId] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
+  const [dateVoteMessage, setDateVoteMessage] = useState("");
+  const [dateVoteMessageType, setDateVoteMessageType] = useState("success");
   const [isRsvpSaved, setIsRsvpSaved] = useState(false);
+  const [eventScheduleMode, setEventScheduleMode] = useState("fixed");
+  const [eventPollStatus, setEventPollStatus] = useState("closed");
+  const [eventAllowPlusOne, setEventAllowPlusOne] = useState(false);
+  const [datePollOptions, setDatePollOptions] = useState([]);
+  const [dateVotesByOptionId, setDateVotesByOptionId] = useState({});
+  const [fetchedVotes, setFetchedVotes] = useState(null);
+  const optionVotes = dateVotesByOptionId;
+  const setOptionVotes = setDateVotesByOptionId;
 
   const invitationLocation = String(
     invitation?.event_location_name ||
@@ -349,6 +501,31 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const invitationOrganizer = String(
     invitation?.host_name || invitation?.host_display_name || invitation?.organizer_name || t("app_name")
   ).trim();
+
+  const isDatePollOpen = useMemo(() => {
+    const invitationPollStatus = String(invitation?.poll_status || "").trim().toLowerCase();
+    const invitationScheduleMode = String(invitation?.schedule_mode || "").trim().toLowerCase();
+    const normalizedPollStatus = String(eventPollStatus || invitationPollStatus).trim().toLowerCase();
+    const normalizedScheduleMode = String(eventScheduleMode || invitationScheduleMode).trim().toLowerCase();
+    if (normalizedPollStatus) {
+      return normalizedPollStatus === "open";
+    }
+    return normalizedScheduleMode === "tbd";
+  }, [eventPollStatus, eventScheduleMode, invitation?.poll_status, invitation?.schedule_mode]);
+
+  useEffect(() => {
+    if (fetchedVotes && Array.isArray(fetchedVotes)) {
+      const diccionarioVotos = {};
+      fetchedVotes.forEach((voteItem) => {
+        const optionId = String(voteItem?.event_date_option_id || voteItem?.option_id || "").trim();
+        if (!optionId) {
+          return;
+        }
+        diccionarioVotos[optionId] = normalizeDateVoteStatus(voteItem?.vote || voteItem?.status || voteItem?.availability);
+      });
+      setOptionVotes(diccionarioVotos);
+    }
+  }, [fetchedVotes]);
 
   const invitationLocationMapsUrl = invitationLocation
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(invitationLocation)}`
@@ -376,7 +553,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
         // Algunos navegadores bloquean audio si consideran que ya no hay gesto del usuario.
       });
     } catch (error) {
-      console.log("Error reproduciendo el sonido", error);
+      // noop
     }
   };
 
@@ -397,6 +574,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     const load = async () => {
       setIsLoading(true);
       setPageError("");
+      setPublicData(null);
+      setPublicEvent(null);
+      setFetchedVotes(null);
       const { data, error } = await supabase.rpc("get_invitation_public", { p_token: token });
 
       if (error) {
@@ -414,6 +594,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       }
 
       setInvitation(first);
+      setPublicData(first || null);
       setGuestName(first.guest_name || "");
       if (first.rsvp_status && first.rsvp_status !== "pending") {
         setStatus(first.rsvp_status);
@@ -421,7 +602,71 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setNote(typeof first.response_note === "string" ? first.response_note : "");
       setPlusOne(Boolean(first.rsvp_plus_one));
       setDietaryNeeds(parseDietaryNeeds(first.rsvp_dietary_needs));
+      setEventScheduleMode(String(first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
+      setEventPollStatus(String(first.poll_status || "closed").trim().toLowerCase() || "closed");
+      setEventAllowPlusOne(Boolean(first.allow_plus_one ?? first.event_allow_plus_one ?? false));
+      setDatePollOptions([]);
+      setDateVotesByOptionId({});
+      setDateVoteMessage("");
+      setDateVoteMessageType("success");
       setIsRsvpSaved(false);
+      if (!Boolean(first.allow_plus_one ?? first.event_allow_plus_one ?? false)) {
+        setPlusOne(false);
+      }
+
+      const eventId = String(first.event_id || "").trim();
+      if (eventId) {
+        const eventMetaResult = await supabase
+          .from("events")
+          .select("schedule_mode, poll_status, allow_plus_one")
+          .eq("id", eventId)
+          .maybeSingle();
+        if (!eventMetaResult.error && eventMetaResult.data) {
+          setPublicEvent(eventMetaResult.data);
+          setEventScheduleMode(String(eventMetaResult.data.schedule_mode || first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
+          setEventPollStatus(String(eventMetaResult.data.poll_status || first.poll_status || "closed").trim().toLowerCase() || "closed");
+          const allowPlusOneValue = Boolean(eventMetaResult.data.allow_plus_one ?? first.allow_plus_one ?? first.event_allow_plus_one ?? false);
+          setEventAllowPlusOne(allowPlusOneValue);
+          if (!allowPlusOneValue) {
+            setPlusOne(false);
+          }
+        }
+
+        const optionsResult = await supabase
+          .from("event_date_options")
+          .select("*")
+          .eq("event_id", eventId)
+          .order("starts_at", { ascending: true });
+        if (optionsResult.error) {
+          console.error("[rsvp-poll] Error cargando opciones de encuesta", optionsResult.error);
+        } else {
+          const normalizedOptions = (Array.isArray(optionsResult.data) ? optionsResult.data : [])
+            .map((optionItem) => {
+              const optionId = String(optionItem?.id || "").trim();
+              const startAt = getEventDateOptionStartAt(optionItem);
+              if (!optionId || !startAt) {
+                return null;
+              }
+              return {
+                ...optionItem,
+                id: optionId,
+                startAt
+              };
+            })
+            .filter(Boolean);
+          setDatePollOptions(normalizedOptions);
+
+          if (token && normalizedOptions.length > 0) {
+            const { data: myVotes, error: votesError } = await supabase
+              .rpc("get_event_date_votes_by_token", { p_token: token });
+            if (votesError) {
+              console.error("[rsvp-poll] Error cargando votos del invitado", votesError);
+            } else {
+              setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
+            }
+          }
+        }
+      }
       setIsLoading(false);
     };
     load();
@@ -433,6 +678,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       return;
     }
     setSubmitMessage("");
+    setDateVoteMessage("");
     setPageError("");
     setIsSubmitting(true);
 
@@ -517,6 +763,33 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           : prev
       );
     }
+  };
+
+  const handleSubmitDateVote = async (optionId, vote) => {
+    if (!supabase || !optionId || !token) {
+      return;
+    }
+    setDateVoteMessage("");
+    setPageError("");
+    setIsSubmittingDateVoteOptionId(optionId);
+    const normalizedVote = normalizeDateVoteStatus(vote);
+    const { error } = await supabase.rpc("submit_event_date_vote_by_token", {
+      p_token: token,
+      p_event_date_option_id: optionId,
+      p_vote: normalizedVote
+    });
+    setIsSubmittingDateVoteOptionId("");
+    if (error) {
+      setDateVoteMessageType("error");
+      setDateVoteMessage(`${t("rsvp_poll_vote_error")} ${error.message || ""}`.trim());
+      return;
+    }
+    setDateVotesByOptionId((prev) => ({
+      ...(prev || {}),
+      [optionId]: normalizedVote
+    }));
+    setDateVoteMessageType("success");
+    setDateVoteMessage(t("rsvp_poll_vote_saved"));
   };
 
   const toggleDietaryNeed = (value) => {
@@ -633,7 +906,11 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 <div className="flex flex-col items-center justify-center p-4 bg-white/40 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5">
                   <Icon name="calendar" className="w-5 h-5 text-purple-500 mb-2" />
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("date")}</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">{formatDate(invitation.event_start_at, language, t("no_date"))}</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">
+                    {isDatePollOpen && !invitation.event_start_at
+                      ? t("rsvp_poll_date_pending")
+                      : formatDate(invitation.event_start_at, language, t("no_date"))}
+                  </p>
                 </div>
 
                 {invitationLocation ? (
@@ -670,6 +947,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             ) : (
               <RsvpFormView
                 t={t}
+                language={language}
                 status={status}
                 setStatus={setStatus}
                 guestName={guestName}
@@ -682,6 +960,14 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 note={note}
                 setNote={setNote}
                 handleSubmit={handleSubmit}
+                isDatePollOpen={isDatePollOpen}
+                allowPlusOne={eventAllowPlusOne}
+                datePollOptions={datePollOptions}
+                dateVotesByOptionId={optionVotes}
+                onVoteDateOption={handleSubmitDateVote}
+                isSubmittingDateVoteOptionId={isSubmittingDateVoteOptionId}
+                dateVoteMessage={dateVoteMessage}
+                dateVoteMessageType={dateVoteMessageType}
                 isSubmitting={isSubmitting}
                 submitMessage={submitMessage}
               />

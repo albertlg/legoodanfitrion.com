@@ -264,6 +264,49 @@ function normalizeAiPlannerResult(aiPayload, { fallbackSections = {}, fallbackAl
 }
 
 const RSVP_REFRESH_MARKER_KEY = "lga_rsvp_refresh_at";
+const EVENT_DATE_OPTION_DATETIME_KEYS = ["start_at", "starts_at", "proposed_at", "option_at", "datetime_at"];
+const EVENT_DATE_OPTION_ORDER_KEYS = ["option_order", "sort_order", "position", "display_order"];
+const EVENT_DATE_VOTE_STATUS_KEYS = ["vote", "status", "availability", "response", "answer"];
+
+function getEventDateOptionStartAtValue(optionItem) {
+  if (!optionItem || typeof optionItem !== "object") {
+    return "";
+  }
+  for (const key of EVENT_DATE_OPTION_DATETIME_KEYS) {
+    const value = String(optionItem[key] || "").trim();
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function getEventDateOptionOrderValue(optionItem, fallbackIndex = 0) {
+  if (!optionItem || typeof optionItem !== "object") {
+    return fallbackIndex;
+  }
+  for (const key of EVENT_DATE_OPTION_ORDER_KEYS) {
+    const value = Number(optionItem[key]);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return fallbackIndex;
+}
+
+function normalizeDateVoteStatus(voteValue) {
+  const normalized = String(voteValue || "").trim().toLowerCase();
+  if (["yes", "si", "sí"].includes(normalized)) {
+    return "yes";
+  }
+  if (["no"].includes(normalized)) {
+    return "no";
+  }
+  if (["maybe", "potser", "tal_vez", "tal vez"].includes(normalized)) {
+    return "maybe";
+  }
+  return "pending";
+}
 
 function DashboardScreen({
   t,
@@ -336,6 +379,9 @@ function DashboardScreen({
   const [eventStatus, setEventStatus] = useState("draft");
   const [eventDescription, setEventDescription] = useState("");
   const [eventStartAt, setEventStartAt] = useState("");
+  const [eventSchedulingMode, setEventSchedulingMode] = useState("fixed");
+  const [eventPollOptionDraft, setEventPollOptionDraft] = useState("");
+  const [eventPollOptions, setEventPollOptions] = useState([]);
   const [eventLocationName, setEventLocationName] = useState("");
   const [eventLocationAddress, setEventLocationAddress] = useState("");
   const [eventAllowPlusOne, setEventAllowPlusOne] = useState(false);
@@ -485,6 +531,10 @@ function DashboardScreen({
   const [guestHostConversionById, setGuestHostConversionById] = useState({});
   const [invitations, setInvitations] = useState([]);
   const [receivedInvitations, setReceivedInvitations] = useState([]);
+  const [eventDateOptions, setEventDateOptions] = useState([]);
+  const [eventDateVotes, setEventDateVotes] = useState([]);
+  const [isClosingEventDatePollOptionId, setIsClosingEventDatePollOptionId] = useState("");
+  const [eventDatePollMessage, setEventDatePollMessage] = useState("");
   const [isDeletingEventId, setIsDeletingEventId] = useState("");
   const [isDeletingGuestId, setIsDeletingGuestId] = useState("");
   const [isDeletingInvitationId, setIsDeletingInvitationId] = useState("");
@@ -2209,12 +2259,17 @@ function DashboardScreen({
     const normalizedType = String(eventType || "").trim();
     const normalizedPlace = String(eventLocationName || "").trim();
     const normalizedAddress = String(selectedPlace?.formattedAddress || eventLocationAddress || "").trim();
+    const normalizedPollOptionsCount = (Array.isArray(eventPollOptions) ? eventPollOptions : []).filter((optionItem) => {
+      const normalizedLocalDateTime = String(optionItem?.startAt || "").trim();
+      return Boolean(normalizedLocalDateTime && toIsoDateTime(normalizedLocalDateTime));
+    }).length;
+    const hasDateDefinition = eventSchedulingMode === "tbd" ? normalizedPollOptionsCount >= 2 : Boolean(eventStartAt);
     const publishReady = eventStatus === "published" || eventStatus === "completed";
     const checklist = [
       { phase: "planning", done: Boolean(normalizedTitle) },
       { phase: "planning", done: Boolean(normalizedType) },
       { phase: "planning", done: Boolean(eventStatus) },
-      { phase: "logistics", done: Boolean(eventStartAt) },
+      { phase: "logistics", done: hasDateDefinition },
       { phase: "logistics", done: Boolean(normalizedPlace) },
       {
         phase: "logistics",
@@ -2229,7 +2284,7 @@ function DashboardScreen({
       { phase: "publish", done: publishReady },
       {
         phase: "publish",
-        done: editingEventId ? invitationCountForEditingEvent > 0 : Boolean(normalizedTitle && eventStartAt)
+        done: editingEventId ? invitationCountForEditingEvent > 0 : Boolean(normalizedTitle && hasDateDefinition)
       }
     ];
     const completed = checklist.filter((item) => item.done).length;
@@ -2253,6 +2308,8 @@ function DashboardScreen({
     eventType,
     eventStatus,
     eventStartAt,
+    eventSchedulingMode,
+    eventPollOptions,
     eventLocationName,
     eventLocationAddress,
     selectedPlace,
@@ -2318,6 +2375,113 @@ function DashboardScreen({
     }
     return eventsById[preferredEventId] || events[0] || null;
   }, [events, eventsById, routeSelectedEventDetailId, selectedEventDetailId]);
+  const eventDateOptionsByEventId = useMemo(() => {
+    return (Array.isArray(eventDateOptions) ? eventDateOptions : []).reduce((accumulator, optionItem, index) => {
+      const eventId = String(optionItem?.event_id || "").trim();
+      const optionId = String(optionItem?.id || "").trim();
+      const startAt = getEventDateOptionStartAtValue(optionItem);
+      if (!eventId || !optionId || !startAt) {
+        return accumulator;
+      }
+      const current = accumulator[eventId] || [];
+      current.push({
+        ...optionItem,
+        id: optionId,
+        event_id: eventId,
+        startAt,
+        optionOrder: getEventDateOptionOrderValue(optionItem, index + 1)
+      });
+      accumulator[eventId] = current;
+      return accumulator;
+    }, {});
+  }, [eventDateOptions]);
+  const selectedEventDateOptions = useMemo(() => {
+    if (!selectedEventDetail?.id) {
+      return [];
+    }
+    return [...(eventDateOptionsByEventId[selectedEventDetail.id] || [])].sort((left, right) => {
+      const orderDiff = Number(left.optionOrder || 0) - Number(right.optionOrder || 0);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+      const leftTime = new Date(left.startAt || 0).getTime() || 0;
+      const rightTime = new Date(right.startAt || 0).getTime() || 0;
+      return leftTime - rightTime;
+    });
+  }, [eventDateOptionsByEventId, selectedEventDetail?.id]);
+  const selectedEventDateVotes = useMemo(() => {
+    if (!selectedEventDateOptions.length) {
+      return [];
+    }
+    const optionIds = new Set(selectedEventDateOptions.map((optionItem) => optionItem.id));
+    return (Array.isArray(eventDateVotes) ? eventDateVotes : [])
+      .map((voteItem) => {
+        const optionId = String(
+          voteItem?.option_id || voteItem?.event_date_option_id || voteItem?.date_option_id || ""
+        ).trim();
+        if (!optionId || !optionIds.has(optionId)) {
+          return null;
+        }
+        const guestId = String(voteItem?.guest_id || voteItem?.voter_guest_id || voteItem?.invited_guest_id || "").trim();
+        const invitationId = String(voteItem?.invitation_id || "").trim();
+        let statusValue = "";
+        for (const key of EVENT_DATE_VOTE_STATUS_KEYS) {
+          if (voteItem?.[key] != null) {
+            statusValue = String(voteItem[key] || "").trim();
+            if (statusValue) {
+              break;
+            }
+          }
+        }
+        return {
+          ...voteItem,
+          optionId,
+          guestId,
+          invitationId,
+          status: normalizeDateVoteStatus(statusValue)
+        };
+      })
+      .filter(Boolean);
+  }, [eventDateVotes, selectedEventDateOptions]);
+  const selectedEventDateVoteSummaryByOptionId = useMemo(() => {
+    const summaryByOptionId = {};
+    for (const optionItem of selectedEventDateOptions) {
+      summaryByOptionId[optionItem.id] = { yes: 0, no: 0, maybe: 0, pending: 0, score: 0 };
+    }
+    for (const voteItem of selectedEventDateVotes) {
+      const target = summaryByOptionId[voteItem.optionId];
+      if (!target) {
+        continue;
+      }
+      const status = normalizeDateVoteStatus(voteItem.status);
+      target[status] += 1;
+      if (status === "yes") {
+        target.score += 2;
+      } else if (status === "maybe") {
+        target.score += 1;
+      }
+    }
+    return summaryByOptionId;
+  }, [selectedEventDateOptions, selectedEventDateVotes]);
+  const selectedEventDatePollWinningOptionId = useMemo(() => {
+    if (!selectedEventDateOptions.length) {
+      return "";
+    }
+    const sortedOptions = [...selectedEventDateOptions].sort((left, right) => {
+      const leftSummary = selectedEventDateVoteSummaryByOptionId[left.id] || { score: 0, yes: 0 };
+      const rightSummary = selectedEventDateVoteSummaryByOptionId[right.id] || { score: 0, yes: 0 };
+      if (rightSummary.score !== leftSummary.score) {
+        return rightSummary.score - leftSummary.score;
+      }
+      if (rightSummary.yes !== leftSummary.yes) {
+        return rightSummary.yes - leftSummary.yes;
+      }
+      const leftTime = new Date(left.startAt || 0).getTime() || 0;
+      const rightTime = new Date(right.startAt || 0).getTime() || 0;
+      return leftTime - rightTime;
+    });
+    return sortedOptions[0]?.id || "";
+  }, [selectedEventDateOptions, selectedEventDateVoteSummaryByOptionId]);
   const selectedEventDetailInvitations = useMemo(() => {
     if (!selectedEventDetail?.id) {
       return [];
@@ -2367,6 +2531,27 @@ function DashboardScreen({
       }),
     [selectedEventDetailInvitations, guestsById, guestNamesById, t]
   );
+  const selectedEventDateVoteMatrixRows = useMemo(() => {
+    const votesByGuestAndOption = {};
+    for (const voteItem of selectedEventDateVotes) {
+      const voteKey = voteItem.guestId || voteItem.invitationId;
+      if (!voteKey) {
+        continue;
+      }
+      const currentGuestVotes = votesByGuestAndOption[voteKey] || {};
+      currentGuestVotes[voteItem.optionId] = normalizeDateVoteStatus(voteItem.status);
+      votesByGuestAndOption[voteKey] = currentGuestVotes;
+    }
+    return selectedEventDetailGuests.map((row) => {
+      const guestKey = String(row?.guest?.id || row?.invitation?.guest_id || "").trim();
+      const invitationKey = String(row?.invitation?.id || "").trim();
+      const rowVotes = votesByGuestAndOption[guestKey] || votesByGuestAndOption[invitationKey] || {};
+      return {
+        ...row,
+        votesByOptionId: rowVotes
+      };
+    });
+  }, [selectedEventDateVotes, selectedEventDetailGuests]);
   const selectedEventRsvpTimeline = useMemo(
     () =>
       selectedEventDetailGuests
@@ -2397,6 +2582,17 @@ function DashboardScreen({
       }),
     [selectedEventDetailGuests]
   );
+  const selectedEventDatePollIsOpen = useMemo(() => {
+    if (!selectedEventDetail) {
+      return false;
+    }
+    const pollStatus = String(selectedEventDetail.poll_status || "").trim().toLowerCase();
+    const scheduleMode = String(selectedEventDetail.schedule_mode || "").trim().toLowerCase();
+    if (pollStatus) {
+      return pollStatus === "open";
+    }
+    return scheduleMode === "tbd";
+  }, [selectedEventDetail]);
   const selectedEventHealthAlerts = useMemo(() => {
     return selectedEventHealthSignalGuestRows
       .map((row) => {
@@ -3537,6 +3733,8 @@ function DashboardScreen({
     setGuestPreferencesById,
     setGuestSensitiveById,
     setGuestHostConversionById,
+    setEventDateOptions,
+    setEventDateVotes,
     setReceivedInvitations,
     setHostProfileName,
     setHostProfilePhone,
@@ -4455,6 +4653,8 @@ function DashboardScreen({
     }
     navigateAppPath(`/app/events/${encodeURIComponent(fallbackEventId)}`);
     setEventsMapFocusId(fallbackEventId);
+    setEventDatePollMessage("");
+    setIsClosingEventDatePollOptionId("");
     setIsNotificationMenuOpen(false);
     closeMobileMenu();
   };
@@ -5415,6 +5615,52 @@ function DashboardScreen({
   const handleOpenEventPlan = (targetTab = "ambience") => {
     openEventPlanById(selectedEventDetail?.id || "", targetTab);
   };
+  const handleCloseEventDatePoll = async (optionId) => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const normalizedOptionId = String(optionId || "").trim();
+    if (!supabase || !session?.user?.id || !eventId || !normalizedOptionId) {
+      return;
+    }
+    setEventDatePollMessage("");
+    setIsClosingEventDatePollOptionId(normalizedOptionId);
+
+    const payloadCandidates = [
+      { p_event_id: eventId, p_option_id: normalizedOptionId },
+      { p_event_id: eventId, p_winning_option_id: normalizedOptionId },
+      { event_id: eventId, option_id: normalizedOptionId },
+      { event_id: eventId, winning_option_id: normalizedOptionId }
+    ];
+
+    let closeError = null;
+    for (const payload of payloadCandidates) {
+      const result = await supabase.rpc("close_event_date_poll", payload);
+      if (!result.error) {
+        closeError = null;
+        break;
+      }
+      closeError = result.error;
+      if (
+        !isCompatibilityError(result.error, [
+          "p_event_id",
+          "p_option_id",
+          "p_winning_option_id",
+          "event_id",
+          "option_id",
+          "winning_option_id"
+        ])
+      ) {
+        break;
+      }
+    }
+
+    setIsClosingEventDatePollOptionId("");
+    if (closeError) {
+      setEventDatePollMessage(`${t("event_date_poll_close_error")} ${closeError.message || ""}`.trim());
+      return;
+    }
+    await loadDashboardData();
+    setEventDatePollMessage(t("event_date_poll_closed_success"));
+  };
   const handleBackToEventDetail = () => {
     if (!selectedEventDetail?.id) {
       return;
@@ -5560,6 +5806,135 @@ function DashboardScreen({
     [session?.user?.id]
   );
 
+  const normalizeEventPollOptionsForSave = useCallback(() => {
+    const rows = Array.isArray(eventPollOptions) ? eventPollOptions : [];
+    return rows
+      .map((optionItem, index) => {
+        const normalizedLocalDateTime = String(optionItem?.startAt || "").trim();
+        if (!normalizedLocalDateTime) {
+          return null;
+        }
+        const isoStartAt = toIsoDateTime(normalizedLocalDateTime);
+        if (!isoStartAt) {
+          return null;
+        }
+        return {
+          id: String(optionItem?.id || "").trim(),
+          startAt: normalizedLocalDateTime,
+          isoStartAt,
+          optionOrder: index + 1
+        };
+      })
+      .filter(Boolean);
+  }, [eventPollOptions]);
+
+  const handleAddEventPollOption = useCallback(() => {
+    const normalizedLocalDateTime = String(eventPollOptionDraft || "").trim();
+    if (!normalizedLocalDateTime) {
+      return;
+    }
+    const alreadyExists = (eventPollOptions || []).some(
+      (optionItem) => String(optionItem?.startAt || "").trim() === normalizedLocalDateTime
+    );
+    if (alreadyExists) {
+      setEventPollOptionDraft("");
+      return;
+    }
+    setEventPollOptions((prev) => [
+      ...(Array.isArray(prev) ? prev : []),
+      {
+        id: "",
+        localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        startAt: normalizedLocalDateTime
+      }
+    ]);
+    setEventPollOptionDraft("");
+    setEventErrors((prev) => {
+      const next = { ...(prev || {}) };
+      delete next.pollOptions;
+      return next;
+    });
+  }, [eventPollOptionDraft, eventPollOptions, setEventErrors]);
+
+  const handleUpdateEventPollOption = useCallback((localId, nextStartAt) => {
+    const normalizedId = String(localId || "").trim();
+    if (!normalizedId) {
+      return;
+    }
+    setEventPollOptions((prev) =>
+      (Array.isArray(prev) ? prev : []).map((optionItem) =>
+        optionItem.localId === normalizedId
+          ? {
+              ...optionItem,
+              startAt: String(nextStartAt || "").trim()
+            }
+          : optionItem
+      )
+    );
+  }, []);
+
+  const handleRemoveEventPollOption = useCallback((localId) => {
+    const normalizedId = String(localId || "").trim();
+    if (!normalizedId) {
+      return;
+    }
+    setEventPollOptions((prev) =>
+      (Array.isArray(prev) ? prev : []).filter((optionItem) => optionItem.localId !== normalizedId)
+    );
+  }, []);
+
+  const syncEventDatePollOptions = useCallback(
+    async ({ eventId, options, removeAll = false }) => {
+      if (!supabase || !session?.user?.id || !eventId) {
+        return null;
+      }
+
+      const normalizedEventId = String(eventId || "").trim();
+      if (!normalizedEventId) {
+        return null;
+      }
+
+      const deleteResult = await supabase.from("event_date_options").delete().eq("event_id", normalizedEventId);
+      if (deleteResult.error) {
+        if (isMissingRelationError(deleteResult.error, "event_date_options")) {
+          return null;
+        }
+        return deleteResult.error;
+      }
+
+      const nextRows = removeAll ? [] : Array.isArray(options) ? options : [];
+      if (nextRows.length === 0) {
+        return null;
+      }
+
+      const insertRows = nextRows
+        .map((optionItem) => ({
+          event_id: normalizedEventId,
+          host_user_id: session.user.id,
+          starts_at: String(optionItem?.isoStartAt || "").trim(),
+          timezone: String(timezone || "Europe/Madrid").trim() || "Europe/Madrid"
+        }))
+        .filter((rowItem) => Boolean(rowItem.starts_at));
+
+      if (insertRows.length === 0) {
+        return null;
+      }
+
+      const insertResult = await supabase.from("event_date_options").insert(insertRows);
+      if (insertResult.error) {
+        console.error("[event-date-poll] Error insertando opciones", {
+          eventId: normalizedEventId,
+          rows: insertRows,
+          error: insertResult.error
+        });
+        return insertResult.error;
+      }
+
+      return null;
+    },
+    [session?.user?.id, supabase, timezone]
+  );
+
   const handleStartEditEvent = (eventItem) => {
     markUserNavigationIntent();
     if (!eventItem) {
@@ -5572,7 +5947,21 @@ function DashboardScreen({
     setEventType(toCatalogLabel("experience_type", eventItem.event_type, language));
     setEventStatus(String(eventItem.status || "draft"));
     setEventDescription(eventSettings.description);
-    setEventStartAt(toLocalDateTimeInput(eventItem.start_at));
+    const existingDatePollOptions = (eventDateOptionsByEventId[eventItem.id] || []).map((optionItem, index) => ({
+      id: String(optionItem.id || "").trim(),
+      localId: String(optionItem.id || "").trim() || `existing-${index}`,
+      startAt: toLocalDateTimeInput(optionItem.startAt)
+    }));
+    const pollStatus = String(eventItem.poll_status || "").trim().toLowerCase();
+    const scheduleMode = String(eventItem.schedule_mode || "").trim().toLowerCase();
+    const isDatePollEvent =
+      scheduleMode === "tbd" ||
+      pollStatus === "open" ||
+      (!pollStatus && existingDatePollOptions.length > 0 && !eventItem.start_at);
+    setEventSchedulingMode(isDatePollEvent ? "tbd" : "fixed");
+    setEventPollOptionDraft("");
+    setEventPollOptions(existingDatePollOptions);
+    setEventStartAt(isDatePollEvent ? "" : toLocalDateTimeInput(eventItem.start_at));
     setEventLocationName(eventItem.location_name || "");
     setEventLocationAddress(eventItem.location_address || "");
     setEventAllowPlusOne(eventSettings.allow_plus_one);
@@ -5601,6 +5990,9 @@ function DashboardScreen({
     setEventStatus("draft");
     setEventDescription("");
     setEventStartAt("");
+    setEventSchedulingMode("fixed");
+    setEventPollOptionDraft("");
+    setEventPollOptions([]);
     setEventLocationName("");
     setEventLocationAddress("");
     setEventAllowPlusOne(false);
@@ -5630,10 +6022,22 @@ function DashboardScreen({
       locationAddress: eventLocationAddress
     });
 
+    const normalizedPollOptions = normalizeEventPollOptionsForSave();
+    const isDatePollMode = eventSchedulingMode === "tbd";
+
     if (!validation.success) {
       setEventErrors(validation.errors);
       const firstError = validation.errors[Object.keys(validation.errors)[0]];
       setEventMessage(t(firstError || "error_create_event"));
+      return;
+    }
+
+    if (isDatePollMode && normalizedPollOptions.length < 2) {
+      setEventErrors((prev) => ({
+        ...(prev || {}),
+        pollOptions: "event_date_poll_options_min_error"
+      }));
+      setEventMessage(t("event_date_poll_options_min_error"));
       return;
     }
 
@@ -5667,8 +6071,10 @@ function DashboardScreen({
       auto_reminders: normalizedSettings.auto_reminders,
       dress_code: normalizedSettings.dress_code,
       playlist_mode: normalizedSettings.playlist_mode,
+      schedule_mode: isDatePollMode ? "tbd" : "fixed",
+      poll_status: isDatePollMode ? "open" : "closed",
       content_language: language,
-      start_at: toIsoDateTime(eventStartAt),
+      start_at: isDatePollMode ? null : toIsoDateTime(eventStartAt),
       timezone,
       location_name: toNullable(eventLocationName),
       location_address: toNullable(normalizedAddress),
@@ -5680,7 +6086,8 @@ function DashboardScreen({
       title: eventTitle.trim(),
       event_type: toNullable(toCatalogCode("experience_type", eventType)),
       status: String(eventStatus || "draft"),
-      start_at: toIsoDateTime(eventStartAt),
+      schedule_mode: isDatePollMode ? "tbd" : "fixed",
+      start_at: isDatePollMode ? null : toIsoDateTime(eventStartAt),
       timezone,
       location_name: toNullable(eventLocationName),
       location_address: toNullable(normalizedAddress)
@@ -5716,6 +6123,8 @@ function DashboardScreen({
         error.message?.toLowerCase().includes("auto_reminders") ||
         error.message?.toLowerCase().includes("dress_code") ||
         error.message?.toLowerCase().includes("playlist_mode") ||
+        error.message?.toLowerCase().includes("schedule_mode") ||
+        error.message?.toLowerCase().includes("poll_status") ||
         error.message?.toLowerCase().includes("content_language") ||
         error.message?.toLowerCase().includes("location_place_id") ||
         error.message?.toLowerCase().includes("location_lat") ||
@@ -5743,12 +6152,36 @@ function DashboardScreen({
       return;
     }
 
+    const pollSyncError = await syncEventDatePollOptions({
+      eventId: savedEventId || editingEventId,
+      options: normalizedPollOptions,
+      removeAll: !isDatePollMode
+    });
+    if (pollSyncError) {
+      const pollSyncErrorMessage = String(pollSyncError?.message || pollSyncError || "").trim();
+      console.error("[event-date-poll] Error sincronizando opciones", {
+        eventId: savedEventId || editingEventId,
+        isDatePollMode,
+        optionsCount: normalizedPollOptions.length,
+        error: pollSyncError
+      });
+      setEventDatePollMessage(
+        `${t("event_date_poll_sync_warning")}${pollSyncErrorMessage ? ` · ${pollSyncErrorMessage}` : ""}`
+      );
+    } else {
+      setEventDatePollMessage("");
+    }
+
     if (savedEventId) {
       upsertEventSettingsCache(savedEventId, normalizedSettings);
     }
 
     if (isEditingEvent) {
-      setEventMessage(t("event_updated_continue_edit"));
+      setEventMessage(
+        pollSyncError
+          ? `${t("event_updated_continue_edit")} · ${t("event_date_poll_sync_warning")}`
+          : t("event_updated_continue_edit")
+      );
       await loadDashboardData();
       return;
     }
@@ -5764,6 +6197,9 @@ function DashboardScreen({
     setEventStatus("draft");
     setEventDescription("");
     setEventStartAt("");
+    setEventSchedulingMode("fixed");
+    setEventPollOptionDraft("");
+    setEventPollOptions([]);
     setEventLocationName("");
     setEventLocationAddress("");
     setEventAllowPlusOne(false);
@@ -8205,6 +8641,14 @@ function DashboardScreen({
               setEventStatus,
               eventStartAt,
               setEventStartAt,
+              eventSchedulingMode,
+              setEventSchedulingMode,
+              eventPollOptionDraft,
+              setEventPollOptionDraft,
+              eventPollOptions,
+              handleAddEventPollOption,
+              handleUpdateEventPollOption,
+              handleRemoveEventPollOption,
               eventLocationName,
               setEventLocationName,
               eventLocationAddress,
@@ -8255,6 +8699,7 @@ function DashboardScreen({
               isDeletingEventId,
               toCatalogLabel,
               formatDate,
+              formatShortDate,
               statusClass,
               statusText,
               eventPage,
@@ -8275,6 +8720,15 @@ function DashboardScreen({
               openInvitationCreate,
               selectedEventDetailInvitations,
               selectedEventDetailStatusCounts,
+              selectedEventDatePollIsOpen,
+              selectedEventDateOptions,
+              selectedEventDateVotes,
+              selectedEventDateVoteSummaryByOptionId,
+              selectedEventDateVoteMatrixRows,
+              selectedEventDatePollWinningOptionId,
+              handleCloseEventDatePoll,
+              isClosingEventDatePollOptionId,
+              eventDatePollMessage,
               invitationMessage,
               normalizeEventDressCode,
               normalizeEventPlaylistMode,

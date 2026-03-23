@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
@@ -6,6 +6,7 @@ import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
 import { getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
+import { supabase } from "../../../lib/supabaseClient";
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -77,6 +78,128 @@ function formatMoneyAmount(value, language) {
   }).format(Math.max(0, numericValue));
 }
 
+function roundMoneyAmount(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function normalizeExpenseAmount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0;
+  }
+  return roundMoneyAmount(parsed);
+}
+
+function normalizeExpenseEntry(expenseItem) {
+  if (!expenseItem || typeof expenseItem !== "object") {
+    return null;
+  }
+  const description = String(expenseItem.description || "").trim();
+  const paidBy = String(expenseItem.paidBy || "").trim();
+  const amount = normalizeExpenseAmount(expenseItem.amount);
+  if (!description || !paidBy || amount <= 0) {
+    return null;
+  }
+  return {
+    id: String(expenseItem.id || "").trim() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    description,
+    paidBy,
+    amount
+  };
+}
+
+function calculateDebts(expenses, totalGuests, participantNames = []) {
+  const cleanedExpenses = Array.isArray(expenses)
+    ? expenses
+        .map((item) => ({
+          paidBy: String(item?.paidBy || "").trim(),
+          amount: normalizeExpenseAmount(item?.amount)
+        }))
+        .filter((item) => item.paidBy && item.amount > 0)
+    : [];
+
+  if (!cleanedExpenses.length) {
+    return [];
+  }
+
+  const uniqueParticipants = new Set(
+    (Array.isArray(participantNames) ? participantNames : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  );
+  cleanedExpenses.forEach((item) => uniqueParticipants.add(item.paidBy));
+
+  const participants = Array.from(uniqueParticipants);
+  const participantsCount = Number(totalGuests) > 0 ? Number(totalGuests) : participants.length;
+  if (participantsCount <= 0) {
+    return [];
+  }
+
+  while (participants.length < participantsCount) {
+    participants.push(`Invitado ${participants.length + 1}`);
+  }
+
+  const paidByPerson = participants.reduce((accumulator, participant) => {
+    accumulator[participant] = 0;
+    return accumulator;
+  }, {});
+
+  cleanedExpenses.forEach((item) => {
+    paidByPerson[item.paidBy] = roundMoneyAmount((paidByPerson[item.paidBy] || 0) + item.amount);
+  });
+
+  const totalPaid = roundMoneyAmount(
+    cleanedExpenses.reduce((accumulator, item) => accumulator + item.amount, 0)
+  );
+  const fairShare = roundMoneyAmount(totalPaid / participantsCount);
+
+  const creditors = [];
+  const debtors = [];
+  participants.forEach((participant) => {
+    const balance = roundMoneyAmount((paidByPerson[participant] || 0) - fairShare);
+    if (balance > 0.009) {
+      creditors.push({ name: participant, amount: balance });
+    } else if (balance < -0.009) {
+      debtors.push({ name: participant, amount: Math.abs(balance) });
+    }
+  });
+
+  creditors.sort((left, right) => right.amount - left.amount);
+  debtors.sort((left, right) => right.amount - left.amount);
+
+  const transactions = [];
+  let debtorIndex = 0;
+  let creditorIndex = 0;
+
+  while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
+    const debtor = debtors[debtorIndex];
+    const creditor = creditors[creditorIndex];
+    const amount = roundMoneyAmount(Math.min(debtor.amount, creditor.amount));
+
+    if (amount <= 0.009) {
+      break;
+    }
+
+    transactions.push({
+      from: debtor.name,
+      to: creditor.name,
+      amount
+    });
+
+    debtor.amount = roundMoneyAmount(debtor.amount - amount);
+    creditor.amount = roundMoneyAmount(creditor.amount - amount);
+
+    if (debtor.amount <= 0.009) {
+      debtorIndex += 1;
+    }
+    if (creditor.amount <= 0.009) {
+      creditorIndex += 1;
+    }
+  }
+
+  return transactions;
+}
+
 export function EventDetailView({
   eventsWorkspace,
   openWorkspace,
@@ -98,9 +221,19 @@ export function EventDetailView({
   openInvitationCreate,
   selectedEventDetailInvitations,
   selectedEventDetailStatusCounts,
+  selectedEventDatePollIsOpen,
+  selectedEventDateOptions,
+  selectedEventDateVotes,
+  selectedEventDateVoteSummaryByOptionId,
+  selectedEventDateVoteMatrixRows,
+  selectedEventDatePollWinningOptionId,
+  handleCloseEventDatePoll,
+  isClosingEventDatePollOptionId,
+  eventDatePollMessage,
   invitationMessage,
   toCatalogLabel,
   formatDate,
+  formatShortDate,
   normalizeEventDressCode,
   normalizeEventPlaylistMode,
   selectedEventChecklist,
@@ -162,9 +295,10 @@ export function EventDetailView({
   const shareCardRef = useRef(null);
   const [isSharingInvitationImage, setIsSharingInvitationImage] = useState(false);
   const [shareCardMessage, setShareCardMessage] = useState("");
-  const [splitTotalAmount, setSplitTotalAmount] = useState("");
-  const [splitBizumTarget, setSplitBizumTarget] = useState("");
-  const [splitGeneratedMessage, setSplitGeneratedMessage] = useState("");
+  const [splitExpenses, setSplitExpenses] = useState([]);
+  const [splitExpenseDescription, setSplitExpenseDescription] = useState("");
+  const [splitExpenseAmount, setSplitExpenseAmount] = useState("");
+  const [splitExpensePaidBy, setSplitExpensePaidBy] = useState("");
   const [splitHelperMessage, setSplitHelperMessage] = useState("");
   const [splitHelperMessageType, setSplitHelperMessageType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
@@ -191,21 +325,89 @@ export function EventDetailView({
   const icebreakerGeneratedAtLabel = selectedEventIcebreakerState?.generatedAt
     ? formatDate(selectedEventIcebreakerState.generatedAt, language, t("no_date"))
     : "";
+  const hasDatePollOptions = Array.isArray(selectedEventDateOptions) && selectedEventDateOptions.length > 0;
+  const isPollEvent =
+    String(selectedEventDetail?.schedule_mode || "").trim().toLowerCase() === "tbd" ||
+    String(selectedEventDetail?.poll_status || "").trim().toLowerCase() === "open";
+  const datePollOpen = Boolean(selectedEventDatePollIsOpen);
+  const shouldRenderDatePollSection = isPollEvent || hasDatePollOptions;
+  const datePollTotalVotes = Array.isArray(selectedEventDateVotes) ? selectedEventDateVotes.length : 0;
   const confirmedGuestsCount = Math.max(0, Number(selectedEventDetailStatusCounts?.yes || 0));
-  const splitTotalNumeric = Number(splitTotalAmount);
-  const safeSplitTotal = Number.isFinite(splitTotalNumeric) && splitTotalNumeric > 0 ? splitTotalNumeric : 0;
-  const splitPerPersonAmount = confirmedGuestsCount > 0 ? safeSplitTotal / confirmedGuestsCount : 0;
+  const confirmedGuestNames = useMemo(
+    () =>
+      (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
+        .filter((guestRow) => {
+          const statusValue = String(guestRow?.invitation?.status || "").trim().toLowerCase();
+          return statusValue === "yes" || statusValue === "confirmed";
+        })
+        .map((guestRow) => String(guestRow?.name || "").trim())
+        .filter(Boolean),
+    [selectedEventDetailGuests]
+  );
+  const splitParticipants = useMemo(() => {
+    if (confirmedGuestNames.length > 0) {
+      return Array.from(new Set(confirmedGuestNames));
+    }
+    return Array.from(
+      new Set(
+        (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
+          .map((guestRow) => String(guestRow?.name || "").trim())
+          .filter(Boolean)
+      )
+    );
+  }, [confirmedGuestNames, selectedEventDetailGuests]);
+  const splitTotalGuests = confirmedGuestsCount > 0 ? confirmedGuestsCount : 0;
+  const splitDefaultPayer = splitParticipants[0] || "";
+  const splitTotalAmount = roundMoneyAmount(
+    splitExpenses.reduce((accumulator, item) => accumulator + normalizeExpenseAmount(item?.amount), 0)
+  );
+  const splitPerPersonAmount = splitTotalGuests > 0 ? roundMoneyAmount(splitTotalAmount / splitTotalGuests) : 0;
   const splitPerPersonLabel = formatMoneyAmount(splitPerPersonAmount, language);
-  const canGenerateSplitMessage =
-    safeSplitTotal > 0 && confirmedGuestsCount > 0 && Boolean(String(splitBizumTarget || "").trim());
+  const splitDebts = useMemo(
+    () => calculateDebts(splitExpenses, splitTotalGuests, splitParticipants),
+    [splitExpenses, splitTotalGuests, splitParticipants]
+  );
+  const splitSettlementShareText = useMemo(() => {
+    const eventTitle = String(selectedEventDetail?.title || t("field_event")).trim();
+    const totalLabel = `${formatMoneyAmount(splitTotalAmount, language)} €`;
+    const perPersonLabel = `${formatMoneyAmount(splitPerPersonAmount, language)} €`;
+    const debtsLines =
+      splitDebts.length > 0
+        ? splitDebts
+            .map((item) =>
+              interpolateText(t("event_expenses_settlement_share_row"), {
+                from: item.from,
+                to: item.to,
+                amount: `${formatMoneyAmount(item.amount, language)} €`
+              })
+            )
+            .join("\n")
+        : t("event_expenses_settlement_share_no_debts");
+
+    return interpolateText(t("event_expenses_settlement_share_template"), {
+      event: eventTitle,
+      total: totalLabel,
+      perPerson: perPersonLabel,
+      debts: debtsLines
+    });
+  }, [interpolateText, language, selectedEventDetail?.title, splitDebts, splitPerPersonAmount, splitTotalAmount, t]);
 
   useEffect(() => {
-    setSplitTotalAmount("");
-    setSplitBizumTarget("");
-    setSplitGeneratedMessage("");
+    const sourceExpenses = Array.isArray(selectedEventDetail?.expenses) ? selectedEventDetail.expenses : [];
+    const normalized = sourceExpenses.map(normalizeExpenseEntry).filter(Boolean);
+    setSplitExpenses(normalized);
+    setSplitExpenseDescription("");
+    setSplitExpenseAmount("");
+    setSplitExpensePaidBy("");
     setSplitHelperMessage("");
     setSplitHelperMessageType("info");
-  }, [selectedEventDetail?.id]);
+  }, [selectedEventDetail?.id, selectedEventDetail?.expenses]);
+
+  useEffect(() => {
+    if (!splitExpensePaidBy && splitDefaultPayer) {
+      setSplitExpensePaidBy(splitDefaultPayer);
+    }
+  }, [splitExpensePaidBy, splitDefaultPayer]);
 
   const handleShareInvitationImage = async () => {
     if (!selectedEventDetail) {
@@ -287,8 +489,9 @@ export function EventDetailView({
       // then download the image as a separate file.
       try {
         await navigator.clipboard.writeText(shareText);
-      } catch (_clipError) {
+      } catch (clipError) {
         // Non-critical: proceed with download even if clipboard fails
+        console.warn("[share-card] clipboard copy failed", clipError);
       }
 
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -311,44 +514,87 @@ export function EventDetailView({
     }
   };
 
-  const handleGenerateSplitMessage = () => {
-    if (!canGenerateSplitMessage) {
+  const handleAddSplitExpense = () => {
+    const description = String(splitExpenseDescription || "").trim();
+    const paidBy = String(splitExpensePaidBy || "").trim();
+    const amount = normalizeExpenseAmount(splitExpenseAmount);
+
+    if (!description || !paidBy || amount <= 0) {
       setSplitHelperMessageType("error");
-      setSplitHelperMessage(t("event_expenses_missing_data"));
+      setSplitHelperMessage(t("event_expenses_add_error"));
       return;
     }
-    const totalLabel = `${formatMoneyAmount(safeSplitTotal, language)} €`;
-    const amountLabel = `${formatMoneyAmount(splitPerPersonAmount, language)} €`;
-    const nextMessage = interpolateText(t("event_expenses_generated_template"), {
-      event: selectedEventDetail?.title || t("field_event"),
-      total: totalLabel,
-      count: confirmedGuestsCount,
-      amount: amountLabel,
-      bizum: String(splitBizumTarget || "").trim()
+
+    const nextExpense = {
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      description,
+      amount,
+      paidBy
+    };
+
+    setSplitExpenses((current) => {
+      const nextExpenses = [...current, nextExpense];
+      if (!supabase || !selectedEventDetail?.id) {
+        setSplitHelperMessageType("success");
+        setSplitHelperMessage(t("event_expenses_add_success"));
+        return nextExpenses;
+      }
+      void supabase
+        .from("events")
+        .update({ expenses: nextExpenses })
+        .eq("id", selectedEventDetail.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("[event-expenses] add persist error", error);
+            setSplitHelperMessageType("error");
+            setSplitHelperMessage(t("event_expenses_persist_error"));
+            setSplitExpenses((rollbackCurrent) => rollbackCurrent.filter((item) => item.id !== nextExpense.id));
+            return;
+          }
+          setSplitHelperMessageType("success");
+          setSplitHelperMessage(t("event_expenses_add_success"));
+        });
+      return nextExpenses;
     });
-    setSplitGeneratedMessage(nextMessage);
-    setSplitHelperMessage("");
+    setSplitExpenseDescription("");
+    setSplitExpenseAmount("");
   };
 
-  const handleCopySplitMessage = async () => {
-    const payload = String(splitGeneratedMessage || "").trim();
-    if (!payload) {
-      setSplitHelperMessageType("error");
-      setSplitHelperMessage(t("event_expenses_message_empty"));
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(payload);
-      setSplitHelperMessageType("success");
-      setSplitHelperMessage(t("event_expenses_copied"));
-    } catch {
-      setSplitHelperMessageType("error");
-      setSplitHelperMessage(t("event_expenses_copy_error"));
-    }
+  const handleRemoveSplitExpense = (expenseId) => {
+    const removedExpense = splitExpenses.find((item) => item.id === expenseId);
+    setSplitExpenses((current) => {
+      const nextExpenses = current.filter((item) => item.id !== expenseId);
+      if (!supabase || !selectedEventDetail?.id) {
+        setSplitHelperMessageType("info");
+        setSplitHelperMessage(t("event_expenses_remove_success"));
+        return nextExpenses;
+      }
+      void supabase
+        .from("events")
+        .update({ expenses: nextExpenses })
+        .eq("id", selectedEventDetail.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("[event-expenses] remove persist error", error);
+            setSplitHelperMessageType("error");
+            setSplitHelperMessage(t("event_expenses_persist_error"));
+            if (removedExpense) {
+              setSplitExpenses((rollbackCurrent) => [...rollbackCurrent, removedExpense]);
+            }
+            return;
+          }
+          setSplitHelperMessageType("info");
+          setSplitHelperMessage(t("event_expenses_remove_success"));
+        });
+      return nextExpenses;
+    });
   };
 
-  const handleSendSplitMessageWhatsApp = () => {
-    const payload = String(splitGeneratedMessage || "").trim();
+  const handleShareSettlementWhatsApp = () => {
+    const payload = String(splitSettlementShareText || "").trim();
     if (!payload) {
       setSplitHelperMessageType("error");
       setSplitHelperMessage(t("event_expenses_message_empty"));
@@ -541,6 +787,7 @@ export function EventDetailView({
 
       <InlineMessage text={invitationMessage} />
       <InlineMessage text={shareCardMessage} />
+      <InlineMessage text={eventDatePollMessage} />
 
       {/* Contenido Principal Grid */}
       {!selectedEventDetail ? (
@@ -611,6 +858,183 @@ export function EventDetailView({
                     </div>
                   ) : null}
                 </article>
+
+                {shouldRenderDatePollSection ? (
+                  <article
+                    id="event-date-poll"
+                    className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 scroll-mt-28"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-col gap-1">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Icon name="calendar" className="w-4 h-4 text-blue-500" />
+                          {t("event_date_poll_title")}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_date_poll_subtitle")}</p>
+                      </div>
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${datePollOpen
+                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40"
+                            : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-white/10"
+                          }`}
+                      >
+                        {datePollOpen ? t("event_date_poll_open_badge") : t("event_date_poll_closed_badge")}
+                      </span>
+                    </div>
+
+                    {hasDatePollOptions ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {selectedEventDateOptions.map((optionItem, index) => {
+                          const optionSummary = selectedEventDateVoteSummaryByOptionId?.[optionItem.id] || {
+                            yes: 0,
+                            no: 0,
+                          maybe: 0,
+                          pending: 0,
+                          score: 0
+                        };
+                        const computedPending = Math.max(
+                          0,
+                          selectedEventDateVoteMatrixRows.length -
+                            Number(optionSummary.yes || 0) -
+                            Number(optionSummary.no || 0) -
+                            Number(optionSummary.maybe || 0)
+                        );
+                        const optionDateLabel = formatDate(optionItem.startAt, language, t("no_date"));
+                        const optionTimeLabel = formatTimeLabel(optionItem.startAt, language, t("no_date"));
+                        const isWinningOption = selectedEventDatePollWinningOptionId === optionItem.id;
+                        const isClosingOption = isClosingEventDatePollOptionId === optionItem.id;
+                        return (
+                          <article
+                            key={optionItem.id}
+                            className={`rounded-xl border p-3 flex flex-col gap-3 ${isWinningOption
+                                ? "border-green-300 bg-green-50/70 dark:border-green-700/40 dark:bg-green-900/20"
+                                : "border-black/5 bg-white/70 dark:border-white/10 dark:bg-black/20"
+                              }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                {t("event_date_poll_vote_matrix_option")} #{index + 1}
+                              </p>
+                              {isWinningOption ? (
+                                <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700/30">
+                                  {t("event_date_poll_winner_badge")}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-snug">
+                              {optionDateLabel}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{optionTimeLabel}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                {t("status_yes")}: {optionSummary.yes}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                {t("status_maybe")}: {optionSummary.maybe}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                {t("status_no")}: {optionSummary.no}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                {t("status_pending")}: {computedPending}
+                              </span>
+                            </div>
+                            {datePollOpen ? (
+                              <button
+                                type="button"
+                                className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-300 bg-green-600 text-white px-3 py-2 text-xs font-bold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                onClick={() => handleCloseEventDatePoll(optionItem.id)}
+                                disabled={Boolean(isClosingEventDatePollOptionId)}
+                              >
+                                <Icon name={isClosingOption ? "loader" : "check"} className={`w-4 h-4 ${isClosingOption ? "animate-spin" : ""}`} />
+                                {isClosingOption ? t("event_date_poll_closing") : t("event_date_poll_close_action")}
+                              </button>
+                            ) : null}
+                          </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs italic text-gray-500 dark:text-gray-400">{t("event_date_poll_options_empty")}</p>
+                    )}
+
+                    {hasDatePollOptions ? (
+                      <div className="w-full overflow-x-auto relative rounded-xl border border-black/5 dark:border-white/10 bg-white/40 dark:bg-black/20">
+                        <table className="w-full table-fixed text-left border-collapse text-sm">
+                          <thead>
+                            <tr>
+                              <th className="w-1/3 md:w-1/4 max-w-[150px] truncate sticky left-0 z-20 bg-white dark:bg-gray-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_#374151] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
+                                {t("event_date_poll_vote_matrix_guest")}
+                              </th>
+                              {selectedEventDateOptions.map((optionItem, index) => (
+                                <th
+                                  key={optionItem.id}
+                                  className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10"
+                                >
+                                  <span className="block">{t("event_date_poll_vote_matrix_option")} #{index + 1}</span>
+                                  <span className="block normal-case text-[11px] font-medium text-gray-700 dark:text-gray-200 mt-0.5">
+                                    {formatShortDate(optionItem.startAt, language, t("no_date"))}
+                                  </span>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedEventDateVoteMatrixRows.map((guestRow) => (
+                              <tr key={guestRow.invitation.id} className="border-b border-black/5 dark:border-white/10 last:border-b-0">
+                                <td className="w-1/3 md:w-1/4 max-w-[150px] truncate sticky left-0 z-10 bg-white dark:bg-gray-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_#374151] px-4 py-2.5 border-r border-black/5 dark:border-white/10">
+                                  <div className="flex items-center gap-2">
+                                    <AvatarCircle
+                                      label={guestRow.name || t("field_guest")}
+                                      fallback={getInitials(guestRow.name || t("field_guest"), "IN")}
+                                      imageUrl={getGuestAvatarUrl(guestRow.guest, guestRow.name)}
+                                      size={24}
+                                    />
+                                    <span className="text-xs font-bold text-gray-900 dark:text-white truncate block w-full">
+                                      {guestRow.name}
+                                    </span>
+                                  </div>
+                                </td>
+                                {selectedEventDateOptions.map((optionItem) => {
+                                  const voteStatus = String(guestRow.votesByOptionId?.[optionItem.id] || "pending")
+                                    .trim()
+                                    .toLowerCase();
+                                  const badgeClass =
+                                    voteStatus === "yes"
+                                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                      : voteStatus === "no"
+                                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                        : voteStatus === "maybe"
+                                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
+                                  const voteLabel =
+                                    voteStatus === "yes"
+                                      ? t("status_yes")
+                                      : voteStatus === "no"
+                                        ? t("status_no")
+                                        : voteStatus === "maybe"
+                                          ? t("status_maybe")
+                                          : t("status_pending");
+                                  return (
+                                    <td key={`${guestRow.invitation.id}-${optionItem.id}`} className="px-4 py-2 text-center">
+                                      <span className={`inline-flex items-center justify-center rounded-full px-2 py-1 text-[10px] font-bold ${badgeClass}`}>
+                                        {voteLabel}
+                                      </span>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+
+                    {hasDatePollOptions && datePollTotalVotes === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_date_poll_no_votes")}</p>
+                    ) : null}
+                  </article>
+                ) : null}
 
                 <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 overflow-hidden">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -800,100 +1224,187 @@ export function EventDetailView({
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_expenses_hint")}</p>
 
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("event_expenses_total_label")}
-                    </span>
-                    <input
-                      className="w-full bg-white/85 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-xl font-black text-gray-900 dark:text-white outline-none focus:border-emerald-500 transition-colors"
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      placeholder={t("event_expenses_total_placeholder")}
-                      value={splitTotalAmount}
-                      onChange={(event) => {
-                        setSplitTotalAmount(event.target.value);
-                        if (splitHelperMessage) {
-                          setSplitHelperMessage("");
-                        }
-                      }}
-                    />
-                  </label>
-
-                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                    {confirmedGuestsCount > 0
-                      ? interpolateText(t("event_expenses_people_label"), { count: confirmedGuestsCount })
-                      : t("event_expenses_people_zero")}
-                  </p>
-
-                  <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col gap-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
-                      {t("event_expenses_per_person_label")}
-                    </span>
-                    <p className="text-3xl font-black text-emerald-700 dark:text-emerald-300 leading-none">
-                      {interpolateText(t("event_expenses_per_person_value"), { amount: splitPerPersonLabel })}
-                    </p>
+                  <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1.5 sm:col-span-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("event_expenses_description_label")}
+                      </span>
+                      <input
+                        className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                        type="text"
+                        placeholder={t("event_expenses_description_placeholder")}
+                        value={splitExpenseDescription}
+                        onChange={(event) => {
+                          setSplitExpenseDescription(event.target.value);
+                          if (splitHelperMessage) {
+                            setSplitHelperMessage("");
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("event_expenses_amount_label")}
+                      </span>
+                      <input
+                        className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        placeholder={t("event_expenses_amount_placeholder")}
+                        value={splitExpenseAmount}
+                        onChange={(event) => {
+                          setSplitExpenseAmount(event.target.value);
+                          if (splitHelperMessage) {
+                            setSplitHelperMessage("");
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("event_expenses_paid_by_label")}
+                      </span>
+                      <select
+                        className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                        value={splitExpensePaidBy}
+                        onChange={(event) => {
+                          setSplitExpensePaidBy(event.target.value);
+                          if (splitHelperMessage) {
+                            setSplitHelperMessage("");
+                          }
+                        }}
+                      >
+                        {!splitParticipants.length ? (
+                          <option value="">{t("event_expenses_paid_by_placeholder")}</option>
+                        ) : null}
+                        {splitParticipants.map((participantName) => (
+                          <option key={participantName} value={participantName}>
+                            {participantName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="sm:col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-xl transition-colors text-xs inline-flex items-center justify-center gap-2"
+                      type="button"
+                      onClick={handleAddSplitExpense}
+                      disabled={!splitParticipants.length}
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                      <span>{t("event_expenses_add_action")}</span>
+                    </button>
                   </div>
 
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("event_expenses_bizum_label")}
-                    </span>
-                    <input
-                      className="w-full bg-white/85 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                      type="text"
-                      placeholder={t("event_expenses_bizum_placeholder")}
-                      value={splitBizumTarget}
-                      onChange={(event) => {
-                        setSplitBizumTarget(event.target.value);
-                        if (splitHelperMessage) {
-                          setSplitHelperMessage("");
-                        }
-                      }}
-                    />
-                  </label>
+                  <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("event_expenses_list_title")}
+                    </p>
+                    {splitExpenses.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_list_empty")}</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2">
+                        {splitExpenses.map((expense) => (
+                          <li
+                            key={expense.id}
+                            className="rounded-xl border border-black/5 dark:border-white/10 bg-white/90 dark:bg-gray-900/50 px-3 py-2.5 flex items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{expense.description}</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {interpolateText(t("event_expenses_paid_by_value"), { name: expense.paidBy })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                                {formatMoneyAmount(expense.amount, language)} €
+                              </span>
+                              <button
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 dark:border-red-700/40 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                type="button"
+                                onClick={() => handleRemoveSplitExpense(expense.id)}
+                                aria-label={t("event_expenses_remove_action")}
+                                title={t("event_expenses_remove_action")}
+                              >
+                                <Icon name="trash" className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
-                  <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-xl transition-colors text-xs inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                    type="button"
-                    onClick={handleGenerateSplitMessage}
-                    disabled={!canGenerateSplitMessage}
-                  >
-                    <Icon name="message" className="w-4 h-4" />
-                    <span>{t("event_expenses_generate_action")}</span>
-                  </button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <article className="rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 px-4 py-3 flex flex-col gap-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
+                        {t("event_expenses_total_spent_label")}
+                      </span>
+                      <p className="text-2xl font-black text-blue-700 dark:text-blue-300 leading-none">
+                        {formatMoneyAmount(splitTotalAmount, language)} €
+                      </p>
+                    </article>
+                    <article className="rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700/40 px-4 py-3 flex flex-col gap-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
+                        {t("event_expenses_people_count_label")}
+                      </span>
+                      <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300 leading-none">
+                        {splitTotalGuests || 0}
+                      </p>
+                    </article>
+                    <article className="col-span-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
+                        {t("event_expenses_per_person_label")}
+                      </span>
+                      <p className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-tight break-words">
+                        {interpolateText(t("event_expenses_per_person_value"), { amount: splitPerPersonLabel })}
+                      </p>
+                    </article>
+                  </div>
 
                   <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {t("event_expenses_message_title")}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                          type="button"
-                          onClick={handleCopySplitMessage}
-                          disabled={!splitGeneratedMessage}
-                        >
-                          {t("event_expenses_copy_action")}
-                        </button>
-                        <button
-                          className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-green-600/60 bg-green-500 hover:bg-green-600 text-white transition-colors inline-flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
-                          type="button"
-                          onClick={handleSendSplitMessageWhatsApp}
-                          disabled={!splitGeneratedMessage}
-                          aria-label={t("event_expenses_whatsapp_action")}
-                          title={t("event_expenses_whatsapp_action")}
-                        >
-                          <Icon name="message" className="w-3.5 h-3.5" />
-                          <span>{t("event_expenses_whatsapp_action")}</span>
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Icon name="trend" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                      <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_expenses_settlement_title")}</p>
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                      {splitGeneratedMessage || t("event_expenses_message_empty")}
-                    </p>
+
+                    {splitTotalGuests <= 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_people_zero")}</p>
+                    ) : splitExpenses.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_settlement_empty")}</p>
+                    ) : splitDebts.length === 0 ? (
+                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{t("event_expenses_settlement_balanced")}</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2">
+                        {splitDebts.map((transaction, index) => (
+                          <li
+                            key={`${transaction.from}-${transaction.to}-${index}`}
+                            className="rounded-xl border border-purple-200/70 dark:border-purple-700/30 bg-purple-50/70 dark:bg-purple-900/20 px-3 py-2.5 flex items-center justify-between gap-3"
+                          >
+                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+                              {interpolateText(t("event_expenses_settlement_row"), {
+                                from: transaction.from,
+                                to: transaction.to,
+                                amount: `${formatMoneyAmount(transaction.amount, language)} €`
+                              })}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <button
+                      className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-600/60 bg-green-500 hover:bg-green-600 text-white font-black py-2.5 px-4 text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={handleShareSettlementWhatsApp}
+                      disabled={splitTotalAmount <= 0 || splitTotalGuests <= 0}
+                      aria-label={t("event_expenses_whatsapp_action")}
+                      title={t("event_expenses_whatsapp_action")}
+                    >
+                      <Icon name="message" className="w-4 h-4" />
+                      <span>{t("event_expenses_whatsapp_action")}</span>
+                    </button>
                   </div>
 
                   <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
@@ -1055,7 +1566,7 @@ export function EventDetailView({
       ) : null}
 
       {selectedEventDetail && isIcebreakerOpen ? (
-        <div className="fixed inset-0 z-[90] bg-black/55 backdrop-blur-sm p-4 sm:p-6 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
           <div className="w-full max-w-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
