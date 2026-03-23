@@ -51,6 +51,104 @@ export function formatTimeLabel(dateText, language, fallbackText) {
     catch { return new Date(dateText).toLocaleTimeString(); }
 }
 
+export function formatEventDateDisplay({
+    startAt,
+    endAt,
+    language,
+    t,
+    interpolate = interpolateText,
+    fallbackText
+}) {
+    const noDateLabel = fallbackText || (typeof t === "function" ? t("no_date") : "-");
+    if (!startAt) {
+        return {
+            dateLabel: noDateLabel,
+            timeLabel: "",
+            fullLabel: noDateLabel
+        };
+    }
+
+    const startDateObj = new Date(startAt);
+    if (Number.isNaN(startDateObj.getTime())) {
+        return {
+            dateLabel: noDateLabel,
+            timeLabel: "",
+            fullLabel: noDateLabel
+        };
+    }
+
+    const startDateLabel = formatLongDate(startAt, language, noDateLabel);
+    const startTimeLabel = formatTimeLabel(startAt, language, "");
+
+    const resolveTemplate = (key, fallback) => {
+        const translated = typeof t === "function" ? t(key) : "";
+        return translated && translated !== key ? translated : fallback;
+    };
+
+    const endDateObj = endAt ? new Date(endAt) : null;
+    const hasValidEnd = Boolean(
+        endDateObj &&
+        Number.isFinite(endDateObj.getTime()) &&
+        endDateObj.getTime() > startDateObj.getTime()
+    );
+
+    if (!hasValidEnd) {
+        const fullLabel = startTimeLabel ? `${startDateLabel}, ${startTimeLabel}` : startDateLabel;
+        return {
+            dateLabel: startDateLabel,
+            timeLabel: startTimeLabel,
+            fullLabel
+        };
+    }
+
+    const endDateLabel = formatLongDate(endAt, language, noDateLabel);
+    const endTimeLabel = formatTimeLabel(endAt, language, "");
+    const isSameDay = startDateObj.toDateString() === endDateObj.toDateString();
+
+    if (isSameDay) {
+        const timeLabel = interpolate(
+            resolveTemplate("event_date_range_same_day_time_template", "de {startTime} a {endTime}"),
+            { startTime: startTimeLabel, endTime: endTimeLabel }
+        );
+        const fullLabel = interpolate(
+            resolveTemplate("event_date_range_same_day_template", "{date}, de {startTime} a {endTime}"),
+            {
+                date: startDateLabel,
+                startTime: startTimeLabel,
+                endTime: endTimeLabel
+            }
+        );
+        return {
+            dateLabel: startDateLabel,
+            timeLabel,
+            fullLabel
+        };
+    }
+
+    const dateLabel = interpolate(
+        resolveTemplate("event_date_range_days_template", "Del {startDate} al {endDate}"),
+        { startDate: startDateLabel, endDate: endDateLabel }
+    );
+    const fullLabel = interpolate(
+        resolveTemplate(
+            "event_date_range_multi_day_full_template",
+            "{startDate}, {startTime} — {endDate}, {endTime}"
+        ),
+        {
+            startDate: startDateLabel,
+            startTime: startTimeLabel,
+            endDate: endDateLabel,
+            endTime: endTimeLabel
+        }
+    );
+
+    return {
+        dateLabel: fullLabel || dateLabel,
+        timeLabel: "",
+        fullLabel: fullLabel || dateLabel
+    };
+}
+
 export function formatRelativeDate(dateText, language, fallbackText) {
     if (!dateText) return fallbackText;
     const date = new Date(dateText);

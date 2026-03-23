@@ -91,7 +91,7 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })
@@ -110,12 +110,13 @@ export function useDashboardDataController({
         "playlist_mode",
         "schedule_mode",
         "poll_status",
-        "expenses"
+        "expenses",
+        "end_at"
       ])
     ) {
       const fallback = await supabase
         .from("events")
-        .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
+        .select("id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
         .eq("host_user_id", sessionUserId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -176,11 +177,43 @@ export function useDashboardDataController({
       receivedInvitationsError = null;
     }
 
+    if (!receivedInvitationsError && Array.isArray(receivedInvitationsData) && receivedInvitationsData.length > 0) {
+      const missingEndAtEventIds = uniqueValues(
+        receivedInvitationsData
+          .filter((item) => !item?.event_end_at && item?.event_id)
+          .map((item) => item.event_id)
+      );
+
+      if (missingEndAtEventIds.length > 0) {
+        const receivedEventMeta = await supabase
+          .from("events")
+          .select("id, start_at, end_at")
+          .in("id", missingEndAtEventIds);
+
+        if (!receivedEventMeta.error && Array.isArray(receivedEventMeta.data) && receivedEventMeta.data.length > 0) {
+          const metaByEventId = Object.fromEntries(
+            receivedEventMeta.data.map((row) => [String(row.id), row])
+          );
+          receivedInvitationsData = receivedInvitationsData.map((item) => {
+            const meta = metaByEventId[String(item?.event_id || "")];
+            if (!meta) {
+              return item;
+            }
+            return {
+              ...item,
+              event_start_at: item?.event_start_at || meta?.start_at || null,
+              event_end_at: item?.event_end_at || meta?.end_at || null
+            };
+          });
+        }
+      }
+    }
+
     if (!eventsError && routeEventDetailId && !(eventsData || []).some((eventItem) => eventItem.id === routeEventDetailId)) {
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
         .eq("host_user_id", sessionUserId)
         .eq("id", routeEventDetailId)
@@ -199,12 +232,13 @@ export function useDashboardDataController({
           "playlist_mode",
           "schedule_mode",
           "poll_status",
-          "expenses"
+          "expenses",
+          "end_at"
         ])
       ) {
         routeEventResult = await supabase
           .from("events")
-          .select("id, title, status, event_type, start_at, created_at, updated_at, location_name, location_address")
+          .select("id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
           .eq("host_user_id", sessionUserId)
           .eq("id", routeEventDetailId)
           .maybeSingle();
@@ -308,34 +342,16 @@ export function useDashboardDataController({
       }
 
       if (!eventDatePollError && eventDateOptionsRows.length > 0) {
-        const optionIds = uniqueValues(eventDateOptionsRows.map((item) => item?.id).filter(Boolean));
-        if (optionIds.length > 0) {
-          const votesResult = await supabase
-            .from("event_date_votes")
-            .select("*")
-            .in("option_id", optionIds);
-          if (votesResult.error) {
-            if (
-              isCompatibilityError(votesResult.error, ["option_id"]) ||
-              isMissingRelationError(votesResult.error, "event_date_votes")
-            ) {
-              const fallbackVotes = await supabase
-                .from("event_date_votes")
-                .select("*")
-                .in("event_id", eventIdsForPlans);
-              if (fallbackVotes.error) {
-                if (!isMissingRelationError(fallbackVotes.error, "event_date_votes")) {
-                  eventDatePollError = fallbackVotes.error;
-                }
-              } else {
-                eventDateVotesRows = Array.isArray(fallbackVotes.data) ? fallbackVotes.data : [];
-              }
-            } else {
-              eventDatePollError = votesResult.error;
-            }
-          } else {
-            eventDateVotesRows = Array.isArray(votesResult.data) ? votesResult.data : [];
+        const votesResult = await supabase
+          .from("event_date_votes")
+          .select("id, event_id, guest_id, event_date_option_id, vote, updated_at")
+          .in("event_id", eventIdsForPlans);
+        if (votesResult.error) {
+          if (!isMissingRelationError(votesResult.error, "event_date_votes")) {
+            eventDatePollError = votesResult.error;
           }
+        } else {
+          eventDateVotesRows = Array.isArray(votesResult.data) ? votesResult.data : [];
         }
       }
     }

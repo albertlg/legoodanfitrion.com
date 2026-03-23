@@ -4,7 +4,7 @@ import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
-import { getInitials } from "../../../lib/formatters";
+import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
 import { supabase } from "../../../lib/supabaseClient";
 
@@ -200,6 +200,22 @@ function calculateDebts(expenses, totalGuests, participantNames = []) {
   return transactions;
 }
 
+function buildEventDateDisplay({
+  startAt,
+  endAt,
+  language,
+  t,
+  interpolateText
+}) {
+  return formatEventDateDisplay({
+    startAt,
+    endAt,
+    language,
+    t,
+    interpolate: interpolateText
+  });
+}
+
 export function EventDetailView({
   eventsWorkspace,
   openWorkspace,
@@ -302,8 +318,19 @@ export function EventDetailView({
   const [splitHelperMessage, setSplitHelperMessage] = useState("");
   const [splitHelperMessageType, setSplitHelperMessageType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
-  const eventDateLabel = formatLongDate(selectedEventDetail?.start_at, language, t("no_date"));
-  const eventTimeLabel = formatTimeLabel(selectedEventDetail?.start_at, language, t("no_date"));
+  const eventDateDisplay = useMemo(
+    () =>
+      buildEventDateDisplay({
+        startAt: selectedEventDetail?.start_at,
+        endAt: selectedEventDetail?.end_at,
+        language,
+        t,
+        interpolateText
+      }),
+    [selectedEventDetail?.start_at, selectedEventDetail?.end_at, language, t, interpolateText]
+  );
+  const eventDateLabel = eventDateDisplay.dateLabel;
+  const eventTimeLabel = eventDateDisplay.timeLabel;
   const eventPlaceLabel = selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-";
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
@@ -463,7 +490,7 @@ export function EventDetailView({
         : shareLocationName || shareLocationAddress;
       const shareText = interpolateText(t("event_share_card_share_text"), {
         event: selectedEventDetail?.title || t("field_event"),
-        date: `${String.fromCodePoint(0x1F4C5)} ${eventDateLabel} \u00B7 ${eventTimeLabel}`,
+        date: `${String.fromCodePoint(0x1F4C5)} ${eventDateDisplay.fullLabel}`,
         location: `${String.fromCodePoint(0x1F4CD)} ${shareLocation}`,
         url: rsvpUrl
       });
@@ -664,10 +691,12 @@ export function EventDetailView({
                 <Icon name="calendar" className="w-4 h-4" />
                 {eventDateLabel}
               </span>
-              <span className="flex items-center gap-1.5 drop-shadow-sm">
-                <Icon name="clock" className="w-4 h-4" />
-                {eventTimeLabel}
-              </span>
+              {eventTimeLabel ? (
+                <span className="flex items-center gap-1.5 drop-shadow-sm">
+                  <Icon name="clock" className="w-4 h-4" />
+                  {eventTimeLabel}
+                </span>
+              ) : null}
               <span className="flex items-center gap-1.5 drop-shadow-sm">
                 <Icon name="location" className="w-4 h-4" />
                 <span className="truncate max-w-[200px] sm:max-w-sm">{eventPlaceLabel}</span>
@@ -693,10 +722,12 @@ export function EventDetailView({
                   <Icon name="calendar" className="w-3.5 h-3.5" />
                   {eventDateLabel}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Icon name="clock" className="w-3.5 h-3.5" />
-                  {eventTimeLabel}
-                </span>
+                {eventTimeLabel ? (
+                  <span className="flex items-center gap-1.5">
+                    <Icon name="clock" className="w-3.5 h-3.5" />
+                    {eventTimeLabel}
+                  </span>
+                ) : null}
                 <span className="flex items-center gap-1.5">
                   <Icon name="location" className="w-3.5 h-3.5" />
                   <span className="truncate max-w-[250px]">{eventPlaceLabel}</span>
@@ -812,7 +843,7 @@ export function EventDetailView({
                     ) : null}
                     <p className="text-xs flex flex-col gap-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("date")}</span>
-                      <strong className="text-gray-900 dark:text-white">{formatDate(selectedEventDetail.start_at, language, t("no_date"))}</strong>
+                      <strong className="text-gray-900 dark:text-white">{eventDateDisplay.fullLabel}</strong>
                     </p>
                     {selectedEventDetail.location_name ? (
                       <p className="text-xs flex flex-col gap-1">
@@ -1549,7 +1580,7 @@ export function EventDetailView({
           <div ref={shareCardRef}>
             <ShareCard
               eventName={selectedEventDetail.title || t("field_event")}
-              eventDate={`${eventDateLabel} · ${eventTimeLabel}`}
+              eventDate={eventTimeLabel ? `${eventDateLabel} · ${eventTimeLabel}` : eventDateLabel}
               eventLocation={eventPlaceLabel}
               eventLocationAddress={selectedEventDetail.location_address || ""}
               hostName={shareCardHostName}

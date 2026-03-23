@@ -41,7 +41,7 @@ import {
 
 import {
   toNullable, toIsoDateTime, toLocalDateTimeInput, getSuggestedEventDateTime, formatDate,
-  formatShortDate, formatLongDate, formatTimeLabel, formatRelativeDate,
+  formatShortDate, formatLongDate, formatTimeLabel, formatRelativeDate, formatEventDateDisplay,
   getNextBirthdaySummary, getBirthdayEventDateTime, interpolateText, normalizeLookupValue,
   getInitials, uniqueValues, toList, splitListInput, listToInput
 } from "../lib/formatters";
@@ -379,6 +379,8 @@ function DashboardScreen({
   const [eventStatus, setEventStatus] = useState("draft");
   const [eventDescription, setEventDescription] = useState("");
   const [eventStartAt, setEventStartAt] = useState("");
+  const [eventEndAt, setEventEndAt] = useState("");
+  const [eventIsMultiDay, setEventIsMultiDay] = useState(false);
   const [eventSchedulingMode, setEventSchedulingMode] = useState("fixed");
   const [eventPollOptionDraft, setEventPollOptionDraft] = useState("");
   const [eventPollOptions, setEventPollOptions] = useState([]);
@@ -1331,9 +1333,15 @@ function DashboardScreen({
     () =>
       events.slice(0, 2).map((eventItem) => ({
         main: eventItem.title || "-",
-        meta: formatDate(eventItem.start_at, language, t("no_date"))
+        meta: formatEventDateDisplay({
+          startAt: eventItem.start_at,
+          endAt: eventItem.end_at,
+          language,
+          t,
+          interpolate: interpolateText
+        }).fullLabel
       })),
-    [events, language, t]
+    [events, language, t, interpolateText]
   );
   const latestGuestPreview = useMemo(
     () =>
@@ -1390,15 +1398,24 @@ function DashboardScreen({
       .slice(0, 4)
       .map((eventItem) => {
         const invitationSummary = eventInvitationSummaryByEventId[eventItem.id] || null;
+        const eventDateDisplay = formatEventDateDisplay({
+          startAt: eventItem.start_at,
+          endAt: eventItem.end_at,
+          language,
+          t,
+          interpolate: interpolateText
+        });
         return {
           id: eventItem.id,
           title: eventItem.title || t("field_event"),
-          date: formatDate(eventItem.start_at, language, t("no_date")),
+          date: eventDateDisplay.dateLabel,
+          time: eventDateDisplay.timeLabel,
+          dateFull: eventDateDisplay.fullLabel,
           status: eventItem.status || "draft",
           guests: invitationSummary?.total || 0
         };
       });
-  }, [events, eventInvitationSummaryByEventId, language, t]);
+  }, [events, eventInvitationSummaryByEventId, language, t, interpolateText]);
   const dashboardChecklistEvent = useMemo(() => {
     const upcomingEventId = String(upcomingEventsPreview?.[0]?.id || "").trim();
     if (upcomingEventId && eventsById[upcomingEventId]) {
@@ -2123,6 +2140,7 @@ function DashboardScreen({
           description: eventDescription,
           event_type: toCatalogCode("experience_type", eventType) || eventType,
           start_at: toIsoDateTime(eventStartAt),
+          end_at: eventIsMultiDay ? toIsoDateTime(eventEndAt) : null,
           location_name: eventLocationName,
           location_address: eventLocationAddress,
           allow_plus_one: eventAllowPlusOne,
@@ -2138,6 +2156,8 @@ function DashboardScreen({
       eventDescription,
       eventType,
       eventStartAt,
+      eventEndAt,
+      eventIsMultiDay,
       eventLocationName,
       eventLocationAddress,
       eventAllowPlusOne,
@@ -2328,7 +2348,13 @@ function DashboardScreen({
       const guestName = guestItem
         ? `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest")
         : guestNamesById[invitationItem.guest_id] || t("field_guest");
-      const eventDate = formatDate(eventItem?.start_at, language, t("no_date"));
+      const eventDate = formatEventDateDisplay({
+        startAt: eventItem?.start_at,
+        endAt: eventItem?.end_at,
+        language,
+        t,
+        interpolate: interpolateText
+      }).fullLabel;
       const locationName = String(eventItem?.location_name || "").trim();
       const locationAddress = String(eventItem?.location_address || "").trim();
       const eventLocation = locationAddress && locationName && locationAddress !== locationName
@@ -4802,6 +4828,8 @@ function DashboardScreen({
     if (!eventStartAt) {
       setEventStartAt(getSuggestedEventDateTime(templateItem.defaultHour));
     }
+    setEventEndAt("");
+    setEventIsMultiDay(false);
     setEventAutoReminders(true);
     setEventAllowPlusOne(Boolean(templateItem.allowPlusOne));
     setEventDressCode(templateItem.dressCode || "none");
@@ -5152,6 +5180,9 @@ function DashboardScreen({
             description: String(selectedEventDetail.description || "").trim(),
             eventType: String(selectedEventDetail.event_type || "").trim(),
             startAt: String(selectedEventDetail.start_at || "").trim(),
+            endAt: String(selectedEventDetail.end_at || "").trim(),
+            scheduleMode: String(selectedEventDetail.schedule_mode || "").trim(),
+            pollStatus: String(selectedEventDetail.poll_status || "").trim(),
             locationName: String(selectedEventDetail.location_name || "").trim(),
             locationAddress: String(selectedEventDetail.location_address || "").trim()
           },
@@ -5623,35 +5654,11 @@ function DashboardScreen({
     }
     setEventDatePollMessage("");
     setIsClosingEventDatePollOptionId(normalizedOptionId);
-
-    const payloadCandidates = [
-      { p_event_id: eventId, p_option_id: normalizedOptionId },
-      { p_event_id: eventId, p_winning_option_id: normalizedOptionId },
-      { event_id: eventId, option_id: normalizedOptionId },
-      { event_id: eventId, winning_option_id: normalizedOptionId }
-    ];
-
-    let closeError = null;
-    for (const payload of payloadCandidates) {
-      const result = await supabase.rpc("close_event_date_poll", payload);
-      if (!result.error) {
-        closeError = null;
-        break;
-      }
-      closeError = result.error;
-      if (
-        !isCompatibilityError(result.error, [
-          "p_event_id",
-          "p_option_id",
-          "p_winning_option_id",
-          "event_id",
-          "option_id",
-          "winning_option_id"
-        ])
-      ) {
-        break;
-      }
-    }
+    const result = await supabase.rpc("close_event_date_poll", {
+      p_event_id: eventId,
+      p_selected_option_id: normalizedOptionId
+    });
+    const closeError = result.error || null;
 
     setIsClosingEventDatePollOptionId("");
     if (closeError) {
@@ -5727,6 +5734,9 @@ function DashboardScreen({
           description: String(selectedEventDetail.description || "").trim(),
           eventType: String(selectedEventDetail.event_type || "").trim(),
           startAt: String(selectedEventDetail.start_at || "").trim(),
+          endAt: String(selectedEventDetail.end_at || "").trim(),
+          scheduleMode: String(selectedEventDetail.schedule_mode || "").trim(),
+          pollStatus: String(selectedEventDetail.poll_status || "").trim(),
           locationName: String(selectedEventDetail.location_name || "").trim(),
           locationAddress: String(selectedEventDetail.location_address || "").trim()
         }
@@ -5962,6 +5972,8 @@ function DashboardScreen({
     setEventPollOptionDraft("");
     setEventPollOptions(existingDatePollOptions);
     setEventStartAt(isDatePollEvent ? "" : toLocalDateTimeInput(eventItem.start_at));
+    setEventEndAt(isDatePollEvent ? "" : toLocalDateTimeInput(eventItem.end_at));
+    setEventIsMultiDay(!isDatePollEvent && Boolean(eventItem.end_at));
     setEventLocationName(eventItem.location_name || "");
     setEventLocationAddress(eventItem.location_address || "");
     setEventAllowPlusOne(eventSettings.allow_plus_one);
@@ -5990,6 +6002,8 @@ function DashboardScreen({
     setEventStatus("draft");
     setEventDescription("");
     setEventStartAt("");
+    setEventEndAt("");
+    setEventIsMultiDay(false);
     setEventSchedulingMode("fixed");
     setEventPollOptionDraft("");
     setEventPollOptions([]);
@@ -6024,6 +6038,8 @@ function DashboardScreen({
 
     const normalizedPollOptions = normalizeEventPollOptionsForSave();
     const isDatePollMode = eventSchedulingMode === "tbd";
+    const normalizedStartAt = toIsoDateTime(eventStartAt);
+    const normalizedEndAt = eventIsMultiDay ? toIsoDateTime(eventEndAt) : null;
 
     if (!validation.success) {
       setEventErrors(validation.errors);
@@ -6039,6 +6055,37 @@ function DashboardScreen({
       }));
       setEventMessage(t("event_date_poll_options_min_error"));
       return;
+    }
+
+    if (!isDatePollMode && !normalizedStartAt) {
+      setEventErrors((prev) => ({
+        ...(prev || {}),
+        startAt: "event_datetime_required"
+      }));
+      setEventMessage(t("event_datetime_required"));
+      return;
+    }
+
+    if (!isDatePollMode && eventIsMultiDay && !normalizedEndAt) {
+      setEventErrors((prev) => ({
+        ...(prev || {}),
+        endAt: "event_datetime_end_required"
+      }));
+      setEventMessage(t("event_datetime_end_required"));
+      return;
+    }
+
+    if (!isDatePollMode && eventIsMultiDay && normalizedStartAt && normalizedEndAt) {
+      const startMs = new Date(normalizedStartAt).getTime();
+      const endMs = new Date(normalizedEndAt).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+        setEventErrors((prev) => ({
+          ...(prev || {}),
+          endAt: "event_datetime_end_after_start_error"
+        }));
+        setEventMessage(t("event_datetime_end_after_start_error"));
+        return;
+      }
     }
 
     const hasAddressValidationForEdit =
@@ -6074,7 +6121,8 @@ function DashboardScreen({
       schedule_mode: isDatePollMode ? "tbd" : "fixed",
       poll_status: isDatePollMode ? "open" : "closed",
       content_language: language,
-      start_at: isDatePollMode ? null : toIsoDateTime(eventStartAt),
+      start_at: isDatePollMode ? null : normalizedStartAt,
+      end_at: isDatePollMode ? null : normalizedEndAt,
       timezone,
       location_name: toNullable(eventLocationName),
       location_address: toNullable(normalizedAddress),
@@ -6087,7 +6135,8 @@ function DashboardScreen({
       event_type: toNullable(toCatalogCode("experience_type", eventType)),
       status: String(eventStatus || "draft"),
       schedule_mode: isDatePollMode ? "tbd" : "fixed",
-      start_at: isDatePollMode ? null : toIsoDateTime(eventStartAt),
+      start_at: isDatePollMode ? null : normalizedStartAt,
+      end_at: isDatePollMode ? null : normalizedEndAt,
       timezone,
       location_name: toNullable(eventLocationName),
       location_address: toNullable(normalizedAddress)
@@ -6126,6 +6175,7 @@ function DashboardScreen({
         error.message?.toLowerCase().includes("schedule_mode") ||
         error.message?.toLowerCase().includes("poll_status") ||
         error.message?.toLowerCase().includes("content_language") ||
+        error.message?.toLowerCase().includes("end_at") ||
         error.message?.toLowerCase().includes("location_place_id") ||
         error.message?.toLowerCase().includes("location_lat") ||
         error.message?.toLowerCase().includes("location_lng"))
@@ -6197,6 +6247,8 @@ function DashboardScreen({
     setEventStatus("draft");
     setEventDescription("");
     setEventStartAt("");
+    setEventEndAt("");
+    setEventIsMultiDay(false);
     setEventSchedulingMode("fixed");
     setEventPollOptionDraft("");
     setEventPollOptions([]);
@@ -6455,6 +6507,9 @@ function DashboardScreen({
     setEventStatus("draft");
     setEventDescription(interpolateText(t("birthday_event_description"), { guest: guestLabel }));
     setEventStartAt(nextDateTime);
+    setEventEndAt("");
+    setEventIsMultiDay(false);
+    setEventSchedulingMode("fixed");
     setEventLocationName("");
     setEventLocationAddress(guestAdvanced.address || "");
     setAddressPredictions([]);
@@ -8463,6 +8518,7 @@ function DashboardScreen({
         <Suspense fallback={null}>
           <DashboardOverview
             t={t}
+            language={language}
             isLoading={isLoading}
             openWorkspace={openWorkspace}
             events={events}
@@ -8641,6 +8697,10 @@ function DashboardScreen({
               setEventStatus,
               eventStartAt,
               setEventStartAt,
+              eventEndAt,
+              setEventEndAt,
+              eventIsMultiDay,
+              setEventIsMultiDay,
               eventSchedulingMode,
               setEventSchedulingMode,
               eventPollOptionDraft,

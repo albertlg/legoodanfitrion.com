@@ -1498,7 +1498,6 @@
   "terms_content": "Last updated: March 2026\n\nWelcome to LeGoodAnfitrión! By using our platform, you agree to these terms and conditions.\n\n1. Use of Service\nLeGoodAnfitrión is a tool to help organize events and manage guest lists. You agree not to use the service to send spam, offensive content, or for any illegal purpose.\n\n2. Accounts and Security\nYou are responsible for maintaining the confidentiality of your account and all activities that occur under it. We reserve the right to suspend accounts that violate our policies.\n\n3. Guest Privacy\nAs a host (user), you are responsible for ensuring that you have your guests' consent to add their data to the platform. LeGoodAnfitrión acts solely as a data processor for this information.\n\n4. Service Availability\nWe work hard to ensure the platform is always available, but we cannot guarantee 100% uptime. We may perform maintenance or updates that temporarily interrupt the service.\n\n5. Intellectual Property\nAll code, design, and content of the platform is the property of LeGoodAnfitrión. You are not allowed to copy, modify, or distribute our intellectual property without explicit permission.\n\n6. Limitation of Liability\nLeGoodAnfitrión shall not be liable for any indirect, incidental, or consequential damages arising from the use or inability to use our service.\n\nIf you have any questions about these terms, please contact us at hello@legoodanfitrion.com.",
   "landing_footer_copyright": "Created with ❤ by: Albert L.G. © 2026 All rights reserved.",
   "event_expenses_whatsapp_action": "Send via WhatsApp",
-
   "landing_nav_about": "About",
   "about_seo_title": "About us",
   "about_seo_description": "Discover the story behind LeGoodAnfitrión: a web app built for hosts and guests who want to turn their events into truly memorable experiences.",
@@ -1580,5 +1579,17 @@
   "event_date_poll_closed_success": "Poll closed and event date has been fixed.",
   "event_date_poll_close_error": "Unable to close poll.",
   "event_date_poll_winner_badge": "Winner",
-  "event_date_poll_no_votes": "No votes registered in this poll yet."
+  "event_date_poll_no_votes": "No votes registered in this poll yet.",
+  "event_multiday_toggle_label": "Multi-day event",
+  "event_multiday_toggle_hint": "Enable to set start and end date/time.",
+  "field_datetime_start": "Start (date and time)",
+  "field_datetime_end": "End (date and time)",
+  "event_datetime_required": "Set a start date and time for the event.",
+  "event_datetime_end_required": "Set an end date and time for a multi-day event.",
+  "event_datetime_end_after_start_error": "End date and time must be after the start.",
+  "event_date_range_days_template": "From {startDate} to {endDate}",
+  "event_date_range_same_day_template": "{date}, from {startTime} to {endTime}",
+  "event_date_range_same_day_time_template": "from {startTime} to {endTime}",
+  "event_date_range_multi_day_time_template": "from {startTime} to {endTime}",
+  "event_date_range_multi_day_full_template": "{startDate}, {startTime} — {endDate}, {endTime}"
 }

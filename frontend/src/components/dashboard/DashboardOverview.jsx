@@ -1,6 +1,7 @@
 import { Icon } from "../icons";
 import { AvatarCircle } from "../avatar-circle";
 import { HostChecklistCard } from "./HostChecklistCard";
+import { formatEventDateDisplay, interpolateText as interpolateTemplate } from "../../lib/formatters";
 
 function DashboardOverviewSkeleton({ t }) {
     return (
@@ -78,6 +79,7 @@ function DashboardOverviewSkeleton({ t }) {
 
 export function DashboardOverview({
     t,
+    language,
     isLoading,
     openWorkspace,
     events,
@@ -111,21 +113,14 @@ export function DashboardOverview({
     openReceivedInvitationRsvp,
     dashboardHostChecklist,
 }) {
-    const formatInvitationDate = (value) => {
-        if (!value) {
-            return t("no_date");
-        }
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) {
-            return t("no_date");
-        }
-        return new Intl.DateTimeFormat(undefined, {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-        }).format(date);
-    };
+    const formatInvitationDate = (startAt, endAt) =>
+        formatEventDateDisplay({
+            startAt,
+            endAt,
+            language,
+            t,
+            interpolate: interpolateTemplate
+        }).fullLabel;
 
     const getInvitationStatusBadgeClass = (status) => {
         const normalizedStatus = String(status || "").toLowerCase();
@@ -395,6 +390,12 @@ export function DashboardOverview({
                                                 </p>
                                                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
                                                     <span className="flex items-center gap-1"><Icon name="calendar" className="w-3 h-3" /> {eventItem.date}</span>
+                                                    {eventItem.time ? (
+                                                        <>
+                                                            <span>·</span>
+                                                            <span className="flex items-center gap-1"><Icon name="clock" className="w-3 h-3" /> {eventItem.time}</span>
+                                                        </>
+                                                    ) : null}
                                                     <span>·</span>
                                                     <span className="flex items-center gap-1"><Icon name="users" className="w-3 h-3" /> {interpolateText(t("overview_upcoming_guests"), { count: eventItem.guests })}</span>
                                                 </div>
@@ -445,7 +446,8 @@ export function DashboardOverview({
                                     const eventTitle =
                                         String(invitationItem.event_title || "").trim() || t("field_event");
                                     const responseAtLabel = formatInvitationDate(
-                                        invitationItem.event_start_at || invitationItem.invitation_created_at
+                                        invitationItem.event_start_at || invitationItem.invitation_created_at,
+                                        invitationItem.event_end_at || null
                                     );
                                     return (
                                         <li

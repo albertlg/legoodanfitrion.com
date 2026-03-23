@@ -1,6 +1,6 @@
 import { useState } from "react"; // <-- Añadido el import de useState
 import { Icon } from "../../../components/icons";
-import { MagicCard } from "./ui/magic-card";
+import { formatEventDateDisplay } from "../../../lib/formatters";
 
 export function EventsListView({
   t,
@@ -24,7 +24,6 @@ export function EventsListView({
   handleRequestDeleteEvent,
   isDeletingEventId,
   toCatalogLabel,
-  formatDate,
   language,
   statusClass,
   statusText,
@@ -205,6 +204,13 @@ export function EventsListView({
                           ? `https://www.google.com/maps?q=${eventItem.location_lat},${eventItem.location_lng}`
                           : "";
 
+                      const eventDateDisplay = formatEventDateDisplay({
+                        startAt: eventItem.start_at,
+                        endAt: eventItem.end_at,
+                        language,
+                        t
+                      });
+
                       return (
                         <tr key={eventItem.id} className="block md:table-row flex flex-col mb-4 md:mb-0 p-4 md:p-0 rounded-2xl md:rounded-none border border-black/10 dark:border-white/10 md:border-transparent md:border-b bg-white/40 dark:bg-white/5 md:bg-transparent shadow-sm md:shadow-none transition-colors group">
 
@@ -227,9 +233,19 @@ export function EventsListView({
 
                           {/* Date */}
                           <td className="text-sm text-gray-600 dark:text-gray-400 align-middle block md:table-cell py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0 overflow-hidden">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate w-full block">
-                              {formatDate(eventItem.start_at, language, t("no_date"))}
-                            </p>
+                            <div className="flex flex-col gap-0.5">
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-normal leading-snug w-full block" title={eventDateDisplay.dateLabel}>
+                                {eventDateDisplay.dateLabel}
+                              </p>
+                              {eventDateDisplay.timeLabel ? (
+                                <p
+                                  className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-normal leading-snug w-full block"
+                                  title={eventDateDisplay.timeLabel}
+                                >
+                                  {eventDateDisplay.timeLabel}
+                                </p>
+                              ) : null}
+                            </div>
                           </td>
 
                           {/* Guests */}

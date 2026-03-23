@@ -199,14 +199,11 @@ export function GuestsListView({
                                 <table className="w-full text-left border-collapse block md:table table-fixed">
                                     <thead className="hidden md:table-header-group">
                                         <tr>
-                                            {/* Añadimos w-[30%] para fijar el ancho del nombre */}
-                                            <th className="w-[30%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
-                                            {/* Añadimos w-[30%] para fijar el ancho del contacto */}
-                                            <th className="w-[30%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")} / {t("field_phone")}</th>
-                                            {/* El resto se reparte (aprox 20% para estado, 10% eventos, 10% acciones) */}
-                                            <th className="w-[20%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_allergies")} / {t("table_host_status")}</th>
-                                            <th className="w-[10%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-center">{t("field_event")}</th>
-                                            <th className="w-[10%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
+                                            <th className="w-[28%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
+                                            <th className="w-[24%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")} / {t("field_phone")}</th>
+                                            <th className="w-[26%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_allergies")} / {t("table_host_status")}</th>
+                                            <th className="w-[8%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-center">{t("field_event")}</th>
+                                            <th className="w-[14%] py-4 px-4 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="block md:table-row-group divide-y-0 md:divide-y divide-black/5 dark:divide-white/5">

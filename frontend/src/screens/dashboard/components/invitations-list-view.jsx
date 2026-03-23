@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
-import { getInitials } from "../../../lib/formatters";
+import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
 
 export function InvitationsListView({
@@ -100,19 +100,14 @@ export function InvitationsListView({
     }
   }, [receivedPage, receivedTotalPages]);
 
-  const formatReceivedDate = (value) => {
-    const date = new Date(value || 0);
-    if (Number.isNaN(date.getTime())) {
-      return t("no_date");
-    }
-    return new Intl.DateTimeFormat(language || undefined, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    }).format(date);
-  };
+  const formatReceivedDate = (startAt, endAt) =>
+    formatEventDateDisplay({
+      startAt,
+      endAt,
+      language,
+      t,
+      interpolate: interpolateText
+    }).fullLabel;
 
   const interpolateText = (template, values = {}) =>
     String(template || "").replace(/\{(\w+)\}/g, (_, key) =>
@@ -443,9 +438,14 @@ export function InvitationsListView({
                         const itemLabel = `${eventName || t("field_event")} - ${guestName || t("field_guest")}`;
                         const invitationStatus = String(invitation.status || "pending").toLowerCase();
                         const hostName = String(hostDisplayName || t("host_default_name")).trim();
-                        const eventDateLabel = eventItem?.start_at
-                          ? formatDate(eventItem.start_at, language, t("no_date"))
-                          : t("no_date");
+                        const eventDateDisplay = formatEventDateDisplay({
+                          startAt: eventItem?.start_at,
+                          endAt: eventItem?.end_at || eventItem?.event_end_at || null,
+                          language,
+                          t,
+                          interpolate: interpolateText
+                        });
+                        const eventDateLabel = eventDateDisplay.fullLabel || eventDateDisplay.dateLabel || t("no_date");
                         const eventLocationLabel = String(
                           eventItem?.location_name || eventItem?.location_address || "-"
                         ).trim();
@@ -498,9 +498,20 @@ export function InvitationsListView({
                                 >
                                   {eventName}
                                 </button>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium truncate uppercase tracking-wider">
-                                  {eventItem?.start_at ? formatDate(eventItem.start_at, language, t("no_date")) : t("no_date")}
+                                <p
+                                  className="text-[11px] text-gray-500 dark:text-gray-400 font-medium truncate uppercase tracking-wider"
+                                  title={eventDateLabel}
+                                >
+                                  {eventDateDisplay.dateLabel}
                                 </p>
+                                {eventDateDisplay.timeLabel ? (
+                                  <p
+                                    className="text-[11px] text-gray-500 dark:text-gray-400 font-medium truncate"
+                                    title={eventDateDisplay.timeLabel}
+                                  >
+                                    {eventDateDisplay.timeLabel}
+                                  </p>
+                                ) : null}
                               </div>
                             </td>
 
@@ -508,7 +519,7 @@ export function InvitationsListView({
                               <span className={statusClass(invitation.status)}>{statusText(t, invitation.status)}</span>
                             </td>
 
-                            <td className="text-sm text-gray-900 dark:text-white align-middle min-w-[120px] block md:table-cell flex items-center justify-between py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
+                            <td className="text-sm text-gray-900 dark:text-white align-middle block md:table-cell flex items-center justify-between py-2 md:py-3 px-0 md:px-4 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
                               <div className="flex flex-col justify-center gap-1">
                                 <p className="text-xs text-gray-900 dark:text-white font-medium">
                                   {formatDate(invitation.created_at, language, t("no_date"))}
@@ -820,7 +831,8 @@ export function InvitationsListView({
                       const hostName = invitationItem?.host_full_name || t("host_default_name");
                       const statusValue = invitationItem?.invitation_status || "pending";
                       const eventDateLabel = formatReceivedDate(
-                        invitationItem?.event_start_at || invitationItem?.invitation_created_at
+                        invitationItem?.event_start_at || invitationItem?.invitation_created_at,
+                        invitationItem?.event_end_at || invitationItem?.end_at || null
                       );
                       const publicToken = String(
                         invitationItem?.invitation_public_token ||

@@ -6,21 +6,11 @@ import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { supabase } from "../lib/supabaseClient";
 import { Helmet } from "react-helmet-async";
+import { formatDate, formatEventDateDisplay } from "../lib/formatters";
 
 function toNullable(value) {
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
-}
-
-function formatDate(dateText, language, fallbackText) {
-  if (!dateText) {
-    return fallbackText;
-  }
-  try {
-    return new Date(dateText).toLocaleString(language);
-  } catch {
-    return new Date(dateText).toLocaleString();
-  }
 }
 
 function statusText(t, status) {
@@ -466,8 +456,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
-  const [publicData, setPublicData] = useState(null);
-  const [publicEvent, setPublicEvent] = useState(null);
   const [invitation, setInvitation] = useState(null);
   const [status, setStatus] = useState("yes");
   const [guestName, setGuestName] = useState("");
@@ -483,6 +471,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [eventScheduleMode, setEventScheduleMode] = useState("fixed");
   const [eventPollStatus, setEventPollStatus] = useState("closed");
   const [eventAllowPlusOne, setEventAllowPlusOne] = useState(false);
+  const [eventStartAt, setEventStartAt] = useState("");
+  const [eventEndAt, setEventEndAt] = useState("");
   const [datePollOptions, setDatePollOptions] = useState([]);
   const [dateVotesByOptionId, setDateVotesByOptionId] = useState({});
   const [fetchedVotes, setFetchedVotes] = useState(null);
@@ -512,6 +502,16 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     }
     return normalizedScheduleMode === "tbd";
   }, [eventPollStatus, eventScheduleMode, invitation?.poll_status, invitation?.schedule_mode]);
+  const eventDateDisplay = useMemo(
+    () =>
+      formatEventDateDisplay({
+        startAt: eventStartAt || invitation?.event_start_at,
+        endAt: eventEndAt || invitation?.event_end_at,
+        language,
+        t
+      }),
+    [eventStartAt, eventEndAt, invitation?.event_start_at, invitation?.event_end_at, language, t]
+  );
 
   useEffect(() => {
     if (fetchedVotes && Array.isArray(fetchedVotes)) {
@@ -525,7 +525,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       });
       setOptionVotes(diccionarioVotos);
     }
-  }, [fetchedVotes]);
+  }, [fetchedVotes, setOptionVotes]);
 
   const invitationLocationMapsUrl = invitationLocation
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(invitationLocation)}`
@@ -552,7 +552,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       audio.play().catch(() => {
         // Algunos navegadores bloquean audio si consideran que ya no hay gesto del usuario.
       });
-    } catch (error) {
+    } catch {
       // noop
     }
   };
@@ -574,8 +574,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     const load = async () => {
       setIsLoading(true);
       setPageError("");
-      setPublicData(null);
-      setPublicEvent(null);
       setFetchedVotes(null);
       const { data, error } = await supabase.rpc("get_invitation_public", { p_token: token });
 
@@ -594,7 +592,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       }
 
       setInvitation(first);
-      setPublicData(first || null);
       setGuestName(first.guest_name || "");
       if (first.rsvp_status && first.rsvp_status !== "pending") {
         setStatus(first.rsvp_status);
@@ -605,12 +602,14 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setEventScheduleMode(String(first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
       setEventPollStatus(String(first.poll_status || "closed").trim().toLowerCase() || "closed");
       setEventAllowPlusOne(Boolean(first.allow_plus_one ?? first.event_allow_plus_one ?? false));
+      setEventStartAt(String(first.event_start_at || first.start_at || "").trim());
+      setEventEndAt(String(first.event_end_at || first.end_at || "").trim());
       setDatePollOptions([]);
       setDateVotesByOptionId({});
       setDateVoteMessage("");
       setDateVoteMessageType("success");
       setIsRsvpSaved(false);
-      if (!Boolean(first.allow_plus_one ?? first.event_allow_plus_one ?? false)) {
+      if (!(first.allow_plus_one ?? first.event_allow_plus_one ?? false)) {
         setPlusOne(false);
       }
 
@@ -618,15 +617,16 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       if (eventId) {
         const eventMetaResult = await supabase
           .from("events")
-          .select("schedule_mode, poll_status, allow_plus_one")
+          .select("schedule_mode, poll_status, allow_plus_one, start_at, end_at")
           .eq("id", eventId)
           .maybeSingle();
         if (!eventMetaResult.error && eventMetaResult.data) {
-          setPublicEvent(eventMetaResult.data);
           setEventScheduleMode(String(eventMetaResult.data.schedule_mode || first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
           setEventPollStatus(String(eventMetaResult.data.poll_status || first.poll_status || "closed").trim().toLowerCase() || "closed");
           const allowPlusOneValue = Boolean(eventMetaResult.data.allow_plus_one ?? first.allow_plus_one ?? first.event_allow_plus_one ?? false);
           setEventAllowPlusOne(allowPlusOneValue);
+          setEventStartAt(String(eventMetaResult.data.start_at || first.event_start_at || "").trim());
+          setEventEndAt(String(eventMetaResult.data.end_at || first.event_end_at || "").trim());
           if (!allowPlusOneValue) {
             setPlusOne(false);
           }
@@ -907,9 +907,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                   <Icon name="calendar" className="w-5 h-5 text-purple-500 mb-2" />
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("date")}</p>
                   <p className="text-sm font-bold text-gray-900 dark:text-white">
-                    {isDatePollOpen && !invitation.event_start_at
+                    {isDatePollOpen && !(eventStartAt || invitation.event_start_at)
                       ? t("rsvp_poll_date_pending")
-                      : formatDate(invitation.event_start_at, language, t("no_date"))}
+                      : eventDateDisplay.fullLabel}
                   </p>
                 </div>
 

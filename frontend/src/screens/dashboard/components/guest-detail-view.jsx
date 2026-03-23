@@ -1,7 +1,7 @@
 import React from "react";
 import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
-import { getInitials } from "../../../lib/formatters";
+import { formatEventDateDisplay, getInitials, interpolateText } from "../../../lib/formatters";
 
 export function GuestDetailView({
     t,
@@ -602,6 +602,13 @@ export function GuestDetailView({
                                     <tbody className="block md:table-row-group divide-y-0 md:divide-y divide-black/5 dark:divide-white/5 p-4 md:p-0">
                                         {selectedGuestDetailInvitations.map((invitationItem) => {
                                             const eventItem = eventsById[invitationItem.event_id];
+                                            const eventDateDisplay = formatEventDateDisplay({
+                                                startAt: eventItem?.start_at || invitationItem.created_at,
+                                                endAt: eventItem?.end_at || null,
+                                                language,
+                                                t,
+                                                interpolate: interpolateText
+                                            });
                                             return (
                                                 <tr key={invitationItem.id} className="block md:table-row flex flex-col mb-4 md:mb-0 p-4 md:p-0 rounded-2xl md:rounded-none border border-black/10 dark:border-white/10 md:border-transparent bg-white/60 dark:bg-black/20 md:bg-transparent shadow-sm md:shadow-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
 
@@ -618,9 +625,16 @@ export function GuestDetailView({
 
                                                     <td className="block md:table-cell flex flex-col md:flex-row md:items-center justify-between py-2 md:py-4 px-0 md:px-5 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">
                                                         <span className="md:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("date")}</span>
-                                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                                                            {formatDate(eventItem?.start_at || invitationItem.created_at, language, t("no_date"))}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                                                {eventDateDisplay.dateLabel}
+                                                            </span>
+                                                            {eventDateDisplay.timeLabel ? (
+                                                                <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                                                    {eventDateDisplay.timeLabel}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
                                                     </td>
 
                                                     <td className="block md:table-cell flex flex-col md:flex-row md:items-center justify-between py-2 md:py-4 px-0 md:px-5 border-b border-black/5 dark:border-white/5 md:border-none last:border-0">

@@ -59,14 +59,85 @@ function normalizeScope(value, fallback = "all") {
   return SUPPORTED_SCOPES.has(normalized) ? normalized : fallback;
 }
 
+function parseDateInput(value) {
+  const normalized = normalizeText(value, "");
+  if (!normalized) {
+    return null;
+  }
+  const parsed = new Date(normalized);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function isDifferentUtcDay(a, b) {
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.getUTCFullYear() !== b.getUTCFullYear() ||
+    a.getUTCMonth() !== b.getUTCMonth() ||
+    a.getUTCDate() !== b.getUTCDate()
+  );
+}
+
+function extractEventScheduleContext(eventContext = {}) {
+  const safeEventContext = ensureObject(eventContext);
+  const eventPayload = ensureObject(safeEventContext.event);
+  const startAt = normalizeText(
+    eventPayload.startAt ||
+      eventPayload.start_at ||
+      safeEventContext.startAt ||
+      safeEventContext.start_at ||
+      safeEventContext?.context?.eventDate ||
+      ""
+  );
+  const endAt = normalizeText(
+    eventPayload.endAt ||
+      eventPayload.end_at ||
+      safeEventContext.endAt ||
+      safeEventContext.end_at ||
+      ""
+  );
+  const scheduleMode = normalizeText(
+    eventPayload.scheduleMode ||
+      eventPayload.schedule_mode ||
+      safeEventContext.scheduleMode ||
+      safeEventContext.schedule_mode
+  ).toLowerCase();
+  const pollStatus = normalizeText(
+    eventPayload.pollStatus ||
+      eventPayload.poll_status ||
+      safeEventContext.pollStatus ||
+      safeEventContext.poll_status
+  ).toLowerCase();
+
+  const startDate = parseDateInput(startAt);
+  const endDate = parseDateInput(endAt);
+  const isMultiDay = Boolean(startDate && endDate && endDate.getTime() > startDate.getTime() && isDifferentUtcDay(startDate, endDate));
+  const isTbd = scheduleMode === "tbd" || pollStatus === "open";
+
+  return {
+    startAt,
+    endAt,
+    scheduleMode,
+    pollStatus,
+    isMultiDay,
+    isTbd,
+    hasEventDate: Boolean(startDate)
+  };
+}
+
 function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {} } = {}) {
   const safeLocale = normalizeLocale(locale, "es");
   const safeScope = normalizeScope(scope, "all");
   const safeEventContext = ensureObject(eventContext);
-  const eventPayload = ensureObject(safeEventContext.event);
-  const eventStartAt = normalizeText(eventPayload.startAt || safeEventContext?.context?.eventDate || "");
-  const hasEventDate = Boolean(eventStartAt);
+  const { startAt, endAt, isMultiDay, isTbd, hasEventDate } = extractEventScheduleContext(safeEventContext);
   const guestCount = safeEventContext.guests?.length || "un número no especificado de"; // Usamos los invitados reales si los pasas
+
+  const scheduleGuardrail = isTbd
+    ? 'ATENCIÓN: La fecha y hora exactas de este evento aún están por decidir (TBD). Genera un plan de acción atemporal utilizando etiquetas genéricas como "Día 1", "Día 2", "Fase de preparación" o "Tarde del evento", sin usar fechas ni horas concretas.'
+    : isMultiDay
+      ? `ATENCIÓN: Este es un evento de varios días (del ${startAt} al ${endAt}). Tu misión es crear un itinerario estructurado por DÍAS completos (Ej: Viernes - Llegada, Sábado - Día principal, Domingo - Despedida), distribuyendo los tiempos de forma realista para una convivencia continua.`
+      : "";
 
   const scopeRule =
     safeScope === "all"
@@ -92,11 +163,12 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {} } =
     "4) TIMELINE PROFESIONAL (T-MINUS): En el 'playbook.timeline', usa el framework de Wedding Planners. Ej: 'T-1 Semana', 'T-24h', 'T-2h (Ice & Chill)', 'H-0 (Llegada)'. Da consejos tácticos (ej: 'Saca la carne de la nevera 1h antes').",
     "5) AMBIENTACIÓN MULTISENSORIAL: En 'playbook.ambience', no digas solo 'Pon luces'. Sugiere una atmósfera completa: tipo de iluminación, estilo exacto de playlist musical (ej: 'Bossa nova de fondo a volumen conversacional') y aromas (ej: 'Velas sin olor cerca de la comida').",
     "6) GESTIÓN DE RIESGOS ESTRICTA: Respeta estrictamente alergias, intolerancias y afecciones de INPUT_JSON. NUNCA sugieras un ingrediente prohibido. Si hay alergias críticas, añade advertencias de contaminación cruzada explícitas en 'risks' y 'shoppingList warnings'.",
-    hasEventDate
-      ? `7) FECHA DEL EVENTO: El evento es el ${eventStartAt}. Adapta el menú y el plan B a la estación del año correspondiente.`
-      : "7) TEMPORALIDAD: Como no hay fecha exacta, sugiere opciones atemporales y versátiles.",
-    "8) RIESGOS Y PLAN B: En 'playbook.risks', anticipa problemas reales (clima, silencios incómodos, retrasos en la comida) y da soluciones de experto. 'level' debe ser: yes | no | maybe | pending.",
-    "9) No añadas claves fuera del esquema especificado. Si faltan datos, aplica tu experiencia para proponer la opción más elegante y segura.",
+    scheduleGuardrail || "7) TEMPORALIDAD: Como no hay fecha exacta, sugiere opciones atemporales y versátiles.",
+    hasEventDate && !isTbd
+      ? `8) FECHA DEL EVENTO: El evento comienza el ${startAt}. Adapta el menú y el plan B a la estación del año correspondiente.`
+      : "8) Si no hay fecha cerrada, evita referencias temporales rígidas.",
+    "9) RIESGOS Y PLAN B: En 'playbook.risks', anticipa problemas reales (clima, silencios incómodos, retrasos en la comida) y da soluciones de experto. 'level' debe ser: yes | no | maybe | pending.",
+    "10) No añadas claves fuera del esquema especificado. Si faltan datos, aplica tu experiencia para proponer la opción más elegante y segura.",
     scopeRule
   ].join("\n");
 }
@@ -105,6 +177,7 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {} } = {}) 
   const safeLocale = normalizeLocale(locale, "es");
   const safeEventContext = ensureObject(eventContext);
   const safeEvent = ensureObject(safeEventContext.event);
+  const { isMultiDay } = extractEventScheduleContext(safeEventContext);
   const title = normalizeText(safeEvent.title || "encuentro social");
   const description = normalizeText(safeEvent.description || "un encuentro para disfrutar");
 
@@ -121,7 +194,10 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {} } = {}) 
     "3) ICEBREAKER (badJoke): No tiene que ser un 'chiste malo' literal. Puede ser una anécdota corta, irónica y muy identificable sobre ser anfitrión o asistir a eventos, que sirva para que todos sonrían al llegar.",
     "4) TEMAS DE CONVERSACIÓN: Propón 2 temas que provoquen debate ameno o historias personales interesantes. Evita temas básicos ('qué tal el clima'). Busca 'thought-starters' creativos.",
     "5) DINÁMICA RÁPIDA (quickGameIdea): Propón 1 dinámica de máximo 5 minutos. Debe ser 'Low Friction' (baja vergüenza, sin materiales, que se pueda jugar con una copa en la mano).",
-    "6) Evita temas divisorios (política, religión) o juegos invasivos."
+    isMultiDay
+      ? '6) ATENCIÓN: Al ser una escapada de varios días, en tus sugerencias prioriza incluir al menos un "juego de fondo" o reto continuo que los invitados puedan jugar a lo largo de toda la convivencia (ej: el asesino, roles secretos), además de juegos puntuales.'
+      : "6) Evita temas divisorios (política, religión) o juegos invasivos.",
+    "7) Evita temas divisorios (política, religión) o juegos invasivos."
   ].join("\n");
 }
 

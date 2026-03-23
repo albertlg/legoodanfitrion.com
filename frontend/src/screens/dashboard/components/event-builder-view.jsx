@@ -25,6 +25,10 @@ export function EventBuilderView({
     setEventStatus,
     eventStartAt,
     setEventStartAt,
+    eventEndAt,
+    setEventEndAt,
+    eventIsMultiDay,
+    setEventIsMultiDay,
     eventSchedulingMode,
     setEventSchedulingMode,
     eventPollOptionDraft,
@@ -167,7 +171,9 @@ export function EventBuilderView({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <button
                                 type="button"
-                                onClick={() => setEventSchedulingMode("fixed")}
+                                onClick={() => {
+                                    setEventSchedulingMode("fixed");
+                                }}
                                 className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${eventSchedulingMode !== "tbd"
                                     ? "bg-blue-600 text-white border-blue-700 shadow-sm"
                                     : "bg-white/70 dark:bg-black/30 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/5"
@@ -178,7 +184,11 @@ export function EventBuilderView({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setEventSchedulingMode("tbd")}
+                                onClick={() => {
+                                    setEventSchedulingMode("tbd");
+                                    setEventIsMultiDay(false);
+                                    setEventEndAt("");
+                                }}
                                 className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${eventSchedulingMode === "tbd"
                                     ? "bg-blue-600 text-white border-blue-700 shadow-sm"
                                     : "bg-white/70 dark:bg-black/30 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/5"
@@ -250,18 +260,63 @@ export function EventBuilderView({
                             <FieldMeta errorText={eventErrors.pollOptions ? t(eventErrors.pollOptions) : ""} />
                         </div>
                     ) : (
-                        <label>
-                            <span className="flex items-center gap-2 mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                <Icon name="calendar" className="w-4 h-4" />
-                                {t("field_datetime")}
-                            </span>
-                            <input
-                                type="datetime-local"
-                                className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
-                                value={eventStartAt}
-                                onChange={(event) => setEventStartAt(event.target.value)}
-                            />
-                        </label>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-start justify-between gap-4 p-4 bg-white/60 dark:bg-black/20 border border-black/5 dark:border-white/10 rounded-xl">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        {t("event_multiday_toggle_label")}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {t("event_multiday_toggle_hint")}
+                                    </span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer mt-0.5 shrink-0">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={Boolean(eventIsMultiDay)}
+                                        onChange={(event) => {
+                                            const checked = Boolean(event.target.checked);
+                                            setEventIsMultiDay(checked);
+                                            if (!checked) {
+                                                setEventEndAt("");
+                                            }
+                                        }}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300/40 dark:peer-focus:ring-blue-800/60 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+                            <div className={`grid grid-cols-1 ${eventIsMultiDay ? "sm:grid-cols-2" : ""} gap-4`}>
+                                <label>
+                                    <span className="flex items-center gap-2 mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <Icon name="calendar" className="w-4 h-4" />
+                                        {eventIsMultiDay ? t("field_datetime_start") : t("field_datetime")}
+                                    </span>
+                                    <input
+                                        type="datetime-local"
+                                        className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                        value={eventStartAt}
+                                        onChange={(event) => setEventStartAt(event.target.value)}
+                                    />
+                                    <FieldMeta errorText={eventErrors.startAt ? t(eventErrors.startAt) : ""} />
+                                </label>
+                                {eventIsMultiDay ? (
+                                    <label>
+                                        <span className="flex items-center gap-2 mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            <Icon name="calendar" className="w-4 h-4" />
+                                            {t("field_datetime_end")}
+                                        </span>
+                                        <input
+                                            type="datetime-local"
+                                            className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                            value={eventEndAt}
+                                            onChange={(event) => setEventEndAt(event.target.value)}
+                                        />
+                                        <FieldMeta errorText={eventErrors.endAt ? t(eventErrors.endAt) : ""} />
+                                    </label>
+                                ) : null}
+                            </div>
+                        </div>
                     )}
 
                     <label>
@@ -550,7 +605,8 @@ export function EventBuilderWizardView(props) {
         handleApplyEventTemplate, eventTitle, setEventTitle, eventErrors,
         eventDescription, setEventDescription, eventType, setEventType,
         eventTypeOptions, eventStatus, eventStartAt,
-        setEventStartAt, eventSchedulingMode, setEventSchedulingMode,
+        setEventStartAt, eventEndAt, setEventEndAt, eventIsMultiDay, setEventIsMultiDay,
+        eventSchedulingMode, setEventSchedulingMode,
         eventPollOptionDraft, setEventPollOptionDraft, eventPollOptions,
         handleAddEventPollOption, handleUpdateEventPollOption, handleRemoveEventPollOption,
         eventLocationName, setEventLocationName,
@@ -668,7 +724,9 @@ export function EventBuilderWizardView(props) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <button
                                 type="button"
-                                onClick={() => setEventSchedulingMode("fixed")}
+                                onClick={() => {
+                                    setEventSchedulingMode("fixed");
+                                }}
                                 className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${eventSchedulingMode !== "tbd"
                                     ? "bg-blue-600 text-white border-blue-700 shadow-sm"
                                     : "bg-white dark:bg-black/20 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
@@ -678,7 +736,11 @@ export function EventBuilderWizardView(props) {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setEventSchedulingMode("tbd")}
+                                onClick={() => {
+                                    setEventSchedulingMode("tbd");
+                                    setEventIsMultiDay(false);
+                                    setEventEndAt("");
+                                }}
                                 className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${eventSchedulingMode === "tbd"
                                     ? "bg-blue-600 text-white border-blue-700 shadow-sm"
                                     : "bg-white dark:bg-black/20 border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
@@ -741,18 +803,63 @@ export function EventBuilderWizardView(props) {
                             <FieldMeta errorText={eventErrors.pollOptions ? t(eventErrors.pollOptions) : ""} />
                         </div>
                     ) : (
-                        <label>
-                            <span className="flex items-center gap-2 mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                                <Icon name="calendar" className="w-4 h-4 text-blue-500" />
-                                {t("field_datetime")}
-                            </span>
-                            <input
-                                type="datetime-local"
-                                className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
-                                value={eventStartAt}
-                                onChange={(event) => setEventStartAt(event.target.value)}
-                            />
-                        </label>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-start justify-between gap-4 p-4 bg-white dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-2xl">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                        {t("event_multiday_toggle_label")}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {t("event_multiday_toggle_hint")}
+                                    </span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={Boolean(eventIsMultiDay)}
+                                        onChange={(event) => {
+                                            const checked = Boolean(event.target.checked);
+                                            setEventIsMultiDay(checked);
+                                            if (!checked) {
+                                                setEventEndAt("");
+                                            }
+                                        }}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300/40 dark:peer-focus:ring-blue-800/60 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+                            <div className={`grid grid-cols-1 ${eventIsMultiDay ? "sm:grid-cols-2" : ""} gap-4`}>
+                                <label>
+                                    <span className="flex items-center gap-2 mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                        <Icon name="calendar" className="w-4 h-4 text-blue-500" />
+                                        {eventIsMultiDay ? t("field_datetime_start") : t("field_datetime")}
+                                    </span>
+                                    <input
+                                        type="datetime-local"
+                                        className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                        value={eventStartAt}
+                                        onChange={(event) => setEventStartAt(event.target.value)}
+                                    />
+                                    <FieldMeta errorText={eventErrors.startAt ? t(eventErrors.startAt) : ""} />
+                                </label>
+                                {eventIsMultiDay ? (
+                                    <label>
+                                        <span className="flex items-center gap-2 mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                            <Icon name="calendar" className="w-4 h-4 text-blue-500" />
+                                            {t("field_datetime_end")}
+                                        </span>
+                                        <input
+                                            type="datetime-local"
+                                            className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                            value={eventEndAt}
+                                            onChange={(event) => setEventEndAt(event.target.value)}
+                                        />
+                                        <FieldMeta errorText={eventErrors.endAt ? t(eventErrors.endAt) : ""} />
+                                    </label>
+                                ) : null}
+                            </div>
+                        </div>
                     )}
 
                     <label>
