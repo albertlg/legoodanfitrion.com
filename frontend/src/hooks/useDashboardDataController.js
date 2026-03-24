@@ -91,9 +91,8 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
-      .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -116,8 +115,7 @@ export function useDashboardDataController({
     ) {
       const fallback = await supabase
         .from("events")
-        .select("id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
-        .eq("host_user_id", sessionUserId)
+        .select("id, host_user_id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
         .order("created_at", { ascending: false })
         .limit(50);
       eventsData = fallback.data || [];
@@ -213,9 +211,8 @@ export function useDashboardDataController({
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
-        .eq("host_user_id", sessionUserId)
         .eq("id", routeEventDetailId)
         .maybeSingle();
 
@@ -238,8 +235,7 @@ export function useDashboardDataController({
       ) {
         routeEventResult = await supabase
           .from("events")
-          .select("id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
-          .eq("host_user_id", sessionUserId)
+          .select("id, host_user_id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
           .eq("id", routeEventDetailId)
           .maybeSingle();
       }
@@ -300,7 +296,6 @@ export function useDashboardDataController({
       const plannerResult = await supabase
         .from("event_host_plans")
         .select("event_id, version, generated_at, source, model_meta, plan_context, plan_snapshot")
-        .eq("host_user_id", sessionUserId)
         .in("event_id", eventIdsForPlans)
         .order("generated_at", { ascending: false });
 

@@ -2951,8 +2951,20 @@ function DashboardScreen({
     if (!selectedEventDetail?.id) {
       return new Set();
     }
-    return new Set(eventDetailShoppingCheckedByEventId[selectedEventDetail.id] || []);
-  }, [eventDetailShoppingCheckedByEventId, selectedEventDetail?.id]);
+    const eventId = selectedEventDetail.id;
+    const localChecked = eventDetailShoppingCheckedByEventId[eventId];
+    if (Array.isArray(localChecked)) {
+      return new Set(localChecked);
+    }
+    const persistedChecked = toPlannerArray(selectedEventPlannerSnapshotState?.modelMeta?.shopping_checked_ids)
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+    return new Set(persistedChecked);
+  }, [
+    eventDetailShoppingCheckedByEventId,
+    selectedEventDetail?.id,
+    selectedEventPlannerSnapshotState?.modelMeta?.shopping_checked_ids
+  ]);
   const selectedEventShoppingProgress = useMemo(() => {
     const total = Math.max(0, Number(selectedEventShoppingItems.length || 0));
     const checked = Math.max(0, Number(selectedEventShoppingCheckedSet.size || 0));
@@ -4878,41 +4890,133 @@ function DashboardScreen({
       setEventMessage(t("copy_fail"));
     }
   };
+  const persistEventPlannerShoppingCheckedItems = useCallback(
+    async (eventId, checkedIds) => {
+      if (!supabase || !session?.user?.id || !eventId) {
+        return;
+      }
+      const safeCheckedIds = uniqueValues((checkedIds || []).map((item) => String(item || "").trim()).filter(Boolean));
+
+      const rowResult = await supabase
+        .from("event_host_plans")
+        .select("id, version, generated_at, source, model_meta, plan_snapshot")
+        .eq("event_id", eventId)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (rowResult.error || !rowResult.data) {
+        return;
+      }
+
+      const snapshotObject =
+        rowResult.data.plan_snapshot && typeof rowResult.data.plan_snapshot === "object"
+          ? rowResult.data.plan_snapshot
+          : {};
+      const snapshotModelMeta =
+        snapshotObject.model_meta && typeof snapshotObject.model_meta === "object"
+          ? snapshotObject.model_meta
+          : {};
+      const rowModelMeta =
+        rowResult.data.model_meta && typeof rowResult.data.model_meta === "object"
+          ? rowResult.data.model_meta
+          : {};
+      const nextModelMeta = {
+        ...rowModelMeta,
+        ...snapshotModelMeta,
+        shopping_checked_ids: safeCheckedIds,
+        shopping_checked_updated_at: new Date().toISOString()
+      };
+      const nextSnapshot = {
+        ...snapshotObject,
+        model_meta: nextModelMeta
+      };
+
+      const updateResult = await supabase
+        .from("event_host_plans")
+        .update({
+          model_meta: nextModelMeta,
+          plan_snapshot: nextSnapshot
+        })
+        .eq("id", rowResult.data.id)
+        .select("version, generated_at, source, plan_snapshot")
+        .maybeSingle();
+
+      if (updateResult.error || !updateResult.data) {
+        return;
+      }
+
+      const persistedState = getHostPlanStateFromSnapshot({
+        ...(updateResult.data.plan_snapshot || {}),
+        version: Number(updateResult.data.version || 1),
+        generated_at: String(updateResult.data.generated_at || new Date().toISOString()),
+        source: String(updateResult.data.source || "local_heuristic")
+      });
+      if (!persistedState) {
+        return;
+      }
+      setEventPlannerSnapshotsByEventId((prev) => ({
+        ...prev,
+        [eventId]: persistedState
+      }));
+      setEventPlannerSnapshotHistoryByEventId((prev) => {
+        const currentHistory = Array.isArray(prev[eventId]) ? prev[eventId] : [];
+        const updatedHistory = currentHistory.map((entry) =>
+          Number(entry?.version || 0) === Number(persistedState.version || 0)
+            ? { ...entry, snapshotState: persistedState, generatedAt: persistedState.generatedAt }
+            : entry
+        );
+        return {
+          ...prev,
+          [eventId]: updatedHistory
+        };
+      });
+    },
+    [session?.user?.id, setEventPlannerSnapshotsByEventId, setEventPlannerSnapshotHistoryByEventId]
+  );
+
   const handleToggleEventPlannerShoppingItem = (itemId) => {
     if (!selectedEventDetail?.id || !itemId) {
       return;
     }
+    const eventId = selectedEventDetail.id;
+    const currentSet = new Set(selectedEventShoppingCheckedSet);
+    if (currentSet.has(itemId)) {
+      currentSet.delete(itemId);
+    } else {
+      currentSet.add(itemId);
+    }
+    const nextCheckedIds = Array.from(currentSet);
     setEventDetailShoppingCheckedByEventId((prev) => {
-      const eventId = selectedEventDetail.id;
-      const current = new Set(prev[eventId] || []);
-      if (current.has(itemId)) {
-        current.delete(itemId);
-      } else {
-        current.add(itemId);
-      }
       return {
         ...prev,
-        [eventId]: Array.from(current)
+        [eventId]: nextCheckedIds
       };
     });
+    void persistEventPlannerShoppingCheckedItems(eventId, nextCheckedIds);
   };
   const handleMarkAllEventPlannerShoppingItems = () => {
     if (!selectedEventDetail?.id) {
       return;
     }
+    const eventId = selectedEventDetail.id;
+    const nextCheckedIds = selectedEventShoppingItems.map((item) => item.id);
     setEventDetailShoppingCheckedByEventId((prev) => ({
       ...prev,
-      [selectedEventDetail.id]: selectedEventShoppingItems.map((item) => item.id)
+      [eventId]: nextCheckedIds
     }));
+    void persistEventPlannerShoppingCheckedItems(eventId, nextCheckedIds);
   };
   const handleClearEventPlannerShoppingCheckedItems = () => {
     if (!selectedEventDetail?.id) {
       return;
     }
+    const eventId = selectedEventDetail.id;
     setEventDetailShoppingCheckedByEventId((prev) => ({
       ...prev,
-      [selectedEventDetail.id]: []
+      [eventId]: []
     }));
+    void persistEventPlannerShoppingCheckedItems(eventId, []);
   };
   const getPlannerTabLabel = useCallback(
     (tabKey) => t(`event_planner_tab_${tabKey}`),
@@ -6156,8 +6260,12 @@ function DashboardScreen({
         .from("events")
         .update(basePayload)
         .eq("id", editingEventId)
-        .eq("host_user_id", session.user.id);
+        .select("id")
+        .maybeSingle();
       error = updateResult.error;
+      if (!error && !updateResult.data) {
+        error = { message: "event_not_found_or_not_editable" };
+      }
     } else {
       const insertResult = await supabase
         .from("events")
@@ -6188,7 +6296,7 @@ function DashboardScreen({
         error.message?.toLowerCase().includes("location_lng"))
     ) {
       const fallbackResult = isEditingEvent
-        ? await supabase.from("events").update(fallbackPayload).eq("id", editingEventId).eq("host_user_id", session.user.id)
+        ? await supabase.from("events").update(fallbackPayload).eq("id", editingEventId).select("id").maybeSingle()
         : await supabase
           .from("events")
           .insert({
@@ -6198,6 +6306,9 @@ function DashboardScreen({
           .select("id")
           .single();
       error = fallbackResult.error;
+      if (isEditingEvent && !error && !fallbackResult.data) {
+        error = { message: "event_not_found_or_not_editable" };
+      }
       if (!isEditingEvent) {
         savedEventId = fallbackResult.data?.id || savedEventId;
       }
@@ -8696,6 +8807,7 @@ function DashboardScreen({
               WORKSPACE_ITEMS,
               t,
               openWorkspace,
+              sessionUserId: session?.user?.id,
               language,
               timezone,
               handleSaveEvent,

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
@@ -27,14 +28,45 @@ function getFallbackEventCoverUrl(eventType) {
   return EVENT_COVER_FALLBACK_BY_TYPE[key] || EVENT_COVER_FALLBACK_BY_TYPE.default;
 }
 
+function normalizeLocationText(value) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  const candidateValues = [
+    value.address,
+    value.formatted_address,
+    value.display_name,
+    value.description,
+    value.label,
+    value.name,
+    value.value
+  ];
+
+  for (const candidate of candidateValues) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return "";
+}
+
 function getEventPlaceLookupValue(eventItem) {
   if (!eventItem) {
     return "";
   }
-  if (typeof eventItem.location_lat === "number" && typeof eventItem.location_lng === "number") {
+  const latitude = Number(eventItem.location_lat);
+  const longitude = Number(eventItem.location_lng);
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
     return `${eventItem.location_lat},${eventItem.location_lng}`;
   }
-  return String(eventItem.location_address || eventItem.location_name || "").trim();
+  const addressLabel = normalizeLocationText(eventItem.location_address);
+  const placeLabel = normalizeLocationText(eventItem.location_name);
+  return String(addressLabel || placeLabel || "").trim();
 }
 
 function buildSatelliteEmbedUrl(eventItem, zoom = 17) {
@@ -43,6 +75,13 @@ function buildSatelliteEmbedUrl(eventItem, zoom = 17) {
     return "";
   }
   return `https://maps.google.com/maps?q=${encodeURIComponent(placeLookup)}&t=k&z=${zoom}&ie=UTF8&output=embed`;
+}
+
+function renderGlobalModal(content) {
+  if (typeof document === "undefined" || !document.body) {
+    return null;
+  }
+  return createPortal(content, document.body);
 }
 
 function getEventCoverImageUrl(eventItem) {
@@ -219,6 +258,7 @@ function buildEventDateDisplay({
 export function EventDetailView({
   eventsWorkspace,
   openWorkspace,
+  sessionUserId,
   handleBackToEventDetail,
   selectedEventDetail,
   t,
@@ -316,7 +356,19 @@ export function EventDetailView({
   const [splitExpensePaidBy, setSplitExpensePaidBy] = useState("");
   const [splitHelperMessage, setSplitHelperMessage] = useState("");
   const [splitHelperMessageType, setSplitHelperMessageType] = useState("info");
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [cohostEmailDraft, setCohostEmailDraft] = useState("");
+  const [cohosts, setCohosts] = useState([]);
+  const [isLoadingCohosts, setIsLoadingCohosts] = useState(false);
+  const [isAddingCohost, setIsAddingCohost] = useState(false);
+  const [removingCohostId, setRemovingCohostId] = useState("");
+  const [cohostFeedback, setCohostFeedback] = useState("");
+  const [cohostFeedbackType, setCohostFeedbackType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
+  const selectedEventOwnerId = String(
+    selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
+  ).trim();
+  const isEventOwner = Boolean(sessionUserId && selectedEventOwnerId && sessionUserId === selectedEventOwnerId);
   const eventDateDisplay = useMemo(
     () =>
       buildEventDateDisplay({
@@ -330,7 +382,9 @@ export function EventDetailView({
   );
   const eventDateLabel = eventDateDisplay.dateLabel;
   const eventTimeLabel = eventDateDisplay.timeLabel;
-  const eventPlaceLabel = selectedEventDetail?.location_name || selectedEventDetail?.location_address || "-";
+  const eventPlaceName = normalizeLocationText(selectedEventDetail?.location_name);
+  const eventPlaceAddress = normalizeLocationText(selectedEventDetail?.location_address);
+  const eventPlaceLabel = eventPlaceName || eventPlaceAddress || "-";
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
@@ -435,6 +489,244 @@ export function EventDetailView({
     }
   }, [splitExpensePaidBy, splitDefaultPayer]);
 
+  const loadEventCohosts = useCallback(async () => {
+    if (!supabase || !selectedEventDetail?.id) {
+      setCohosts([]);
+      return;
+    }
+
+    setIsLoadingCohosts(true);
+    try {
+      const { data: cohostRows, error: cohostError } = await supabase
+        .from("event_cohosts")
+        .select("id, event_id, host_id, role, created_at")
+        .eq("event_id", selectedEventDetail.id)
+        .order("created_at", { ascending: true });
+
+      if (cohostError) {
+        throw cohostError;
+      }
+
+      const hostIds = Array.from(
+        new Set(
+          [selectedEventOwnerId, ...(Array.isArray(cohostRows) ? cohostRows.map((item) => item?.host_id) : [])]
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+        )
+      );
+
+      let profileInfoById = {};
+      if (hostIds.length > 0) {
+        const teamProfilesResult = await supabase.rpc("get_event_team_profiles", {
+          p_event_id: selectedEventDetail.id
+        });
+        if (!teamProfilesResult.error && Array.isArray(teamProfilesResult.data)) {
+          profileInfoById = teamProfilesResult.data.reduce((accumulator, profileItem) => {
+            const profileId = String(profileItem?.user_id || "").trim();
+            const profileName = String(profileItem?.full_name || "").trim();
+            const avatarUrl = String(profileItem?.avatar_url || "").trim();
+            if (profileId) {
+              accumulator[profileId] = {
+                fullName: profileName,
+                avatarUrl
+              };
+            }
+            return accumulator;
+          }, {});
+        }
+      }
+
+      const resolveName = (hostId) => {
+        const normalizedHostId = String(hostId || "").trim();
+        if (!normalizedHostId) {
+          return t("event_team_member_unknown");
+        }
+        if (normalizedHostId === selectedEventOwnerId) {
+          return (
+            String(selectedEventDetail?.host_name || "").trim() ||
+            String(hostDisplayName || "").trim() ||
+            profileInfoById[normalizedHostId]?.fullName ||
+            t("host_default_name")
+          );
+        }
+        if (normalizedHostId === sessionUserId) {
+          return t("event_team_you_label");
+        }
+        return (
+          profileInfoById[normalizedHostId]?.fullName ||
+          interpolateText(t("event_team_user_fallback"), {
+            id: normalizedHostId.slice(0, 8)
+          })
+        );
+      };
+
+      const ownerRow =
+        selectedEventOwnerId
+          ? {
+              id: `owner-${selectedEventOwnerId}`,
+              event_id: selectedEventDetail.id,
+              host_id: selectedEventOwnerId,
+              role: "owner",
+              created_at: selectedEventDetail?.created_at || null,
+              isOwnerRow: true,
+              displayName: resolveName(selectedEventOwnerId),
+              avatarUrl: profileInfoById[selectedEventOwnerId]?.avatarUrl || ""
+            }
+          : null;
+
+      const normalizedRows = (Array.isArray(cohostRows) ? cohostRows : []).map((rowItem) => {
+        const hostId = String(rowItem?.host_id || "").trim();
+        return {
+          ...rowItem,
+          host_id: hostId,
+          role: String(rowItem?.role || "editor").trim() || "editor",
+          isOwnerRow: false,
+          displayName: resolveName(hostId),
+          avatarUrl: profileInfoById[hostId]?.avatarUrl || ""
+        };
+      });
+
+      setCohosts(ownerRow ? [ownerRow, ...normalizedRows] : normalizedRows);
+    } catch (error) {
+      console.error("[event-team] load cohosts error", error);
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_load_error"));
+      setCohosts([]);
+    } finally {
+      setIsLoadingCohosts(false);
+    }
+  }, [
+    hostDisplayName,
+    interpolateText,
+    selectedEventDetail?.created_at,
+    selectedEventDetail?.host_name,
+    selectedEventDetail?.id,
+    selectedEventOwnerId,
+    sessionUserId,
+    t
+  ]);
+
+  useEffect(() => {
+    setIsTeamModalOpen(false);
+    setCohostEmailDraft("");
+    setCohostFeedback("");
+    setCohostFeedbackType("info");
+    setCohosts([]);
+  }, [selectedEventDetail?.id]);
+
+  useEffect(() => {
+    if (!isTeamModalOpen) {
+      return;
+    }
+    void loadEventCohosts();
+  }, [isTeamModalOpen, loadEventCohosts]);
+
+  const handleOpenEventTeamModal = () => {
+    setCohostFeedback("");
+    setCohostFeedbackType("info");
+    setIsTeamModalOpen(true);
+  };
+
+  const handleCloseEventTeamModal = () => {
+    if (isAddingCohost || removingCohostId) {
+      return;
+    }
+    setIsTeamModalOpen(false);
+  };
+
+  const handleAddCohostByEmail = async () => {
+    if (!isEventOwner) {
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_owner_only_hint"));
+      return;
+    }
+    const normalizedEmail = String(cohostEmailDraft || "").trim().toLowerCase();
+    if (!normalizedEmail) {
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_email_required"));
+      return;
+    }
+    if (!supabase || !selectedEventDetail?.id) {
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_generic_error"));
+      return;
+    }
+    setIsAddingCohost(true);
+    setCohostFeedback("");
+    setCohostFeedbackType("info");
+    try {
+      const { data: foundUserId, error: lookupError } = await supabase.rpc("get_user_id_by_email", {
+        p_email: normalizedEmail
+      });
+      if (lookupError) {
+        throw lookupError;
+      }
+      const normalizedUserId = String(foundUserId || "").trim();
+      if (!normalizedUserId) {
+        setCohostFeedbackType("error");
+        setCohostFeedback(t("event_team_user_not_found"));
+        return;
+      }
+      if (normalizedUserId === selectedEventOwnerId) {
+        setCohostFeedbackType("error");
+        setCohostFeedback(t("event_team_owner_cannot_add"));
+        return;
+      }
+      const { error: insertError } = await supabase.from("event_cohosts").insert({
+        event_id: selectedEventDetail.id,
+        host_id: normalizedUserId,
+        role: "editor"
+      });
+      if (insertError) {
+        if (String(insertError?.code || "") === "23505") {
+          setCohostFeedbackType("error");
+          setCohostFeedback(t("event_team_duplicate"));
+          return;
+        }
+        throw insertError;
+      }
+      setCohostFeedbackType("success");
+      setCohostFeedback(t("event_team_add_success"));
+      setCohostEmailDraft("");
+      await loadEventCohosts();
+    } catch (error) {
+      console.error("[event-team] add cohost error", error);
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_add_error"));
+    } finally {
+      setIsAddingCohost(false);
+    }
+  };
+
+  const handleRemoveCohost = async (cohostRow) => {
+    const cohostRowId = String(cohostRow?.id || "").trim();
+    if (!cohostRowId || !supabase || !selectedEventDetail?.id || !isEventOwner) {
+      return;
+    }
+    setRemovingCohostId(cohostRowId);
+    setCohostFeedback("");
+    setCohostFeedbackType("info");
+    try {
+      const { error: deleteError } = await supabase
+        .from("event_cohosts")
+        .delete()
+        .eq("id", cohostRowId)
+        .eq("event_id", selectedEventDetail.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+      setCohostFeedbackType("success");
+      setCohostFeedback(t("event_team_remove_success"));
+      await loadEventCohosts();
+    } catch (error) {
+      console.error("[event-team] remove cohost error", error);
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_remove_error"));
+    } finally {
+      setRemovingCohostId("");
+    }
+  };
+
   const handleShareInvitationImage = async () => {
     if (!selectedEventDetail) {
       return;
@@ -482,8 +774,8 @@ export function EventDetailView({
       const shareTitle = interpolateText(t("event_share_card_share_title"), {
         event: selectedEventDetail?.title || t("field_event")
       });
-      const shareLocationAddress = String(selectedEventDetail?.location_address || "").trim();
-      const shareLocationName = String(eventPlaceLabel || "").trim();
+      const shareLocationAddress = String(eventPlaceAddress || "").trim();
+      const shareLocationName = String(eventPlaceName || eventPlaceLabel || "").trim();
       const shareLocation = shareLocationAddress && shareLocationName && shareLocationAddress !== shareLocationName
         ? `${shareLocationName} (${shareLocationAddress})`
         : shareLocationName || shareLocationAddress;
@@ -755,6 +1047,14 @@ export function EventDetailView({
                 <Icon name="camera" className="w-4 h-4" />
                 {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
               </button>
+              <button
+                className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center"
+                type="button"
+                onClick={handleOpenEventTeamModal}
+              >
+                <Icon name="users" className="w-4 h-4" />
+                {t("event_team_action")}
+              </button>
 
               <div className="relative group">
                 <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center" aria-label={t("open_menu")} title={t("open_menu")}>
@@ -844,16 +1144,16 @@ export function EventDetailView({
                       <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("date")}</span>
                       <strong className="text-gray-900 dark:text-white">{eventDateDisplay.fullLabel}</strong>
                     </p>
-                    {selectedEventDetail.location_name ? (
+                    {eventPlaceName ? (
                       <p className="text-xs flex flex-col gap-1">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_place")}</span>
-                        <strong className="text-gray-900 dark:text-white">{selectedEventDetail.location_name}</strong>
+                        <strong className="text-gray-900 dark:text-white">{eventPlaceName}</strong>
                       </p>
                     ) : null}
-                    {selectedEventDetail.location_address ? (
+                    {eventPlaceAddress ? (
                       <p className="text-xs flex flex-col gap-1 sm:col-span-2">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_address")}</span>
-                        <span className="text-gray-900 dark:text-white">{selectedEventDetail.location_address}</span>
+                        <span className="text-gray-900 dark:text-white">{eventPlaceAddress}</span>
                       </p>
                     ) : null}
                     {selectedEventDetail.description ? (
@@ -1581,7 +1881,7 @@ export function EventDetailView({
               eventName={selectedEventDetail.title || t("field_event")}
               eventDate={eventTimeLabel ? `${eventDateLabel} · ${eventTimeLabel}` : eventDateLabel}
               eventLocation={eventPlaceLabel}
-              eventLocationAddress={selectedEventDetail.location_address || ""}
+              eventLocationAddress={eventPlaceAddress || ""}
               hostName={shareCardHostName}
               hostAvatarUrl={hostAvatarUrl}
               appName={t("app_name")}
@@ -1595,8 +1895,147 @@ export function EventDetailView({
         </div>
       ) : null}
 
-      {selectedEventDetail && isIcebreakerOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
+      {selectedEventDetail && isTeamModalOpen
+        ? renderGlobalModal(
+            <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
+          <div className="w-full max-w-2xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[88vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700/30">
+                  <Icon name="users" className="w-4.5 h-4.5" />
+                </span>
+                <div className="flex flex-col">
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white">{t("event_team_modal_title")}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_team_modal_hint")}</p>
+                </div>
+              </div>
+              <button
+                className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                type="button"
+                onClick={handleCloseEventTeamModal}
+                disabled={isAddingCohost || Boolean(removingCohostId)}
+                aria-label={t("close_modal")}
+                title={t("close_modal")}
+              >
+                <Icon name="close" className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isEventOwner ? (
+              <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {t("event_team_email_label")}
+                  </span>
+                  <input
+                    type="email"
+                    value={cohostEmailDraft}
+                    onChange={(event) => setCohostEmailDraft(event.target.value)}
+                    placeholder={t("event_team_email_placeholder")}
+                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-gray-800/90 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+                  />
+                </label>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={handleAddCohostByEmail}
+                  disabled={isAddingCohost}
+                >
+                  {isAddingCohost ? t("event_team_adding") : t("event_team_add_action")}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs rounded-xl border border-amber-300/50 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-3 py-2">
+                {t("event_team_owner_only_hint")}
+              </p>
+            )}
+
+            {cohostFeedback ? (
+              <p
+                className={`text-xs rounded-xl px-3 py-2 border ${
+                  cohostFeedbackType === "error"
+                    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40"
+                    : cohostFeedbackType === "success"
+                    ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40"
+                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40"
+                }`}
+              >
+                {cohostFeedback}
+              </p>
+            ) : null}
+
+            <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 overflow-hidden">
+              <div className="px-4 py-3 border-b border-black/5 dark:border-white/10 flex items-center justify-between gap-3">
+                <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_team_list_title")}</p>
+                {isLoadingCohosts ? (
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">{t("event_team_loading_short")}</span>
+                ) : (
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                    {interpolateText(t("event_team_list_count"), { count: cohosts.length })}
+                  </span>
+                )}
+              </div>
+              {isLoadingCohosts ? (
+                <p className="px-4 py-4 text-xs text-gray-500 dark:text-gray-400">{t("event_team_loading")}</p>
+              ) : cohosts.length === 0 ? (
+                <p className="px-4 py-4 text-xs text-gray-500 dark:text-gray-400">{t("event_team_empty")}</p>
+              ) : (
+                <ul className="divide-y divide-black/5 dark:divide-white/10">
+                  {cohosts.map((cohostItem) => {
+                    const cohostId = String(cohostItem?.host_id || "").trim();
+                    const isOwnerRow = Boolean(cohostItem?.isOwnerRow);
+                    const canRemove = isEventOwner && !isOwnerRow;
+                    return (
+                      <li key={String(cohostItem?.id || cohostId)} className="px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex items-center gap-3">
+                          <AvatarCircle
+                            label={cohostItem?.displayName || cohostId || t("event_team_member_unknown")}
+                            fallback={getInitials(cohostItem?.displayName || cohostId || "")}
+                            imageUrl={String(cohostItem?.avatarUrl || "").trim()}
+                            size={36}
+                            className="text-[11px] font-black"
+                          />
+                          <div className="min-w-0 flex flex-col">
+                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                              {cohostItem?.displayName || t("event_team_member_unknown")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span
+                            className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                              isOwnerRow
+                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-700/50"
+                                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/80 dark:border-blue-700/50"
+                            }`}
+                          >
+                            {isOwnerRow ? t("event_team_role_owner") : t("event_team_role_editor")}
+                          </span>
+                          {canRemove ? (
+                            <button
+                              type="button"
+                              className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800/40 dark:text-red-300 dark:hover:bg-red-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                              onClick={() => handleRemoveCohost(cohostItem)}
+                              disabled={removingCohostId === String(cohostItem?.id || "")}
+                            >
+                              {removingCohostId === String(cohostItem?.id || "") ? t("deleting") : t("event_team_remove_action")}
+                            </button>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+            </div>
+          )
+        : null}
+
+      {selectedEventDetail && isIcebreakerOpen
+        ? renderGlobalModal(
+            <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
           <div className="w-full max-w-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -1680,8 +2119,9 @@ export function EventDetailView({
               </div>
             ) : null}
           </div>
-        </div>
-      ) : null}
+            </div>
+          )
+        : null}
     </section>
   );
 }

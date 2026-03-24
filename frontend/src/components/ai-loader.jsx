@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./icons";
 
 export function AILoader({ t, isVisible }) {
@@ -30,7 +31,7 @@ export function AILoader({ t, isVisible }) {
 
   const activeStep = steps[stepIndex] || "";
 
-  return (
+  const loaderOverlay = (
     <div
       className="fixed inset-0 z-[10050] flex items-center justify-center p-6 bg-black/45 dark:bg-black/60 backdrop-blur-md"
       role="status"
@@ -59,4 +60,10 @@ export function AILoader({ t, isVisible }) {
       </section>
     </div>
   );
+
+  if (typeof document === "undefined" || !document.body) {
+    return loaderOverlay;
+  }
+
+  return createPortal(loaderOverlay, document.body);
 }
