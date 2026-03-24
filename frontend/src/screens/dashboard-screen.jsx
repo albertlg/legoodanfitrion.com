@@ -497,6 +497,7 @@ function DashboardScreen({
   const isMobileImportExperience = isCompactViewport;
   const [hostProfileName, setHostProfileName] = useState("");
   const [hostProfilePhone, setHostProfilePhone] = useState("");
+  const [hostProfileBizumAlias, setHostProfileBizumAlias] = useState("");
   const [hostProfileCity, setHostProfileCity] = useState("");
   const [hostProfileCountry, setHostProfileCountry] = useState("");
   const [hostProfileRelationship, setHostProfileRelationship] = useState("");
@@ -524,6 +525,10 @@ function DashboardScreen({
   const [isIntegrationPanelOpen, setIsIntegrationPanelOpen] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [, setEventSettingsCacheById] = useState({});
+
+  useEffect(() => {
+    setHostProfileBizumAlias(String(session?.user?.user_metadata?.bizum_alias || "").trim());
+  }, [session?.user?.user_metadata?.bizum_alias]);
 
   const [dashboardError, setDashboardError] = useState("");
   const [events, setEvents] = useState([]);
@@ -1341,7 +1346,7 @@ function DashboardScreen({
           interpolate: interpolateText
         }).fullLabel
       })),
-    [events, language, t, interpolateText]
+    [events, language, t]
   );
   const latestGuestPreview = useMemo(
     () =>
@@ -1415,7 +1420,7 @@ function DashboardScreen({
           guests: invitationSummary?.total || 0
         };
       });
-  }, [events, eventInvitationSummaryByEventId, language, t, interpolateText]);
+  }, [events, eventInvitationSummaryByEventId, language, t]);
   const dashboardChecklistEvent = useMemo(() => {
     const upcomingEventId = String(upcomingEventsPreview?.[0]?.id || "").trim();
     if (upcomingEventId && eventsById[upcomingEventId]) {
@@ -5339,6 +5344,7 @@ function DashboardScreen({
       selectedEventPlannerSnapshotVersion,
       session?.user?.id,
       t,
+      setEventPlannerMessage,
       setEventPlannerSnapshotsByEventId,
       setEventPlannerSnapshotHistoryByEventId
     ]
@@ -5490,6 +5496,7 @@ function DashboardScreen({
       eventPlannerSnapshotHistoryByEventId,
       selectedEventDetail?.id,
       t,
+      setEventPlannerMessage,
       setEventPlannerSnapshotsByEventId,
       setEventPlannerRegenerationByEventId,
       setEventPlannerRegenerationByEventIdByTab,
@@ -5942,7 +5949,7 @@ function DashboardScreen({
 
       return null;
     },
-    [session?.user?.id, supabase, timezone]
+    [session?.user?.id, timezone]
   );
 
   const handleStartEditEvent = (eventItem) => {
@@ -7049,8 +7056,10 @@ function DashboardScreen({
     language,
     sessionUserId: session?.user?.id,
     sessionUserEmail: session?.user?.email,
+    sessionUserMetadata: session?.user?.user_metadata || {},
     hostProfileName,
     hostProfilePhone,
+    hostProfileBizumAlias,
     hostProfileRelationship,
     hostProfileCity,
     hostProfileCountry,
@@ -8618,6 +8627,8 @@ function DashboardScreen({
             setHostProfileName={setHostProfileName}
             hostProfilePhone={hostProfilePhone}
             setHostProfilePhone={setHostProfilePhone}
+            hostProfileBizumAlias={hostProfileBizumAlias}
+            setHostProfileBizumAlias={setHostProfileBizumAlias}
             hostProfileCity={hostProfileCity}
             setHostProfileCity={setHostProfileCity}
             hostProfileCountry={hostProfileCountry}
@@ -8662,6 +8673,15 @@ function DashboardScreen({
             isEditingGuest={isEditingGuest}
             guestMessage={guestMessage}
             openGuestDetail={openGuestDetail}
+            themeMode={themeMode}
+            setThemeMode={setThemeMode}
+            setLanguage={setLanguage}
+            eventPageSize={eventPageSize}
+            guestPageSize={guestPageSize}
+            invitationPageSize={invitationPageSize}
+            setEventPageSize={setEventPageSize}
+            setGuestPageSize={setGuestPageSize}
+            setInvitationPageSize={setInvitationPageSize}
             openWorkspace={openWorkspace}
           />
         </Suspense>

@@ -310,7 +310,7 @@ function WaitlistTable({ users, fmtDate }) {
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────
-export function AdminDashboardScreen({ session, t, onNavigate }) {
+export function AdminDashboardScreen({ session, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

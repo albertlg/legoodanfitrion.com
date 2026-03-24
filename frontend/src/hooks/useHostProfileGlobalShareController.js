@@ -10,8 +10,10 @@ export function useHostProfileGlobalShareController({
   language,
   sessionUserId,
   sessionUserEmail,
+  sessionUserMetadata,
   hostProfileName,
   hostProfilePhone,
+  hostProfileBizumAlias,
   hostProfileRelationship,
   hostProfileCity,
   hostProfileCountry,
@@ -62,6 +64,15 @@ export function useHostProfileGlobalShareController({
       return;
     }
 
+    const normalizedBizumAlias = String(hostProfileBizumAlias || "").trim();
+    const metadataPayload = {
+      ...(sessionUserMetadata && typeof sessionUserMetadata === "object" ? sessionUserMetadata : {}),
+      bizum_alias: normalizedBizumAlias || null
+    };
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: metadataPayload
+    });
+
     const { firstName, lastName } = splitFullName(normalizedFullName);
     const guestPayload = {
       host_user_id: sessionUserId,
@@ -106,7 +117,13 @@ export function useHostProfileGlobalShareController({
 
     setIsSavingHostProfile(false);
     if (guestResult.error) {
-      setHostProfileMessage(`${t("host_profile_saved_guest_sync_warning")} ${guestResult.error.message}`);
+      const metadataWarning = metadataError ? ` ${t("host_profile_bizum_save_warning")} ${metadataError.message}` : "";
+      setHostProfileMessage(`${t("host_profile_saved_guest_sync_warning")} ${guestResult.error.message}${metadataWarning}`);
+      await loadDashboardData();
+      return;
+    }
+    if (metadataError) {
+      setHostProfileMessage(`${t("host_profile_bizum_save_warning")} ${metadataError.message}`);
       await loadDashboardData();
       return;
     }

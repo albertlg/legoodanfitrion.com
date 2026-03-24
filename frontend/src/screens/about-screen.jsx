@@ -196,7 +196,7 @@ export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t,
                     <section className="flex flex-col gap-6">
                         <h2 className="text-2xl md:text-3xl font-black">{t("about_timeline_title")}</h2>
                         <div className="relative flex flex-col gap-0 pl-6 border-l-2 border-blue-200 dark:border-blue-800/40">
-                            {TIMELINE_KEYS.map((key, i) => (
+                            {TIMELINE_KEYS.map((key) => (
                                 <div key={key} className="relative pb-6 last:pb-0">
                                     <div className="absolute -left-[25px] top-1 w-3 h-3 rounded-full bg-blue-500 dark:bg-blue-400 border-2 border-white dark:border-gray-900"></div>
                                     <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{t(key)}</p>

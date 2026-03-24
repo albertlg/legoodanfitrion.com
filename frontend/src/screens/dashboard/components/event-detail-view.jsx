@@ -224,7 +224,6 @@ export function EventDetailView({
   t,
   statusClass,
   statusText,
-  formatLongDate,
   language,
   formatTimeLabel,
   handleOpenEventPlan,

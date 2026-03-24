@@ -74,7 +74,9 @@ export function extractLanguageFromPath(pathname) {
         if (stored && SUPPORTED_LANGUAGES.has(stored)) {
             inferredLang = stored;
         }
-    } catch (e) { }
+    } catch {
+        void 0;
+    }
 
     // 3. ¿Es un click en un enlace interno puro de tu menú? (ej: <Link to="/pricing"> o "/")
     const isInternalRawSlug = ["features", "pricing", "contact", "blog", "about", "privacy", "terms"].includes(firstSegment);

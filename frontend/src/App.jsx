@@ -4,7 +4,7 @@ import { Controls } from "./components/controls";
 import es from "./i18n/es.json";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
-import { useAppRouter, getCanonicalPathForRoute, normalizePathname } from "./router-utils";
+import { useAppRouter, getCanonicalPathForRoute } from "./router-utils";
 import { LegalScreen } from "./screens/legal-screen";
 
 const DEFAULT_LANGUAGE = "es";
@@ -179,7 +179,7 @@ function App() {
           [language]: localeData
         }));
       })
-      .catch(() => { });
+      .catch(() => undefined);
     return () => {
       isCancelled = true;
     };
@@ -253,7 +253,9 @@ function App() {
               sessionStorage.removeItem("lga_temp_name");
             }
           }
-        } catch (_ignored) { /* parse error — skip */ }
+        } catch {
+          void 0;
+        }
       }
     });
 
@@ -405,7 +407,9 @@ function App() {
           signupMetadata.rsvp_dietary_needs = parsed;
         }
       }
-    } catch (_ignored) { /* sessionStorage parse error — skip silently */ }
+    } catch {
+      void 0;
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password: loginPassword,
@@ -420,7 +424,9 @@ function App() {
     try {
       sessionStorage.removeItem("lga_temp_diet");
       sessionStorage.removeItem("lga_temp_name");
-    } catch (_ignored) {}
+    } catch {
+      void 0;
+    }
     setAccountMessage(t("account_created"));
   };
 

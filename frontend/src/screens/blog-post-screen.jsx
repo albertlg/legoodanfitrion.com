@@ -25,7 +25,7 @@ const portableTextComponents = {
     },
 };
 
-export function BlogPostScreen({ slug, language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
+export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onNavigate, session }) {
     const [post, setPost] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
