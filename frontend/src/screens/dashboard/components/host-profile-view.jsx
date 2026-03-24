@@ -235,6 +235,7 @@ export function HostProfileView({
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isDangerModalOpen, setIsDangerModalOpen] = useState(false);
   const [dangerMessage, setDangerMessage] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const hostDisplayName = String(hostProfileName || "").trim() || t("host_default_name");
 
@@ -352,9 +353,27 @@ export function HostProfileView({
     setAccountMessage(t("profile_account_password_updated"));
   };
 
-  const handleDangerAction = () => {
+  const handleDangerAction = async () => {
+    if (!supabase || !session?.user?.id || isDeletingAccount) {
+      return;
+    }
+    setDangerMessage("");
+    setIsDeletingAccount(true);
+
+    const deleteResult = await supabase.rpc("delete_user_account");
+    if (deleteResult?.error) {
+      setIsDeletingAccount(false);
+      setDangerMessage(`${t("profile_account_delete_error")} ${deleteResult.error.message}`);
+      return;
+    }
+
+    const signOutResult = await supabase.auth.signOut();
+    setIsDeletingAccount(false);
     setIsDangerModalOpen(false);
-    setDangerMessage(t("profile_account_delete_placeholder"));
+    if (signOutResult?.error) {
+      setDangerMessage(`${t("profile_account_delete_signout_error")} ${signOutResult.error.message}`);
+    }
+    window.location.assign("/");
   };
 
   return (
@@ -1326,15 +1345,17 @@ export function HostProfileView({
                 type="button"
                 className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
                 onClick={() => setIsDangerModalOpen(false)}
+                disabled={isDeletingAccount}
               >
                 {t("profile_account_delete_modal_cancel")}
               </button>
               <button
                 type="button"
-                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700"
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={handleDangerAction}
+                disabled={isDeletingAccount}
               >
-                {t("profile_account_delete_modal_confirm")}
+                {isDeletingAccount ? t("profile_account_delete_processing") : t("profile_account_delete_modal_confirm")}
               </button>
             </div>
           </div>
