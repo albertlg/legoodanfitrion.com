@@ -3,7 +3,13 @@
     "allow": [
       "Bash(npx vite:*)",
       "Bash(node -e \":*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\(''es.json''\\)\\); print\\(f''ES valid ✓ Keys: {len\\(d\\)}''\\)\")",
+      "Bash(for f:*)",
+      "Bash(do python3:*)",
+      "Bash(done)",
+      "Bash(grep -c '\"\"Confirmados\"\"' es.json)",
+      "Bash(python3 -c \":*)"
     ]
   }
 }
