@@ -6,6 +6,8 @@ export function EventsListView({
   t,
   eventSearch,
   setEventSearch,
+  eventDateFilter,
+  setEventDateFilter,
   eventSort,
   setEventSort,
   eventPageSize,
@@ -69,6 +71,38 @@ export function EventsListView({
 
       {/* 🚀 4. EL CONTENIDO REAL (Tu tabla): Lo ponemos en z-10 para que flote sobre el cristal */}
       <div className="relative z-10 flex flex-col w-full">
+
+        {/* 0. TABS: Próximos / Pasados */}
+        <div className="px-5 pt-5 pb-4 border-b border-black/5 dark:border-white/10 bg-white/25 dark:bg-black/15 backdrop-blur-md">
+          <div
+            className="inline-flex items-center gap-1 rounded-2xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 p-1"
+            role="tablist"
+            aria-label={t("events_tab_filter_label")}
+          >
+            {[
+              { key: "upcoming", label: t("events_tab_upcoming") },
+              { key: "past", label: t("events_tab_past") }
+            ].map((tabItem) => {
+              const isActive = eventDateFilter === tabItem.key;
+              return (
+                <button
+                  key={tabItem.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`rounded-xl px-4 py-2 text-sm font-bold transition-all duration-200 ease-out ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                  onClick={() => setEventDateFilter(tabItem.key)}
+                >
+                  {tabItem.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* 1. TOOLBAR: Buscador y Ordenación */}
         <div className="flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10 backdrop-blur-md">

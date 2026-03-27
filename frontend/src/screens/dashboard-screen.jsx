@@ -559,6 +559,7 @@ function DashboardScreen({
   const [bulkInvitationSegment, setBulkInvitationSegment] = useState("all");
   const [isCreatingBulkInvitations, setIsCreatingBulkInvitations] = useState(false);
   const [eventSearch, setEventSearch] = useState("");
+  const [eventDateFilter, setEventDateFilter] = useState("upcoming");
   const [eventStatusFilter, setEventStatusFilter] = useState("all");
   const [eventSort, setEventSort] = useState("created_desc");
   const [eventPage, setEventPage] = useState(1);
@@ -3556,25 +3557,38 @@ function DashboardScreen({
       return haystack.includes(term);
     });
   }, [events, eventSearch, language]);
+  const dateScopedEvents = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayMs = startOfToday.getTime();
+    return searchedEvents.filter((eventItem) => {
+      const startAt = eventItem.start_at ? new Date(eventItem.start_at).getTime() : NaN;
+      if (eventDateFilter === "past") {
+        return Number.isFinite(startAt) && startAt < todayMs;
+      }
+      // Upcoming also includes TBD/doodle events without fixed date yet.
+      return !Number.isFinite(startAt) || startAt >= todayMs;
+    });
+  }, [searchedEvents, eventDateFilter]);
   const eventStatusCounts = useMemo(() => {
     const counts = {
-      all: searchedEvents.length,
+      all: dateScopedEvents.length,
       published: 0,
       draft: 0,
       completed: 0,
       cancelled: 0
     };
-    for (const eventItem of searchedEvents) {
+    for (const eventItem of dateScopedEvents) {
       const statusKey = String(eventItem.status || "").trim().toLowerCase();
       if (Object.prototype.hasOwnProperty.call(counts, statusKey)) {
         counts[statusKey] += 1;
       }
     }
     return counts;
-  }, [searchedEvents]);
+  }, [dateScopedEvents]);
 
   const filteredEvents = useMemo(() => {
-    const list = searchedEvents.filter((eventItem) => {
+    const list = dateScopedEvents.filter((eventItem) => {
       if (eventStatusFilter !== "all" && eventItem.status !== eventStatusFilter) {
         return false;
       }
@@ -3601,7 +3615,7 @@ function DashboardScreen({
       return bCreated - aCreated;
     });
     return list;
-  }, [searchedEvents, eventStatusFilter, eventSort, language]);
+  }, [dateScopedEvents, eventStatusFilter, eventSort, language]);
 
   const filteredGuests = useMemo(() => {
     const term = guestSearch.trim().toLowerCase();
@@ -4018,7 +4032,7 @@ function DashboardScreen({
 
   useEffect(() => {
     setEventPage(1);
-  }, [eventSearch, eventStatusFilter, eventSort, eventPageSize]);
+  }, [eventSearch, eventDateFilter, eventStatusFilter, eventSort, eventPageSize]);
 
   useEffect(() => {
     setGuestPage(1);
@@ -4270,6 +4284,14 @@ function DashboardScreen({
       if (typeof parsed?.eventSearch === "string") {
         setEventSearch(parsed.eventSearch);
       }
+      const urlEventTab = String(new URLSearchParams(window.location.search || "").get("eventTab") || "")
+        .trim()
+        .toLowerCase();
+      if (["upcoming", "past"].includes(urlEventTab)) {
+        setEventDateFilter(urlEventTab);
+      } else if (typeof parsed?.eventDateFilter === "string" && ["upcoming", "past"].includes(parsed.eventDateFilter)) {
+        setEventDateFilter(parsed.eventDateFilter);
+      }
       if (typeof parsed?.eventStatusFilter === "string") {
         setEventStatusFilter(parsed.eventStatusFilter);
       }
@@ -4314,6 +4336,21 @@ function DashboardScreen({
     }
     setPrefsReady(true);
   }, [prefsStorageKey]);
+
+  useEffect(() => {
+    if (routeActiveView !== "events" || routeEventsWorkspace !== "latest") {
+      return;
+    }
+    const searchParams = new URLSearchParams(window.location.search || "");
+    if (eventDateFilter === "upcoming") {
+      searchParams.delete("eventTab");
+    } else {
+      searchParams.set("eventTab", eventDateFilter);
+    }
+    const nextSearch = searchParams.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash || ""}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }, [eventDateFilter, routeActiveView, routeEventsWorkspace]);
 
   // 1. INICIALIZACIÓN (Ya no necesitamos instanciar AutocompleteService)
   useEffect(() => {
@@ -8875,6 +8912,8 @@ function DashboardScreen({
               eventMessage,
               eventSearch,
               setEventSearch,
+              eventDateFilter,
+              setEventDateFilter,
               eventSort,
               setEventSort,
               eventPageSize,
