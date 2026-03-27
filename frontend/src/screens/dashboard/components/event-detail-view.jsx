@@ -8,6 +8,7 @@ import { HostPlanView } from "./host-plan-view";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
 import { supabase } from "../../../lib/supabaseClient";
+import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/calendar-utils";
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -349,7 +350,11 @@ export function EventDetailView({
   selectedEventRsvpTimeline
 }) {
   const shareCardRef = useRef(null);
+  const calendarMenuRef = useRef(null);
+  const adminMenuRef = useRef(null);
   const [isSharingInvitationImage, setIsSharingInvitationImage] = useState(false);
+  const [isCalendarMenuOpen, setIsCalendarMenuOpen] = useState(false);
+  const [isEventAdminMenuOpen, setIsEventAdminMenuOpen] = useState(false);
   const [shareCardMessage, setShareCardMessage] = useState("");
   const [splitExpenses, setSplitExpenses] = useState([]);
   const [splitExpenseDescription, setSplitExpenseDescription] = useState("");
@@ -393,6 +398,11 @@ export function EventDetailView({
   const eventPlaceName = normalizeLocationText(selectedEventDetail?.location_name);
   const eventPlaceAddress = normalizeLocationText(selectedEventDetail?.location_address);
   const eventPlaceLabel = eventPlaceName || eventPlaceAddress || "-";
+  const canAddToCalendar =
+    Boolean(selectedEventDetail?.start_at) &&
+    String(selectedEventDetail?.poll_status || "")
+      .trim()
+      .toLowerCase() !== "open";
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
@@ -496,6 +506,42 @@ export function EventDetailView({
       setSplitExpensePaidBy(splitDefaultPayer);
     }
   }, [splitExpensePaidBy, splitDefaultPayer]);
+
+  useEffect(() => {
+    setIsCalendarMenuOpen(false);
+    setIsEventAdminMenuOpen(false);
+  }, [selectedEventDetail?.id]);
+
+  useEffect(() => {
+    if (!isCalendarMenuOpen) {
+      return undefined;
+    }
+
+    const handlePointerDownOutside = (event) => {
+      if (calendarMenuRef.current && !calendarMenuRef.current.contains(event.target)) {
+        setIsCalendarMenuOpen(false);
+      }
+      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target)) {
+        setIsEventAdminMenuOpen(false);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setIsCalendarMenuOpen(false);
+        setIsEventAdminMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDownOutside);
+    document.addEventListener("touchstart", handlePointerDownOutside, { passive: true });
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDownOutside);
+      document.removeEventListener("touchstart", handlePointerDownOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isCalendarMenuOpen, isEventAdminMenuOpen]);
 
   const loadEventCohosts = useCallback(async () => {
     if (!supabase || !selectedEventDetail?.id) {
@@ -781,6 +827,39 @@ export function EventDetailView({
     }
   };
 
+  const handleOpenGoogleCalendar = () => {
+    if (!selectedEventDetail) {
+      return;
+    }
+    const googleCalendarUrl = createGoogleCalendarUrl(selectedEventDetail, {
+      fallbackDurationHours: 3,
+      sourceUrl: selectedEventDetailPrimaryShare?.url
+    });
+    if (!googleCalendarUrl) {
+      setShareCardMessage(t("event_calendar_unavailable"));
+      return;
+    }
+    window.open(googleCalendarUrl, "_blank", "noopener,noreferrer");
+    setIsCalendarMenuOpen(false);
+    setShareCardMessage("");
+  };
+
+  const handleDownloadIcsCalendar = () => {
+    if (!selectedEventDetail) {
+      return;
+    }
+    const didDownload = downloadEventAsIcs(selectedEventDetail, {
+      fallbackDurationHours: 3,
+      sourceUrl: selectedEventDetailPrimaryShare?.url
+    });
+    if (!didDownload) {
+      setShareCardMessage(t("event_calendar_unavailable"));
+      return;
+    }
+    setIsCalendarMenuOpen(false);
+    setShareCardMessage(t("event_calendar_downloaded_ok"));
+  };
+
   const handleShareInvitationImage = async () => {
     if (!selectedEventDetail) {
       return;
@@ -1040,6 +1119,203 @@ export function EventDetailView({
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   };
 
+  const renderEventHeaderActions = ({ inHero = false } = {}) => {
+    if (!selectedEventDetail) {
+      return null;
+    }
+
+    const secondaryButtonClass = inHero
+      ? "bg-white/85 hover:bg-white text-gray-900 border border-black/10 backdrop-blur-md dark:bg-black/35 dark:hover:bg-black/45 dark:text-white dark:border-white/30"
+      : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10";
+    const menuTriggerClass = inHero
+      ? "bg-white/85 hover:bg-white text-gray-900 border border-black/10 backdrop-blur-md dark:bg-black/35 dark:hover:bg-black/45 dark:text-white dark:border-white/30"
+      : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10";
+    const dropdownPanelClass =
+      "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
+    const dropdownItemClass =
+      "flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
+
+    return (
+      <div className="relative z-20 mt-3 w-full min-w-0">
+        <div className="sm:hidden flex flex-col gap-2">
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full min-h-11"
+            type="button"
+            onClick={handleShareInvitationImage}
+            disabled={isSharingInvitationImage}
+          >
+            <Icon name="camera" className="w-4 h-4" />
+            {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
+          </button>
+
+          <div className="flex w-full items-center gap-2">
+            {canAddToCalendar ? (
+              <div className="relative flex-1 min-w-0" ref={calendarMenuRef}>
+                <button
+                  className={`${secondaryButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full min-h-11`}
+                  type="button"
+                  onClick={() => {
+                    setIsCalendarMenuOpen((currentValue) => !currentValue);
+                    setIsEventAdminMenuOpen(false);
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={isCalendarMenuOpen}
+                  aria-label={t("event_calendar_action")}
+                >
+                  <Icon name="calendar" className="w-4 h-4" />
+                  <span className="truncate">{t("event_calendar_action")}</span>
+                  <Icon name={isCalendarMenuOpen ? "chevron_up" : "chevron_down"} className="w-3.5 h-3.5" />
+                </button>
+                {isCalendarMenuOpen ? (
+                  <div className={dropdownPanelClass}>
+                    <button className={dropdownItemClass} type="button" onClick={handleOpenGoogleCalendar}>
+                      <Icon name="calendar" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      {t("event_calendar_google")}
+                    </button>
+                    <button className={dropdownItemClass} type="button" onClick={handleDownloadIcsCalendar}>
+                      <Icon name="download" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                      {t("event_calendar_ics")}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className={`relative ${canAddToCalendar ? "w-11" : "flex-1"}`} ref={adminMenuRef}>
+              <button
+                className={`${menuTriggerClass} font-bold rounded-xl transition-all shadow-sm flex items-center justify-center min-h-11 h-11 w-full`}
+                aria-label={t("open_menu")}
+                title={t("open_menu")}
+                aria-haspopup="menu"
+                aria-expanded={isEventAdminMenuOpen}
+                type="button"
+                onClick={() => {
+                  setIsEventAdminMenuOpen((currentValue) => !currentValue);
+                  setIsCalendarMenuOpen(false);
+                }}
+              >
+                <Icon name="more_horizontal" className="w-4 h-4" />
+              </button>
+              {isEventAdminMenuOpen ? (
+                <div className={dropdownPanelClass}>
+                  <button
+                    className={dropdownItemClass}
+                    type="button"
+                    onClick={() => {
+                      setIsEventAdminMenuOpen(false);
+                      handleStartEditEvent(selectedEventDetail);
+                    }}
+                  >
+                    <Icon name="edit" className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{t("event_detail_edit_action")}</span>
+                  </button>
+                  <button
+                    className={dropdownItemClass}
+                    type="button"
+                    onClick={() => {
+                      setIsEventAdminMenuOpen(false);
+                      handleOpenEventTeamModal();
+                    }}
+                  >
+                    <Icon name="users" className="w-3.5 h-3.5 text-purple-500" />
+                    <span>{t("event_team_action")}</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden sm:flex sm:flex-row sm:flex-wrap sm:items-center gap-2 min-w-0">
+          <button
+            className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto"
+            type="button"
+            onClick={handleShareInvitationImage}
+            disabled={isSharingInvitationImage}
+          >
+            <Icon name="camera" className="w-4 h-4" />
+            {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
+          </button>
+
+          {canAddToCalendar ? (
+            <div className="relative w-full sm:w-auto" ref={calendarMenuRef}>
+              <button
+                className={`${secondaryButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto min-h-11`}
+                type="button"
+                onClick={() => {
+                  setIsCalendarMenuOpen((currentValue) => !currentValue);
+                  setIsEventAdminMenuOpen(false);
+                }}
+                aria-haspopup="menu"
+                aria-expanded={isCalendarMenuOpen}
+                aria-label={t("event_calendar_action")}
+              >
+                <Icon name="calendar" className="w-4 h-4" />
+                <span>{t("event_calendar_action")}</span>
+                <Icon name={isCalendarMenuOpen ? "chevron_up" : "chevron_down"} className="w-3.5 h-3.5" />
+              </button>
+              {isCalendarMenuOpen ? (
+                <div className={dropdownPanelClass}>
+                  <button className={dropdownItemClass} type="button" onClick={handleOpenGoogleCalendar}>
+                    <Icon name="calendar" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    {t("event_calendar_google")}
+                  </button>
+                  <button className={dropdownItemClass} type="button" onClick={handleDownloadIcsCalendar}>
+                    <Icon name="download" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                    {t("event_calendar_ics")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="relative w-full sm:w-auto sm:ml-auto" ref={adminMenuRef}>
+            <button
+              className={`${menuTriggerClass} font-bold rounded-xl transition-all shadow-sm flex items-center justify-center min-h-11 h-11 px-4 w-full sm:w-11 sm:px-0`}
+              aria-label={t("open_menu")}
+              title={t("open_menu")}
+              aria-haspopup="menu"
+              aria-expanded={isEventAdminMenuOpen}
+              type="button"
+              onClick={() => {
+                setIsEventAdminMenuOpen((currentValue) => !currentValue);
+                setIsCalendarMenuOpen(false);
+              }}
+            >
+              <Icon name="more_horizontal" className="w-4 h-4" />
+            </button>
+            {isEventAdminMenuOpen ? (
+              <div className={dropdownPanelClass}>
+                <button
+                  className={dropdownItemClass}
+                  type="button"
+                  onClick={() => {
+                    setIsEventAdminMenuOpen(false);
+                    handleStartEditEvent(selectedEventDetail);
+                  }}
+                >
+                  <Icon name="edit" className="w-3.5 h-3.5 text-blue-500" />
+                  <span>{t("event_detail_edit_action")}</span>
+                </button>
+                <button
+                  className={dropdownItemClass}
+                  type="button"
+                  onClick={() => {
+                    setIsEventAdminMenuOpen(false);
+                    handleOpenEventTeamModal();
+                  }}
+                >
+                  <Icon name="users" className="w-3.5 h-3.5 text-purple-500" />
+                  <span>{t("event_team_action")}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
 
@@ -1063,60 +1339,64 @@ export function EventDetailView({
 
       {/* Hero Cover (Solo si no estamos en Plan) */}
       {selectedEventDetail && !isPlanWorkspace ? (
-        <article className="relative w-full h-48 sm:h-64 md:h-72 rounded-2xl overflow-hidden shadow-inner group" aria-label={t("event_detail_cover_title")}>
-          {eventSatelliteCoverEmbedUrl ? (
-            <iframe
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              title={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
-              src={eventSatelliteCoverEmbedUrl}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          ) : (
-            <img
-              className="absolute inset-0 w-full h-full object-cover"
-              src={eventCoverImageUrl}
-              alt={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
-              loading="lazy"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-5 sm:p-6 md:p-8">
+        <article className="relative w-full h-[21rem] sm:h-64 md:h-72 rounded-2xl overflow-visible shadow-inner" aria-label={t("event_detail_cover_title")}>
+          <div className="absolute inset-0 rounded-2xl overflow-hidden">
+            {eventSatelliteCoverEmbedUrl ? (
+              <iframe
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                title={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
+                src={eventSatelliteCoverEmbedUrl}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <img
+                className="absolute inset-0 w-full h-full object-cover"
+                src={eventCoverImageUrl}
+                alt={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
+                loading="lazy"
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-900 dark:via-gray-900/85 dark:to-transparent" />
+          </div>
+          <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6 md:p-8">
             <div className="flex flex-wrap gap-2 mb-3">
               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border shadow-sm ${statusClass(selectedEventDetail.status)}`}>
                 {statusText(t, selectedEventDetail.status)}
               </span>
               {selectedEventDetail.event_type ? (
-                <span className="px-2.5 py-1 bg-white/20 backdrop-blur-md text-white border border-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-sm">
+                <span className="px-2.5 py-1 bg-white/80 text-gray-900 border border-black/10 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-sm backdrop-blur-md dark:bg-white/20 dark:text-white dark:border-white/20">
                   {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
                 </span>
               ) : null}
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight mb-3 drop-shadow-md">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight mb-2 truncate">
               {selectedEventDetail.title || t("event_detail_title")}
             </h2>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-white/90">
-              <span className="flex items-center gap-1.5 drop-shadow-sm">
-                <Icon name="calendar" className="w-4 h-4" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+              <span className="flex items-center gap-1.5">
+                <Icon name="calendar" className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 {eventDateLabel}
               </span>
               {eventTimeLabel ? (
-                <span className="flex items-center gap-1.5 drop-shadow-sm">
-                  <Icon name="clock" className="w-4 h-4" />
+                <span className="flex items-center gap-1.5">
+                  <Icon name="clock" className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                   {eventTimeLabel}
                 </span>
               ) : null}
-              <span className="flex items-center gap-1.5 drop-shadow-sm">
-                <Icon name="location" className="w-4 h-4" />
+              <span className="flex items-center gap-1.5">
+                <Icon name="location" className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 <span className="truncate max-w-[200px] sm:max-w-sm">{eventPlaceLabel}</span>
               </span>
             </div>
+            {renderEventHeaderActions({ inHero: true })}
           </div>
         </article>
       ) : null}
 
       {/* Cabecera para Vista Plan (o fallback si no hay hero) */}
       {!isPlanWorkspace ? (
-        <div className={`flex flex-col sm:flex-row flex-wrap justify-between items-start sm:items-center gap-4 ${hasEventHeroCover ? "pt-2" : "border-b border-black/5 dark:border-white/10 pb-6"}`}>
+        <div className={`flex flex-col gap-4 ${hasEventHeroCover ? "pt-2" : "border-b border-black/5 dark:border-white/10 pb-6"}`}>
           {!hasEventHeroCover ? (
             <div className="flex flex-col gap-2 min-w-0">
               <div className="flex flex-wrap items-center gap-3">
@@ -1141,70 +1421,7 @@ export function EventDetailView({
                   <span className="truncate max-w-[250px]">{eventPlaceLabel}</span>
                 </span>
               </div>
-            </div>
-          ) : null}
-
-          {/* Acciones principales de la Ficha */}
-          {selectedEventDetail ? (
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
-              <button className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/30 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center" type="button" onClick={() => handleOpenEventPlan("ambience")}>
-                <Icon name="sparkle" className="w-4 h-4" />
-                {t("event_plan_cta_action")}
-              </button>
-              <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center" type="button" onClick={() => handleStartEditEvent(selectedEventDetail)}>
-                <Icon name="edit" className="w-4 h-4" />
-                {t("event_detail_edit_action")}
-              </button>
-              <button
-                className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center disabled:opacity-60 disabled:cursor-not-allowed"
-                type="button"
-                onClick={handleShareInvitationImage}
-                disabled={isSharingInvitationImage}
-              >
-                <Icon name="camera" className="w-4 h-4" />
-                {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
-              </button>
-              <button
-                className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 sm:flex-initial justify-center"
-                type="button"
-                onClick={handleOpenEventTeamModal}
-              >
-                <Icon name="users" className="w-4 h-4" />
-                {t("event_team_action")}
-              </button>
-
-              <div className="relative group">
-                <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center" aria-label={t("open_menu")} title={t("open_menu")}>
-                  <Icon name="more_horizontal" className="w-4 h-4" />
-                </button>
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
-                  {selectedEventDetailPrimaryShare?.url ? (
-                    <a
-                      className="w-full text-left px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 transition-colors"
-                      href={selectedEventDetailPrimaryShare.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Icon name="mail" className="w-3.5 h-3.5" />
-                      <span>{t("open_rsvp")}</span>
-                    </a>
-                  ) : (
-                    <button
-                      className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2 transition-colors"
-                      type="button"
-                      onClick={() =>
-                        openInvitationCreate({
-                          eventId: selectedEventDetail.id,
-                          messageKey: "invitation_prefill_event"
-                        })
-                      }
-                    >
-                      <Icon name="mail" className="w-3.5 h-3.5 text-blue-500" />
-                      <span>{t("event_detail_create_invitation_action")}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
+              {renderEventHeaderActions()}
             </div>
           ) : null}
         </div>
