@@ -4596,6 +4596,8 @@ function DashboardScreen({
     } else if (viewKey === "guests") {
       if (workspaceKey === "create") {
         navigateAppPath("/app/guests/new/advanced/identity");
+      } else if (workspaceKey === "groups") {
+        navigateAppPath("/app/guests/groups");
       } else {
         navigateAppPath("/app/guests");
       }
@@ -8807,6 +8809,7 @@ function DashboardScreen({
               WORKSPACE_ITEMS,
               t,
               openWorkspace,
+              loadDashboardData,
               sessionUserId: session?.user?.id,
               language,
               timezone,
@@ -8991,6 +8994,7 @@ function DashboardScreen({
         <Suspense fallback={null}>
           <GuestsWorkspaceContainer
             {...{
+              sessionUserId: session?.user?.id,
               routeGuestsWorkspace,
               routeGuestProfileTab,
               routeGuestAdvancedTab,

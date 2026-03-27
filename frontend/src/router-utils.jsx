@@ -149,7 +149,7 @@ export function normalizeDashboardRouteState(appRoute) {
         if (EVENT_PLANNER_TABS.has(nextEventPlannerTab)) next.eventPlannerTab = nextEventPlannerTab;
     }
     if (view === "guests") {
-        if (["latest", "create", "detail"].includes(workspace)) next.guestsWorkspace = workspace;
+        if (["latest", "create", "detail", "groups"].includes(workspace)) next.guestsWorkspace = workspace;
         next.selectedGuestDetailId = String(appRoute.guestId || "").trim();
         const nextGuestProfileTab = String(appRoute.guestProfileTab || "").trim().toLowerCase();
         if (GUEST_PROFILE_TABS.has(nextGuestProfileTab)) next.guestProfileViewTab = nextGuestProfileTab;
@@ -204,6 +204,9 @@ export function buildDashboardPathFromState({
     }
     if (activeView === "guests") {
         const effectiveGuestDetailId = String(selectedGuestDetailId || routeGuestDetailId || "").trim();
+        if (guestsWorkspace === "groups") {
+            return "/app/guests/groups";
+        }
         if (guestsWorkspace === "create") {
             const tab = String(guestAdvancedEditTab || "identity").trim().toLowerCase();
             const safeTab = GUEST_ADVANCED_EDIT_TABS.has(tab) ? tab : "identity";
@@ -291,6 +294,9 @@ export function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
     }
 
     if (section === "guests") {
+        if (normalizedSegment === "groups") {
+            return { view: "guests", workspace: "groups" };
+        }
         if (normalizedSegment === "new") {
             const advancedSegment = decodePathSegment(segments[2] || "").toLowerCase();
             const stepSegment = decodePathSegment(segments[3] || "").toLowerCase();
@@ -342,6 +348,7 @@ export function buildCanonicalAppPath(appRoute) {
         return "/app/events";
     }
     if (view === "guests") {
+        if (workspace === "groups") return "/app/guests/groups";
         if (workspace === "create") {
             const tab = String(appRoute?.guestAdvancedTab || "identity").trim().toLowerCase();
             const safeTab = GUEST_ADVANCED_EDIT_TABS.has(tab) ? tab : "identity";

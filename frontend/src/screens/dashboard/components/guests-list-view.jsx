@@ -71,6 +71,24 @@ export function GuestsListView({
 
             {/* 🚀 EL CONTENIDO REAL: Ponemos el z-10 y envolvemos el resto */}
             <div className="relative z-10 flex flex-col w-full h-full">
+                <div className="px-5 pt-5 pb-3 border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
+                    <div className="inline-flex items-center p-1 rounded-xl border border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/30 backdrop-blur-md gap-1">
+                        <button
+                            type="button"
+                            className="px-4 py-2 text-sm font-bold rounded-lg transition-colors bg-blue-600 text-white"
+                            onClick={() => openWorkspace("guests", "latest")}
+                        >
+                            {t("guest_people_tab")}
+                        </button>
+                        <button
+                            type="button"
+                            className="px-4 py-2 text-sm font-bold rounded-lg transition-colors text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10"
+                            onClick={() => openWorkspace("guests", "groups")}
+                        >
+                            {t("guest_groups_tab")}
+                        </button>
+                    </div>
+                </div>
 
                 {/* 1. TOOLBAR: Buscador y Ordenación */}
                 <div className="flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">

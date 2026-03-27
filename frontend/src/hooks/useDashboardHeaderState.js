@@ -77,6 +77,13 @@ export function useDashboardHeaderState({
           subtitle: t("help_guest_form")
         };
       }
+      if (guestsWorkspace === "groups") {
+        return {
+          eyebrow: "",
+          title: t("guest_groups_title"),
+          subtitle: t("guest_groups_hint")
+        };
+      }
       if (guestsWorkspace === "detail") {
         return {
           eyebrow: "",
@@ -169,4 +176,3 @@ export function useDashboardHeaderState({
     hideDashboardHeader
   };
 }
-

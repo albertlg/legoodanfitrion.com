@@ -259,6 +259,7 @@ export function EventDetailView({
   eventsWorkspace,
   openWorkspace,
   sessionUserId,
+  loadDashboardData,
   handleBackToEventDetail,
   selectedEventDetail,
   t,
@@ -364,6 +365,13 @@ export function EventDetailView({
   const [removingCohostId, setRemovingCohostId] = useState("");
   const [cohostFeedback, setCohostFeedback] = useState("");
   const [cohostFeedbackType, setCohostFeedbackType] = useState("info");
+  const [isGroupInviteModalOpen, setIsGroupInviteModalOpen] = useState(false);
+  const [isLoadingGuestGroups, setIsLoadingGuestGroups] = useState(false);
+  const [eventGuestGroups, setEventGuestGroups] = useState([]);
+  const [selectedGuestGroupId, setSelectedGuestGroupId] = useState("");
+  const [isInvitingGuestGroup, setIsInvitingGuestGroup] = useState(false);
+  const [groupInviteFeedback, setGroupInviteFeedback] = useState("");
+  const [groupInviteFeedbackType, setGroupInviteFeedbackType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -621,6 +629,52 @@ export function EventDetailView({
     void loadEventCohosts();
   }, [isTeamModalOpen, loadEventCohosts]);
 
+  const loadEventGuestGroups = useCallback(async () => {
+    if (!supabase || !sessionUserId) {
+      setEventGuestGroups([]);
+      return;
+    }
+
+    setIsLoadingGuestGroups(true);
+    try {
+      const { data, error } = await supabase
+        .from("guest_groups")
+        .select("id, name, created_at")
+        .eq("host_id", sessionUserId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      setEventGuestGroups(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("[event-group-invite] load groups error", error);
+      setEventGuestGroups([]);
+      setGroupInviteFeedbackType("error");
+      setGroupInviteFeedback(t("event_group_invite_load_error"));
+    } finally {
+      setIsLoadingGuestGroups(false);
+    }
+  }, [sessionUserId, t]);
+
+  useEffect(() => {
+    setIsGroupInviteModalOpen(false);
+    setIsLoadingGuestGroups(false);
+    setEventGuestGroups([]);
+    setSelectedGuestGroupId("");
+    setIsInvitingGuestGroup(false);
+    setGroupInviteFeedback("");
+    setGroupInviteFeedbackType("info");
+  }, [selectedEventDetail?.id]);
+
+  useEffect(() => {
+    if (!isGroupInviteModalOpen) {
+      return;
+    }
+    void loadEventGuestGroups();
+  }, [isGroupInviteModalOpen, loadEventGuestGroups]);
+
   const handleOpenEventTeamModal = () => {
     setCohostFeedback("");
     setCohostFeedbackType("info");
@@ -829,6 +883,69 @@ export function EventDetailView({
       }
     } finally {
       setIsSharingInvitationImage(false);
+    }
+  };
+
+  const handleOpenGroupInviteModal = () => {
+    setGroupInviteFeedback("");
+    setGroupInviteFeedbackType("info");
+    setSelectedGuestGroupId("");
+    setIsGroupInviteModalOpen(true);
+  };
+
+  const handleCloseGroupInviteModal = () => {
+    if (isInvitingGuestGroup) {
+      return;
+    }
+    setIsGroupInviteModalOpen(false);
+  };
+
+  const handleInviteGroupToEvent = async () => {
+    if (!selectedEventDetail?.id || !supabase) {
+      return;
+    }
+    const normalizedGroupId = String(selectedGuestGroupId || "").trim();
+    if (!normalizedGroupId) {
+      setGroupInviteFeedbackType("error");
+      setGroupInviteFeedback(t("event_group_invite_group_required"));
+      return;
+    }
+
+    setIsInvitingGuestGroup(true);
+    setGroupInviteFeedback("");
+    setGroupInviteFeedbackType("info");
+    try {
+      const { data, error } = await supabase.rpc("invite_group_to_event", {
+        p_event_id: selectedEventDetail.id,
+        p_group_id: normalizedGroupId
+      });
+      if (error) {
+        throw error;
+      }
+
+      const firstRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      const insertedCount = Math.max(0, Number(firstRow?.inserted_count || 0));
+      const selectedGroup = eventGuestGroups.find((item) => String(item?.id || "") === normalizedGroupId);
+      const selectedGroupName = String(selectedGroup?.name || "").trim() || t("guest_groups_tab");
+
+      setGroupInviteFeedbackType("success");
+      setGroupInviteFeedback(
+        interpolateText(t("event_group_invite_success"), {
+          count: insertedCount,
+          group: selectedGroupName
+        })
+      );
+
+      if (typeof loadDashboardData === "function") {
+        await loadDashboardData();
+      }
+      setIsGroupInviteModalOpen(false);
+    } catch (error) {
+      console.error("[event-group-invite] rpc error", error);
+      setGroupInviteFeedbackType("error");
+      setGroupInviteFeedback(t("event_group_invite_error"));
+    } finally {
+      setIsInvitingGuestGroup(false);
     }
   };
 
@@ -1118,6 +1235,7 @@ export function EventDetailView({
       <InlineMessage text={invitationMessage} />
       <InlineMessage text={shareCardMessage} />
       <InlineMessage text={eventDatePollMessage} />
+      <InlineMessage type={groupInviteFeedbackType} text={groupInviteFeedback} />
 
       {/* Contenido Principal Grid */}
       {!selectedEventDetail ? (
@@ -1367,22 +1485,47 @@ export function EventDetailView({
                 ) : null}
 
                 <article className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 overflow-hidden">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Icon name="users" className="w-4 h-4 text-blue-500" />
-                    {t("event_detail_guest_list_title")}
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Icon name="users" className="w-4 h-4 text-blue-500" />
+                      {t("event_detail_guest_list_title")}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2"
+                        type="button"
+                        onClick={() =>
+                          openInvitationCreate({
+                            eventId: selectedEventDetail.id,
+                            messageKey: "invitation_prefill_event"
+                          })
+                        }
+                      >
+                        <Icon name="mail" className="w-4 h-4" />
+                        {t("event_detail_add_invitee_action")}
+                      </button>
+                      <button
+                        className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2 px-3 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2"
+                        type="button"
+                        onClick={handleOpenGroupInviteModal}
+                      >
+                        <Icon name="users" className="w-4 h-4" />
+                        {t("event_group_invite_action")}
+                      </button>
+                    </div>
+                  </div>
 
                   {selectedEventDetailGuests.length === 0 ? (
                     <p className="text-xs text-gray-500 italic p-4 text-center">{t("event_detail_no_invites")}</p>
                   ) : (
-                    <div className="w-full">
-                      <table className="w-full text-left border-collapse block sm:table">
+                    <div className="w-full overflow-x-hidden">
+                      <table className="w-full table-fixed text-left border-collapse block sm:table">
                         <thead className="hidden sm:table-header-group">
                           <tr>
-                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
+                            <th className="py-3 px-3 w-[52%] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
                             <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")}</th>
-                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
-                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right"></th>
+                            <th className="py-3 sm:px-2 w-[96px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
+                            <th className="py-3 sm:px-2 w-[84px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
                           </tr>
                         </thead>
                         <tbody className="block sm:table-row-group divide-y-0 sm:divide-y divide-black/5 dark:divide-white/5">
@@ -1391,9 +1534,9 @@ export function EventDetailView({
                             const rowGuestLabel = row.name || t("field_guest");
                             return (
                               <tr key={row.invitation.id} className="block sm:table-row flex flex-col mb-3 sm:mb-0 p-4 sm:p-0 rounded-xl sm:rounded-none border border-black/5 dark:border-white/5 sm:border-transparent bg-white/40 dark:bg-white/5 sm:bg-transparent shadow-sm sm:shadow-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
-                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle">
+                                <td className="block sm:table-cell w-full sm:w-[52%] py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0">
                                   <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("field_guest")}</span>
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-3 min-w-0">
                                     <AvatarCircle
                                       className="flex-shrink-0"
                                       label={rowGuestLabel}
@@ -1402,30 +1545,32 @@ export function EventDetailView({
                                       size={32}
                                     />
                                     <button
-                                      className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left truncate max-w-[150px]"
+                                      className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left min-w-0 w-full whitespace-normal break-words sm:whitespace-nowrap sm:truncate"
                                       type="button"
+                                      title={rowGuestLabel}
                                       onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
                                     >
                                       {rowGuestLabel}
                                     </button>
                                   </div>
                                 </td>
-                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle">
+                                <td className="block sm:table-cell py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0">
                                   <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("email")}</span>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px] inline-block" title={row.contact}>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate block min-w-0" title={row.contact}>
                                     {row.contact}
                                   </span>
                                 </td>
-                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle">
+                                <td className="block sm:table-cell w-[96px] py-2 sm:py-2.5 px-0 sm:px-2 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0 overflow-hidden">
                                   <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status")}</span>
-                                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border shadow-sm w-fit ${statusClass(row.invitation.status)}`}>
+                                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border shadow-sm inline-block max-w-full truncate align-middle ${statusClass(row.invitation.status)}`}>
                                     {statusText(t, row.invitation.status)}
                                   </span>
                                 </td>
-                                <td className="block sm:table-cell flex flex-col sm:flex-row sm:items-center justify-between py-2 sm:py-2.5 px-0 sm:px-3 border-none sm:border-none align-middle text-right">
-                                  <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity mt-2 sm:mt-0">
+                                <td className="block sm:table-cell w-[84px] py-2 sm:py-2.5 px-0 sm:px-2 border-none sm:border-none align-middle text-right overflow-hidden">
+                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block text-left">{t("actions_label")}</span>
+                                  <div className="flex items-center justify-end gap-1 mt-2 sm:mt-0">
                                     <button
-                                      className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                                      className="inline-flex items-center justify-center h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                                       type="button"
                                       onClick={() => {
                                         const prepared = handlePrepareInvitationShare(row.invitation);
@@ -1439,13 +1584,13 @@ export function EventDetailView({
                                       <Icon name="message" className="w-5 h-5" />
                                     </button>
                                     <button
-                                      className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                      className="inline-flex items-center justify-center h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/20 rounded-md transition-colors border border-red-200/70 dark:border-red-700/40"
                                       type="button"
                                       onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
-                                      aria-label={t("delete_invitation")}
-                                      title={t("delete_invitation")}
+                                      aria-label={t("event_detail_remove_guest_action")}
+                                      title={t("event_detail_remove_guest_action")}
                                     >
-                                      <Icon name="close" className="w-5 h-5" />
+                                      <Icon name="trash" className="w-4 h-4" />
                                     </button>
                                   </div>
                                 </td>
@@ -2029,6 +2174,85 @@ export function EventDetailView({
               )}
             </div>
           </div>
+            </div>
+          )
+        : null}
+
+      {selectedEventDetail && isGroupInviteModalOpen
+        ? renderGlobalModal(
+            <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
+              <div className="w-full max-w-lg bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[86vh] overflow-y-auto">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700/30">
+                      <Icon name="users" className="w-4.5 h-4.5" />
+                    </span>
+                    <div className="flex flex-col">
+                      <h3 className="text-lg font-black text-gray-900 dark:text-white">{t("event_group_invite_modal_title")}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_group_invite_modal_hint")}</p>
+                    </div>
+                  </div>
+                  <button
+                    className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    type="button"
+                    onClick={handleCloseGroupInviteModal}
+                    disabled={isInvitingGuestGroup}
+                    aria-label={t("close_modal")}
+                    title={t("close_modal")}
+                  >
+                    <Icon name="close" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {isLoadingGuestGroups ? (
+                  <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("guest_groups_loading")}</p>
+                  </div>
+                ) : eventGuestGroups.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-black/20 dark:border-white/20 bg-white/50 dark:bg-black/20 p-5 flex flex-col gap-3 items-start">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_group_invite_empty_title")}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_group_invite_empty_hint")}</p>
+                    <button
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl transition-colors text-xs"
+                      type="button"
+                      onClick={() => {
+                        handleCloseGroupInviteModal();
+                        openWorkspace("guests", "groups");
+                      }}
+                    >
+                      {t("event_group_invite_open_groups_action")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4 flex flex-col gap-3">
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("event_group_invite_select_label")}
+                      </span>
+                      <select
+                        className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-gray-800/90 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/60"
+                        value={selectedGuestGroupId}
+                        onChange={(event) => setSelectedGuestGroupId(event.target.value)}
+                      >
+                        <option value="">{t("event_group_invite_select_placeholder")}</option>
+                        {eventGuestGroups.map((groupItem) => (
+                          <option key={groupItem.id} value={groupItem.id}>
+                            {groupItem.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      type="button"
+                      onClick={handleInviteGroupToEvent}
+                      disabled={isInvitingGuestGroup}
+                    >
+                      {isInvitingGuestGroup ? t("event_group_invite_loading") : t("event_group_invite_confirm_action")}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )
         : null}

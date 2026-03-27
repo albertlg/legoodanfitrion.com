@@ -1,6 +1,6 @@
-import { Icon } from "../../../components/icons";
 import { GuestBuilderView } from "./guest-builder-view";
 import { GuestDetailView } from "./guest-detail-view";
+import { GuestGroupsView } from "./guest-groups-view";
 import { GuestsListView } from "./guests-list-view";
 import { MagicCard } from "./ui/magic-card";
 
@@ -36,6 +36,10 @@ function GuestsWorkspaceContainer(props) {
 
           {routeGuestsWorkspace === "latest" ? (
             <GuestsListView {...props} />
+          ) : null}
+
+          {routeGuestsWorkspace === "groups" ? (
+            <GuestGroupsView {...props} />
           ) : null}
 
           {routeGuestsWorkspace === "detail" ? (

@@ -74,6 +74,7 @@ export const WORKSPACE_ITEMS = {
         { key: "hub", icon: "sparkle", labelKey: "workspace_folders" },
         { key: "create", icon: "user", labelKey: "create_guest_title", descriptionKey: "help_guest_form" },
         { key: "latest", icon: "user", labelKey: "latest_guests_title", descriptionKey: "workspace_guests_latest_desc" },
+        { key: "groups", icon: "users", labelKey: "guest_groups_tab", descriptionKey: "workspace_guests_groups_desc" },
         { key: "detail", icon: "eye", labelKey: "guest_detail_title", descriptionKey: "workspace_guests_detail_desc" }
     ],
     invitations: [
