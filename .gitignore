@@ -12,3 +12,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Google Cloud Credentials (NUNCA SUBIR)
+google-credentials.json
+backend/google-credentials.json
+backend/config/google-credentials.json
