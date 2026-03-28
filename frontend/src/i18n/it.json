@@ -1038,6 +1038,8 @@
   "guest_detail_empty": "Ancora nessuna persona nella lista. Aggiungi qualcuno per iniziare!",
   "guest_detail_edit_action": "Modifica profilo",
   "guest_detail_create_invitation_action": "Crea invito per questa persona",
+  "guest_detail_create_invitation_action_short": "Crea invito",
+  "guest_advanced_short": "Profilo avanzato",
   "guests_map_title": "Mappa persone invitate",
   "guests_map_hint": "Persone invitate con indirizzo riconosciuto in Google Maps.",
   "guests_map_empty": "Nessuna persona con indirizzo valido da mostrare sulla mappa.",

@@ -1093,6 +1093,8 @@
   "guest_detail_empty": "Encara no hi ha persones convidades. Comença afegint algú!",
   "guest_detail_edit_action": "Editar persona",
   "guest_detail_create_invitation_action": "Crear invitació per a aquesta persona",
+  "guest_detail_create_invitation_action_short": "Crear invitació",
+  "guest_advanced_short": "Perfil avançat",
   "guests_map_title": "Mapa de persones convidades",
   "guests_map_hint": "Persones convidades amb adreça reconeixible a Google Maps.",
   "guests_map_empty": "Encara no hi ha persones amb adreça vàlida per mostrar al mapa.",

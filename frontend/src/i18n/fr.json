@@ -1089,6 +1089,8 @@
   "guest_detail_empty": "Aucun convive à afficher pour le moment. C'est le moment d'en ajouter !",
   "guest_detail_edit_action": "Modifier le convive",
   "guest_detail_create_invitation_action": "Créer une invitation pour ce convive",
+  "guest_detail_create_invitation_action_short": "Créer une invitation",
+  "guest_advanced_short": "Profil avancé",
   "guests_map_title": "Carte des convives",
   "guests_map_hint": "Convives avec adresse reconnue dans Google Maps.",
   "guests_map_empty": "Aucun convive avec adresse valide à afficher sur la carte.",

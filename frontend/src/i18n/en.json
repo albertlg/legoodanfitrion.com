@@ -1093,6 +1093,8 @@
   "guest_detail_empty": "No guests yet. Add your first one to get started!",
   "guest_detail_edit_action": "Edit guest",
   "guest_detail_create_invitation_action": "Create invitation for this guest",
+  "guest_detail_create_invitation_action_short": "Create invitation",
+  "guest_advanced_short": "Advanced profile",
   "guests_map_title": "Guests map",
   "guests_map_hint": "Guests with recognizable addresses in Google Maps.",
   "guests_map_empty": "No guests with map addresses yet. Add addresses to see them here!",

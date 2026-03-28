@@ -73,8 +73,8 @@ export function GuestDetailView({
             </div>
 
             {/* Hero / Contact Card */}
-            <div className="bg-white/40 dark:bg-black/20 rounded-3xl border border-black/5 dark:border-white/5 p-6 flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center shadow-inner">
-                <div className="flex items-center gap-5 flex-1 min-w-0">
+            <div className="bg-white/40 dark:bg-black/20 rounded-3xl border border-black/5 dark:border-white/5 p-6 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] items-start gap-6 shadow-inner">
+                <div className="flex flex-row gap-5 items-start flex-1 min-w-0">
                     <AvatarCircle
                         className="border-2 border-white dark:border-gray-800 shadow-md flex-shrink-0"
                         label={guestFullName}
@@ -82,13 +82,13 @@ export function GuestDetailView({
                         imageUrl={getGuestAvatarUrl(selectedGuestDetail, guestFullName)}
                         size={72}
                     />
-                    <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white truncate">
+                            <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight break-words">
                                 {guestFullName}
                             </h2>
                             {selectedGuestDetail.relationship ? (
-                                <span className="px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-lg text-[10px] font-bold uppercase tracking-wide">
+                                <span className="px-2.5 py-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-lg text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
                                     {toCatalogLabel("relationship", selectedGuestDetail.relationship, language)}
                                 </span>
                             ) : null}
@@ -118,14 +118,20 @@ export function GuestDetailView({
                             ) : null}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <div className="flex flex-row flex-wrap items-center gap-2 mt-3">
+                            {selectedGuestDetailConversion ? (
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30 rounded-md text-[9px] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1">
+                                    <Icon name="check" className="w-2.5 h-2.5" />
+                                    {t("host_already_registered_action")}
+                                </span>
+                            ) : null}
                             {selectedGuestDetailConversion ? (
                                 <>
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800/30 rounded-md text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800/30 rounded-md text-[9px] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1">
                                         <Icon name="check" className="w-2.5 h-2.5" />
                                         {t("host_converted_badge")}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border ${getConversionSource(selectedGuestDetailConversion) === "google" ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30" : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"}`}>
+                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider whitespace-nowrap border ${getConversionSource(selectedGuestDetailConversion) === "google" ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30" : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"}`}>
                                         {getConversionSourceLabel(t, getConversionSource(selectedGuestDetailConversion))}
                                     </span>
                                     {selectedGuestDetailConversion.converted_at ? (
@@ -135,7 +141,7 @@ export function GuestDetailView({
                                     ) : null}
                                 </>
                             ) : (
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/30 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/30 rounded-md text-[9px] font-bold uppercase tracking-wider whitespace-nowrap">
                                     {t("host_potential_badge")}
                                 </span>
                             )}
@@ -144,45 +150,96 @@ export function GuestDetailView({
                 </div>
 
                 {/* Acciones principales del invitado */}
-                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto shrink-0">
+                <div className="flex flex-wrap items-center gap-3 flex-shrink-0 mt-4 xl:mt-0 w-full xl:w-auto xl:max-w-[480px] xl:justify-end">
                     <button
-                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 justify-center outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto outline-none focus:ring-2 focus:ring-blue-500/50"
                         type="button"
-                        onClick={() => handleStartEditGuest(selectedGuestDetail, { openAdvanced: true })}
+                        onClick={() => openInvitationCreate({ guestId: selectedGuestDetail.id, messageKey: "invitation_prefill_guest" })}
                     >
-                        <Icon name="sparkle" className="w-4 h-4 text-blue-500" />
-                        {t("guest_advanced_title")}
+                        <Icon name="mail" className="w-4 h-4" />
+                        {t("guest_detail_create_invitation_action_short")}
                     </button>
                     <button
-                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 flex-1 justify-center outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 xl:px-3 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto outline-none focus:ring-2 focus:ring-blue-500/50"
                         type="button"
                         onClick={() => handleStartEditGuest(selectedGuestDetail)}
                     >
                         <Icon name="edit" className="w-4 h-4" />
                         {t("guest_detail_edit_action")}
                     </button>
+                    <button
+                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2.5 px-4 xl:px-3 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto outline-none focus:ring-2 focus:ring-blue-500/50"
+                        type="button"
+                        onClick={() => handleStartEditGuest(selectedGuestDetail, { openAdvanced: true })}
+                    >
+                        <Icon name="sparkle" className="w-4 h-4 text-blue-500" />
+                        {t("guest_advanced_short")}
+                    </button>
 
-                    {/* Dropdown de Acciones Principales (Merge/Delete) */}
-                    <div className="relative ml-auto sm:ml-0">
+                    {/* Dropdown de Acciones Extra */}
+                    <div className="relative ml-auto">
                         <button className="peer bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold p-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center outline-none focus:ring-2 focus:ring-blue-500/50" aria-label={t("open_menu")} title={t("open_menu")}>
                             <Icon name="more_horizontal" className="w-4 h-4" />
                         </button>
 
-                        {/* 🚀 FIX: Dejamos SOLO right-0. Así el menú siempre crece hacia la izquierda. */}
-                        <div className="absolute right-0 top-full pt-2 w-48 z-50 opacity-0 invisible peer-focus:opacity-100 peer-focus:visible hover:opacity-100 hover:visible transition-all duration-200">
+                        <div className="absolute right-0 top-full pt-2 w-60 max-w-[calc(100vw-3rem)] z-50 opacity-0 invisible peer-focus:opacity-100 peer-focus:visible hover:opacity-100 hover:visible transition-all duration-200">
                             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-black/10 dark:border-white/10 overflow-hidden flex flex-col py-1">
                                 <button
                                     className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors outline-none"
                                     type="button"
-                                    onMouseDown={(e) => { e.preventDefault(); handleOpenMergeGuest(selectedGuestDetail); }}
+                                    onPointerDown={(e) => { e.preventDefault(); handleOpenMergeGuest(selectedGuestDetail); }}
                                 >
                                     <Icon name="link" className="w-3.5 h-3.5" />
                                     {t("merge_guest_action")}
                                 </button>
                                 <button
+                                    className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors disabled:opacity-50 outline-none border-t border-black/5 dark:border-white/5"
+                                    type="button"
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        if (!isLinkingGlobalGuest) handleLinkProfileGuestToGlobal(selectedGuestDetail.id);
+                                    }}
+                                    disabled={isLinkingGlobalGuest}
+                                >
+                                    <Icon name="shield" className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                    {isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}
+                                </button>
+                                <button
+                                    className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors disabled:opacity-50 outline-none border-t border-black/5 dark:border-white/5"
+                                    type="button"
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        if (!selectedGuestDetailConversion) handleCopyHostSignupLink(selectedGuestDetail);
+                                    }}
+                                    disabled={Boolean(selectedGuestDetailConversion)}
+                                >
+                                    <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="w-3.5 h-3.5" />
+                                    {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
+                                </button>
+                                {!selectedGuestDetailConversion && (selectedGuestDetail.email || selectedGuestDetail.phone) ? (
+                                    <>
+                                        <button
+                                            className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors outline-none border-t border-black/5 dark:border-white/5"
+                                            type="button"
+                                            onPointerDown={(e) => { e.preventDefault(); handleShareHostSignupLink(selectedGuestDetail, "whatsapp"); }}
+                                        >
+                                            <Icon name="message" className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
+                                            {t("host_invite_whatsapp_action")}
+                                        </button>
+                                        <button
+                                            className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors outline-none border-t border-black/5 dark:border-white/5"
+                                            type="button"
+                                            onPointerDown={(e) => { e.preventDefault(); handleShareHostSignupLink(selectedGuestDetail, "email"); }}
+                                        >
+                                            <Icon name="mail" className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                            {t("host_invite_email_action")}
+                                        </button>
+                                    </>
+                                ) : null}
+                                <button
                                     className="w-full text-left px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2 transition-colors disabled:opacity-50 border-t border-black/5 dark:border-white/5 outline-none"
                                     type="button"
-                                    onMouseDown={(e) => {
+                                    onPointerDown={(e) => {
                                         e.preventDefault();
                                         if (isDeletingGuestId !== selectedGuestDetail.id) handleRequestDeleteGuest(selectedGuestDetail);
                                     }}
@@ -192,73 +249,6 @@ export function GuestDetailView({
                                     {isDeletingGuestId === selectedGuestDetail.id ? t("deleting") : t("delete_guest")}
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Acciones Rápidas (Invitar, Compartir) */}
-            <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-black/5 dark:border-white/10">
-                <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-sm transition-all text-xs flex items-center gap-2 outline-none focus:ring-2 focus:ring-blue-500/50"
-                    type="button"
-                    onClick={() => openInvitationCreate({ guestId: selectedGuestDetail.id, messageKey: "invitation_prefill_guest" })}
-                >
-                    <Icon name="mail" className="w-4 h-4" />
-                    {t("guest_detail_create_invitation_action")}
-                </button>
-                <button
-                    className="bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-white font-bold py-2.5 px-5 rounded-xl transition-all text-xs flex items-center gap-2 disabled:opacity-50 outline-none focus:ring-2 focus:ring-blue-500/50"
-                    type="button"
-                    onClick={() => handleCopyHostSignupLink(selectedGuestDetail)}
-                    disabled={Boolean(selectedGuestDetailConversion)}
-                >
-                    <Icon name={selectedGuestDetailConversion ? "check" : "link"} className="w-4 h-4" />
-                    {selectedGuestDetailConversion ? t("host_already_registered_action") : t("host_invite_action")}
-                </button>
-
-                {/* Dropdown de Acciones Extra */}
-                <div className="relative ml-auto sm:ml-0">
-                    <button className="peer bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-white font-bold p-2.5 rounded-xl transition-all text-xs flex items-center justify-center outline-none focus:ring-2 focus:ring-blue-500/50" aria-label={t("open_menu")} title={t("open_menu")}>
-                        <Icon name="more_horizontal" className="w-4 h-4" />
-                    </button>
-
-                    {/* 🚀 FIX: Dejamos SOLO right-0 aquí también por seguridad. */}
-                    <div className="absolute right-0 top-full pt-2 w-60 z-40 opacity-0 invisible peer-focus:opacity-100 peer-focus:visible hover:opacity-100 hover:visible transition-all duration-200">
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-black/10 dark:border-white/10 overflow-hidden flex flex-col py-1">
-                            <button
-                                className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors disabled:opacity-50 outline-none"
-                                type="button"
-                                onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    if (!isLinkingGlobalGuest) handleLinkProfileGuestToGlobal(selectedGuestDetail.id);
-                                }}
-                                disabled={isLinkingGlobalGuest}
-                            >
-                                <Icon name="shield" className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                {isLinkingGlobalGuest ? t("global_profile_linking") : t("global_profile_link_guest_action")}
-                            </button>
-
-                            {!selectedGuestDetailConversion && (selectedGuestDetail.email || selectedGuestDetail.phone) ? (
-                                <>
-                                    <button
-                                        className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors outline-none border-t border-black/5 dark:border-white/5"
-                                        type="button"
-                                        onMouseDown={(e) => { e.preventDefault(); handleShareHostSignupLink(selectedGuestDetail, "whatsapp"); }}
-                                    >
-                                        <Icon name="message" className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
-                                        Convida'l a la App per WhatsApp
-                                    </button>
-                                    <button
-                                        className="w-full text-left px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors outline-none border-t border-black/5 dark:border-white/5"
-                                        type="button"
-                                        onMouseDown={(e) => { e.preventDefault(); handleShareHostSignupLink(selectedGuestDetail, "email"); }}
-                                    >
-                                        <Icon name="mail" className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                        Convida'l a la App per Correu
-                                    </button>
-                                </>
-                            ) : null}
                         </div>
                     </div>
                 </div>
