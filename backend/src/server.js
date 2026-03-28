@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { aiPlannerRoute } from "./routes/ai-planner-route.js";
+import { adminAnalyticsRoute } from "./routes/admin-analytics-route.js";
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/ai", aiPlannerRoute);
+app.use("/api/admin/analytics", adminAnalyticsRoute);
 
 // --- ESTE ES EL TRUCO PARA QUE FUNCIONE EN AMBOS ---
 

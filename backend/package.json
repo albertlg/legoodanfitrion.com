@@ -6,12 +6,16 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test:ga4": "node test-ga4.js"
   },
   "dependencies": {
+    "@google-analytics/data": "^5.2.1",
     "@google/genai": "^1.45.0",
+    "@supabase/supabase-js": "^2.100.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "googleapis": "^171.4.0"
   }
 }

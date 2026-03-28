@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
+import { AdminAnalyticsWidget } from "./admin/components/admin-analytics-widget";
 
 const PAGE_SIZE = 10;
 
@@ -511,6 +512,8 @@ export function AdminDashboardScreen({ session, onNavigate }) {
                 tooltip="Total de correos/contactos únicos almacenados en la plataforma, representando el alcance potencial máximo (TAM) de LeGoodAnfitrión."
               />
             </div>
+
+            <AdminAnalyticsWidget />
 
             {/* Recharts: Daily signups */}
             <SignupsChart data={stats.daily_signups || []} />
