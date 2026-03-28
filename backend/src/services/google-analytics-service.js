@@ -71,12 +71,34 @@ function getCredentialsPath() {
   return resolved;
 }
 
+function getGoogleAuthOptions() {
+  const inlineCredentials = String(process.env.GOOGLE_CREDENTIALS_JSON || "").trim();
+  if (inlineCredentials) {
+    try {
+      const parsed = JSON.parse(inlineCredentials);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("credentials payload must be a JSON object");
+      }
+      return { credentials: parsed };
+    } catch (error) {
+      const wrapped = new Error(
+        `GOOGLE_CREDENTIALS_JSON is invalid: ${error?.message || "unknown parse error"}`
+      );
+      wrapped.code = "GA_CONFIG_ERROR";
+      throw wrapped;
+    }
+  }
+
+  const keyFilename = getCredentialsPath();
+  return { keyFilename };
+}
+
 function getClient() {
   if (gaClient) {
     return gaClient;
   }
-  const keyFilename = getCredentialsPath();
-  gaClient = new BetaAnalyticsDataClient({ keyFilename });
+  const authOptions = getGoogleAuthOptions();
+  gaClient = new BetaAnalyticsDataClient(authOptions);
   return gaClient;
 }
 
@@ -135,4 +157,3 @@ export async function getTrafficOverview(startDate, endDate) {
     generatedAt: new Date().toISOString()
   };
 }
-

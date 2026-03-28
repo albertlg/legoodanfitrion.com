@@ -78,6 +78,28 @@ function getSiteUrl() {
   return siteUrl;
 }
 
+function getGoogleAuthOptions() {
+  const inlineCredentials = String(process.env.GOOGLE_CREDENTIALS_JSON || "").trim();
+  if (inlineCredentials) {
+    try {
+      const parsed = JSON.parse(inlineCredentials);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("credentials payload must be a JSON object");
+      }
+      return { credentials: parsed };
+    } catch (error) {
+      const wrapped = new Error(
+        `GOOGLE_CREDENTIALS_JSON is invalid: ${error?.message || "unknown parse error"}`
+      );
+      wrapped.code = "GSC_CONFIG_ERROR";
+      throw wrapped;
+    }
+  }
+
+  const keyFile = getCredentialsPath();
+  return { keyFile };
+}
+
 function mapQueryRows(rows) {
   const safeRows = Array.isArray(rows) ? rows : [];
   return safeRows.map((row) => ({
@@ -102,11 +124,11 @@ function mapPageRows(rows) {
 
 export async function getTopQueries(startDate, endDate) {
   const siteUrl = getSiteUrl();
-  const keyFile = getCredentialsPath();
   const range = resolveDateRange(startDate, endDate);
+  const authOptions = getGoogleAuthOptions();
 
   const auth = new google.auth.GoogleAuth({
-    keyFile,
+    ...authOptions,
     scopes: ["https://www.googleapis.com/auth/webmasters.readonly"]
   });
 
