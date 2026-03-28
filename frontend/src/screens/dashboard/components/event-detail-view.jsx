@@ -350,8 +350,10 @@ export function EventDetailView({
   selectedEventRsvpTimeline
 }) {
   const shareCardRef = useRef(null);
-  const calendarMenuRef = useRef(null);
-  const adminMenuRef = useRef(null);
+  const calendarMenuMobileRef = useRef(null);
+  const calendarMenuDesktopRef = useRef(null);
+  const adminMenuMobileRef = useRef(null);
+  const adminMenuDesktopRef = useRef(null);
   const [isSharingInvitationImage, setIsSharingInvitationImage] = useState(false);
   const [isCalendarMenuOpen, setIsCalendarMenuOpen] = useState(false);
   const [isEventAdminMenuOpen, setIsEventAdminMenuOpen] = useState(false);
@@ -517,11 +519,18 @@ export function EventDetailView({
       return undefined;
     }
 
+    const isTargetInsideAnyRef = (target, refs) =>
+      refs.some((refItem) => refItem?.current && refItem.current.contains(target));
+
     const handlePointerDownOutside = (event) => {
-      if (calendarMenuRef.current && !calendarMenuRef.current.contains(event.target)) {
+      if (
+        !isTargetInsideAnyRef(event.target, [calendarMenuMobileRef, calendarMenuDesktopRef])
+      ) {
         setIsCalendarMenuOpen(false);
       }
-      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target)) {
+      if (
+        !isTargetInsideAnyRef(event.target, [adminMenuMobileRef, adminMenuDesktopRef])
+      ) {
         setIsEventAdminMenuOpen(false);
       }
     };
@@ -1150,7 +1159,7 @@ export function EventDetailView({
 
           <div className="flex w-full items-center gap-2">
             {canAddToCalendar ? (
-              <div className="relative flex-1 min-w-0" ref={calendarMenuRef}>
+              <div className="relative flex-1 min-w-0" ref={calendarMenuMobileRef}>
                 <button
                   className={`${secondaryButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full min-h-11`}
                   type="button"
@@ -1181,7 +1190,7 @@ export function EventDetailView({
               </div>
             ) : null}
 
-            <div className={`relative ${canAddToCalendar ? "w-11" : "flex-1"}`} ref={adminMenuRef}>
+            <div className={`relative ${canAddToCalendar ? "w-11" : "flex-1"}`} ref={adminMenuMobileRef}>
               <button
                 className={`${menuTriggerClass} font-bold rounded-xl transition-all shadow-sm flex items-center justify-center min-h-11 h-11 w-full`}
                 aria-label={t("open_menu")}
@@ -1238,7 +1247,7 @@ export function EventDetailView({
           </button>
 
           {canAddToCalendar ? (
-            <div className="relative w-full sm:w-auto" ref={calendarMenuRef}>
+            <div className="relative w-full sm:w-auto" ref={calendarMenuDesktopRef}>
               <button
                 className={`${secondaryButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto min-h-11`}
                 type="button"
@@ -1269,7 +1278,7 @@ export function EventDetailView({
             </div>
           ) : null}
 
-          <div className="relative w-full sm:w-auto sm:ml-auto" ref={adminMenuRef}>
+          <div className="relative w-full sm:w-auto sm:ml-auto" ref={adminMenuDesktopRef}>
             <button
               className={`${menuTriggerClass} font-bold rounded-xl transition-all shadow-sm flex items-center justify-center min-h-11 h-11 px-4 w-full sm:w-11 sm:px-0`}
               aria-label={t("open_menu")}
