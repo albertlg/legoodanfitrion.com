@@ -26,6 +26,9 @@ export function InvitationBuilderView({
     handleClearBulkGuests,
     bulkInvitationGuestIds,
     toggleBulkInvitationGuest,
+    invitationBulkGroups,
+    selectedBulkInvitationGroupId,
+    handleSelectBulkInvitationGroup,
     isCreatingInvitation,
     handleCreateBulkInvitations,
     isCreatingBulkInvitations,
@@ -130,17 +133,44 @@ export function InvitationBuilderView({
 
                 {/* Filtros y Búsqueda */}
                 <div className="flex flex-col gap-4">
-                    <label>
-                        <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("search")}</span>
-                        <input
-                            type="search"
-                            className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
-                            value={bulkInvitationSearch}
-                            onChange={(event) => setBulkInvitationSearch(event.target.value)}
-                            placeholder={t("invitation_bulk_search_placeholder")}
-                            disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent}
-                        />
-                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label>
+                            <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                {t("invitation_bulk_group_label")}
+                            </span>
+                            <select
+                                className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm cursor-pointer disabled:opacity-50"
+                                value={selectedBulkInvitationGroupId}
+                                onChange={(event) => handleSelectBulkInvitationGroup(event.target.value)}
+                                disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent || invitationBulkGroups.length === 0}
+                            >
+                                <option value="">{t("invitation_bulk_group_placeholder")}</option>
+                                {invitationBulkGroups.map((groupItem) => (
+                                    <option key={groupItem.id} value={groupItem.id}>
+                                        {groupItem.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label>
+                            <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("search")}</span>
+                            <input
+                                type="search"
+                                className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                value={bulkInvitationSearch}
+                                onChange={(event) => setBulkInvitationSearch(event.target.value)}
+                                placeholder={t("invitation_bulk_search_placeholder")}
+                                disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent}
+                            />
+                        </label>
+                    </div>
+
+                    {invitationBulkGroups.length === 0 ? (
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {t("invitation_bulk_group_empty_hint")}
+                        </p>
+                    ) : null}
 
                     <div className="flex flex-col gap-2">
                         <div className="flex flex-wrap gap-2" role="group" aria-label={t("invitation_bulk_segment_label")}>

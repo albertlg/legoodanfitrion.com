@@ -555,6 +555,9 @@ function DashboardScreen({
   const [lastInvitationShareText, setLastInvitationShareText] = useState("");
   const [lastInvitationShareSubject, setLastInvitationShareSubject] = useState("");
   const [bulkInvitationGuestIds, setBulkInvitationGuestIds] = useState([]);
+  const [invitationBulkGroups, setInvitationBulkGroups] = useState([]);
+  const [invitationBulkGroupMembersByGroupId, setInvitationBulkGroupMembersByGroupId] = useState({});
+  const [selectedBulkInvitationGroupId, setSelectedBulkInvitationGroupId] = useState("");
   const [bulkInvitationSearch, setBulkInvitationSearch] = useState("");
   const [bulkInvitationSegment, setBulkInvitationSegment] = useState("all");
   const [isCreatingBulkInvitations, setIsCreatingBulkInvitations] = useState(false);
@@ -3807,6 +3810,83 @@ function DashboardScreen({
   }, [loadDashboardData]);
 
   useEffect(() => {
+    if (!session?.user?.id || routeActiveView !== "invitations" || routeInvitationsWorkspace !== "create") {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadInvitationBulkGroups = async () => {
+      const { data: groupsData, error: groupsError } = await supabase
+        .from("guest_groups")
+        .select("id, name, created_at")
+        .eq("host_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (groupsError) {
+        if (!isCancelled) {
+          setInvitationBulkGroups([]);
+          setInvitationBulkGroupMembersByGroupId({});
+        }
+        return;
+      }
+
+      const safeGroups = Array.isArray(groupsData) ? groupsData : [];
+      if (isCancelled) {
+        return;
+      }
+      setInvitationBulkGroups(safeGroups);
+
+      const groupIds = uniqueValues(safeGroups.map((groupItem) => groupItem?.id).filter(Boolean));
+      if (groupIds.length === 0) {
+        setInvitationBulkGroupMembersByGroupId({});
+        return;
+      }
+
+      let membersResult = await supabase
+        .from("guest_group_members")
+        .select("group_id, guest_id, guest_email, guest_phone")
+        .in("group_id", groupIds);
+
+      if (membersResult.error && isCompatibilityError(membersResult.error, ["guest_phone"])) {
+        membersResult = await supabase
+          .from("guest_group_members")
+          .select("group_id, guest_id, guest_email")
+          .in("group_id", groupIds);
+      }
+
+      if (membersResult.error) {
+        if (!isCancelled) {
+          setInvitationBulkGroupMembersByGroupId({});
+        }
+        return;
+      }
+
+      const groupedMembers = (membersResult.data || []).reduce((acc, memberItem) => {
+        const groupId = String(memberItem?.group_id || "").trim();
+        if (!groupId) {
+          return acc;
+        }
+        if (!acc[groupId]) {
+          acc[groupId] = [];
+        }
+        acc[groupId].push(memberItem);
+        return acc;
+      }, {});
+
+      if (!isCancelled) {
+        setInvitationBulkGroupMembersByGroupId(groupedMembers);
+      }
+    };
+
+    loadInvitationBulkGroups();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session?.user?.id, routeActiveView, routeInvitationsWorkspace]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return undefined;
     }
@@ -3946,6 +4026,16 @@ function DashboardScreen({
       setBulkInvitationGuestIds(filteredIds);
     }
   }, [bulkInvitationGuestIds, availableGuestsForSelectedEvent]);
+
+  useEffect(() => {
+    if (!selectedBulkInvitationGroupId) {
+      return;
+    }
+    const exists = invitationBulkGroups.some((groupItem) => groupItem?.id === selectedBulkInvitationGroupId);
+    if (!exists) {
+      setSelectedBulkInvitationGroupId("");
+    }
+  }, [invitationBulkGroups, selectedBulkInvitationGroupId]);
 
   useEffect(() => {
     if (guests.length === 0) {
@@ -4842,6 +4932,7 @@ function DashboardScreen({
     setLastInvitationShareSubject("");
     setBulkInvitationGuestIds([]);
     setBulkInvitationSearch("");
+    setSelectedBulkInvitationGroupId("");
     if (messageKey) {
       setInvitationMessage(t(messageKey));
     }
@@ -8418,6 +8509,81 @@ function DashboardScreen({
     setBulkInvitationGuestIds([]);
   };
 
+  const handleSelectBulkInvitationGroup = (groupId) => {
+    const normalizedGroupId = String(groupId || "").trim();
+    setSelectedBulkInvitationGroupId(normalizedGroupId);
+    if (!normalizedGroupId) {
+      return;
+    }
+
+    const selectedGroup = invitationBulkGroups.find((groupItem) => groupItem?.id === normalizedGroupId) || null;
+    const groupMembers = invitationBulkGroupMembersByGroupId[normalizedGroupId] || [];
+    if (!selectedGroup || groupMembers.length === 0) {
+      setInvitationMessage(t("invitation_bulk_group_empty"));
+      return;
+    }
+
+    const availableById = new Map();
+    const availableByEmail = new Map();
+    const availableByPhone = new Map();
+    for (const guestItem of availableGuestsForSelectedEvent) {
+      if (!guestItem?.id) {
+        continue;
+      }
+      const safeGuestId = String(guestItem.id).trim();
+      if (!safeGuestId) {
+        continue;
+      }
+      availableById.set(safeGuestId, safeGuestId);
+
+      const emailKey = normalizeEmailKey(guestItem.email);
+      if (emailKey && !availableByEmail.has(emailKey)) {
+        availableByEmail.set(emailKey, safeGuestId);
+      }
+
+      const phoneKey = normalizePhoneKey(guestItem.phone);
+      if (phoneKey && !availableByPhone.has(phoneKey)) {
+        availableByPhone.set(phoneKey, safeGuestId);
+      }
+    }
+
+    const matchedIds = [];
+    for (const memberItem of groupMembers) {
+      const byId = String(memberItem?.guest_id || "").trim();
+      if (byId && availableById.has(byId)) {
+        matchedIds.push(byId);
+        continue;
+      }
+
+      const memberEmailKey = normalizeEmailKey(memberItem?.guest_email);
+      if (memberEmailKey && availableByEmail.has(memberEmailKey)) {
+        matchedIds.push(availableByEmail.get(memberEmailKey));
+        continue;
+      }
+
+      const memberPhoneKey = normalizePhoneKey(memberItem?.guest_phone);
+      if (memberPhoneKey && availableByPhone.has(memberPhoneKey)) {
+        matchedIds.push(availableByPhone.get(memberPhoneKey));
+      }
+    }
+
+    const safeMatchedIds = uniqueValues(matchedIds.filter(Boolean));
+    if (safeMatchedIds.length === 0) {
+      setInvitationMessage(t("invitation_bulk_group_no_matches"));
+      return;
+    }
+
+    const mergedIds = uniqueValues([...(bulkInvitationGuestIds || []), ...safeMatchedIds]);
+    const addedCount = Math.max(0, mergedIds.length - (bulkInvitationGuestIds || []).length);
+    setBulkInvitationGuestIds(mergedIds);
+    setInvitationMessage(
+      interpolateText(t("invitation_bulk_group_added"), {
+        count: addedCount,
+        group: selectedGroup.name || t("guest_groups_tab")
+      })
+    );
+  };
+
   const handleCreateBulkInvitations = async () => {
     if (!supabase || !session?.user?.id) {
       return;
@@ -8479,6 +8645,7 @@ function DashboardScreen({
     setIsCreatingBulkInvitations(false);
     setBulkInvitationGuestIds([]);
     setBulkInvitationSearch("");
+    setSelectedBulkInvitationGroupId("");
     await loadDashboardData();
 
     if (firstCreatedInvitation) {
@@ -9314,6 +9481,9 @@ function DashboardScreen({
               handleClearBulkGuests,
               bulkInvitationGuestIds,
               toggleBulkInvitationGuest,
+              invitationBulkGroups,
+              selectedBulkInvitationGroupId,
+              handleSelectBulkInvitationGroup,
               isCreatingInvitation,
               handleCreateBulkInvitations,
               isCreatingBulkInvitations,
