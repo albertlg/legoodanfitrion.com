@@ -1480,7 +1480,7 @@ export function EventDetailView({
               {/* Columna principal */}
               <div className="flex flex-col gap-6 min-w-0">
 
-                <article id="event-invitations" className="order-2 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 scroll-mt-28">
+                <article id="event-invitations" className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   {!hasEventHeroCover ? <p className="text-lg font-black text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
@@ -1542,7 +1542,7 @@ export function EventDetailView({
                 {shouldRenderDatePollSection ? (
                   <article
                     id="event-date-poll"
-                    className="order-3 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 scroll-mt-28"
+                    className="order-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex flex-col gap-1">
@@ -1716,7 +1716,7 @@ export function EventDetailView({
                   </article>
                 ) : null}
 
-                <article className="order-1 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 overflow-hidden">
+                <article className="order-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="users" className="w-4 h-4 text-blue-500" />
@@ -1835,7 +1835,7 @@ export function EventDetailView({
                   )}
                 </article>
 
-                <article id="event-rsvp-timeline" className="order-4 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4 scroll-mt-28">
+                <article id="event-rsvp-timeline" className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}
@@ -1871,39 +1871,43 @@ export function EventDetailView({
               <div className="flex flex-col gap-6 min-w-0">
 
                 {/* AI Planner Banner */}
-                <article className="order-1 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl p-5 shadow-lg flex flex-col gap-4 text-white">
+                <article className="order-1 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-4">
+                  <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
                   <div className="flex justify-between items-start">
                     <span className="flex items-center gap-2 text-sm font-black">
-                      <Icon name="sparkle" className="w-5 h-5 text-yellow-300" />
-                      {t("event_plan_cta_title")}
+                      <Icon name="sparkle" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                        {t("event_plan_cta_title")}
+                      </span>
                     </span>
-                    <span className="px-2.5 py-1 bg-white/20 backdrop-blur-md border border-white/30 rounded-lg text-[9px] font-bold uppercase tracking-wider shadow-sm">
+                    <span className="px-2.5 py-1 bg-indigo-100/80 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg text-[9px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
                       {t("event_planner_ai_badge")}
                     </span>
                   </div>
-                  <p className="text-xs font-medium text-white/90 leading-relaxed">{t("event_plan_cta_hint")}</p>
-                  <button className="bg-white text-blue-700 hover:bg-gray-50 font-bold py-2.5 px-4 rounded-xl transition-all text-xs w-full shadow-md flex justify-center items-center gap-2 mt-1" type="button" onClick={() => handleOpenEventPlan("ambience")}>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_plan_cta_hint")}</p>
+                  <button className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold py-2.5 px-4 rounded-xl transition-all text-xs w-full shadow-sm flex justify-center items-center gap-2 mt-1" type="button" onClick={() => handleOpenEventPlan("ambience")}>
                     {t("event_plan_cta_action")}
                     <Icon name="arrow_right" className="w-3.5 h-3.5" />
                   </button>
                 </article>
 
-                <article className="order-3 bg-gradient-to-br from-fuchsia-600 via-purple-600 to-indigo-700 rounded-2xl p-5 shadow-lg flex flex-col gap-3 text-white border border-white/15">
+                <article className="order-3 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-3">
+                  <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-white/20 border border-white/30 backdrop-blur-md">
-                        <Icon name="sparkle" className="w-4 h-4 text-yellow-300" />
+                      <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700">
+                        <Icon name="sparkle" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                       </span>
-                      <p className="text-sm font-black tracking-wide">{t("event_icebreaker_title")}</p>
+                      <p className="text-sm font-black tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">{t("event_icebreaker_title")}</p>
                     </div>
-                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-black/20 border border-white/20">
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-indigo-100/80 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300">
                       IA
                     </span>
                   </div>
-                  <p className="text-xs text-white/90 leading-relaxed">{t("event_icebreaker_hint")}</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_icebreaker_hint")}</p>
                   <div className="grid grid-cols-1 gap-2">
                     <button
-                      className="bg-white text-purple-700 hover:bg-gray-100 font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-md w-full inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="bg-indigo-600 text-white hover:bg-indigo-700 font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm w-full inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                       type="button"
                       onClick={() => handleGenerateEventIcebreaker?.()}
                       disabled={isIcebreakerLoading}
@@ -1913,7 +1917,7 @@ export function EventDetailView({
                     </button>
                     {hasIcebreakerData ? (
                       <button
-                        className="bg-white/15 hover:bg-white/25 border border-white/25 text-white font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm w-full inline-flex items-center justify-center gap-2"
+                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm w-full inline-flex items-center justify-center gap-2"
                         type="button"
                         onClick={() => handleOpenEventIcebreakerPanel?.()}
                       >
@@ -1924,7 +1928,7 @@ export function EventDetailView({
                   </div>
                 </article>
 
-                <article className="order-2 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                <article className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <div className="flex items-center gap-2">
                     <Icon name="activity" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_expenses_title")}</p>
@@ -2117,7 +2121,7 @@ export function EventDetailView({
                   <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
                 </article>
 
-                <article className="order-4 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                <article className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="check" className="w-4 h-4 text-green-500" />
                     {t("event_detail_checklist_title")}
@@ -2167,7 +2171,7 @@ export function EventDetailView({
                 </article>
 
                 {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
-                  <article className="order-6 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                  <article className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                     <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="location" className="w-4 h-4 text-blue-500" />
                       {t("map_preview_title")}
