@@ -38,14 +38,14 @@ export function MultiSelectField({ id, label, value, options, onChange, helpText
         {label}
       </p>
 
-      <div className="flex flex-wrap gap-2 md:gap-2.5" role="group" aria-labelledby={titleId}>
+      <div className="flex flex-wrap gap-2 md:gap-2.5 min-w-0 w-full" role="group" aria-labelledby={titleId}>
         {mergedOptions.map((optionValue) => {
           const isSelected = selectedValues.includes(optionValue);
           return (
             <button
               key={optionValue}
               type="button"
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 md:px-4 md:py-2 rounded-full text-[13px] md:text-sm font-semibold transition-all duration-200 border outline-none focus:ring-2 focus:ring-blue-500/50 select-none ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 md:px-4 md:py-2 rounded-full text-[13px] md:text-sm font-semibold transition-all duration-200 border outline-none focus:ring-2 focus:ring-blue-500/50 select-none min-w-0 max-w-full ${
                 isSelected
                   ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700/50 dark:text-blue-300 shadow-sm"
                   : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -54,7 +54,7 @@ export function MultiSelectField({ id, label, value, options, onChange, helpText
               onClick={() => toggleValue(optionValue)}
             >
               {isSelected && <Icon name="check" className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-              <span>{optionValue}</span>
+              <span className="whitespace-normal break-words text-left">{optionValue}</span>
             </button>
           );
         })}

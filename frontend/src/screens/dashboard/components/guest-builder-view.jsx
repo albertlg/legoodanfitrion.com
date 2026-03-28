@@ -115,7 +115,7 @@ export function GuestBuilderView({
   return (
     // 🚀 FIX PADDINGCEPTION 1: Eliminamos bordes, radios y paddings en móvil. 
     // En PC (sm:) vuelve a ser una tarjeta redonda centrada.
-    <form className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl sm:border border-black/10 dark:border-white/10 sm:rounded-[2.5rem] sm:shadow-sm pb-8 sm:p-6 md:p-8 flex flex-col gap-6 w-[calc(100%+2rem)] -mx-4 px-4 sm:w-full sm:mx-auto sm:my-6" onSubmit={handleSaveGuest} noValidate>
+    <form className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl sm:border border-black/10 dark:border-white/10 sm:rounded-[2.5rem] sm:shadow-sm pb-8 sm:p-6 md:p-8 flex flex-col gap-6 w-full min-w-0 max-w-screen-xl px-4 sm:w-full sm:px-6 sm:mx-auto sm:my-6" onSubmit={handleSaveGuest} noValidate>
 
       {/* 👑 CABECERA DINÁMICA */}
       {isEditingGuest ? (
@@ -393,7 +393,7 @@ export function GuestBuilderView({
       </div>
 
       {/* 🚀 TÍTULO CONFIGURACIÓN AVANZADA (Efecto Breakout en móvil) */}
-      <details ref={guestAdvancedDetailsRef} className="bg-white/50 dark:bg-white/5 sm:rounded-3xl border-y sm:border border-black/5 dark:border-white/10 shadow-sm flex flex-col gap-4 group mt-6 -mx-4 sm:mx-0">
+      <details ref={guestAdvancedDetailsRef} className="bg-white/50 dark:bg-white/5 sm:rounded-3xl border-y sm:border border-black/5 dark:border-white/10 shadow-sm flex flex-col gap-4 group mt-6 mx-0 max-w-full">
         <summary className="flex items-center justify-between font-bold text-gray-900 dark:text-white cursor-pointer outline-none marker:text-gray-400 p-4 sm:p-6 transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:rounded-3xl">
           <span className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
@@ -407,10 +407,13 @@ export function GuestBuilderView({
         </summary>
 
         {/* 🚀 FIX PADDINGCEPTION 2: -mx-4 en móvil y quitamos paddings */}
-        <div className="flex flex-col border-t border-black/5 dark:border-white/10 pt-0">
-          {/* STICKY TOOLBAR MODERNA (🚀 FIX: top-[64px] para móvil, fondo sólido y z-40) */}
-          <div ref={guestAdvancedToolbarRef} className="sticky top-[64px] md:top-[72px] z-40 bg-gray-50 dark:bg-gray-900 border-b border-black/5 dark:border-white/10 shadow-sm py-3 px-4 sm:p-4 flex flex-col gap-2.5 w-full">
-            <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none" role="tablist" aria-label={t("guest_advanced_title")}>
+        <div className="flex flex-col border-t border-black/5 dark:border-white/10 pt-0 max-w-full">
+          {/* STICKY TOOLBAR MODERNA: fijo justo por debajo de la cabecera global (móvil 64px, desktop 72px) */}
+          <div
+            ref={guestAdvancedToolbarRef}
+            className="sticky top-[calc(4rem-1px)] md:top-[calc(72px-1px)] z-40 bg-gray-50/95 dark:bg-gray-900/95 supports-[backdrop-filter]:backdrop-blur-md border-b border-black/5 dark:border-white/10 shadow-sm py-2.5 px-4 sm:px-4 sm:py-3 flex flex-col gap-2.5 w-full"
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:flex xl:flex-wrap gap-2 pb-1 min-w-0" role="tablist" aria-label={t("guest_advanced_title")}>
               {guestAdvancedEditTabs.map((tabItem) => {
                 const isCompleted = Boolean(guestAdvancedSignalsBySection[tabItem.key]?.done);
                 const isActive = guestAdvancedEditTab === tabItem.key;
@@ -419,11 +422,11 @@ export function GuestBuilderView({
                 return (
                   <button
                     key={tabItem.key} type="button" role="tab" aria-selected={isActive}
-                    className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-[12px] md:text-[13px] font-bold transition-all whitespace-nowrap shadow-sm border outline-none shrink-0 ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                    className={`w-full xl:w-auto min-w-0 max-w-full min-h-[38px] flex items-center gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-full text-[11px] md:text-[12px] font-bold leading-tight transition-all whitespace-normal break-words shadow-sm border outline-none ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
                     onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
                   >
                     <Icon name={tabIcon} className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isActive ? "opacity-100" : "opacity-50"}`} />
-                    <span>{tabItem.label}</span>
+                    <span className="min-w-0 break-words text-left">{tabItem.label}</span>
                     <span className={`flex items-center justify-center w-3.5 h-3.5 md:w-4 md:h-4 rounded-full ${isActive ? (isCompleted ? "bg-white/20 text-white" : "bg-black/20 text-white") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
                       <Icon name={isCompleted ? "check" : "clock"} className="w-2.5 h-2.5" />
                     </span>
@@ -446,9 +449,9 @@ export function GuestBuilderView({
                 </span>
               </div>
 
-              <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none">
+              <div className="flex flex-wrap gap-2 pb-1 min-w-0">
                 {guestAdvancedCurrentChecklist.map((item) => (
-                  <span key={item.key} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-wider border shadow-sm shrink-0 whitespace-nowrap ${item.done ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/30" : "bg-white text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}>
+                  <span key={item.key} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-wider border shadow-sm whitespace-normal break-words max-w-full ${item.done ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/30" : "bg-white text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}>
                     <Icon name={item.done ? "check" : "clock"} className="w-3 h-3" />
                     {item.label}
                   </span>
@@ -456,22 +459,22 @@ export function GuestBuilderView({
               </div>
             </div>
 
-            <div className="flex overflow-x-auto gap-2 pt-1.5 border-t border-black/5 dark:border-white/10 scrollbar-none">
-              <button className="shrink-0 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleGoToPreviousGuestAdvancedSection} disabled={!guestAdvancedPrevTab}>
+            <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-black/5 dark:border-white/10 min-w-0 sm:flex sm:flex-wrap xl:flex-nowrap">
+              <button className="w-full sm:flex-1 xl:flex-none xl:w-auto min-w-[112px] bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleGoToPreviousGuestAdvancedSection} disabled={!guestAdvancedPrevTab}>
                 <Icon name="arrow_left" className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t("pagination_prev")}</span>
               </button>
-              <button className="shrink-0 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleSaveGuestDraft} disabled={isSavingGuest}>
+              <button className="w-full sm:flex-1 xl:flex-none xl:w-auto min-w-[112px] bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleSaveGuestDraft} disabled={isSavingGuest}>
                 <Icon name="check" className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{isSavingGuest ? t("guest_saving_draft") : t("guest_save_draft")}</span>
                 <span className="sm:hidden">Desar</span>
               </button>
-              <button className="shrink-0 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800/30 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleSaveAndGoNextPendingGuestAdvancedSection} disabled={!guestAdvancedNextPendingTab || isSavingGuest}>
+              <button className="w-full sm:flex-1 xl:flex-none xl:w-auto min-w-[112px] bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800/30 font-bold py-2 px-3 md:py-2.5 md:px-4 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleSaveAndGoNextPendingGuestAdvancedSection} disabled={!guestAdvancedNextPendingTab || isSavingGuest}>
                 <Icon name="sparkle" className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t("guest_wizard_save_next_pending")}</span>
                 <span className="sm:hidden">Pendent</span>
               </button>
-              <button className="shrink-0 flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 md:py-2.5 md:px-5 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleGoToNextGuestAdvancedSection} disabled={!guestAdvancedNextTab || isSavingGuest}>
+              <button className="col-span-2 w-full sm:flex-1 xl:flex-none xl:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 md:py-2.5 md:px-5 rounded-xl transition-all text-[11px] md:text-xs disabled:opacity-50 shadow-sm flex items-center justify-center gap-1.5 outline-none" type="button" onClick={handleGoToNextGuestAdvancedSection} disabled={!guestAdvancedNextTab || isSavingGuest}>
                 <span>{t("guest_wizard_validate_next")}</span>
                 <Icon name="arrow_right" className="w-3.5 h-3.5" />
               </button>
