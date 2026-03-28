@@ -132,6 +132,8 @@ function App() {
   const [resetPassword, setResetPassword] = useState("");
   const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isCheckingAdminAuthorization, setIsCheckingAdminAuthorization] = useState(false);
+  const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
 
@@ -537,14 +539,39 @@ function App() {
     navigate("/app", { replace: true });
   }, [isLoadingAuth, isRecoveryMode, navigate, route.kind, session?.user?.id]);
 
-  // Admin route guard: redirect non-admins after auth loads
+  // Admin route guard: validated via Supabase RPC (no email list in frontend)
   useEffect(() => {
-    if (isLoadingAuth || route.kind !== "admin") return;
-    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-    const userEmail = session?.user?.email?.toLowerCase() || "";
-    const isAdmin = session?.user?.id && adminEmails.includes(userEmail);
-    if (!isAdmin) navigate("/", { replace: true });
-  }, [isLoadingAuth, navigate, route.kind, session?.user?.email, session?.user?.id]);
+    if (route.kind !== "admin") {
+      setIsCheckingAdminAuthorization(false);
+      return;
+    }
+    if (isLoadingAuth) return;
+    if (!supabase || !session?.user?.id) {
+      setIsAdminAuthorized(false);
+      setIsCheckingAdminAuthorization(false);
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    let isCancelled = false;
+    setIsCheckingAdminAuthorization(true);
+
+    const checkAdminAccess = async () => {
+      const { data, error } = await supabase.rpc("is_lga_admin");
+      if (isCancelled) return;
+      const authorized = !error && data === true;
+      setIsAdminAuthorized(authorized);
+      setIsCheckingAdminAuthorization(false);
+      if (!authorized) {
+        navigate("/", { replace: true });
+      }
+    };
+
+    checkAdminAccess();
+    return () => {
+      isCancelled = true;
+    };
+  }, [isLoadingAuth, navigate, route.kind, session?.user?.id]);
 
   if (!hasSupabaseEnv && route.kind !== "landing") {
     return (
@@ -588,11 +615,8 @@ function App() {
   }
 
   if (route.kind === "admin") {
-    if (isLoadingAuth) return <ScreenFallback />;
-    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-    const userEmail = session?.user?.email?.toLowerCase() || "";
-    const isAdmin = session?.user?.id && adminEmails.includes(userEmail);
-    if (!isAdmin) {
+    if (isLoadingAuth || isCheckingAdminAuthorization) return <ScreenFallback />;
+    if (!isAdminAuthorized) {
       return <ScreenFallback />;
     }
     return (

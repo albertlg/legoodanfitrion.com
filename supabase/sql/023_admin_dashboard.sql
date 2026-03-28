@@ -1,27 +1,28 @@
 -- Admin Dashboard ("Modo Dios") for LeGoodAnfitrión
--- Security: Only founders can call these RPCs (email whitelist)
+-- Security: Only users registered in public.app_admins can call these RPCs
 -- All functions use SECURITY DEFINER to bypass RLS for cross-user aggregation
 
 -- ============================================================
--- 1. Admin check helper
+-- 1. Admin registry + admin check helper
 -- ============================================================
+create table if not exists public.app_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_app_admins_created_at on public.app_admins(created_at desc);
+
 create or replace function public.is_lga_admin()
 returns boolean
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_email text;
 begin
-  select email into v_email
-  from auth.users
-  where id = auth.uid();
-
-  return v_email in (
-    'albert@albertlg.com',
-    'albertlg@gmail.com',
-    'laurags@gmail.com'
+  return exists (
+    select 1
+    from public.app_admins a
+    where a.user_id = auth.uid()
   );
 end;
 $$;

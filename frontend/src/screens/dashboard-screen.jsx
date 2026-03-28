@@ -569,6 +569,7 @@ function DashboardScreen({
   const [guestSort, setGuestSort] = useState("created_desc");
   const [guestPage, setGuestPage] = useState(1);
   const [invitationSearch, setInvitationSearch] = useState("");
+  const [invitationTab, setInvitationTab] = useState("received");
   const [invitationEventFilter, setInvitationEventFilter] = useState("all");
   const [invitationStatusFilter, setInvitationStatusFilter] = useState("all");
   const [invitationSort, setInvitationSort] = useState("created_desc");
@@ -4292,6 +4293,12 @@ function DashboardScreen({
       } else if (typeof parsed?.eventDateFilter === "string" && ["upcoming", "past"].includes(parsed.eventDateFilter)) {
         setEventDateFilter(parsed.eventDateFilter);
       }
+      const urlInvitationTab = String(new URLSearchParams(window.location.search || "").get("invitationTab") || "")
+        .trim()
+        .toLowerCase();
+      if (["received", "sent"].includes(urlInvitationTab)) {
+        setInvitationTab(urlInvitationTab);
+      }
       if (typeof parsed?.eventStatusFilter === "string") {
         setEventStatusFilter(parsed.eventStatusFilter);
       }
@@ -4351,6 +4358,21 @@ function DashboardScreen({
     const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash || ""}`;
     window.history.replaceState(window.history.state, "", nextUrl);
   }, [eventDateFilter, routeActiveView, routeEventsWorkspace]);
+
+  useEffect(() => {
+    if (routeActiveView !== "invitations" || routeInvitationsWorkspace !== "latest") {
+      return;
+    }
+    const searchParams = new URLSearchParams(window.location.search || "");
+    if (invitationTab === "received") {
+      searchParams.delete("invitationTab");
+    } else {
+      searchParams.set("invitationTab", invitationTab);
+    }
+    const nextSearch = searchParams.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash || ""}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }, [invitationTab, routeActiveView, routeInvitationsWorkspace]);
 
   // 1. INICIALIZACIÓN (Ya no necesitamos instanciar AutocompleteService)
   useEffect(() => {
@@ -9303,6 +9325,8 @@ function DashboardScreen({
               lastInvitationWhatsappUrl,
               lastInvitationEmailUrl,
               language,
+              invitationTab,
+              setInvitationTab,
               invitationSearch,
               setInvitationSearch,
               invitationSort,

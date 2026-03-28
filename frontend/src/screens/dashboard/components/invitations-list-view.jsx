@@ -8,6 +8,8 @@ import { ShareCard } from "../../../components/events/ShareCard";
 export function InvitationsListView({
   t,
   language,
+  invitationTab = "received",
+  setInvitationTab,
   invitationSearch,
   setInvitationSearch,
   invitationSort,
@@ -49,7 +51,6 @@ export function InvitationsListView({
   hostAvatarUrl
 }) {
   const [openDropdownId, setOpenDropdownId] = useState(null);
-  const [invitationTab, setInvitationTab] = useState("sent");
   const [isSharingInvitationId, setIsSharingInvitationId] = useState("");
   const [shareImageMessage, setShareImageMessage] = useState("");
   const shareCardRefs = useRef({});

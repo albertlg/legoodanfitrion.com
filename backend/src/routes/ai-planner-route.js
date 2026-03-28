@@ -462,12 +462,7 @@ function withTimeout(promise, timeoutMs, timeoutLabel = "Operation timeout") {
 
 router.post("/planner", async (req, res) => {
   console.log("--- NUEVA PETICIÓN IA --- | Scope:", req.body?.scope);
-  console.log(
-    "Clave detectada:",
-    process.env.GEMINI_API_KEY
-      ? `SÍ (Empieza por ${String(process.env.GEMINI_API_KEY).substring(0, 5)}...)`
-      : "UNDEFINED"
-  );
+  console.log("GEMINI_API_KEY configurada:", process.env.GEMINI_API_KEY ? "SÍ" : "NO");
 
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
@@ -585,12 +580,7 @@ router.post("/planner", async (req, res) => {
 
 router.post("/icebreaker", async (req, res) => {
   console.log("--- NUEVA PETICIÓN IA / ICEBREAKER ---");
-  console.log(
-    "Clave detectada:",
-    process.env.GEMINI_API_KEY
-      ? `SÍ (Empieza por ${String(process.env.GEMINI_API_KEY).substring(0, 5)}...)`
-      : "UNDEFINED"
-  );
+  console.log("GEMINI_API_KEY configurada:", process.env.GEMINI_API_KEY ? "SÍ" : "NO");
 
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
