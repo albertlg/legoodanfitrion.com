@@ -142,35 +142,13 @@ async function exchangeSpotifyAuthCodeForToken(authCode) {
   return payload || {};
 }
 
-async function getEventForPlaylist(eventId) {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select("id,title")
-    .eq("id", eventId)
-    .maybeSingle();
-
-  if (error) {
-    const wrapped = new Error(`No se pudo validar el evento: ${error.message}`);
-    wrapped.code = "SPOTIFY_DB_ERROR";
-    throw wrapped;
-  }
-
-  if (!data?.id) {
-    const wrapped = new Error("Evento no encontrado para crear la playlist.");
-    wrapped.code = "SPOTIFY_EVENT_NOT_FOUND";
-    throw wrapped;
-  }
-
-  return data;
-}
-
-async function saveEventSpotifyPlaylist({ eventId, playlistId, playlistUrl }) {
+async function saveEventSpotifyPlaylist({ eventId, playlistId, playlistUrl, refreshToken = "" }) {
   const supabase = getSupabaseAdminClient();
   const payload = {
     event_id: eventId,
     spotify_playlist_id: playlistId,
-    spotify_playlist_url: playlistUrl
+    spotify_playlist_url: playlistUrl,
+    spotify_refresh_token: toSafeString(refreshToken) || null
   };
   const { error } = await supabase
     .from("event_spotify_playlists")
@@ -205,7 +183,18 @@ export async function createEventPlaylist(authCode, eventId) {
   }
 
   try {
-    await getEventForPlaylist(normalizedEventId);
+    const supabaseAdmin = getSupabaseAdminClient();
+    const { data: eventData, error: eventError } = await supabaseAdmin
+      .from("events")
+      .select("title")
+      .eq("id", normalizedEventId)
+      .single();
+    if (eventError) {
+      const error = new Error(`No se pudo validar el evento: ${eventError.message}`);
+      error.code = "SPOTIFY_DB_ERROR";
+      error.details = eventError;
+      throw error;
+    }
 
     const clientId = toSafeString(process.env.SPOTIFY_CLIENT_ID);
     const clientSecret = toSafeString(process.env.SPOTIFY_CLIENT_SECRET);
@@ -242,6 +231,7 @@ export async function createEventPlaylist(authCode, eventId) {
     }
 
     const accessToken = toSafeString(tokenData?.access_token);
+    const refreshToken = toSafeString(tokenData?.refresh_token);
     if (!accessToken) {
       const error = new Error("Spotify no devolvió access_token.");
       error.code = "SPOTIFY_AUTH_ERROR";
@@ -255,7 +245,7 @@ export async function createEventPlaylist(authCode, eventId) {
     console.log("==============================\n");
 
     // 2) Crear playlist (fallback si collaborative no está permitido).
-    const playlistName = `LGA: Evento ${normalizedEventId}`;
+    const playlistName = eventData?.title ? `LGA: ${eventData.title}` : "LGA: Evento";
 
     const createPlaylist = async (payload) => {
       const response = await fetch("https://api.spotify.com/v1/me/playlists", {
@@ -308,7 +298,8 @@ export async function createEventPlaylist(authCode, eventId) {
     await saveEventSpotifyPlaylist({
       eventId: normalizedEventId,
       playlistId,
-      playlistUrl
+      playlistUrl,
+      refreshToken
     });
 
     return {
@@ -320,6 +311,188 @@ export async function createEventPlaylist(authCode, eventId) {
     console.error("💥 ERROR REAL DE SPOTIFY:", error);
     throw error;
   }
+}
+
+export async function getValidAccessTokenForEvent(eventId) {
+  const normalizedEventId = normalizeEventId(eventId);
+  if (!normalizedEventId) {
+    const error = new Error("eventId es obligatorio para renovar token de Spotify.");
+    error.code = "SPOTIFY_BAD_REQUEST";
+    throw error;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("event_spotify_playlists")
+    .select("spotify_refresh_token")
+    .eq("event_id", normalizedEventId)
+    .maybeSingle();
+
+  if (error) {
+    const wrapped = new Error(`No se pudo leer refresh token en Supabase: ${error.message}`);
+    wrapped.code = "SPOTIFY_DB_ERROR";
+    wrapped.details = error;
+    throw wrapped;
+  }
+
+  const refreshToken = toSafeString(data?.spotify_refresh_token);
+  if (!refreshToken) {
+    const wrapped = new Error("Conexión de Spotify no configurada para este evento.");
+    wrapped.code = "SPOTIFY_REFRESH_TOKEN_MISSING";
+    throw wrapped;
+  }
+
+  const clientId = toSafeString(process.env.SPOTIFY_CLIENT_ID);
+  const clientSecret = toSafeString(process.env.SPOTIFY_CLIENT_SECRET);
+  if (!clientId || !clientSecret) {
+    const wrapped = new Error("Faltan credenciales Spotify para renovar token.");
+    wrapped.code = "SPOTIFY_CONFIG_ERROR";
+    throw wrapped;
+  }
+
+  const basicToken = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const bodyParams = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken
+  });
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${basicToken}`
+    },
+    body: bodyParams
+  });
+
+  const tokenData = await response.json();
+  if (!response.ok) {
+    const wrapped = new Error("Spotify refresh token exchange failed");
+    wrapped.code = "SPOTIFY_AUTH_ERROR";
+    wrapped.details = tokenData;
+    throw wrapped;
+  }
+
+  const newAccessToken = toSafeString(tokenData?.access_token);
+  if (!newAccessToken) {
+    const wrapped = new Error("Spotify no devolvió access_token al renovar.");
+    wrapped.code = "SPOTIFY_AUTH_ERROR";
+    wrapped.details = tokenData;
+    throw wrapped;
+  }
+
+  const rotatedRefreshToken = toSafeString(tokenData?.refresh_token);
+  if (rotatedRefreshToken && rotatedRefreshToken !== refreshToken) {
+    const { error: updateError } = await supabase
+      .from("event_spotify_playlists")
+      .update({ spotify_refresh_token: rotatedRefreshToken })
+      .eq("event_id", normalizedEventId);
+    if (updateError) {
+      console.warn("[spotify] no se pudo persistir refresh token rotado:", updateError);
+    }
+  }
+
+  return newAccessToken;
+}
+
+export async function searchTracks(eventId, query) {
+  const normalizedEventId = normalizeEventId(eventId);
+  const normalizedQuery = toSafeString(query);
+  if (!normalizedEventId || !normalizedQuery) {
+    const error = new Error("eventId y query son obligatorios para buscar canciones.");
+    error.code = "SPOTIFY_BAD_REQUEST";
+    throw error;
+  }
+
+  const accessToken = await getValidAccessTokenForEvent(normalizedEventId);
+  const endpoint = `https://api.spotify.com/v1/search?q=${encodeURIComponent(normalizedQuery)}&type=track&limit=5`;
+
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json"
+    }
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    const error = new Error("Spotify search request failed");
+    error.code = "SPOTIFY_SEARCH_ERROR";
+    error.details = payload;
+    throw error;
+  }
+
+  const tracks = Array.isArray(payload?.tracks?.items) ? payload.tracks.items : [];
+  return tracks.map((trackItem) => {
+    const artists = Array.isArray(trackItem?.artists)
+      ? trackItem.artists.map((artistItem) => toSafeString(artistItem?.name)).filter(Boolean)
+      : [];
+    const images = Array.isArray(trackItem?.album?.images) ? trackItem.album.images : [];
+    const cover = toSafeString(images?.[0]?.url || images?.[1]?.url || "");
+    return {
+      id: toSafeString(trackItem?.id),
+      name: toSafeString(trackItem?.name),
+      artist: artists.join(", "),
+      cover,
+      uri: toSafeString(trackItem?.uri)
+    };
+  });
+}
+
+export async function addTrackToPlaylist(eventId, trackUri) {
+  const normalizedEventId = normalizeEventId(eventId);
+  const normalizedTrackUri = toSafeString(trackUri);
+  if (!normalizedEventId || !normalizedTrackUri) {
+    const error = new Error("eventId y trackUri son obligatorios para añadir canción.");
+    error.code = "SPOTIFY_BAD_REQUEST";
+    throw error;
+  }
+
+  const accessToken = await getValidAccessTokenForEvent(normalizedEventId);
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("event_spotify_playlists")
+    .select("spotify_playlist_id")
+    .eq("event_id", normalizedEventId)
+    .maybeSingle();
+
+  if (error) {
+    const wrapped = new Error(`No se pudo obtener playlist del evento: ${error.message}`);
+    wrapped.code = "SPOTIFY_DB_ERROR";
+    wrapped.details = error;
+    throw wrapped;
+  }
+
+  const playlistId = toSafeString(data?.spotify_playlist_id);
+  if (!playlistId) {
+    const wrapped = new Error("No hay playlist de Spotify conectada para este evento.");
+    wrapped.code = "SPOTIFY_PLAYLIST_NOT_FOUND";
+    throw wrapped;
+  }
+
+  const endpoint = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({ uris: [normalizedTrackUri] })
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    const wrapped = new Error("Spotify add track request failed");
+    wrapped.code = "SPOTIFY_ADD_TRACK_ERROR";
+    wrapped.details = payload;
+    throw wrapped;
+  }
+
+  return {
+    success: true,
+    snapshot_id: toSafeString(payload?.snapshot_id)
+  };
 }
 
 export function buildFrontendEventUrl(eventId, extraParams = {}) {

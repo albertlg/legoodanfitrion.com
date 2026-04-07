@@ -4,6 +4,7 @@ import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
+import { SpotifyGuestWidget } from "../components/spotify/spotify-guest-widget";
 import { supabase } from "../lib/supabaseClient";
 import { Helmet } from "react-helmet-async";
 import { formatDate, formatEventDateDisplay } from "../lib/formatters";
@@ -100,6 +101,7 @@ function RsvpFormView({
   note,
   setNote,
   handleSubmit,
+  eventId,
   isDatePollOpen,
   allowPlusOne,
   datePollOptions,
@@ -214,6 +216,8 @@ function RsvpFormView({
           })}
         </div>
       </div>
+
+      {eventId ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
 
       <label className="flex flex-col gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
@@ -960,6 +964,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 note={note}
                 setNote={setNote}
                 handleSubmit={handleSubmit}
+                eventId={invitation?.event_id}
                 isDatePollOpen={isDatePollOpen}
                 allowPlusOne={eventAllowPlusOne}
                 datePollOptions={datePollOptions}
