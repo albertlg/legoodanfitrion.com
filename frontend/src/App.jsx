@@ -80,6 +80,17 @@ function resolveTheme(themeMode, systemPrefersDark) {
   return themeMode;
 }
 
+function getSessionPreferences(sessionUser) {
+  const rawPrefs = sessionUser?.user_metadata?.preferences;
+  if (!rawPrefs || typeof rawPrefs !== "object") {
+    return { locale: "", theme: "" };
+  }
+  return {
+    locale: String(rawPrefs.locale || "").trim().toLowerCase(),
+    theme: String(rawPrefs.theme || "").trim().toLowerCase()
+  };
+}
+
 function normalizeAuthErrorMessage(error, t) {
   const rawMessage = String(error?.message || "").trim();
   const normalized = rawMessage.toLowerCase();
@@ -117,6 +128,7 @@ function App() {
   const [themeMode, setThemeMode] = useState(getThemeModeInitial);
   const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
   const [themeColumnSupported, setThemeColumnSupported] = useState(true);
+  const [profilePrefsHydrated, setProfilePrefsHydrated] = useState(false);
 
   const [session, setSession] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -224,6 +236,13 @@ function App() {
         setAuthError(normalizeAuthErrorMessage(error, t));
       } else {
         setSession(data.session);
+        const sessionPrefs = getSessionPreferences(data.session?.user);
+        if (sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
+          setLanguage(sessionPrefs.locale);
+        }
+        if (sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme)) {
+          setThemeMode(sessionPrefs.theme);
+        }
       }
       setIsLoadingAuth(false);
     };
@@ -232,12 +251,20 @@ function App() {
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setIsSigningInWithGoogle(false);
+      const sessionPrefs = getSessionPreferences(nextSession?.user);
+      if (sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
+        setLanguage(sessionPrefs.locale);
+      }
+      if (sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme)) {
+        setThemeMode(sessionPrefs.theme);
+      }
       if (event === "PASSWORD_RECOVERY") {
         setIsRecoveryMode(true);
         navigate("/login", { replace: true });
       }
       if (event === "SIGNED_OUT") {
         setIsRecoveryMode(false);
+        setProfilePrefsHydrated(false);
       }
       // PLG: si el usuario hace login (o confirma email) y aún tiene dietary needs
       // pendientes del RSVP, inyectarlos en su metadata para pre-poblar el perfil
@@ -277,11 +304,23 @@ function App() {
 
   useEffect(() => {
     if (!supabase || !session?.user?.id) {
+      setProfilePrefsHydrated(false);
       return;
     }
     let isCancelled = false;
 
     const loadProfilePreferences = async () => {
+      const sessionPrefs = getSessionPreferences(session.user);
+      const hasMetadataLocale = sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale);
+      const hasMetadataTheme = sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme);
+
+      if (hasMetadataLocale) {
+        setLanguage(sessionPrefs.locale);
+      }
+      if (hasMetadataTheme) {
+        setThemeMode(sessionPrefs.theme);
+      }
+
       const { data, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
 
       if (isCancelled) {
@@ -289,14 +328,15 @@ function App() {
       }
 
       if (error) {
+        setProfilePrefsHydrated(true);
         return;
       }
 
-      if (data?.preferred_language && SUPPORTED_LANGUAGES.includes(data.preferred_language)) {
+      if (!hasMetadataLocale && data?.preferred_language && SUPPORTED_LANGUAGES.includes(data.preferred_language)) {
         setLanguage(data.preferred_language);
       }
 
-      if (data && Object.prototype.hasOwnProperty.call(data, "preferred_theme")) {
+      if (!hasMetadataTheme && data && Object.prototype.hasOwnProperty.call(data, "preferred_theme")) {
         if (typeof data.preferred_theme === "string" && ["light", "dark", "system"].includes(data.preferred_theme)) {
           setThemeMode(data.preferred_theme);
         }
@@ -304,18 +344,19 @@ function App() {
         setThemeColumnSupported(false);
       }
 
+      setProfilePrefsHydrated(true);
     };
 
     loadProfilePreferences();
     return () => {
       isCancelled = true;
     };
-  }, [session?.user?.id]);
+  }, [session?.user, session?.user?.id, session?.user?.user_metadata?.preferences?.locale, session?.user?.user_metadata?.preferences?.theme]);
 
   // 🚀 FIX: Auto-guardado de preferencias (Idioma/Tema)
   useEffect(() => {
     // Si no hay sesión, ni lo intentamos.
-    if (!supabase || !session?.user?.id) {
+    if (!supabase || !session?.user?.id || !profilePrefsHydrated) {
       return;
     }
 
@@ -346,7 +387,7 @@ function App() {
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [language, themeMode, session?.user?.id, themeColumnSupported]); // 🚀 Quitamos profilePrefsReady de las dependencias
+  }, [language, themeMode, session?.user?.id, themeColumnSupported, profilePrefsHydrated]);
 
   const handleSignIn = async (event) => {
     event.preventDefault();

@@ -308,6 +308,14 @@ function normalizeDateVoteStatus(voteValue) {
   return "pending";
 }
 
+function normalizeDashboardPageSize(value, fallback) {
+  const numericValue = Number(value);
+  if (PAGE_SIZE_OPTIONS.includes(numericValue)) {
+    return numericValue;
+  }
+  return fallback;
+}
+
 function DashboardScreen({
   t,
   language,
@@ -346,6 +354,8 @@ function DashboardScreen({
   const routeGuestAdvancedTab = initialRouteState.guestAdvancedEditTab || "identity";
   const routeSelectedEventDetailId = initialRouteState.selectedEventDetailId || "";
   const routeSelectedGuestDetailId = initialRouteState.selectedGuestDetailId || "";
+  const metadataTableRowsRaw = Number(session?.user?.user_metadata?.preferences?.tableRows);
+  const hasMetadataTableRows = PAGE_SIZE_OPTIONS.includes(metadataTableRowsRaw);
 
   const {
     eventPlannerRegenerationByEventId,
@@ -566,7 +576,9 @@ function DashboardScreen({
   const [eventStatusFilter, setEventStatusFilter] = useState("all");
   const [eventSort, setEventSort] = useState("created_desc");
   const [eventPage, setEventPage] = useState(1);
-  const [eventPageSize, setEventPageSize] = useState(EVENTS_PAGE_SIZE_DEFAULT);
+  const [eventPageSize, setEventPageSize] = useState(() =>
+    normalizeDashboardPageSize(session?.user?.user_metadata?.preferences?.tableRows, EVENTS_PAGE_SIZE_DEFAULT)
+  );
   const [guestSearch, setGuestSearch] = useState("");
   const [guestContactFilter, setGuestContactFilter] = useState("all");
   const [guestSort, setGuestSort] = useState("created_desc");
@@ -577,8 +589,12 @@ function DashboardScreen({
   const [invitationStatusFilter, setInvitationStatusFilter] = useState("all");
   const [invitationSort, setInvitationSort] = useState("created_desc");
   const [invitationPage, setInvitationPage] = useState(1);
-  const [invitationPageSize, setInvitationPageSize] = useState(INVITATIONS_PAGE_SIZE_DEFAULT);
-  const [guestPageSize, setGuestPageSize] = useState(GUESTS_PAGE_SIZE_DEFAULT);
+  const [invitationPageSize, setInvitationPageSize] = useState(() =>
+    normalizeDashboardPageSize(session?.user?.user_metadata?.preferences?.tableRows, INVITATIONS_PAGE_SIZE_DEFAULT)
+  );
+  const [guestPageSize, setGuestPageSize] = useState(() =>
+    normalizeDashboardPageSize(session?.user?.user_metadata?.preferences?.tableRows, GUESTS_PAGE_SIZE_DEFAULT)
+  );
   const [eventsMapFocusId, setEventsMapFocusId] = useState("");
   const [guestsMapFocusId, setGuestsMapFocusId] = useState("");
   const [guestGeocodeById, setGuestGeocodeById] = useState({});
@@ -616,6 +632,15 @@ function DashboardScreen({
         : deleteTarget?.type === "invitation"
           ? isDeletingInvitationId === deleteTarget.item?.id
           : false;
+
+  useEffect(() => {
+    if (!hasMetadataTableRows) {
+      return;
+    }
+    setEventPageSize(metadataTableRowsRaw);
+    setGuestPageSize(metadataTableRowsRaw);
+    setInvitationPageSize(metadataTableRowsRaw);
+  }, [hasMetadataTableRows, metadataTableRowsRaw]);
 
   const guestProfileTabs = useMemo(
     () => [
@@ -1402,7 +1427,9 @@ function DashboardScreen({
     return events
       .filter((eventItem) => {
         const startMs = new Date(eventItem?.start_at || 0).getTime();
-        return Number.isFinite(startMs) && startMs >= nowMs;
+        const endMs = new Date(eventItem?.end_at || 0).getTime();
+        const activeUntilMs = Number.isFinite(endMs) ? endMs : startMs;
+        return Number.isFinite(activeUntilMs) && activeUntilMs >= nowMs;
       })
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
       .slice(0, 4)
@@ -3562,16 +3589,16 @@ function DashboardScreen({
     });
   }, [events, eventSearch, language]);
   const dateScopedEvents = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const todayMs = startOfToday.getTime();
+    const nowMs = Date.now();
     return searchedEvents.filter((eventItem) => {
       const startAt = eventItem.start_at ? new Date(eventItem.start_at).getTime() : NaN;
+      const endAt = eventItem.end_at ? new Date(eventItem.end_at).getTime() : NaN;
+      const activeUntilMs = Number.isFinite(endAt) ? endAt : startAt;
       if (eventDateFilter === "past") {
-        return Number.isFinite(startAt) && startAt < todayMs;
+        return Number.isFinite(activeUntilMs) && activeUntilMs < nowMs;
       }
       // Upcoming also includes TBD/doodle events without fixed date yet.
-      return !Number.isFinite(startAt) || startAt >= todayMs;
+      return !Number.isFinite(activeUntilMs) || activeUntilMs >= nowMs;
     });
   }, [searchedEvents, eventDateFilter]);
   const eventStatusCounts = useMemo(() => {
@@ -4395,7 +4422,7 @@ function DashboardScreen({
       if (typeof parsed?.eventSort === "string") {
         setEventSort(parsed.eventSort);
       }
-      if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.eventPageSize))) {
+      if (!hasMetadataTableRows && PAGE_SIZE_OPTIONS.includes(Number(parsed?.eventPageSize))) {
         setEventPageSize(Number(parsed.eventPageSize));
       }
       if (typeof parsed?.guestSearch === "string") {
@@ -4407,7 +4434,7 @@ function DashboardScreen({
       if (typeof parsed?.guestSort === "string") {
         setGuestSort(parsed.guestSort);
       }
-      if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.guestPageSize))) {
+      if (!hasMetadataTableRows && PAGE_SIZE_OPTIONS.includes(Number(parsed?.guestPageSize))) {
         setGuestPageSize(Number(parsed.guestPageSize));
       }
       if (typeof parsed?.invitationSearch === "string") {
@@ -4422,7 +4449,7 @@ function DashboardScreen({
       if (typeof parsed?.invitationSort === "string") {
         setInvitationSort(parsed.invitationSort);
       }
-      if (PAGE_SIZE_OPTIONS.includes(Number(parsed?.invitationPageSize))) {
+      if (!hasMetadataTableRows && PAGE_SIZE_OPTIONS.includes(Number(parsed?.invitationPageSize))) {
         setInvitationPageSize(Number(parsed.invitationPageSize));
       }
       if (typeof parsed?.bulkInvitationSegment === "string" && INVITATION_BULK_SEGMENTS.includes(parsed.bulkInvitationSegment)) {
@@ -4432,7 +4459,7 @@ function DashboardScreen({
       // Ignore malformed local settings and continue with defaults.
     }
     setPrefsReady(true);
-  }, [prefsStorageKey]);
+  }, [prefsStorageKey, hasMetadataTableRows]);
 
   useEffect(() => {
     if (routeActiveView !== "events" || routeEventsWorkspace !== "latest") {
