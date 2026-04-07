@@ -105,6 +105,25 @@ const LOCALE_BY_LANGUAGE = {
   fr: "fr-FR",
   it: "it-IT"
 };
+const configuredApiUrl = String(
+  import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    ""
+).trim();
+const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "/api";
+const EVENT_DETAIL_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+
+function buildSpotifyAuthUrl(eventId) {
+  const normalizedEventId = String(eventId || "").trim();
+  const normalizedBase = String(EVENT_DETAIL_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedEventId || !normalizedBase) {
+    return "";
+  }
+  const baseRoute = /(^|\/)api$/i.test(normalizedBase)
+    ? `${normalizedBase}/spotify/auth`
+    : `${normalizedBase}/api/spotify/auth`;
+  return `${baseRoute}?eventId=${encodeURIComponent(normalizedEventId)}`;
+}
 
 function formatMoneyAmount(value, language) {
   const numericValue = Number(value);
@@ -379,6 +398,10 @@ export function EventDetailView({
   const [isInvitingGuestGroup, setIsInvitingGuestGroup] = useState(false);
   const [groupInviteFeedback, setGroupInviteFeedback] = useState("");
   const [groupInviteFeedbackType, setGroupInviteFeedbackType] = useState("info");
+  const [spotifyPlaylist, setSpotifyPlaylist] = useState(null);
+  const [isLoadingSpotifyState, setIsLoadingSpotifyState] = useState(false);
+  const [spotifyFeedback, setSpotifyFeedback] = useState("");
+  const [spotifyFeedbackType, setSpotifyFeedbackType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -405,6 +428,8 @@ export function EventDetailView({
     String(selectedEventDetail?.poll_status || "")
       .trim()
       .toLowerCase() !== "open";
+  const spotifyPlaylistUrl = String(spotifyPlaylist?.spotify_playlist_url || "").trim();
+  const hasSpotifyPlaylist = Boolean(spotifyPlaylistUrl);
   const eventSatelliteCoverEmbedUrl = buildSatelliteEmbedUrl(selectedEventDetail, 16);
   const eventCoverImageUrl = getEventCoverImageUrl(selectedEventDetail);
   const hasEventHeroCover = Boolean(selectedEventDetail && !isPlanWorkspace);
@@ -513,6 +538,84 @@ export function EventDetailView({
     setIsCalendarMenuOpen(false);
     setIsEventAdminMenuOpen(false);
   }, [selectedEventDetail?.id]);
+
+  const loadEventSpotifyPlaylist = useCallback(async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    if (!eventId || !supabase) {
+      setSpotifyPlaylist(null);
+      setIsLoadingSpotifyState(false);
+      return;
+    }
+
+    setIsLoadingSpotifyState(true);
+    try {
+      const { data, error } = await supabase
+        .from("event_spotify_playlists")
+        .select("id, event_id, spotify_playlist_id, spotify_playlist_url, created_at")
+        .eq("event_id", eventId)
+        .maybeSingle();
+
+      if (error) {
+        const errorCode = String(error.code || "").trim();
+        if (errorCode !== "PGRST116") {
+          console.error("[event-spotify] load playlist error", error);
+        }
+        setSpotifyPlaylist(null);
+        return;
+      }
+
+      setSpotifyPlaylist(data || null);
+    } catch (error) {
+      console.error("[event-spotify] load playlist error", error);
+      setSpotifyPlaylist(null);
+    } finally {
+      setIsLoadingSpotifyState(false);
+    }
+  }, [selectedEventDetail?.id]);
+
+  useEffect(() => {
+    setSpotifyFeedback("");
+    setSpotifyFeedbackType("info");
+    void loadEventSpotifyPlaylist();
+  }, [loadEventSpotifyPlaylist]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const spotifyStatus = String(urlParams.get("spotify") || "")
+      .trim()
+      .toLowerCase();
+    if (!spotifyStatus) {
+      return;
+    }
+    const reason = String(urlParams.get("reason") || "")
+      .trim()
+      .toLowerCase();
+
+    if (spotifyStatus === "connected") {
+      setSpotifyFeedbackType("success");
+      setSpotifyFeedback(t("event_spotify_connected_ok"));
+      void loadEventSpotifyPlaylist();
+    } else {
+      const mappedErrorKey =
+        reason === "access_denied"
+          ? "event_spotify_error_access_denied"
+          : reason === "missing_code"
+            ? "event_spotify_error_missing_code"
+            : "event_spotify_connect_error";
+      setSpotifyFeedbackType("error");
+      setSpotifyFeedback(t(mappedErrorKey));
+    }
+
+    urlParams.delete("spotify");
+    urlParams.delete("reason");
+    urlParams.delete("playlistId");
+    const cleanedQuery = urlParams.toString();
+    const cleanedUrl = `${window.location.pathname}${cleanedQuery ? `?${cleanedQuery}` : ""}${window.location.hash || ""}`;
+    window.history.replaceState(window.history.state, "", cleanedUrl);
+  }, [loadEventSpotifyPlaylist, t]);
 
   useEffect(() => {
     if (!isCalendarMenuOpen) {
@@ -869,6 +972,32 @@ export function EventDetailView({
     setShareCardMessage(t("event_calendar_downloaded_ok"));
   };
 
+  const handleConnectSpotify = () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    if (!eventId) {
+      setSpotifyFeedbackType("error");
+      setSpotifyFeedback(t("event_spotify_connect_error"));
+      return;
+    }
+    const authUrl = buildSpotifyAuthUrl(eventId);
+    if (!authUrl) {
+      setSpotifyFeedbackType("error");
+      setSpotifyFeedback(t("event_spotify_connect_unavailable"));
+      return;
+    }
+    setSpotifyFeedback("");
+    window.location.href = authUrl;
+  };
+
+  const handleOpenSpotifyPlaylist = () => {
+    if (!spotifyPlaylistUrl) {
+      setSpotifyFeedbackType("error");
+      setSpotifyFeedback(t("event_spotify_open_missing_url"));
+      return;
+    }
+    window.open(spotifyPlaylistUrl, "_blank", "noopener,noreferrer");
+  };
+
   const handleShareInvitationImage = async () => {
     if (!selectedEventDetail) {
       return;
@@ -1143,6 +1272,14 @@ export function EventDetailView({
       "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
     const dropdownItemClass =
       "flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
+    const spotifyButtonLabel = isLoadingSpotifyState
+      ? t("event_spotify_loading")
+      : hasSpotifyPlaylist
+        ? t("event_spotify_open_action")
+        : t("event_spotify_connect_action");
+    const spotifyButtonClass = hasSpotifyPlaylist
+      ? "bg-emerald-600 hover:bg-emerald-700 border border-emerald-600 text-white"
+      : "bg-[#1DB954] hover:bg-[#1aa34a] border border-[#1DB954] text-white";
 
     return (
       <div className="relative z-20 mt-3 w-full min-w-0">
@@ -1155,6 +1292,16 @@ export function EventDetailView({
           >
             <Icon name="camera" className="w-4 h-4" />
             {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
+          </button>
+
+          <button
+            className={`${spotifyButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full min-h-11 disabled:opacity-70 disabled:cursor-not-allowed`}
+            type="button"
+            onClick={hasSpotifyPlaylist ? handleOpenSpotifyPlaylist : handleConnectSpotify}
+            disabled={isLoadingSpotifyState}
+          >
+            <Icon name={hasSpotifyPlaylist ? "check" : "link"} className="w-4 h-4" />
+            <span className="truncate">{spotifyButtonLabel}</span>
           </button>
 
           <div className="flex w-full items-center gap-2">
@@ -1244,6 +1391,16 @@ export function EventDetailView({
           >
             <Icon name="camera" className="w-4 h-4" />
             {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
+          </button>
+
+          <button
+            className={`${spotifyButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed`}
+            type="button"
+            onClick={hasSpotifyPlaylist ? handleOpenSpotifyPlaylist : handleConnectSpotify}
+            disabled={isLoadingSpotifyState}
+          >
+            <Icon name={hasSpotifyPlaylist ? "check" : "link"} className="w-4 h-4" />
+            <span>{spotifyButtonLabel}</span>
           </button>
 
           {canAddToCalendar ? (
@@ -1460,6 +1617,7 @@ export function EventDetailView({
 
       <InlineMessage text={invitationMessage} />
       <InlineMessage text={shareCardMessage} />
+      <InlineMessage type={spotifyFeedbackType} text={spotifyFeedback} />
       <InlineMessage text={eventDatePollMessage} />
       <InlineMessage type={groupInviteFeedbackType} text={groupInviteFeedback} />
 

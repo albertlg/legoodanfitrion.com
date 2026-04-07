@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { aiPlannerRoute } from "./routes/ai-planner-route.js";
 import { adminAnalyticsRoute } from "./routes/admin-analytics-route.js";
+import { spotifyRoute } from "./routes/spotify-routes.js";
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/ai", aiPlannerRoute);
 app.use("/api/admin/analytics", adminAnalyticsRoute);
+app.use("/api/spotify", spotifyRoute);
 
 // --- ESTE ES EL TRUCO PARA QUE FUNCIONE EN AMBOS ---
 
