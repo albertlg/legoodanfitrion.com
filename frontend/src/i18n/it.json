@@ -295,7 +295,7 @@
   "status_yes": "Sì",
   "status_no": "No",
   "status_maybe": "Forse",
-  "invitation_not_found": "Invito non trovato o scaduto.",
+  "invitation_not_found": "Questo invito non è più disponibile.",
   "rsvp_name_optional": "Il tuo nome (opzionale)",
   "rsvp_question": "Parteciperai?",
   "rsvp_note_optional": "Nota per chi organizza (opzionale)",

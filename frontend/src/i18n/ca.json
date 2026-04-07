@@ -295,7 +295,7 @@
   "status_yes": "Sí",
   "status_no": "No",
   "status_maybe": "Potser",
-  "invitation_not_found": "Invitació no trobada o caducada.",
+  "invitation_not_found": "Aquesta invitació ja no està disponible.",
   "rsvp_name_optional": "El teu nom (opcional)",
   "rsvp_question": "Vindràs?",
   "rsvp_note_optional": "Nota per a qui organitza (opcional)",
