@@ -103,6 +103,7 @@ function RsvpFormView({
   handleSubmit,
   eventId,
   isDatePollOpen,
+  hasSpotifyPlaylist,
   allowPlusOne,
   datePollOptions,
   dateVotesByOptionId,
@@ -217,7 +218,7 @@ function RsvpFormView({
         </div>
       </div>
 
-      {eventId ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
+      {eventId && hasSpotifyPlaylist ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
 
       <label className="flex flex-col gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
@@ -479,6 +480,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [eventEndAt, setEventEndAt] = useState("");
   const [datePollOptions, setDatePollOptions] = useState([]);
   const [dateVotesByOptionId, setDateVotesByOptionId] = useState({});
+  const [hasSpotifyPlaylist, setHasSpotifyPlaylist] = useState(false);
   const [fetchedVotes, setFetchedVotes] = useState(null);
   const optionVotes = dateVotesByOptionId;
   const setOptionVotes = setDateVotesByOptionId;
@@ -610,6 +612,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setEventEndAt(String(first.event_end_at || first.end_at || "").trim());
       setDatePollOptions([]);
       setDateVotesByOptionId({});
+      setHasSpotifyPlaylist(false);
       setDateVoteMessage("");
       setDateVoteMessageType("success");
       setIsRsvpSaved(false);
@@ -619,6 +622,18 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
       const eventId = String(first.event_id || "").trim();
       if (eventId) {
+        const spotifyResult = await supabase
+          .from("event_spotify_playlists")
+          .select("id")
+          .eq("event_id", eventId)
+          .maybeSingle();
+        if (spotifyResult.error) {
+          console.error("[rsvp-spotify] Error cargando estado de Spotify", spotifyResult.error);
+          setHasSpotifyPlaylist(false);
+        } else {
+          setHasSpotifyPlaylist(Boolean(spotifyResult.data?.id));
+        }
+
         const eventMetaResult = await supabase
           .from("events")
           .select("schedule_mode, poll_status, allow_plus_one, start_at, end_at")
@@ -965,6 +980,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 setNote={setNote}
                 handleSubmit={handleSubmit}
                 eventId={invitation?.event_id}
+                hasSpotifyPlaylist={hasSpotifyPlaylist}
                 isDatePollOpen={isDatePollOpen}
                 allowPlusOne={eventAllowPlusOne}
                 datePollOptions={datePollOptions}
