@@ -5,6 +5,7 @@ import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { SpotifyGuestWidget } from "../components/spotify/spotify-guest-widget";
+import { GuestVenueVoting } from "../components/venues/guest-venue-voting";
 import { supabase } from "../lib/supabaseClient";
 import { Helmet } from "react-helmet-async";
 import { formatDate, formatEventDateDisplay } from "../lib/formatters";
@@ -85,6 +86,24 @@ function trackPlgEvent(eventName, payload = {}) {
 }
 
 const RSVP_REFRESH_MARKER_KEY = "lga_rsvp_refresh_at";
+const configuredApiUrl = String(
+  import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    ""
+).trim();
+const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "/api";
+const RSVP_BACKEND_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+
+function buildVenueEndpoint(resource) {
+  const normalizedBase = String(RSVP_BACKEND_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  if (/(^|\/)api$/i.test(normalizedBase)) {
+    return `${normalizedBase}/venues/${resource}`;
+  }
+  return `${normalizedBase}/api/venues/${resource}`;
+}
 
 function RsvpFormView({
   t,
@@ -111,6 +130,7 @@ function RsvpFormView({
   isSubmittingDateVoteOptionId,
   dateVoteMessage,
   dateVoteMessageType,
+  guestVenueVotingSection,
   isSubmitting,
   submitMessage
 }) {
@@ -217,6 +237,8 @@ function RsvpFormView({
           })}
         </div>
       </div>
+
+      {guestVenueVotingSection}
 
       {eventId && hasSpotifyPlaylist ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
 
@@ -482,10 +504,15 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [dateVotesByOptionId, setDateVotesByOptionId] = useState({});
   const [hasSpotifyPlaylist, setHasSpotifyPlaylist] = useState(false);
   const [fetchedVotes, setFetchedVotes] = useState(null);
+  const [eventVenues, setEventVenues] = useState([]);
+  const [finalVenue, setFinalVenue] = useState(null);
+  const [userVotedVenueIds, setUserVotedVenueIds] = useState([]);
   const optionVotes = dateVotesByOptionId;
   const setOptionVotes = setDateVotesByOptionId;
 
   const invitationLocation = String(
+    finalVenue?.name ||
+    finalVenue?.address ||
     invitation?.event_location_name ||
     invitation?.event_location_address ||
     invitation?.location_name ||
@@ -613,6 +640,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setDatePollOptions([]);
       setDateVotesByOptionId({});
       setHasSpotifyPlaylist(false);
+      setEventVenues([]);
+      setFinalVenue(null);
+      setUserVotedVenueIds([]);
       setDateVoteMessage("");
       setDateVoteMessageType("success");
       setIsRsvpSaved(false);
@@ -683,6 +713,43 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             } else {
               setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
             }
+          }
+        }
+
+        const venuePublicUrl = buildVenueEndpoint("public");
+        if (token && venuePublicUrl) {
+          try {
+            const url = new URL(venuePublicUrl, window.location.origin);
+            url.searchParams.set("token", token);
+            const venueResponse = await fetch(url.toString(), {
+              method: "GET",
+              headers: {
+                Accept: "application/json"
+              }
+            });
+            const venuePayload = await venueResponse.json();
+            if (!venueResponse.ok || venuePayload?.success === false) {
+              throw new Error(String(venuePayload?.error || `HTTP ${venueResponse.status}`));
+            }
+
+            const venues = Array.isArray(venuePayload?.venues) ? venuePayload.venues : [];
+            const finalVenueItem =
+              venuePayload?.finalVenue && typeof venuePayload.finalVenue === "object"
+                ? venuePayload.finalVenue
+                : venues.find((venueItem) => Boolean(venueItem?.is_final_selection)) || null;
+            const votingVenues = venues.filter((venueItem) => !venueItem?.is_final_selection);
+            const votedVenueIds = Array.isArray(venuePayload?.userVotedVenueIds)
+              ? venuePayload.userVotedVenueIds.map((value) => String(value || "").trim()).filter(Boolean)
+              : [];
+
+            setFinalVenue(finalVenueItem);
+            setEventVenues(votingVenues);
+            setUserVotedVenueIds(votedVenueIds);
+          } catch (venueError) {
+            console.error("[rsvp-venues] Error cargando lugares", venueError);
+            setFinalVenue(null);
+            setEventVenues([]);
+            setUserVotedVenueIds([]);
           }
         }
       }
@@ -857,6 +924,97 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     pending: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
   };
 
+  const guestVenueVotingSection =
+    !finalVenue && eventVenues.length > 0 ? (
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-base font-black text-gray-900 dark:text-white">
+            {t("event_venues_guest_title")}
+          </h3>
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            {t("event_venues_guest_hint")}
+          </p>
+        </div>
+        <GuestVenueVoting
+          venues={eventVenues}
+          invitationToken={token}
+          initialVotedVenueIds={userVotedVenueIds}
+          t={t}
+        />
+      </section>
+    ) : null;
+
+  const finalVenueSection = finalVenue ? (
+    <article className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden">
+      <div className="p-6 md:p-8 flex flex-col gap-5">
+        <div className="flex items-start gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300 flex items-center justify-center shrink-0">
+            <Icon name="location" className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1 flex flex-col gap-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              {t("event_venues_final_location_title")}
+            </p>
+            <h3 className="text-lg font-black text-gray-900 dark:text-white leading-tight">
+              {finalVenue?.name || t("field_place")}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              {t("event_venues_final_location_hint")}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[180px,1fr] gap-5 items-stretch">
+          <div className="w-full h-44 md:h-full rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5 flex items-center justify-center">
+            {finalVenue?.google_photo_url || finalVenue?.photoUrl ? (
+              <img
+                src={finalVenue.google_photo_url || finalVenue.photoUrl}
+                alt={String(finalVenue?.name || "").trim() || t("field_place")}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <Icon name="location" className="w-8 h-8 text-gray-400" />
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              {Number.isFinite(Number(finalVenue?.google_rating || finalVenue?.rating)) ? (
+                <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 border border-amber-200 dark:border-amber-700/40 px-2.5 py-1 text-[11px] font-bold">
+                  ★ {Number(finalVenue.google_rating || finalVenue.rating).toFixed(1)}
+                </span>
+              ) : null}
+              <span className="inline-flex items-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300 border border-green-200 dark:border-green-700/40 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                {t("event_venues_final_badge")}
+              </span>
+            </div>
+
+            {finalVenue?.address ? (
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 leading-relaxed">
+                {finalVenue.address}
+              </p>
+            ) : null}
+
+            {invitationLocationMapsUrl ? (
+              <div className="pt-1">
+                <a
+                  href={invitationLocationMapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-black transition-colors"
+                >
+                  <Icon name="location" className="w-4 h-4" />
+                  <span>{t("map_open_external")}</span>
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </article>
+  ) : null;
+
   return (
     <main className="relative min-h-screen bg-gray-50 dark:bg-[#131720] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white flex flex-col items-center py-8 px-4 overflow-hidden">
       {/* 🚀 FIX SEO: Inyección dinámica de metadatos según el idioma */}
@@ -937,6 +1095,11 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     <Icon name="location" className="w-5 h-5 text-orange-500 mb-2" />
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("field_place")}</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-white truncate w-full px-2" title={invitationLocation}>{invitationLocation}</p>
+                    {finalVenue ? (
+                      <span className="mt-2 inline-flex items-center rounded-full bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300 border border-green-200 dark:border-green-700/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+                        {t("event_venues_final_badge")}
+                      </span>
+                    ) : null}
                     {invitationLocationMapsUrl ? (
                       <a href={invitationLocationMapsUrl} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2 uppercase tracking-wider flex items-center gap-1 transition-colors">
                         {t("map_open_external")} <Icon name="arrow_right" className="w-3 h-3" />
@@ -964,34 +1127,38 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 dietaryOptions={dietaryOptions}
               />
             ) : (
-              <RsvpFormView
-                t={t}
-                language={language}
-                status={status}
-                setStatus={setStatus}
-                guestName={guestName}
-                setGuestName={setGuestName}
-                plusOne={plusOne}
-                setPlusOne={setPlusOne}
-                dietaryNeeds={dietaryNeeds}
-                dietaryOptions={dietaryOptions}
-                toggleDietaryNeed={toggleDietaryNeed}
-                note={note}
-                setNote={setNote}
-                handleSubmit={handleSubmit}
-                eventId={invitation?.event_id}
-                hasSpotifyPlaylist={hasSpotifyPlaylist}
-                isDatePollOpen={isDatePollOpen}
-                allowPlusOne={eventAllowPlusOne}
-                datePollOptions={datePollOptions}
-                dateVotesByOptionId={optionVotes}
-                onVoteDateOption={handleSubmitDateVote}
-                isSubmittingDateVoteOptionId={isSubmittingDateVoteOptionId}
-                dateVoteMessage={dateVoteMessage}
-                dateVoteMessageType={dateVoteMessageType}
-                isSubmitting={isSubmitting}
-                submitMessage={submitMessage}
-              />
+              <>
+                {finalVenueSection}
+                <RsvpFormView
+                  t={t}
+                  language={language}
+                  status={status}
+                  setStatus={setStatus}
+                  guestName={guestName}
+                  setGuestName={setGuestName}
+                  plusOne={plusOne}
+                  setPlusOne={setPlusOne}
+                  dietaryNeeds={dietaryNeeds}
+                  dietaryOptions={dietaryOptions}
+                  toggleDietaryNeed={toggleDietaryNeed}
+                  note={note}
+                  setNote={setNote}
+                  handleSubmit={handleSubmit}
+                  eventId={invitation?.event_id}
+                  hasSpotifyPlaylist={hasSpotifyPlaylist}
+                  isDatePollOpen={isDatePollOpen}
+                  allowPlusOne={eventAllowPlusOne}
+                  datePollOptions={datePollOptions}
+                  dateVotesByOptionId={optionVotes}
+                  onVoteDateOption={handleSubmitDateVote}
+                  isSubmittingDateVoteOptionId={isSubmittingDateVoteOptionId}
+                  dateVoteMessage={dateVoteMessage}
+                  dateVoteMessageType={dateVoteMessageType}
+                  guestVenueVotingSection={guestVenueVotingSection}
+                  isSubmitting={isSubmitting}
+                  submitMessage={submitMessage}
+                />
+              </>
             )}
           </>
         ) : null}

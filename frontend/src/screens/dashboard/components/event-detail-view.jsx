@@ -5,8 +5,10 @@ import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
+import { HostVenueShortlist } from "../../../components/venues/host-venue-shortlist";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
+import { HostVenueSelector } from "../../../components/venues/host-venue-selector";
 import { supabase } from "../../../lib/supabaseClient";
 import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/calendar-utils";
 
@@ -123,6 +125,17 @@ function buildSpotifyAuthUrl(eventId) {
     ? `${normalizedBase}/spotify/auth`
     : `${normalizedBase}/api/spotify/auth`;
   return `${baseRoute}?eventId=${encodeURIComponent(normalizedEventId)}`;
+}
+
+function buildVenueApiUrl(resource) {
+  const normalizedBase = String(EVENT_DETAIL_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  const baseRoute = /(^|\/)api$/i.test(normalizedBase)
+    ? `${normalizedBase}/venues/${resource}`
+    : `${normalizedBase}/api/venues/${resource}`;
+  return baseRoute;
 }
 
 function formatMoneyAmount(value, language) {
@@ -402,6 +415,11 @@ export function EventDetailView({
   const [isLoadingSpotifyState, setIsLoadingSpotifyState] = useState(false);
   const [spotifyFeedback, setSpotifyFeedback] = useState("");
   const [spotifyFeedbackType, setSpotifyFeedbackType] = useState("info");
+  const [eventVenues, setEventVenues] = useState([]);
+  const [isLoadingEventVenues, setIsLoadingEventVenues] = useState(false);
+  const [eventVenuesFeedback, setEventVenuesFeedback] = useState("");
+  const [eventVenuesFeedbackType, setEventVenuesFeedbackType] = useState("info");
+  const [selectingFinalVenueId, setSelectingFinalVenueId] = useState("");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -578,6 +596,54 @@ export function EventDetailView({
     setSpotifyFeedbackType("info");
     void loadEventSpotifyPlaylist();
   }, [loadEventSpotifyPlaylist]);
+
+  const loadEventVenues = useCallback(async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const shortlistUrl = buildVenueApiUrl("shortlist");
+    if (!eventId || !shortlistUrl || !supabase) {
+      setEventVenues([]);
+      setIsLoadingEventVenues(false);
+      return;
+    }
+
+    setIsLoadingEventVenues(true);
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error(t("event_venues_shortlist_unavailable"));
+      }
+
+      const url = new URL(shortlistUrl, window.location.origin);
+      url.searchParams.set("eventId", eventId);
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        }
+      });
+      const payload = await response.json();
+      if (!response.ok || payload?.success === false) {
+        throw new Error(String(payload?.error || `HTTP ${response.status}`));
+      }
+
+      setEventVenues(Array.isArray(payload?.venues) ? payload.venues : []);
+    } catch (error) {
+      console.error("[event-venues] load shortlist error", error);
+      setEventVenues([]);
+      setEventVenuesFeedbackType("error");
+      setEventVenuesFeedback(t("event_venues_shortlist_error"));
+    } finally {
+      setIsLoadingEventVenues(false);
+    }
+  }, [selectedEventDetail?.id, t]);
+
+  useEffect(() => {
+    setEventVenuesFeedback("");
+    setEventVenuesFeedbackType("info");
+    void loadEventVenues();
+  }, [loadEventVenues]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1163,6 +1229,60 @@ export function EventDetailView({
       setGroupInviteFeedback(t("event_group_invite_error"));
     } finally {
       setIsInvitingGuestGroup(false);
+    }
+  };
+
+  const handleSelectFinalVenue = async (venue) => {
+    const venueId = String(venue?.id || "").trim();
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const selectFinalUrl = buildVenueApiUrl("select-final");
+
+    if (!venueId || !eventId || !selectFinalUrl || !supabase) {
+      setEventVenuesFeedbackType("error");
+      setEventVenuesFeedback(t("event_venues_select_final_error"));
+      return;
+    }
+
+    setSelectingFinalVenueId(venueId);
+    setEventVenuesFeedback("");
+    setEventVenuesFeedbackType("info");
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error(t("event_venues_shortlist_unavailable"));
+      }
+
+      const response = await fetch(selectFinalUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        },
+        body: JSON.stringify({
+          eventId,
+          venueId
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok || payload?.success === false) {
+        throw new Error(String(payload?.error || `HTTP ${response.status}`));
+      }
+
+      setEventVenuesFeedbackType("success");
+      setEventVenuesFeedback(
+        t("event_venues_select_final_success").replace(
+          "{venue}",
+          String(venue?.name || "").trim() || t("field_place")
+        )
+      );
+      await loadEventVenues();
+    } catch (error) {
+      console.error("[event-venues] select final error", error);
+      setEventVenuesFeedbackType("error");
+      setEventVenuesFeedback(t("event_venues_select_final_error"));
+    } finally {
+      setSelectingFinalVenueId("");
     }
   };
 
@@ -1998,7 +2118,45 @@ export function EventDetailView({
                   )}
                 </article>
 
-                <article id="event-rsvp-timeline" className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
+                <article className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="location" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <p className="text-sm font-black text-gray-900 dark:text-white">
+                      {t("event_venues_title")}
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {t("event_venues_hint")}
+                  </p>
+                  <HostVenueSelector
+                    eventId={selectedEventDetail?.id}
+                    t={t}
+                    onVenueAdded={loadEventVenues}
+                  />
+                </article>
+
+                <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="star" className="w-4 h-4 text-amber-500" />
+                    <p className="text-sm font-black text-gray-900 dark:text-white">
+                      {t("event_venues_shortlist_title")}
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {t("event_venues_shortlist_hint")}
+                  </p>
+                  <HostVenueShortlist
+                    venues={eventVenues}
+                    isLoading={isLoadingEventVenues}
+                    feedback={eventVenuesFeedback}
+                    feedbackType={eventVenuesFeedbackType}
+                    onSelectFinal={handleSelectFinalVenue}
+                    selectingVenueId={selectingFinalVenueId}
+                    t={t}
+                  />
+                </article>
+
+                <article id="event-rsvp-timeline" className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}
@@ -2284,7 +2442,7 @@ export function EventDetailView({
                   <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
                 </article>
 
-                <article className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="check" className="w-4 h-4 text-green-500" />
                     {t("event_detail_checklist_title")}
@@ -2301,7 +2459,7 @@ export function EventDetailView({
                   </ul>
                 </article>
 
-                <article className="order-5 bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 shadow-sm flex flex-col gap-4">
+                <article className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <div className="flex justify-between items-start">
                     <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="shield" className="w-4 h-4 text-red-500" />
@@ -2334,7 +2492,7 @@ export function EventDetailView({
                 </article>
 
                 {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
-                  <article className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                  <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                     <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="location" className="w-4 h-4 text-blue-500" />
                       {t("map_preview_title")}
