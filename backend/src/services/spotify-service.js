@@ -14,6 +14,28 @@ function toSafeString(value) {
   return String(value || "").trim();
 }
 
+async function parseSpotifyFetchBody(response) {
+  const rawText = await response.text();
+  if (!rawText) {
+    return {
+      body: null,
+      rawText: ""
+    };
+  }
+
+  try {
+    return {
+      body: JSON.parse(rawText),
+      rawText
+    };
+  } catch {
+    return {
+      body: rawText,
+      rawText
+    };
+  }
+}
+
 function getSupabaseAdminClient() {
   if (supabaseAdminClient) {
     return supabaseAdminClient;
@@ -364,8 +386,14 @@ export async function getValidAccessTokenForEvent(eventId) {
     body: bodyParams
   });
 
-  const tokenData = await response.json();
+  const { body: tokenData } = await parseSpotifyFetchBody(response);
   if (!response.ok) {
+    console.error("[spotify][refresh-token] Spotify token endpoint error", {
+      status: response.status,
+      statusText: response.statusText,
+      eventId: normalizedEventId,
+      spotifyResponse: tokenData
+    });
     const wrapped = new Error("Spotify refresh token exchange failed");
     wrapped.code = "SPOTIFY_AUTH_ERROR";
     wrapped.details = tokenData;
@@ -481,8 +509,16 @@ export async function addTrackToPlaylist(eventId, trackUri) {
     body: JSON.stringify({ uris: [normalizedTrackUri] })
   });
 
-  const payload = await response.json();
+  const { body: payload } = await parseSpotifyFetchBody(response);
   if (!response.ok) {
+    console.error("[spotify][add-track] Spotify add track failed", {
+      status: response.status,
+      statusText: response.statusText,
+      eventId: normalizedEventId,
+      playlistId,
+      trackUri: normalizedTrackUri,
+      spotifyResponse: payload
+    });
     const wrapped = new Error("Spotify add track request failed");
     wrapped.code = "SPOTIFY_ADD_TRACK_ERROR";
     wrapped.details = payload;

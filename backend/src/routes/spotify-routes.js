@@ -10,7 +10,7 @@ import {
 
 const router = express.Router();
 
-router.get("/auth", (req, res) => {
+function handleSpotifyAuthRedirect(req, res) {
   try {
     const eventId = String(req.query.eventId || "").trim();
     if (!eventId) {
@@ -28,7 +28,10 @@ router.get("/auth", (req, res) => {
       code: code || "SPOTIFY_AUTH_INIT_ERROR"
     });
   }
-});
+}
+
+router.get("/auth", handleSpotifyAuthRedirect);
+router.get("/login", handleSpotifyAuthRedirect);
 
 router.get("/callback", async (req, res) => {
   const code = String(req.query.code || "").trim();
