@@ -6,6 +6,7 @@ import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { SpotifyGuestWidget } from "../components/spotify/spotify-guest-widget";
+import { PhotoGalleryPreview } from "../components/events/photo-gallery-preview";
 import { GuestVenueVoting } from "../components/venues/guest-venue-voting";
 import { supabase } from "../lib/supabaseClient";
 import { Helmet } from "react-helmet-async";
@@ -547,6 +548,26 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       }),
     [eventStartAt, eventEndAt, invitation?.event_start_at, invitation?.event_end_at, language, t]
   );
+  const galleryPreviewUrl = String(finalVenue?.photo_gallery_url || eventPhotoGalleryUrl || "").trim();
+
+  const isPastEvent = useMemo(() => {
+    if (isDatePollOpen) {
+      return false;
+    }
+    const referenceDate = String(
+      eventEndAt || invitation?.event_end_at || eventStartAt || invitation?.event_start_at || ""
+    ).trim();
+    if (!referenceDate) {
+      return false;
+    }
+    const parsedTimestamp = new Date(referenceDate).getTime();
+    if (!Number.isFinite(parsedTimestamp)) {
+      return false;
+    }
+    return parsedTimestamp < Date.now();
+  }, [eventEndAt, eventStartAt, invitation?.event_end_at, invitation?.event_start_at, isDatePollOpen]);
+  const showPostEventGallery = isPastEvent && Boolean(galleryPreviewUrl);
+  const showPastEventClosedCard = isPastEvent && !showPostEventGallery;
 
   useEffect(() => {
     if (fetchedVotes && Array.isArray(fetchedVotes)) {
@@ -655,6 +676,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
       const eventId = String(first.event_id || "").trim();
       if (eventId) {
+        let shouldLoadPollData = true;
+
         const spotifyResult = await supabase
           .from("event_spotify_playlists")
           .select("id")
@@ -683,39 +706,55 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           if (!allowPlusOneValue) {
             setPlusOne(false);
           }
+
+          const effectiveEventDateRaw = String(
+            eventMetaResult.data.end_at ||
+              eventMetaResult.data.start_at ||
+              first.event_end_at ||
+              first.event_start_at ||
+              ""
+          ).trim();
+          if (effectiveEventDateRaw) {
+            const effectiveEventTimestamp = new Date(effectiveEventDateRaw).getTime();
+            if (Number.isFinite(effectiveEventTimestamp) && effectiveEventTimestamp < Date.now()) {
+              shouldLoadPollData = false;
+            }
+          }
         }
 
-        const optionsResult = await supabase
-          .from("event_date_options")
-          .select("*")
-          .eq("event_id", eventId)
-          .order("starts_at", { ascending: true });
-        if (optionsResult.error) {
-          console.error("[rsvp-poll] Error cargando opciones de encuesta", optionsResult.error);
-        } else {
-          const normalizedOptions = (Array.isArray(optionsResult.data) ? optionsResult.data : [])
-            .map((optionItem) => {
-              const optionId = String(optionItem?.id || "").trim();
-              const startAt = getEventDateOptionStartAt(optionItem);
-              if (!optionId || !startAt) {
-                return null;
-              }
-              return {
-                ...optionItem,
-                id: optionId,
-                startAt
-              };
-            })
-            .filter(Boolean);
-          setDatePollOptions(normalizedOptions);
+        if (shouldLoadPollData) {
+          const optionsResult = await supabase
+            .from("event_date_options")
+            .select("*")
+            .eq("event_id", eventId)
+            .order("starts_at", { ascending: true });
+          if (optionsResult.error) {
+            console.error("[rsvp-poll] Error cargando opciones de encuesta", optionsResult.error);
+          } else {
+            const normalizedOptions = (Array.isArray(optionsResult.data) ? optionsResult.data : [])
+              .map((optionItem) => {
+                const optionId = String(optionItem?.id || "").trim();
+                const startAt = getEventDateOptionStartAt(optionItem);
+                if (!optionId || !startAt) {
+                  return null;
+                }
+                return {
+                  ...optionItem,
+                  id: optionId,
+                  startAt
+                };
+              })
+              .filter(Boolean);
+            setDatePollOptions(normalizedOptions);
 
-          if (token && normalizedOptions.length > 0) {
-            const { data: myVotes, error: votesError } = await supabase
-              .rpc("get_event_date_votes_by_token", { p_token: token });
-            if (votesError) {
-              console.error("[rsvp-poll] Error cargando votos del invitado", votesError);
-            } else {
-              setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
+            if (token && normalizedOptions.length > 0) {
+              const { data: myVotes, error: votesError } = await supabase
+                .rpc("get_event_date_votes_by_token", { p_token: token });
+              if (votesError) {
+                console.error("[rsvp-poll] Error cargando votos del invitado", votesError);
+              } else {
+                setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
+              }
             }
           }
         }
@@ -1019,15 +1058,15 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     </article>
   ) : null;
 
-  const memoriesGallerySection = eventPhotoGalleryUrl ? (
+  const memoriesGallerySection = galleryPreviewUrl ? (
     <Motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden"
+      className={`bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden ${showPostEventGallery ? "ring-2 ring-indigo-500/20 dark:ring-indigo-400/30 shadow-2xl" : ""}`}
     >
-      <div className="p-6 md:p-8 flex flex-col gap-4">
-        <div className="flex items-start gap-3">
+      <div className="p-6 md:p-8 flex flex-col gap-5">
+        <div className="flex items-start gap-3 min-w-0">
           <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 flex items-center justify-center shrink-0">
             <Icon name="camera" className="w-5 h-5" />
           </div>
@@ -1044,12 +1083,13 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           </div>
         </div>
 
-        <div className="pt-1">
+        <div className="flex flex-col md:flex-row gap-5 md:items-end md:justify-between">
+          <PhotoGalleryPreview url={galleryPreviewUrl} />
           <a
-            href={eventPhotoGalleryUrl}
+            href={galleryPreviewUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors self-start md:self-auto"
           >
             <Icon name="camera" className="w-4 h-4" />
             <span>{t("rsvp_gallery_open_action")}</span>
@@ -1118,6 +1158,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             <article className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden flex flex-col items-center text-center p-8 md:p-10 relative">
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
 
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 mb-2">
+                {showPostEventGallery ? t("rsvp_past_event_thanks") : t("rsvp_invited_heading")}
+              </p>
               <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">{t("app_name")}</p>
               <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white leading-tight tracking-tight mb-4">
                 {invitation.event_title}
@@ -1167,7 +1210,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               </div>
             </article>
 
-            {isRsvpSaved ? (
+            {isRsvpSaved && !isPastEvent ? (
               <RsvpSuccessView
                 t={t}
                 onOpenGlobalGuestProfile={handleOpenGlobalGuestProfile}
@@ -1179,35 +1222,51 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               <>
                 {finalVenueSection}
                 {memoriesGallerySection}
-                <RsvpFormView
-                  t={t}
-                  language={language}
-                  status={status}
-                  setStatus={setStatus}
-                  guestName={guestName}
-                  setGuestName={setGuestName}
-                  plusOne={plusOne}
-                  setPlusOne={setPlusOne}
-                  dietaryNeeds={dietaryNeeds}
-                  dietaryOptions={dietaryOptions}
-                  toggleDietaryNeed={toggleDietaryNeed}
-                  note={note}
-                  setNote={setNote}
-                  handleSubmit={handleSubmit}
-                  eventId={invitation?.event_id}
-                  hasSpotifyPlaylist={hasSpotifyPlaylist}
-                  isDatePollOpen={isDatePollOpen}
-                  allowPlusOne={eventAllowPlusOne}
-                  datePollOptions={datePollOptions}
-                  dateVotesByOptionId={optionVotes}
-                  onVoteDateOption={handleSubmitDateVote}
-                  isSubmittingDateVoteOptionId={isSubmittingDateVoteOptionId}
-                  dateVoteMessage={dateVoteMessage}
-                  dateVoteMessageType={dateVoteMessageType}
-                  guestVenueVotingSection={guestVenueVotingSection}
-                  isSubmitting={isSubmitting}
-                  submitMessage={submitMessage}
-                />
+                {showPastEventClosedCard ? (
+                  <Motion.article
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 text-center"
+                  >
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 mb-4">
+                      <Icon name="clock" className="w-6 h-6" />
+                    </div>
+                    <p className="text-xl font-black text-gray-900 dark:text-white mb-2">{t("rsvp_past_event_closed")}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{t("rsvp_past_event_closed_hint")}</p>
+                  </Motion.article>
+                ) : null}
+                {!isPastEvent ? (
+                  <RsvpFormView
+                    t={t}
+                    language={language}
+                    status={status}
+                    setStatus={setStatus}
+                    guestName={guestName}
+                    setGuestName={setGuestName}
+                    plusOne={plusOne}
+                    setPlusOne={setPlusOne}
+                    dietaryNeeds={dietaryNeeds}
+                    dietaryOptions={dietaryOptions}
+                    toggleDietaryNeed={toggleDietaryNeed}
+                    note={note}
+                    setNote={setNote}
+                    handleSubmit={handleSubmit}
+                    eventId={invitation?.event_id}
+                    hasSpotifyPlaylist={hasSpotifyPlaylist}
+                    isDatePollOpen={isDatePollOpen}
+                    allowPlusOne={eventAllowPlusOne}
+                    datePollOptions={datePollOptions}
+                    dateVotesByOptionId={optionVotes}
+                    onVoteDateOption={handleSubmitDateVote}
+                    isSubmittingDateVoteOptionId={isSubmittingDateVoteOptionId}
+                    dateVoteMessage={dateVoteMessage}
+                    dateVoteMessageType={dateVoteMessageType}
+                    guestVenueVotingSection={guestVenueVotingSection}
+                    isSubmitting={isSubmitting}
+                    submitMessage={submitMessage}
+                  />
+                ) : null}
               </>
             )}
           </>

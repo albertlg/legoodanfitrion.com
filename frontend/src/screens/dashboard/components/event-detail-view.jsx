@@ -9,6 +9,7 @@ import { HostPlanView } from "./host-plan-view";
 import { HostVenueShortlist } from "../../../components/venues/host-venue-shortlist";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
+import { PhotoGalleryPreview } from "../../../components/events/photo-gallery-preview";
 import { HostVenueSelector } from "../../../components/venues/host-venue-selector";
 import { supabase } from "../../../lib/supabaseClient";
 import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/calendar-utils";
@@ -1921,6 +1922,12 @@ export function EventDetailView({
                       />
                       <span>{isSavingEventPhotoGalleryUrl ? t("saving_label") : t("event_gallery_save_action")}</span>
                     </button>
+                  </div>
+
+                  <div className="pt-1">
+                    <PhotoGalleryPreview
+                      url={String(eventPhotoGalleryUrlDraft || selectedEventDetail?.photo_gallery_url || "").trim()}
+                    />
                   </div>
 
                   {selectedEventDetail?.photo_gallery_url ? (
