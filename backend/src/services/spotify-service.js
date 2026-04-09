@@ -498,7 +498,7 @@ export async function addTrackToPlaylist(eventId, trackUri) {
     throw wrapped;
   }
 
-  const endpoint = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks`;
+  const endpoint = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -506,7 +506,9 @@ export async function addTrackToPlaylist(eventId, trackUri) {
       "Content-Type": "application/json",
       Accept: "application/json"
     },
-    body: JSON.stringify({ uris: [normalizedTrackUri] })
+    body: JSON.stringify({
+      uris: [normalizedTrackUri]
+    })
   });
 
   const { body: payload } = await parseSpotifyFetchBody(response);
