@@ -46,7 +46,7 @@ router.get("/callback", async (req, res) => {
       buildFrontendEventUrl(eventId, {
         spotify: "error",
         reason: spotifyError
-      })
+      }, req)
     );
   }
 
@@ -55,7 +55,7 @@ router.get("/callback", async (req, res) => {
       buildFrontendEventUrl(eventId, {
         spotify: "error",
         reason: "missing_code"
-      })
+      }, req)
     );
   }
 
@@ -65,7 +65,7 @@ router.get("/callback", async (req, res) => {
       buildFrontendEventUrl(eventId, {
         spotify: "connected",
         playlistId: playlist.playlistId
-      })
+      }, req)
     );
   } catch (error) {
     console.error(
@@ -76,7 +76,7 @@ router.get("/callback", async (req, res) => {
       buildFrontendEventUrl(eventId, {
         spotify: "error",
         reason: "auth_failed"
-      })
+      }, req)
     );
   }
 });

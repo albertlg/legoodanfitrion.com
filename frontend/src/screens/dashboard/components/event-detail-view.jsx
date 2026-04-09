@@ -112,7 +112,7 @@ const configuredApiUrl = String(
     import.meta.env.VITE_API_BASE_URL ||
     ""
 ).trim();
-const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:3000" : "/api";
+const fallbackApiUrl = "/api";
 const EVENT_DETAIL_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
 
 function buildSpotifyAuthUrl(eventId) {

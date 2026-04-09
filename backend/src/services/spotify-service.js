@@ -495,8 +495,60 @@ export async function addTrackToPlaylist(eventId, trackUri) {
   };
 }
 
-export function buildFrontendEventUrl(eventId, extraParams = {}) {
-  const frontendBaseUrl = toSafeString(process.env.FRONTEND_URL) || "http://localhost:5173";
+function normalizePotentialUrl(value) {
+  const safeValue = toSafeString(value);
+  if (!safeValue) {
+    return "";
+  }
+  try {
+    return new URL(safeValue).toString();
+  } catch {
+    return "";
+  }
+}
+
+function inferFrontendOriginFromRequest(req) {
+  if (!req || typeof req !== "object") {
+    return "";
+  }
+
+  const headerOrigin = normalizePotentialUrl(req.get?.("origin"));
+  if (headerOrigin) {
+    return headerOrigin;
+  }
+
+  const refererRaw = toSafeString(req.get?.("referer"));
+  if (refererRaw) {
+    try {
+      const refererUrl = new URL(refererRaw);
+      return `${refererUrl.protocol}//${refererUrl.host}`;
+    } catch {
+      // ignore invalid referer
+    }
+  }
+
+  const host = toSafeString(req.get?.("x-forwarded-host")) || toSafeString(req.get?.("host"));
+  const forwardedProto = toSafeString(req.get?.("x-forwarded-proto"));
+  const protocol = forwardedProto || (req.secure ? "https" : "http");
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+
+  return "";
+}
+
+export function buildFrontendEventUrl(eventId, extraParams = {}, req = null) {
+  const configuredFrontendUrl = normalizePotentialUrl(process.env.FRONTEND_URL);
+  const inferredFrontendUrl = inferFrontendOriginFromRequest(req);
+  const frontendBaseUrl = configuredFrontendUrl || inferredFrontendUrl;
+  if (!frontendBaseUrl) {
+    const error = new Error(
+      "No se pudo resolver FRONTEND_URL para redirigir tras Spotify. Configura FRONTEND_URL en producción."
+    );
+    error.code = "SPOTIFY_CONFIG_ERROR";
+    throw error;
+  }
+
   const safeEventId = encodeURIComponent(toSafeString(eventId));
   const url = new URL(`/app/events/${safeEventId}`, frontendBaseUrl);
 
