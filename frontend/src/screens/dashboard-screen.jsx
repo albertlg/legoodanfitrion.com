@@ -1653,26 +1653,51 @@ function DashboardScreen({
     const matchedTemplate = eventTemplates.find((templateItem) => templateItem.typeCode === normalizedEventTypeCode) || null;
     return matchedTemplate?.key || "";
   }, [eventTemplates, eventType]);
-  const relationshipOptions = useMemo(
-    () =>
-      uniqueValues([
-        ...relationshipBaseOptions,
-        ...guests.map((guestItem) => toCatalogLabel("relationship", guestItem.relationship, language)),
-        toCatalogLabel("relationship", guestRelationship, language),
-        toCatalogLabel("relationship", hostProfileRelationship, language),
-        ...splitListInput(guestAdvanced.preferredGuestRelationships).map((item) =>
-          toCatalogLabel("relationship", item, language)
-        )
-      ]),
-    [
-      relationshipBaseOptions,
-      guests,
-      language,
-      guestRelationship,
-      hostProfileRelationship,
-      guestAdvanced.preferredGuestRelationships
-    ]
-  );
+  const relationshipOptions = useMemo(() => {
+    const normalizeRelationshipOptionKey = (value) =>
+      normalizeLookupValue(String(value || "").replace(/\s+/g, " ").trim());
+    const extractRelationshipValue = (value) => {
+      if (typeof value === "string") {
+        return value.trim();
+      }
+      if (value && typeof value === "object") {
+        return String(value.label || value.value || value.name || "").trim();
+      }
+      return "";
+    };
+    const preferredRelationshipValues = Array.isArray(guestAdvanced.preferredGuestRelationships)
+      ? guestAdvanced.preferredGuestRelationships.map(extractRelationshipValue).filter(Boolean)
+      : splitListInput(guestAdvanced.preferredGuestRelationships);
+    const dedupedRelationshipOptions = new Map();
+    const pushRelationshipOption = (rawValue) => {
+      const extractedValue = extractRelationshipValue(rawValue);
+      if (!extractedValue) {
+        return;
+      }
+      const translatedValue = toCatalogLabel("relationship", extractedValue, language) || extractedValue;
+      const cleanedValue = String(translatedValue || "").trim();
+      const dedupeKey = normalizeRelationshipOptionKey(cleanedValue);
+      if (!dedupeKey || dedupedRelationshipOptions.has(dedupeKey)) {
+        return;
+      }
+      dedupedRelationshipOptions.set(dedupeKey, cleanedValue);
+    };
+
+    relationshipBaseOptions.forEach(pushRelationshipOption);
+    guests.forEach((guestItem) => pushRelationshipOption(guestItem.relationship));
+    pushRelationshipOption(guestRelationship);
+    pushRelationshipOption(hostProfileRelationship);
+    preferredRelationshipValues.forEach(pushRelationshipOption);
+
+    return Array.from(dedupedRelationshipOptions.values());
+  }, [
+    relationshipBaseOptions,
+    guests,
+    language,
+    guestRelationship,
+    hostProfileRelationship,
+    guestAdvanced.preferredGuestRelationships
+  ]);
   const cityOptions = useMemo(
     () => uniqueValues([...cityBaseOptions, ...guests.map((guestItem) => guestItem.city)]),
     [cityBaseOptions, guests]
