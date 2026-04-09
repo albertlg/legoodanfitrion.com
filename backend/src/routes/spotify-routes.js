@@ -3,6 +3,7 @@ import {
   addTrackToPlaylist,
   buildFrontendEventUrl,
   createEventPlaylist,
+  debugSpotifyIdentity,
   getSpotifyAuthorizationUrl,
   getValidAccessTokenForEvent,
   searchTracks
@@ -105,6 +106,35 @@ router.get("/test-refresh", async (req, res) => {
       success: false,
       error: error?.message || "No se pudo renovar el token de Spotify.",
       code: String(error?.code || "SPOTIFY_REFRESH_TEST_ERROR"),
+      details: error?.details || null
+    });
+  }
+});
+
+router.get("/debug/:eventId", async (req, res) => {
+  const eventId = String(req.params.eventId || "").trim();
+  if (!eventId) {
+    return res.status(400).json({
+      success: false,
+      error: "eventId es obligatorio."
+    });
+  }
+
+  try {
+    const payload = await debugSpotifyIdentity(eventId);
+    return res.json({
+      success: true,
+      ...payload
+    });
+  } catch (error) {
+    console.error(
+      "Error real de Spotify (debug-identity):",
+      error?.details || error?.body || error?.message || error
+    );
+    return res.status(500).json({
+      success: false,
+      error: error?.message || "No se pudo depurar la identidad de Spotify.",
+      code: String(error?.code || "SPOTIFY_DEBUG_IDENTITY_ROUTE_ERROR"),
       details: error?.details || null
     });
   }

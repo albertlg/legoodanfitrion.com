@@ -531,6 +531,93 @@ export async function addTrackToPlaylist(eventId, trackUri) {
   };
 }
 
+export async function debugSpotifyIdentity(eventId) {
+  const normalizedEventId = normalizeEventId(eventId);
+  if (!normalizedEventId) {
+    const error = new Error("eventId es obligatorio para depurar Spotify.");
+    error.code = "SPOTIFY_BAD_REQUEST";
+    throw error;
+  }
+
+  const accessToken = await getValidAccessTokenForEvent(normalizedEventId);
+  const supabase = getSupabaseAdminClient();
+  const { data: playlistRow, error: playlistRowError } = await supabase
+    .from("event_spotify_playlists")
+    .select("spotify_playlist_id")
+    .eq("event_id", normalizedEventId)
+    .maybeSingle();
+
+  if (playlistRowError) {
+    const wrapped = new Error(`No se pudo obtener playlist del evento: ${playlistRowError.message}`);
+    wrapped.code = "SPOTIFY_DB_ERROR";
+    wrapped.details = playlistRowError;
+    throw wrapped;
+  }
+
+  const playlistId = toSafeString(playlistRow?.spotify_playlist_id);
+  if (!playlistId) {
+    const wrapped = new Error("No hay playlist de Spotify conectada para este evento.");
+    wrapped.code = "SPOTIFY_PLAYLIST_NOT_FOUND";
+    throw wrapped;
+  }
+
+  const commonHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json"
+  };
+
+  const meResponse = await fetch("https://api.spotify.com/v1/me", {
+    method: "GET",
+    headers: commonHeaders
+  });
+  const { body: mePayload } = await parseSpotifyFetchBody(meResponse);
+  if (!meResponse.ok) {
+    const error = new Error("No se pudo obtener el perfil /v1/me de Spotify.");
+    error.code = "SPOTIFY_DEBUG_ME_ERROR";
+    error.details = {
+      status: meResponse.status,
+      statusText: meResponse.statusText,
+      body: mePayload
+    };
+    throw error;
+  }
+
+  const playlistResponse = await fetch(
+    `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}`,
+    {
+      method: "GET",
+      headers: commonHeaders
+    }
+  );
+  const { body: playlistPayload } = await parseSpotifyFetchBody(playlistResponse);
+  if (!playlistResponse.ok) {
+    const error = new Error("No se pudo obtener la playlist en Spotify.");
+    error.code = "SPOTIFY_DEBUG_PLAYLIST_ERROR";
+    error.details = {
+      status: playlistResponse.status,
+      statusText: playlistResponse.statusText,
+      body: playlistPayload
+    };
+    throw error;
+  }
+
+  const tokenUser = {
+    id: toSafeString(mePayload?.id) || null,
+    email: toSafeString(mePayload?.email) || null,
+    name: toSafeString(mePayload?.display_name) || null
+  };
+  const playlistOwner = {
+    id: toSafeString(playlistPayload?.owner?.id) || null,
+    name: toSafeString(playlistPayload?.owner?.display_name) || null
+  };
+
+  return {
+    tokenUser,
+    playlistOwner,
+    isMatch: Boolean(tokenUser.id && playlistOwner.id && tokenUser.id === playlistOwner.id)
+  };
+}
+
 function normalizePotentialUrl(value) {
   const safeValue = toSafeString(value);
   if (!safeValue) {
