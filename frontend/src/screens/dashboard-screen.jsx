@@ -1657,9 +1657,21 @@ function DashboardScreen({
     () =>
       uniqueValues([
         ...relationshipBaseOptions,
-        ...guests.map((guestItem) => toCatalogLabel("relationship", guestItem.relationship, language))
+        ...guests.map((guestItem) => toCatalogLabel("relationship", guestItem.relationship, language)),
+        toCatalogLabel("relationship", guestRelationship, language),
+        toCatalogLabel("relationship", hostProfileRelationship, language),
+        ...splitListInput(guestAdvanced.preferredGuestRelationships).map((item) =>
+          toCatalogLabel("relationship", item, language)
+        )
       ]),
-    [relationshipBaseOptions, guests, language]
+    [
+      relationshipBaseOptions,
+      guests,
+      language,
+      guestRelationship,
+      hostProfileRelationship,
+      guestAdvanced.preferredGuestRelationships
+    ]
   );
   const cityOptions = useMemo(
     () => uniqueValues([...cityBaseOptions, ...guests.map((guestItem) => guestItem.city)]),
