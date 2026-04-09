@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion as Motion } from "framer-motion";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -1016,7 +1017,12 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   ) : null;
 
   return (
-    <main className="relative min-h-screen bg-gray-50 dark:bg-[#131720] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white flex flex-col items-center py-8 px-4 overflow-hidden">
+    <Motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <main className="relative min-h-screen bg-gray-50 dark:bg-[#131720] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white flex flex-col items-center py-8 px-4 overflow-hidden">
       {/* 🚀 FIX SEO: Inyección dinámica de metadatos según el idioma */}
       <Helmet htmlAttributes={{ lang: language }}>
         <title>{t("seo_title")}</title>
@@ -1172,7 +1178,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           </p>
         </footer>
       </div>
-    </main>
+      </main>
+    </Motion.div>
   );
 }
 

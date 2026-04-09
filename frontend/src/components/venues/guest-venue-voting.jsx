@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { Icon } from "../icons";
 import { InlineMessage } from "../inline-message";
 
@@ -41,6 +42,28 @@ function formatPriceLevel(priceLevel) {
   }
   return "€".repeat(Math.min(4, numericValue));
 }
+
+const venueGridVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.05
+    }
+  }
+};
+
+const venueCardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.35
+    }
+  }
+};
 
 function GuestVenueVoting({ venues, invitationToken, initialVotedVenueIds = [], t }) {
   const translate = (key) => (typeof t === "function" ? t(key) : key);
@@ -115,7 +138,12 @@ function GuestVenueVoting({ venues, invitationToken, initialVotedVenueIds = [], 
     <section className="flex flex-col gap-4">
       {feedback ? <InlineMessage type={feedbackType} text={feedback} /> : null}
 
-      <div className="grid grid-cols-1 gap-4">
+      <Motion.div
+        className="grid grid-cols-1 gap-4"
+        variants={venueGridVariants}
+        initial="hidden"
+        animate="show"
+      >
         {(Array.isArray(venues) ? venues : []).map((venue) => {
           const venueId = String(venue?.id || "").trim();
           const isSubmitting = submittingVenueId === venueId;
@@ -124,9 +152,12 @@ function GuestVenueVoting({ venues, invitationToken, initialVotedVenueIds = [], 
           const voteCount = Math.max(0, Number(venue?.vote_count || 0));
 
           return (
-            <article
+            <Motion.article
               key={venueId}
               className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 overflow-hidden shadow-sm flex flex-col"
+              variants={venueCardVariants}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
               <div className="w-full h-36 bg-black/5 dark:bg-white/5 flex items-center justify-center overflow-hidden">
                 {venue?.google_photo_url || venue?.photoUrl ? (
@@ -190,10 +221,10 @@ function GuestVenueVoting({ venues, invitationToken, initialVotedVenueIds = [], 
                   </button>
                 </div>
               </div>
-            </article>
+            </Motion.article>
           );
         })}
-      </div>
+      </Motion.div>
     </section>
   );
 }

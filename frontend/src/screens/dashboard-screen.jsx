@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { InlineMessage } from "../components/inline-message";
 import { MultiSelectField } from "../components/forms/multi-select-field";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
@@ -8877,7 +8878,12 @@ function DashboardScreen({
     });
 
   return (
-    <DashboardLayout
+    <Motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <DashboardLayout
       hideHeader={hideDashboardHeader}
       t={t}
       themeMode={themeMode}
@@ -9713,7 +9719,8 @@ function DashboardScreen({
         isDeleteConfirmLoading={isDeleteConfirmLoading}
         handleConfirmDelete={handleConfirmDelete}
       />
-    </DashboardLayout>
+      </DashboardLayout>
+    </Motion.div>
   );
 }
 

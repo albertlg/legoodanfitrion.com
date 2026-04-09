@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { Icon } from "../icons";
 import { InlineMessage } from "../inline-message";
 import { supabase } from "../../lib/supabaseClient";
@@ -47,6 +48,28 @@ function formatPriceLevel(priceLevel) {
   }
   return "€".repeat(Math.min(4, numericValue));
 }
+
+const venueGridVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.05
+    }
+  }
+};
+
+const venueCardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.35
+    }
+  }
+};
 
 async function fetchWithAuth(url, options = {}) {
   const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
@@ -219,7 +242,12 @@ function HostVenueSelector({ eventId, t, onVenueAdded }) {
       {feedback ? <InlineMessage type={feedbackType} text={feedback} /> : null}
 
       {results.length > 0 ? (
-        <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Motion.ul
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          variants={venueGridVariants}
+          initial="hidden"
+          animate="show"
+        >
           {results.map((venue) => {
             const venueId = String(venue?.id || "").trim();
             const isAdding = addingVenueId === venueId;
@@ -228,9 +256,12 @@ function HostVenueSelector({ eventId, t, onVenueAdded }) {
             const priceLevelLabel = formatPriceLevel(venue?.priceLevel);
 
             return (
-              <li
+              <Motion.li
                 key={venueId}
                 className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 overflow-hidden shadow-sm flex flex-col"
+                variants={venueCardVariants}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 <div className="w-full h-32 overflow-hidden bg-black/5 dark:bg-white/5 shrink-0 flex items-center justify-center">
                   {photoUrl ? (
@@ -281,10 +312,10 @@ function HostVenueSelector({ eventId, t, onVenueAdded }) {
                     <span>{translate("event_venues_add_action")}</span>
                   </button>
                 </div>
-              </li>
+              </Motion.li>
             );
           })}
-        </ul>
+        </Motion.ul>
       ) : (
         <p className="text-xs text-gray-500 dark:text-gray-400 italic">
           {translate("event_venues_empty_hint")}
