@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
@@ -420,6 +421,10 @@ export function EventDetailView({
   const [eventVenuesFeedback, setEventVenuesFeedback] = useState("");
   const [eventVenuesFeedbackType, setEventVenuesFeedbackType] = useState("info");
   const [selectingFinalVenueId, setSelectingFinalVenueId] = useState("");
+  const [eventPhotoGalleryUrlDraft, setEventPhotoGalleryUrlDraft] = useState("");
+  const [isSavingEventPhotoGalleryUrl, setIsSavingEventPhotoGalleryUrl] = useState(false);
+  const [eventPhotoGalleryFeedback, setEventPhotoGalleryFeedback] = useState("");
+  const [eventPhotoGalleryFeedbackType, setEventPhotoGalleryFeedbackType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -545,6 +550,13 @@ export function EventDetailView({
     setSplitHelperMessage("");
     setSplitHelperMessageType("info");
   }, [selectedEventDetail?.id, selectedEventDetail?.expenses]);
+
+  useEffect(() => {
+    setEventPhotoGalleryUrlDraft(String(selectedEventDetail?.photo_gallery_url || "").trim());
+    setEventPhotoGalleryFeedback("");
+    setEventPhotoGalleryFeedbackType("info");
+    setIsSavingEventPhotoGalleryUrl(false);
+  }, [selectedEventDetail?.id, selectedEventDetail?.photo_gallery_url]);
 
   useEffect(() => {
     if (!splitExpensePaidBy && splitDefaultPayer) {
@@ -1286,6 +1298,54 @@ export function EventDetailView({
     }
   };
 
+  const handleSaveEventPhotoGalleryUrl = async () => {
+    if (!supabase || !selectedEventDetail?.id) {
+      return;
+    }
+    const trimmedUrl = String(eventPhotoGalleryUrlDraft || "").trim();
+    if (trimmedUrl) {
+      let isValidHttpUrl = false;
+      try {
+        const parsed = new URL(trimmedUrl);
+        isValidHttpUrl = parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        isValidHttpUrl = false;
+      }
+      if (!isValidHttpUrl) {
+        setEventPhotoGalleryFeedbackType("error");
+        setEventPhotoGalleryFeedback(t("event_gallery_invalid_url"));
+        return;
+      }
+    }
+
+    setIsSavingEventPhotoGalleryUrl(true);
+    setEventPhotoGalleryFeedback("");
+    setEventPhotoGalleryFeedbackType("info");
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ photo_gallery_url: trimmedUrl || null })
+        .eq("id", selectedEventDetail.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setEventPhotoGalleryFeedbackType("success");
+      setEventPhotoGalleryFeedback(t("event_gallery_save_success"));
+
+      if (typeof loadDashboardData === "function") {
+        await loadDashboardData();
+      }
+    } catch (error) {
+      console.error("[event-gallery] save gallery url error", error);
+      setEventPhotoGalleryFeedbackType("error");
+      setEventPhotoGalleryFeedback(t("event_gallery_save_error"));
+    } finally {
+      setIsSavingEventPhotoGalleryUrl(false);
+    }
+  };
+
   const handleAddSplitExpense = () => {
     const description = String(splitExpenseDescription || "").trim();
     const paidBy = String(splitExpensePaidBy || "").trim();
@@ -1822,10 +1882,73 @@ export function EventDetailView({
                   ) : null}
                 </article>
 
+                <Motion.article
+                  id="event-gallery"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="order-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="camera" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_gallery_title")}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_gallery_hint")}</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <label className="relative min-w-0">
+                      <Icon
+                        name="link"
+                        className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                      <input
+                        type="url"
+                        value={eventPhotoGalleryUrlDraft}
+                        onChange={(event) => setEventPhotoGalleryUrlDraft(event.target.value)}
+                        placeholder={t("event_gallery_input_placeholder")}
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-black/35 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSaveEventPhotoGalleryUrl}
+                      disabled={isSavingEventPhotoGalleryUrl}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Icon
+                        name={isSavingEventPhotoGalleryUrl ? "loader" : "save"}
+                        className={`w-4 h-4 ${isSavingEventPhotoGalleryUrl ? "animate-spin" : ""}`}
+                      />
+                      <span>{isSavingEventPhotoGalleryUrl ? t("saving_label") : t("event_gallery_save_action")}</span>
+                    </button>
+                  </div>
+
+                  {selectedEventDetail?.photo_gallery_url ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-300 truncate min-w-0" title={selectedEventDetail.photo_gallery_url}>
+                        {selectedEventDetail.photo_gallery_url}
+                      </p>
+                      <a
+                        href={selectedEventDetail.photo_gallery_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700/40 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200 px-3 py-1.5 text-[11px] font-bold shrink-0"
+                      >
+                        <Icon name="camera" className="w-3.5 h-3.5" />
+                        <span>{t("event_gallery_open_action")}</span>
+                      </a>
+                    </div>
+                  ) : null}
+
+                  {eventPhotoGalleryFeedback ? (
+                    <InlineMessage type={eventPhotoGalleryFeedbackType} text={eventPhotoGalleryFeedback} />
+                  ) : null}
+                </Motion.article>
+
                 {shouldRenderDatePollSection ? (
                   <article
                     id="event-date-poll"
-                    className="order-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
+                    className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex flex-col gap-1">
@@ -2118,7 +2241,7 @@ export function EventDetailView({
                   )}
                 </article>
 
-                <article className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <div className="flex items-center gap-2">
                     <Icon name="location" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     <p className="text-sm font-black text-gray-900 dark:text-white">
@@ -2135,7 +2258,7 @@ export function EventDetailView({
                   />
                 </article>
 
-                <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                <article className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <div className="flex items-center gap-2">
                     <Icon name="star" className="w-4 h-4 text-amber-500" />
                     <p className="text-sm font-black text-gray-900 dark:text-white">
@@ -2156,7 +2279,7 @@ export function EventDetailView({
                   />
                 </article>
 
-                <article id="event-rsvp-timeline" className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
+                <article id="event-rsvp-timeline" className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}

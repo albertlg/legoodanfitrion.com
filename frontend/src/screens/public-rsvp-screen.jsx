@@ -501,6 +501,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [eventAllowPlusOne, setEventAllowPlusOne] = useState(false);
   const [eventStartAt, setEventStartAt] = useState("");
   const [eventEndAt, setEventEndAt] = useState("");
+  const [eventPhotoGalleryUrl, setEventPhotoGalleryUrl] = useState("");
   const [datePollOptions, setDatePollOptions] = useState([]);
   const [dateVotesByOptionId, setDateVotesByOptionId] = useState({});
   const [hasSpotifyPlaylist, setHasSpotifyPlaylist] = useState(false);
@@ -641,6 +642,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setDatePollOptions([]);
       setDateVotesByOptionId({});
       setHasSpotifyPlaylist(false);
+      setEventPhotoGalleryUrl(String(first.photo_gallery_url || first.event_photo_gallery_url || "").trim());
       setEventVenues([]);
       setFinalVenue(null);
       setUserVotedVenueIds([]);
@@ -667,7 +669,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
         const eventMetaResult = await supabase
           .from("events")
-          .select("schedule_mode, poll_status, allow_plus_one, start_at, end_at")
+          .select("schedule_mode, poll_status, allow_plus_one, start_at, end_at, photo_gallery_url")
           .eq("id", eventId)
           .maybeSingle();
         if (!eventMetaResult.error && eventMetaResult.data) {
@@ -677,6 +679,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           setEventAllowPlusOne(allowPlusOneValue);
           setEventStartAt(String(eventMetaResult.data.start_at || first.event_start_at || "").trim());
           setEventEndAt(String(eventMetaResult.data.end_at || first.event_end_at || "").trim());
+          setEventPhotoGalleryUrl(String(eventMetaResult.data.photo_gallery_url || first.photo_gallery_url || first.event_photo_gallery_url || "").trim());
           if (!allowPlusOneValue) {
             setPlusOne(false);
           }
@@ -1016,6 +1019,46 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     </article>
   ) : null;
 
+  const memoriesGallerySection = eventPhotoGalleryUrl ? (
+    <Motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden"
+    >
+      <div className="p-6 md:p-8 flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 flex items-center justify-center shrink-0">
+            <Icon name="camera" className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1 flex flex-col gap-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              {t("rsvp_gallery_title")}
+            </p>
+            <h3 className="text-lg font-black text-gray-900 dark:text-white leading-tight">
+              {t("rsvp_gallery_heading")}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              {t("rsvp_gallery_hint")}
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-1">
+          <a
+            href={eventPhotoGalleryUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors"
+          >
+            <Icon name="camera" className="w-4 h-4" />
+            <span>{t("rsvp_gallery_open_action")}</span>
+          </a>
+        </div>
+      </div>
+    </Motion.article>
+  ) : null;
+
   return (
     <Motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -1135,6 +1178,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             ) : (
               <>
                 {finalVenueSection}
+                {memoriesGallerySection}
                 <RsvpFormView
                   t={t}
                   language={language}

@@ -91,7 +91,7 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .order("created_at", { ascending: false })
       .limit(50);
@@ -110,6 +110,7 @@ export function useDashboardDataController({
         "schedule_mode",
         "poll_status",
         "expenses",
+        "photo_gallery_url",
         "end_at"
       ])
     ) {
@@ -211,7 +212,7 @@ export function useDashboardDataController({
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
         .eq("id", routeEventDetailId)
         .maybeSingle();
@@ -230,6 +231,7 @@ export function useDashboardDataController({
           "schedule_mode",
           "poll_status",
           "expenses",
+          "photo_gallery_url",
           "end_at"
         ])
       ) {
