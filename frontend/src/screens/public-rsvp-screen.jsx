@@ -690,71 +690,65 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           setHasSpotifyPlaylist(Boolean(spotifyResult.data?.id));
         }
 
-        const eventMetaResult = await supabase
-          .from("events")
-          .select("schedule_mode, poll_status, allow_plus_one, start_at, end_at, photo_gallery_url")
-          .eq("id", eventId)
-          .maybeSingle();
-        if (!eventMetaResult.error && eventMetaResult.data) {
-          setEventScheduleMode(String(eventMetaResult.data.schedule_mode || first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
-          setEventPollStatus(String(eventMetaResult.data.poll_status || first.poll_status || "closed").trim().toLowerCase() || "closed");
-          const allowPlusOneValue = Boolean(eventMetaResult.data.allow_plus_one ?? first.allow_plus_one ?? first.event_allow_plus_one ?? false);
-          setEventAllowPlusOne(allowPlusOneValue);
-          setEventStartAt(String(eventMetaResult.data.start_at || first.event_start_at || "").trim());
-          setEventEndAt(String(eventMetaResult.data.end_at || first.event_end_at || "").trim());
-          setEventPhotoGalleryUrl(String(eventMetaResult.data.photo_gallery_url || first.photo_gallery_url || first.event_photo_gallery_url || "").trim());
-          if (!allowPlusOneValue) {
-            setPlusOne(false);
-          }
-
-          const effectiveEventDateRaw = String(
-            eventMetaResult.data.end_at ||
-              eventMetaResult.data.start_at ||
-              first.event_end_at ||
-              first.event_start_at ||
-              ""
-          ).trim();
-          if (effectiveEventDateRaw) {
-            const effectiveEventTimestamp = new Date(effectiveEventDateRaw).getTime();
-            if (Number.isFinite(effectiveEventTimestamp) && effectiveEventTimestamp < Date.now()) {
-              shouldLoadPollData = false;
-            }
+        const effectiveEventDateRaw = String(
+          first.event_end_at ||
+            first.end_at ||
+            first.event_start_at ||
+            first.start_at ||
+            ""
+        ).trim();
+        if (effectiveEventDateRaw) {
+          const effectiveEventTimestamp = new Date(effectiveEventDateRaw).getTime();
+          if (Number.isFinite(effectiveEventTimestamp) && effectiveEventTimestamp < Date.now()) {
+            shouldLoadPollData = false;
           }
         }
 
-        if (shouldLoadPollData) {
-          const optionsResult = await supabase
-            .from("event_date_options")
-            .select("*")
-            .eq("event_id", eventId)
-            .order("starts_at", { ascending: true });
-          if (optionsResult.error) {
-            console.error("[rsvp-poll] Error cargando opciones de encuesta", optionsResult.error);
-          } else {
-            const normalizedOptions = (Array.isArray(optionsResult.data) ? optionsResult.data : [])
-              .map((optionItem) => {
-                const optionId = String(optionItem?.id || "").trim();
-                const startAt = getEventDateOptionStartAt(optionItem);
-                if (!optionId || !startAt) {
-                  return null;
-                }
-                return {
-                  ...optionItem,
-                  id: optionId,
-                  startAt
-                };
-              })
-              .filter(Boolean);
-            setDatePollOptions(normalizedOptions);
+        if (shouldLoadPollData && token) {
+          let rawOptions = [];
+          const optionsByTokenResult = await supabase
+            .rpc("get_event_date_options_by_token", { p_token: token });
 
-            if (token && normalizedOptions.length > 0) {
-              const { data: myVotes, error: votesError } = await supabase
-                .rpc("get_event_date_votes_by_token", { p_token: token });
-              if (votesError) {
-                console.error("[rsvp-poll] Error cargando votos del invitado", votesError);
-              } else {
-                setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
+          if (optionsByTokenResult.error) {
+            console.error("[rsvp-poll] Error cargando opciones por token (RPC)", optionsByTokenResult.error);
+            const optionsFallbackResult = await supabase
+              .from("event_date_options")
+              .select("*")
+              .eq("event_id", eventId)
+              .order("starts_at", { ascending: true });
+            if (optionsFallbackResult.error) {
+              console.error("[rsvp-poll] Error cargando opciones de encuesta (fallback)", optionsFallbackResult.error);
+            } else {
+              rawOptions = Array.isArray(optionsFallbackResult.data) ? optionsFallbackResult.data : [];
+            }
+          } else {
+            rawOptions = Array.isArray(optionsByTokenResult.data) ? optionsByTokenResult.data : [];
+          }
+
+          const normalizedOptions = rawOptions
+            .map((optionItem) => {
+              const optionId = String(optionItem?.id || "").trim();
+              const startAt = getEventDateOptionStartAt(optionItem);
+              if (!optionId || !startAt) {
+                return null;
               }
+              return {
+                ...optionItem,
+                id: optionId,
+                startAt
+              };
+            })
+            .filter(Boolean);
+
+          setDatePollOptions(normalizedOptions);
+
+          if (normalizedOptions.length > 0) {
+            const { data: myVotes, error: votesError } = await supabase
+              .rpc("get_event_date_votes_by_token", { p_token: token });
+            if (votesError) {
+              console.error("[rsvp-poll] Error cargando votos del invitado", votesError);
+            } else {
+              setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
             }
           }
         }
