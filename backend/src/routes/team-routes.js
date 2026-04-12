@@ -44,6 +44,45 @@ function getSupabaseAdminClient() {
   });
 }
 
+function getBearerTokenFromRequest(req) {
+  const authorization = toSafeString(req?.headers?.authorization);
+  if (!authorization.toLowerCase().startsWith("bearer ")) {
+    return "";
+  }
+  return toSafeString(authorization.slice(7));
+}
+
+function getSupabaseUserClient(userToken) {
+  const supabaseUrl = toSafeString(process.env.SUPABASE_URL);
+  const anonKey = toSafeString(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const normalizedToken = toSafeString(userToken);
+
+  if (!supabaseUrl || !anonKey) {
+    const error = new Error("SUPABASE_URL y SUPABASE_ANON_KEY (o SERVICE_ROLE_KEY) son obligatorias.");
+    error.code = "TEAM_INVITE_CONFIG_ERROR";
+    throw error;
+  }
+
+  if (!normalizedToken) {
+    const error = new Error("Missing bearer token.");
+    error.code = "TEAM_INVITE_BAD_REQUEST";
+    throw error;
+  }
+
+  return createClient(supabaseUrl, anonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${normalizedToken}`
+      }
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  });
+}
+
 function getRecipientNameFromEmail(email) {
   const localPart = normalizeEmail(email).split("@")[0] || "";
   const firstChunk = localPart.split(/[._-]+/).find(Boolean) || localPart;
@@ -87,6 +126,9 @@ function sendInviteError(res, error, fallbackMessage) {
   if (code === "TEAM_INVITE_CONFIG_ERROR" || code === "EMAIL_CONFIG_ERROR") {
     return res.status(503).json({ success: false, error: error?.message || fallbackMessage, code });
   }
+  if (code === "TEAM_INVITE_AUTH_CONTEXT_ERROR") {
+    return res.status(401).json({ success: false, error: error?.message || fallbackMessage, code });
+  }
   return res.status(500).json({
     success: false,
     error: error?.message || fallbackMessage,
@@ -118,6 +160,7 @@ function registerCooldownInMemory(eventId, email) {
 router.post("/invite", requireAuthenticatedUser, async (req, res) => {
   const eventId = toSafeString(req.body?.eventId);
   const targetEmail = normalizeEmail(req.body?.email);
+  const requesterToken = getBearerTokenFromRequest(req);
 
   if (!eventId || !targetEmail || !isValidEmail(targetEmail)) {
     return sendInviteError(
@@ -130,15 +173,17 @@ router.post("/invite", requireAuthenticatedUser, async (req, res) => {
     );
   }
 
-  let supabase = null;
+  let supabaseAdmin = null;
+  let supabaseUser = null;
   try {
-    supabase = getSupabaseAdminClient();
+    supabaseAdmin = getSupabaseAdminClient();
+    supabaseUser = getSupabaseUserClient(requesterToken);
   } catch (error) {
     return sendInviteError(res, error, "El backend no está configurado para enviar invitaciones.");
   }
 
   try {
-    const { data: eventData, error: eventError } = await supabase
+    const { data: eventData, error: eventError } = await supabaseAdmin
       .from("events")
       .select("id, title, host_user_id")
       .eq("id", eventId)
@@ -163,10 +208,19 @@ router.post("/invite", requireAuthenticatedUser, async (req, res) => {
       throw error;
     }
 
-    const { data: foundUserId, error: lookupError } = await supabase.rpc("get_user_id_by_email", {
+    const { data: foundUserId, error: lookupError } = await supabaseUser.rpc("get_user_id_by_email", {
       p_email: targetEmail
     });
     if (lookupError) {
+      const lookupCode = toSafeString(lookupError?.code).toUpperCase();
+      if (lookupCode === "P0001" && toSafeString(lookupError?.message).toLowerCase() === "not_authenticated") {
+        const wrapped = new Error(
+          "No se pudo autenticar el contexto del usuario para validar este email."
+        );
+        wrapped.code = "TEAM_INVITE_AUTH_CONTEXT_ERROR";
+        wrapped.details = lookupError;
+        throw wrapped;
+      }
       const wrapped = new Error(`No se pudo validar el email: ${lookupError.message}`);
       wrapped.code = "TEAM_INVITE_DB_ERROR";
       wrapped.details = lookupError;
@@ -183,7 +237,7 @@ router.post("/invite", requireAuthenticatedUser, async (req, res) => {
     let existingLog = null;
     let canUseDatabaseThrottle = true;
 
-    const { data: inviteLogData, error: inviteLogReadError } = await supabase
+    const { data: inviteLogData, error: inviteLogReadError } = await supabaseUser
       .from("event_team_invite_logs")
       .select("id, sent_count, last_sent_at")
       .eq("event_id", eventId)
@@ -220,7 +274,7 @@ router.post("/invite", requireAuthenticatedUser, async (req, res) => {
       assertCooldownNotExceededFromMemory(eventId, targetEmail);
     }
 
-    const { data: hostProfile, error: hostProfileError } = await supabase
+    const { data: hostProfile, error: hostProfileError } = await supabaseAdmin
       .from("profiles")
       .select("full_name")
       .eq("id", toSafeString(eventData.host_user_id))
@@ -241,7 +295,7 @@ router.post("/invite", requireAuthenticatedUser, async (req, res) => {
 
     if (canUseDatabaseThrottle) {
       const nextSentCount = Number(existingLog?.sent_count || 0) + 1;
-      const { error: inviteLogUpsertError } = await supabase
+      const { error: inviteLogUpsertError } = await supabaseUser
         .from("event_team_invite_logs")
         .upsert(
           {
