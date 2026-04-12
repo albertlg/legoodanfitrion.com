@@ -17,6 +17,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "googleapis": "^171.4.0",
+    "resend": "^6.10.0",
     "spotify-web-api-node": "^5.0.2"
   }
 }

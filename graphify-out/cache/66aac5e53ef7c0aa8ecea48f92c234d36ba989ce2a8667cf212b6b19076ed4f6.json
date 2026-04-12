@@ -1,0 +1,1 @@
+{"nodes": [{"id": "api_index_js", "label": "index.js", "file_type": "code", "source_file": "api/index.js", "source_location": "L1"}], "edges": [{"source": "api_index_js", "target": "api_backend_src_server_ts", "relation": "imports_from", "confidence": "EXTRACTED", "source_file": "api/index.js", "source_location": "L1", "weight": 1.0}]}

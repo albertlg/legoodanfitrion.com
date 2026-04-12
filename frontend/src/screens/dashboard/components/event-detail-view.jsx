@@ -140,6 +140,29 @@ function buildVenueApiUrl(resource) {
   return baseRoute;
 }
 
+function buildTeamApiUrl(resource) {
+  const normalizedBase = String(EVENT_DETAIL_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  return /(^|\/)api$/i.test(normalizedBase)
+    ? `${normalizedBase}/team/${resource}`
+    : `${normalizedBase}/api/team/${resource}`;
+}
+
+function getDisplayNameFromEmail(email) {
+  const localPart = String(email || "")
+    .trim()
+    .toLowerCase()
+    .split("@")[0];
+  if (!localPart) {
+    return "";
+  }
+  const firstChunk = localPart.split(/[._-]+/).find(Boolean) || localPart;
+  const cleanChunk = firstChunk.replace(/[0-9]+/g, "").trim() || firstChunk;
+  return cleanChunk.charAt(0).toUpperCase() + cleanChunk.slice(1);
+}
+
 function formatMoneyAmount(value, language) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -406,6 +429,9 @@ export function EventDetailView({
   const [removingCohostId, setRemovingCohostId] = useState("");
   const [cohostFeedback, setCohostFeedback] = useState("");
   const [cohostFeedbackType, setCohostFeedbackType] = useState("info");
+  const [showCohostInviteAction, setShowCohostInviteAction] = useState(false);
+  const [cohostInviteTargetEmail, setCohostInviteTargetEmail] = useState("");
+  const [isSendingCohostInvite, setIsSendingCohostInvite] = useState(false);
   const [isGroupInviteModalOpen, setIsGroupInviteModalOpen] = useState(false);
   const [isLoadingGuestGroups, setIsLoadingGuestGroups] = useState(false);
   const [eventGuestGroups, setEventGuestGroups] = useState([]);
@@ -836,6 +862,7 @@ export function EventDetailView({
       console.error("[event-team] load cohosts error", error);
       setCohostFeedbackType("error");
       setCohostFeedback(t("event_team_load_error"));
+      setShowCohostInviteAction(false);
       setCohosts([]);
     } finally {
       setIsLoadingCohosts(false);
@@ -856,6 +883,9 @@ export function EventDetailView({
     setCohostEmailDraft("");
     setCohostFeedback("");
     setCohostFeedbackType("info");
+    setShowCohostInviteAction(false);
+    setCohostInviteTargetEmail("");
+    setIsSendingCohostInvite(false);
     setCohosts([]);
   }, [selectedEventDetail?.id]);
 
@@ -915,11 +945,14 @@ export function EventDetailView({
   const handleOpenEventTeamModal = () => {
     setCohostFeedback("");
     setCohostFeedbackType("info");
+    setShowCohostInviteAction(false);
+    setCohostInviteTargetEmail("");
+    setIsSendingCohostInvite(false);
     setIsTeamModalOpen(true);
   };
 
   const handleCloseEventTeamModal = () => {
-    if (isAddingCohost || removingCohostId) {
+    if (isAddingCohost || removingCohostId || isSendingCohostInvite) {
       return;
     }
     setIsTeamModalOpen(false);
@@ -929,22 +962,30 @@ export function EventDetailView({
     if (!isEventOwner) {
       setCohostFeedbackType("error");
       setCohostFeedback(t("event_team_owner_only_hint"));
+      setShowCohostInviteAction(false);
+      setCohostInviteTargetEmail("");
       return;
     }
     const normalizedEmail = String(cohostEmailDraft || "").trim().toLowerCase();
     if (!normalizedEmail) {
       setCohostFeedbackType("error");
       setCohostFeedback(t("event_team_email_required"));
+      setShowCohostInviteAction(false);
+      setCohostInviteTargetEmail("");
       return;
     }
     if (!supabase || !selectedEventDetail?.id) {
       setCohostFeedbackType("error");
       setCohostFeedback(t("event_team_generic_error"));
+      setShowCohostInviteAction(false);
+      setCohostInviteTargetEmail("");
       return;
     }
     setIsAddingCohost(true);
     setCohostFeedback("");
     setCohostFeedbackType("info");
+    setShowCohostInviteAction(false);
+    setCohostInviteTargetEmail("");
     try {
       const { data: foundUserId, error: lookupError } = await supabase.rpc("get_user_id_by_email", {
         p_email: normalizedEmail
@@ -954,13 +995,17 @@ export function EventDetailView({
       }
       const normalizedUserId = String(foundUserId || "").trim();
       if (!normalizedUserId) {
-        setCohostFeedbackType("error");
+        setCohostFeedbackType("info");
         setCohostFeedback(t("event_team_user_not_found"));
+        setShowCohostInviteAction(true);
+        setCohostInviteTargetEmail(normalizedEmail);
         return;
       }
       if (normalizedUserId === selectedEventOwnerId) {
         setCohostFeedbackType("error");
         setCohostFeedback(t("event_team_owner_cannot_add"));
+        setShowCohostInviteAction(false);
+        setCohostInviteTargetEmail("");
         return;
       }
       const { error: insertError } = await supabase.from("event_cohosts").insert({
@@ -972,20 +1017,100 @@ export function EventDetailView({
         if (String(insertError?.code || "") === "23505") {
           setCohostFeedbackType("error");
           setCohostFeedback(t("event_team_duplicate"));
+          setShowCohostInviteAction(false);
+          setCohostInviteTargetEmail("");
           return;
         }
         throw insertError;
       }
       setCohostFeedbackType("success");
       setCohostFeedback(t("event_team_add_success"));
+      setShowCohostInviteAction(false);
+      setCohostInviteTargetEmail("");
       setCohostEmailDraft("");
       await loadEventCohosts();
     } catch (error) {
       console.error("[event-team] add cohost error", error);
       setCohostFeedbackType("error");
       setCohostFeedback(t("event_team_add_error"));
+      setShowCohostInviteAction(false);
+      setCohostInviteTargetEmail("");
     } finally {
       setIsAddingCohost(false);
+    }
+  };
+
+  const handleSendCohostInvitationEmail = async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const targetEmail = String(cohostInviteTargetEmail || "").trim().toLowerCase();
+    const inviteUrl = buildTeamApiUrl("invite");
+
+    if (!eventId || !targetEmail || !inviteUrl || !supabase) {
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_send_invite_error"));
+      return;
+    }
+
+    setIsSendingCohostInvite(true);
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error(t("event_team_send_invite_error"));
+      }
+
+      const response = await fetch(inviteUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        },
+        body: JSON.stringify({
+          eventId,
+          email: targetEmail
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        const errorCode = String(payload?.code || "").trim().toUpperCase();
+        if (errorCode === "TEAM_INVITE_RATE_LIMIT") {
+          const retryMinutes = Number(payload?.retryAfterMinutes || 60);
+          setCohostFeedbackType("info");
+          setCohostFeedback(
+            interpolateText(t("event_team_send_invite_rate_limited"), {
+              minutes: String(Math.max(1, Math.round(retryMinutes)))
+            })
+          );
+          return;
+        }
+        if (errorCode === "TEAM_INVITE_ALREADY_REGISTERED") {
+          setCohostFeedbackType("info");
+          setCohostFeedback(t("event_team_send_invite_already_registered"));
+          setShowCohostInviteAction(false);
+          setCohostInviteTargetEmail("");
+          return;
+        }
+        throw new Error(String(payload?.error || `HTTP ${response.status}`));
+      }
+
+      setCohostFeedbackType("success");
+      setCohostFeedback(
+        interpolateText(t("event_team_send_invite_success"), {
+          name:
+            String(payload?.recipientName || "").trim() ||
+            getDisplayNameFromEmail(targetEmail) ||
+            t("event_team_member_unknown")
+        })
+      );
+      setShowCohostInviteAction(false);
+      setCohostInviteTargetEmail("");
+    } catch (error) {
+      console.error("[event-team] send invitation email error", error);
+      setCohostFeedbackType("error");
+      setCohostFeedback(t("event_team_send_invite_error"));
+    } finally {
+      setIsSendingCohostInvite(false);
     }
   };
 
@@ -997,6 +1122,9 @@ export function EventDetailView({
     setRemovingCohostId(cohostRowId);
     setCohostFeedback("");
     setCohostFeedbackType("info");
+    setShowCohostInviteAction(false);
+    setCohostInviteTargetEmail("");
+    setIsSendingCohostInvite(false);
     try {
       const { error: deleteError } = await supabase
         .from("event_cohosts")
@@ -2745,7 +2873,7 @@ export function EventDetailView({
                 className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 type="button"
                 onClick={handleCloseEventTeamModal}
-                disabled={isAddingCohost || Boolean(removingCohostId)}
+                disabled={isAddingCohost || Boolean(removingCohostId) || isSendingCohostInvite}
                 aria-label={t("close_modal")}
                 title={t("close_modal")}
               >
@@ -2762,7 +2890,13 @@ export function EventDetailView({
                   <input
                     type="email"
                     value={cohostEmailDraft}
-                    onChange={(event) => setCohostEmailDraft(event.target.value)}
+                    onChange={(event) => {
+                      setCohostEmailDraft(event.target.value);
+                      if (showCohostInviteAction) {
+                        setShowCohostInviteAction(false);
+                        setCohostInviteTargetEmail("");
+                      }
+                    }}
                     placeholder={t("event_team_email_placeholder")}
                     className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-gray-800/90 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
                   />
@@ -2771,7 +2905,7 @@ export function EventDetailView({
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   type="button"
                   onClick={handleAddCohostByEmail}
-                  disabled={isAddingCohost}
+                  disabled={isAddingCohost || isSendingCohostInvite}
                 >
                   {isAddingCohost ? t("event_team_adding") : t("event_team_add_action")}
                 </button>
@@ -2783,17 +2917,34 @@ export function EventDetailView({
             )}
 
             {cohostFeedback ? (
-              <p
-                className={`text-xs rounded-xl px-3 py-2 border ${
-                  cohostFeedbackType === "error"
-                    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40"
-                    : cohostFeedbackType === "success"
-                    ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40"
-                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40"
-                }`}
-              >
-                {cohostFeedback}
-              </p>
+              <div className="flex flex-col gap-2">
+                <p
+                  className={`text-xs rounded-xl px-3 py-2 border ${
+                    cohostFeedbackType === "error"
+                      ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40"
+                      : cohostFeedbackType === "success"
+                      ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40"
+                      : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40"
+                  }`}
+                >
+                  {cohostFeedback}
+                </p>
+                {showCohostInviteAction ? (
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleSendCohostInvitationEmail}
+                      disabled={isSendingCohostInvite}
+                      className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-blue-300/80 dark:border-blue-700/50 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      <Icon name={isSendingCohostInvite ? "loader" : "mail"} className={`w-3.5 h-3.5 ${isSendingCohostInvite ? "animate-spin" : ""}`} />
+                      {isSendingCohostInvite
+                        ? t("event_team_send_invite_sending")
+                        : t("event_team_send_invite_email_action")}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 overflow-hidden">
