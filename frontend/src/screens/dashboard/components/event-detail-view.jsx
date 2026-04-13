@@ -5,12 +5,11 @@ import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { HostPlanView } from "./host-plan-view";
-import { HostVenueShortlist } from "../../../components/venues/host-venue-shortlist";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
-import { HostVenueSelector } from "../../../components/venues/host-venue-selector";
 import { supabase } from "../../../lib/supabaseClient";
 import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/calendar-utils";
+import { EVENT_MODULE_DEFAULTS } from "../../../lib/event-modules";
 import {
   EVENT_MODULE_ZONES,
   getEventModulesByZone
@@ -486,10 +485,7 @@ export function EventDetailView({
   const [isSendingBroadcastMessage, setIsSendingBroadcastMessage] = useState(false);
   const [broadcastFeedback, setBroadcastFeedback] = useState("");
   const [broadcastFeedbackType, setBroadcastFeedbackType] = useState("info");
-  const [eventModuleToggles, setEventModuleToggles] = useState({
-    megaphone: true,
-    gallery: true
-  });
+  const [eventModuleToggles, setEventModuleToggles] = useState(() => ({ ...EVENT_MODULE_DEFAULTS }));
   const [isSavingEventModules, setIsSavingEventModules] = useState(false);
   const [eventModulesFeedback, setEventModulesFeedback] = useState("");
   const [eventModulesFeedbackType, setEventModulesFeedbackType] = useState("info");
@@ -649,9 +645,10 @@ export function EventDetailView({
 
   useEffect(() => {
     setEventModuleToggles({
-      megaphone:
-        typeof resolvedModulesSnapshot.megaphone === "boolean" ? resolvedModulesSnapshot.megaphone : true,
-      gallery: typeof resolvedModulesSnapshot.gallery === "boolean" ? resolvedModulesSnapshot.gallery : true
+      ...EVENT_MODULE_DEFAULTS,
+      ...Object.fromEntries(
+        Object.entries(resolvedModulesSnapshot).map(([moduleKey, moduleValue]) => [moduleKey, Boolean(moduleValue)])
+      )
     });
     setEventModulesFeedback("");
     setEventModulesFeedbackType("info");
@@ -1671,10 +1668,12 @@ export function EventDetailView({
           Authorization: `Bearer ${sessionPayload.session.access_token}`
         },
         body: JSON.stringify({
-          active_modules: {
-            megaphone: Boolean(eventModuleToggles.megaphone),
-            gallery: Boolean(eventModuleToggles.gallery)
-          },
+          active_modules: Object.fromEntries(
+            Object.entries({ ...EVENT_MODULE_DEFAULTS, ...eventModuleToggles }).map(([moduleKey, moduleValue]) => [
+              moduleKey,
+              Boolean(moduleValue)
+            ])
+          ),
           locale: String(language || "es").trim().toLowerCase() || "es"
         })
       });
@@ -1803,19 +1802,13 @@ export function EventDetailView({
       "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
     const dropdownItemClass =
       "flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
-    const spotifyButtonLabel = isLoadingSpotifyState
-      ? t("event_spotify_loading")
-      : hasSpotifyPlaylist
-        ? t("event_spotify_open_action")
-        : t("event_spotify_connect_action");
-    const spotifyBrandIcon = (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2 shrink-0" aria-hidden="true">
-        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.84.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-      </svg>
-    );
-    const spotifyButtonClass = hasSpotifyPlaylist
-      ? "bg-transparent border border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10"
-      : "bg-[#1DB954] hover:bg-[#1ed760] border border-[#1DB954] text-white shadow-lg";
+    const headerModuleContextBase = {
+      t,
+      hasSpotifyPlaylist,
+      isLoadingSpotifyState,
+      handleOpenSpotifyPlaylist,
+      handleConnectSpotify
+    };
 
     return (
       <div className="relative z-20 mt-3 w-full min-w-0">
@@ -1830,15 +1823,11 @@ export function EventDetailView({
             {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
           </button>
 
-          <button
-            className={`${spotifyButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs flex items-center justify-center w-full min-h-11 disabled:opacity-70 disabled:cursor-not-allowed`}
-            type="button"
-            onClick={hasSpotifyPlaylist ? handleOpenSpotifyPlaylist : handleConnectSpotify}
-            disabled={isLoadingSpotifyState}
-          >
-            {spotifyBrandIcon}
-            <span className="truncate">{spotifyButtonLabel}</span>
-          </button>
+          {activeHeaderActionModules.map((moduleItem) => (
+            <React.Fragment key={`mobile-${moduleItem.key}`}>
+              {moduleItem.render({ ...headerModuleContextBase, variant: "mobile" })}
+            </React.Fragment>
+          ))}
 
           <div className="flex w-full items-center gap-2">
             {canAddToCalendar ? (
@@ -1929,15 +1918,11 @@ export function EventDetailView({
             {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
           </button>
 
-          <button
-            className={`${spotifyButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs flex items-center justify-center w-full sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed`}
-            type="button"
-            onClick={hasSpotifyPlaylist ? handleOpenSpotifyPlaylist : handleConnectSpotify}
-            disabled={isLoadingSpotifyState}
-          >
-            {spotifyBrandIcon}
-            <span>{spotifyButtonLabel}</span>
-          </button>
+          {activeHeaderActionModules.map((moduleItem) => (
+            <React.Fragment key={`desktop-${moduleItem.key}`}>
+              {moduleItem.render({ ...headerModuleContextBase, variant: "desktop" })}
+            </React.Fragment>
+          ))}
 
           {canAddToCalendar ? (
             <div className="relative w-full sm:w-auto" ref={calendarMenuDesktopRef}>
@@ -2022,14 +2007,76 @@ export function EventDetailView({
     selectedEventDetail && typeof selectedEventDetail.resolved_modules === "object" && selectedEventDetail.resolved_modules
       ? selectedEventDetail.resolved_modules
       : {};
+  const eventModuleToggleConfig = [
+    { key: "megaphone", labelKey: "event_modules_toggle_megaphone_label", hintKey: "event_modules_toggle_megaphone_hint" },
+    { key: "gallery", labelKey: "event_modules_toggle_gallery_label", hintKey: "event_modules_toggle_gallery_hint" },
+    { key: "date_poll", labelKey: "event_modules_toggle_date_poll_label", hintKey: "event_modules_toggle_date_poll_hint" },
+    { key: "venues", labelKey: "event_modules_toggle_venues_label", hintKey: "event_modules_toggle_venues_hint" },
+    { key: "finance", labelKey: "event_modules_toggle_finance_label", hintKey: "event_modules_toggle_finance_hint" },
+    { key: "spotify", labelKey: "event_modules_toggle_spotify_label", hintKey: "event_modules_toggle_spotify_hint" },
+    { key: "icebreaker", labelKey: "event_modules_toggle_icebreaker_label", hintKey: "event_modules_toggle_icebreaker_hint" }
+  ];
   const activeMainModules = getEventModulesByZone({
     zone: EVENT_MODULE_ZONES.MAIN,
     resolvedModules: selectedEventResolvedModules
   });
-  const mainModuleRenderContext = {
+  const activeSidebarModules = getEventModulesByZone({
+    zone: EVENT_MODULE_ZONES.SIDEBAR,
+    resolvedModules: selectedEventResolvedModules
+  });
+  const activeHeaderActionModules = getEventModulesByZone({
+    zone: EVENT_MODULE_ZONES.HEADER_ACTIONS,
+    resolvedModules: selectedEventResolvedModules
+  });
+  const sharedModuleRenderContext = {
     t,
     interpolateText,
+    language,
     selectedEventDetail,
+    getGuestAvatarUrl,
+    formatDate,
+    formatTimeLabel,
+    formatShortDate,
+    shouldRenderDatePollSection,
+    datePollOpen,
+    hasDatePollOptions,
+    selectedEventDateOptions,
+    selectedEventDateVoteSummaryByOptionId,
+    selectedEventDateVoteMatrixRows,
+    selectedEventDatePollWinningOptionId,
+    isClosingEventDatePollOptionId,
+    handleCloseEventDatePoll,
+    datePollTotalVotes,
+    loadEventVenues,
+    eventVenues,
+    isLoadingEventVenues,
+    eventVenuesFeedback,
+    eventVenuesFeedbackType,
+    handleSelectFinalVenue,
+    selectingFinalVenueId,
+    isIcebreakerLoading,
+    hasIcebreakerData,
+    handleGenerateEventIcebreaker,
+    handleOpenEventIcebreakerPanel,
+    splitExpenseDescription,
+    setSplitExpenseDescription,
+    splitExpenseAmount,
+    setSplitExpenseAmount,
+    splitExpensePaidBy,
+    setSplitExpensePaidBy,
+    splitParticipants,
+    splitHelperMessage,
+    setSplitHelperMessage,
+    handleAddSplitExpense,
+    splitExpenses,
+    formatMoneyAmount,
+    handleRemoveSplitExpense,
+    splitTotalAmount,
+    splitTotalGuests,
+    splitPerPersonLabel,
+    splitDebts,
+    handleShareSettlementWhatsApp,
+    splitHelperMessageType,
     eventPhotoGalleryUrlDraft,
     setEventPhotoGalleryUrlDraft,
     handleSaveEventPhotoGalleryUrl,
@@ -2045,8 +2092,14 @@ export function EventDetailView({
     confirmedRecipientsCount,
     handleSendBroadcastMessage,
     isSendingBroadcastMessage,
-    broadcastFeedbackType
+    broadcastFeedbackType,
+    hasSpotifyPlaylist,
+    isLoadingSpotifyState,
+    handleOpenSpotifyPlaylist,
+    handleConnectSpotify
   };
+  const mainModuleRenderContext = sharedModuleRenderContext;
+  const sidebarModuleRenderContext = sharedModuleRenderContext;
 
   return (
     <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
@@ -2273,51 +2326,33 @@ export function EventDetailView({
                   </p>
 
                   <div className="grid grid-cols-1 gap-3">
-                    <label className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3">
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">
-                          {t("event_modules_toggle_megaphone_label")}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {t("event_modules_toggle_megaphone_hint")}
-                        </span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(eventModuleToggles.megaphone)}
-                        onChange={(event) => {
-                          const checked = event.target.checked;
-                          setEventModuleToggles((current) => ({ ...current, megaphone: checked }));
-                          if (eventModulesFeedback) {
-                            setEventModulesFeedback("");
-                          }
-                        }}
-                        className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
-                      />
-                    </label>
-
-                    <label className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3">
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">
-                          {t("event_modules_toggle_gallery_label")}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {t("event_modules_toggle_gallery_hint")}
-                        </span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(eventModuleToggles.gallery)}
-                        onChange={(event) => {
-                          const checked = event.target.checked;
-                          setEventModuleToggles((current) => ({ ...current, gallery: checked }));
-                          if (eventModulesFeedback) {
-                            setEventModulesFeedback("");
-                          }
-                        }}
-                        className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
-                      />
-                    </label>
+                    {eventModuleToggleConfig.map((moduleToggle) => (
+                      <label
+                        key={moduleToggle.key}
+                        className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3"
+                      >
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">
+                            {t(moduleToggle.labelKey)}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {t(moduleToggle.hintKey)}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(eventModuleToggles[moduleToggle.key])}
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setEventModuleToggles((current) => ({ ...current, [moduleToggle.key]: checked }));
+                            if (eventModulesFeedback) {
+                              setEventModulesFeedback("");
+                            }
+                          }}
+                          className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
+                        />
+                      </label>
+                    ))}
                   </div>
 
                   <div className="flex items-center justify-end">
@@ -2345,183 +2380,6 @@ export function EventDetailView({
                     {moduleItem.render(mainModuleRenderContext)}
                   </React.Fragment>
                 ))}
-
-                {shouldRenderDatePollSection ? (
-                  <article
-                    id="event-date-poll"
-                    className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          <Icon name="calendar" className="w-4 h-4 text-blue-500" />
-                          {t("event_date_poll_title")}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_date_poll_subtitle")}</p>
-                      </div>
-                      <span
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${datePollOpen
-                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40"
-                            : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-white/10"
-                          }`}
-                      >
-                        {datePollOpen ? t("event_date_poll_open_badge") : t("event_date_poll_closed_badge")}
-                      </span>
-                    </div>
-
-                    {hasDatePollOptions ? (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {selectedEventDateOptions.map((optionItem, index) => {
-                          const optionSummary = selectedEventDateVoteSummaryByOptionId?.[optionItem.id] || {
-                            yes: 0,
-                            no: 0,
-                          maybe: 0,
-                          pending: 0,
-                          score: 0
-                        };
-                        const computedPending = Math.max(
-                          0,
-                          selectedEventDateVoteMatrixRows.length -
-                            Number(optionSummary.yes || 0) -
-                            Number(optionSummary.no || 0) -
-                            Number(optionSummary.maybe || 0)
-                        );
-                        const optionDateLabel = formatDate(optionItem.startAt, language, t("no_date"));
-                        const optionTimeLabel = formatTimeLabel(optionItem.startAt, language, t("no_date"));
-                        const isWinningOption = selectedEventDatePollWinningOptionId === optionItem.id;
-                        const isClosingOption = isClosingEventDatePollOptionId === optionItem.id;
-                        return (
-                          <article
-                            key={optionItem.id}
-                            className={`rounded-xl border p-3 flex flex-col gap-3 ${isWinningOption
-                                ? "border-green-300 bg-green-50/70 dark:border-green-700/40 dark:bg-green-900/20"
-                                : "border-black/5 bg-white/70 dark:border-white/10 dark:bg-black/20"
-                              }`}
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                {t("event_date_poll_vote_matrix_option")} #{index + 1}
-                              </p>
-                              {isWinningOption ? (
-                                <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700/30">
-                                  {t("event_date_poll_winner_badge")}
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-snug">
-                              {optionDateLabel}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{optionTimeLabel}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                {t("status_yes")}: {optionSummary.yes}
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                                {t("status_maybe")}: {optionSummary.maybe}
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                                {t("status_no")}: {optionSummary.no}
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                {t("status_pending")}: {computedPending}
-                              </span>
-                            </div>
-                            {datePollOpen ? (
-                              <button
-                                type="button"
-                                className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-300 bg-green-600 text-white px-3 py-2 text-xs font-bold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                                onClick={() => handleCloseEventDatePoll(optionItem.id)}
-                                disabled={Boolean(isClosingEventDatePollOptionId)}
-                              >
-                                <Icon name={isClosingOption ? "loader" : "check"} className={`w-4 h-4 ${isClosingOption ? "animate-spin" : ""}`} />
-                                {isClosingOption ? t("event_date_poll_closing") : t("event_date_poll_close_action")}
-                              </button>
-                            ) : null}
-                          </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs italic text-gray-500 dark:text-gray-400">{t("event_date_poll_options_empty")}</p>
-                    )}
-
-                    {hasDatePollOptions ? (
-                      <div className="w-full overflow-x-auto relative rounded-xl border border-black/5 dark:border-white/10 bg-white/40 dark:bg-black/20">
-                        <table className="w-full table-fixed text-left border-collapse text-sm">
-                          <thead>
-                            <tr>
-                              <th className="w-1/3 md:w-1/4 max-w-[150px] truncate sticky left-0 z-20 bg-white dark:bg-gray-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_#374151] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
-                                {t("event_date_poll_vote_matrix_guest")}
-                              </th>
-                              {selectedEventDateOptions.map((optionItem, index) => (
-                                <th
-                                  key={optionItem.id}
-                                  className="px-4 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10"
-                                >
-                                  <span className="block">{t("event_date_poll_vote_matrix_option")} #{index + 1}</span>
-                                  <span className="block normal-case text-[11px] font-medium text-gray-700 dark:text-gray-200 mt-0.5">
-                                    {formatShortDate(optionItem.startAt, language, t("no_date"))}
-                                  </span>
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedEventDateVoteMatrixRows.map((guestRow) => (
-                              <tr key={guestRow.invitation.id} className="border-b border-black/5 dark:border-white/10 last:border-b-0">
-                                <td className="w-1/3 md:w-1/4 max-w-[150px] truncate sticky left-0 z-10 bg-white dark:bg-gray-900 shadow-[1px_0_0_0_#e5e7eb] dark:shadow-[1px_0_0_0_#374151] px-4 py-2.5 border-r border-black/5 dark:border-white/10">
-                                  <div className="flex items-center gap-2">
-                                    <AvatarCircle
-                                      label={guestRow.name || t("field_guest")}
-                                      fallback={getInitials(guestRow.name || t("field_guest"), "IN")}
-                                      imageUrl={getGuestAvatarUrl(guestRow.guest, guestRow.name)}
-                                      size={24}
-                                    />
-                                    <span className="text-xs font-bold text-gray-900 dark:text-white truncate block w-full">
-                                      {guestRow.name}
-                                    </span>
-                                  </div>
-                                </td>
-                                {selectedEventDateOptions.map((optionItem) => {
-                                  const voteStatus = String(guestRow.votesByOptionId?.[optionItem.id] || "pending")
-                                    .trim()
-                                    .toLowerCase();
-                                  const badgeClass =
-                                    voteStatus === "yes"
-                                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                                      : voteStatus === "no"
-                                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                        : voteStatus === "maybe"
-                                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
-                                  const voteLabel =
-                                    voteStatus === "yes"
-                                      ? t("status_yes")
-                                      : voteStatus === "no"
-                                        ? t("status_no")
-                                        : voteStatus === "maybe"
-                                          ? t("status_maybe")
-                                          : t("status_pending");
-                                  return (
-                                    <td key={`${guestRow.invitation.id}-${optionItem.id}`} className="px-4 py-2 text-center">
-                                      <span className={`inline-flex items-center justify-center rounded-full px-2 py-1 text-[10px] font-bold ${badgeClass}`}>
-                                        {voteLabel}
-                                      </span>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
-
-                    {hasDatePollOptions && datePollTotalVotes === 0 ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_date_poll_no_votes")}</p>
-                    ) : null}
-                  </article>
-                ) : null}
 
                 <article className="order-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2642,44 +2500,6 @@ export function EventDetailView({
                   )}
                 </article>
 
-                <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
-                  <div className="flex items-center gap-2">
-                    <Icon name="location" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <p className="text-sm font-black text-gray-900 dark:text-white">
-                      {t("event_venues_title")}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {t("event_venues_hint")}
-                  </p>
-                  <HostVenueSelector
-                    eventId={selectedEventDetail?.id}
-                    t={t}
-                    onVenueAdded={loadEventVenues}
-                  />
-                </article>
-
-                <article className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
-                  <div className="flex items-center gap-2">
-                    <Icon name="star" className="w-4 h-4 text-amber-500" />
-                    <p className="text-sm font-black text-gray-900 dark:text-white">
-                      {t("event_venues_shortlist_title")}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {t("event_venues_shortlist_hint")}
-                  </p>
-                  <HostVenueShortlist
-                    venues={eventVenues}
-                    isLoading={isLoadingEventVenues}
-                    feedback={eventVenuesFeedback}
-                    feedbackType={eventVenuesFeedbackType}
-                    onSelectFinal={handleSelectFinalVenue}
-                    selectingVenueId={selectingFinalVenueId}
-                    t={t}
-                  />
-                </article>
-
                 <article id="event-rsvp-timeline" className="order-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
@@ -2736,235 +2556,11 @@ export function EventDetailView({
                   </button>
                 </article>
 
-                <article className="order-3 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-3">
-                  <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700">
-                        <Icon name="sparkle" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                      </span>
-                      <p className="text-sm font-black tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">{t("event_icebreaker_title")}</p>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-indigo-100/80 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300">
-                      IA
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_icebreaker_hint")}</p>
-                  <div className="grid grid-cols-1 gap-2">
-                    <button
-                      className="bg-indigo-600 text-white hover:bg-indigo-700 font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm w-full inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                      type="button"
-                      onClick={() => handleGenerateEventIcebreaker?.()}
-                      disabled={isIcebreakerLoading}
-                    >
-                      <Icon name={isIcebreakerLoading ? "clock" : "sparkle"} className={`w-4 h-4 ${isIcebreakerLoading ? "animate-pulse" : ""}`} />
-                      <span>{isIcebreakerLoading ? t("event_icebreaker_loading_label") : t("event_icebreaker_action_generate")}</span>
-                    </button>
-                    {hasIcebreakerData ? (
-                      <button
-                        className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-black py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm w-full inline-flex items-center justify-center gap-2"
-                        type="button"
-                        onClick={() => handleOpenEventIcebreakerPanel?.()}
-                      >
-                        <Icon name="eye" className="w-4 h-4" />
-                        <span>{t("event_icebreaker_action_open")}</span>
-                      </button>
-                    ) : null}
-                  </div>
-                </article>
-
-                <article className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
-                  <div className="flex items-center gap-2">
-                    <Icon name="activity" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_expenses_title")}</p>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_expenses_hint")}</p>
-
-                  <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="flex flex-col gap-1.5 sm:col-span-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {t("event_expenses_description_label")}
-                      </span>
-                      <input
-                        className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                        type="text"
-                        placeholder={t("event_expenses_description_placeholder")}
-                        value={splitExpenseDescription}
-                        onChange={(event) => {
-                          setSplitExpenseDescription(event.target.value);
-                          if (splitHelperMessage) {
-                            setSplitHelperMessage("");
-                          }
-                        }}
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {t("event_expenses_amount_label")}
-                      </span>
-                      <input
-                        className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        placeholder={t("event_expenses_amount_placeholder")}
-                        value={splitExpenseAmount}
-                        onChange={(event) => {
-                          setSplitExpenseAmount(event.target.value);
-                          if (splitHelperMessage) {
-                            setSplitHelperMessage("");
-                          }
-                        }}
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {t("event_expenses_paid_by_label")}
-                      </span>
-                      <select
-                        className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                        value={splitExpensePaidBy}
-                        onChange={(event) => {
-                          setSplitExpensePaidBy(event.target.value);
-                          if (splitHelperMessage) {
-                            setSplitHelperMessage("");
-                          }
-                        }}
-                      >
-                        {!splitParticipants.length ? (
-                          <option value="">{t("event_expenses_paid_by_placeholder")}</option>
-                        ) : null}
-                        {splitParticipants.map((participantName) => (
-                          <option key={participantName} value={participantName}>
-                            {participantName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      className="sm:col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-xl transition-colors text-xs inline-flex items-center justify-center gap-2"
-                      type="button"
-                      onClick={handleAddSplitExpense}
-                      disabled={!splitParticipants.length}
-                    >
-                      <Icon name="plus" className="w-4 h-4" />
-                      <span>{t("event_expenses_add_action")}</span>
-                    </button>
-                  </div>
-
-                  <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("event_expenses_list_title")}
-                    </p>
-                    {splitExpenses.length === 0 ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_list_empty")}</p>
-                    ) : (
-                      <ul className="flex flex-col gap-2">
-                        {splitExpenses.map((expense) => (
-                          <li
-                            key={expense.id}
-                            className="rounded-xl border border-black/5 dark:border-white/10 bg-white/90 dark:bg-gray-900/50 px-3 py-2.5 flex items-center justify-between gap-3"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{expense.description}</p>
-                              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {interpolateText(t("event_expenses_paid_by_value"), { name: expense.paidBy })}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
-                                {formatMoneyAmount(expense.amount, language)} €
-                              </span>
-                              <button
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 dark:border-red-700/40 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                                type="button"
-                                onClick={() => handleRemoveSplitExpense(expense.id)}
-                                aria-label={t("event_expenses_remove_action")}
-                                title={t("event_expenses_remove_action")}
-                              >
-                                <Icon name="trash" className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <article className="rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 px-4 py-3 flex flex-col gap-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
-                        {t("event_expenses_total_spent_label")}
-                      </span>
-                      <p className="text-2xl font-black text-blue-700 dark:text-blue-300 leading-none">
-                        {formatMoneyAmount(splitTotalAmount, language)} €
-                      </p>
-                    </article>
-                    <article className="rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700/40 px-4 py-3 flex flex-col gap-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
-                        {t("event_expenses_people_count_label")}
-                      </span>
-                      <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300 leading-none">
-                        {splitTotalGuests || 0}
-                      </p>
-                    </article>
-                    <article className="col-span-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
-                        {t("event_expenses_per_person_label")}
-                      </span>
-                      <p className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-tight break-words">
-                        {interpolateText(t("event_expenses_per_person_value"), { amount: splitPerPersonLabel })}
-                      </p>
-                    </article>
-                  </div>
-
-                  <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <Icon name="trend" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
-                      <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_expenses_settlement_title")}</p>
-                    </div>
-
-                    {splitTotalGuests <= 0 ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_people_zero")}</p>
-                    ) : splitExpenses.length === 0 ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_settlement_empty")}</p>
-                    ) : splitDebts.length === 0 ? (
-                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{t("event_expenses_settlement_balanced")}</p>
-                    ) : (
-                      <ul className="flex flex-col gap-2">
-                        {splitDebts.map((transaction, index) => (
-                          <li
-                            key={`${transaction.from}-${transaction.to}-${index}`}
-                            className="rounded-xl border border-purple-200/70 dark:border-purple-700/30 bg-purple-50/70 dark:bg-purple-900/20 px-3 py-2.5 flex items-center justify-between gap-3"
-                          >
-                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                              {interpolateText(t("event_expenses_settlement_row"), {
-                                from: transaction.from,
-                                to: transaction.to,
-                                amount: `${formatMoneyAmount(transaction.amount, language)} €`
-                              })}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <button
-                      className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-600/60 bg-green-500 hover:bg-green-600 text-white font-black py-2.5 px-4 text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                      type="button"
-                      onClick={handleShareSettlementWhatsApp}
-                      disabled={splitTotalAmount <= 0 || splitTotalGuests <= 0}
-                      aria-label={t("event_expenses_whatsapp_action")}
-                      title={t("event_expenses_whatsapp_action")}
-                    >
-                      <Icon name="message" className="w-4 h-4" />
-                      <span>{t("event_expenses_whatsapp_action")}</span>
-                    </button>
-                  </div>
-
-                  <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
-                </article>
+                {activeSidebarModules.map((moduleItem) => (
+                  <React.Fragment key={moduleItem.key}>
+                    {moduleItem.render(sidebarModuleRenderContext)}
+                  </React.Fragment>
+                ))}
 
                 <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
