@@ -486,6 +486,13 @@ export function EventDetailView({
   const [isSendingBroadcastMessage, setIsSendingBroadcastMessage] = useState(false);
   const [broadcastFeedback, setBroadcastFeedback] = useState("");
   const [broadcastFeedbackType, setBroadcastFeedbackType] = useState("info");
+  const [eventModuleToggles, setEventModuleToggles] = useState({
+    megaphone: true,
+    gallery: true
+  });
+  const [isSavingEventModules, setIsSavingEventModules] = useState(false);
+  const [eventModulesFeedback, setEventModulesFeedback] = useState("");
+  const [eventModulesFeedbackType, setEventModulesFeedbackType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -609,6 +616,11 @@ export function EventDetailView({
     });
   }, [interpolateText, language, selectedEventDetail?.title, splitDebts, splitPerPersonAmount, splitTotalAmount, t]);
 
+  const resolvedModulesSnapshot = useMemo(() => {
+    const raw = selectedEventDetail?.resolved_modules;
+    return raw && typeof raw === "object" ? raw : {};
+  }, [selectedEventDetail?.resolved_modules]);
+
   useEffect(() => {
     const sourceExpenses = Array.isArray(selectedEventDetail?.expenses) ? selectedEventDetail.expenses : [];
     const normalized = sourceExpenses.map(normalizeExpenseEntry).filter(Boolean);
@@ -634,6 +646,17 @@ export function EventDetailView({
     setBroadcastFeedbackType("info");
     setIsSendingBroadcastMessage(false);
   }, [selectedEventDetail?.id]);
+
+  useEffect(() => {
+    setEventModuleToggles({
+      megaphone:
+        typeof resolvedModulesSnapshot.megaphone === "boolean" ? resolvedModulesSnapshot.megaphone : true,
+      gallery: typeof resolvedModulesSnapshot.gallery === "boolean" ? resolvedModulesSnapshot.gallery : true
+    });
+    setEventModulesFeedback("");
+    setEventModulesFeedbackType("info");
+    setIsSavingEventModules(false);
+  }, [resolvedModulesSnapshot, selectedEventDetail?.id]);
 
   useEffect(() => {
     if (!splitExpensePaidBy && splitDefaultPayer) {
@@ -1623,6 +1646,57 @@ export function EventDetailView({
     }
   };
 
+  const handleSaveEventModules = async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const updateUrl = buildEventsApiUrl(eventId);
+    if (!supabase || !eventId || !updateUrl) {
+      return;
+    }
+
+    setIsSavingEventModules(true);
+    setEventModulesFeedback("");
+    setEventModulesFeedbackType("info");
+
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error(t("event_modules_save_error"));
+      }
+
+      const response = await fetch(updateUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        },
+        body: JSON.stringify({
+          active_modules: {
+            megaphone: Boolean(eventModuleToggles.megaphone),
+            gallery: Boolean(eventModuleToggles.gallery)
+          },
+          locale: String(language || "es").trim().toLowerCase() || "es"
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        throw new Error(String(payload?.error || t("event_modules_save_error")));
+      }
+
+      setEventModulesFeedbackType("success");
+      setEventModulesFeedback(t("event_modules_save_success"));
+      if (typeof loadDashboardData === "function") {
+        await loadDashboardData();
+      }
+    } catch (error) {
+      console.error("[event-modules] save error", error);
+      setEventModulesFeedbackType("error");
+      setEventModulesFeedback(String(error?.message || t("event_modules_save_error")));
+    } finally {
+      setIsSavingEventModules(false);
+    }
+  };
+
   const handleAddSplitExpense = () => {
     const description = String(splitExpenseDescription || "").trim();
     const paidBy = String(splitExpensePaidBy || "").trim();
@@ -2186,6 +2260,83 @@ export function EventDetailView({
                         {t("map_open_external")}
                       </a>
                     </div>
+                  ) : null}
+                </article>
+
+                <article id="event-modules" className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
+                  <div className="flex items-center gap-2">
+                    <Icon name="settings" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_modules_section_title")}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {t("event_modules_section_hint")}
+                  </p>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <label className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                          {t("event_modules_toggle_megaphone_label")}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {t("event_modules_toggle_megaphone_hint")}
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(eventModuleToggles.megaphone)}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setEventModuleToggles((current) => ({ ...current, megaphone: checked }));
+                          if (eventModulesFeedback) {
+                            setEventModulesFeedback("");
+                          }
+                        }}
+                        className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
+                      />
+                    </label>
+
+                    <label className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                          {t("event_modules_toggle_gallery_label")}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {t("event_modules_toggle_gallery_hint")}
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(eventModuleToggles.gallery)}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setEventModuleToggles((current) => ({ ...current, gallery: checked }));
+                          if (eventModulesFeedback) {
+                            setEventModulesFeedback("");
+                          }
+                        }}
+                        className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveEventModules}
+                      disabled={isSavingEventModules}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Icon
+                        name={isSavingEventModules ? "loader" : "save"}
+                        className={`w-4 h-4 ${isSavingEventModules ? "animate-spin" : ""}`}
+                      />
+                      <span>{isSavingEventModules ? t("event_modules_saving") : t("event_modules_save_action")}</span>
+                    </button>
+                  </div>
+
+                  {eventModulesFeedback ? (
+                    <InlineMessage type={eventModulesFeedbackType} text={eventModulesFeedback} />
                   ) : null}
                 </article>
 
