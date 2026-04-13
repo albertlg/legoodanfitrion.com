@@ -84,6 +84,15 @@ function normalizeRsvpStatus(value) {
   return normalized;
 }
 
+function normalizeLocale(value) {
+  const normalized = toLowerString(value);
+  if (!normalized) {
+    return "es";
+  }
+  const baseLocale = normalized.split("-")[0];
+  return ["es", "ca", "en", "fr", "it"].includes(baseLocale) ? baseLocale : "es";
+}
+
 function buildThrottleKey(invitationId, targetEmail) {
   return `${toSafeString(invitationId)}::${toLowerString(targetEmail)}`;
 }
@@ -147,6 +156,7 @@ router.post("/ticket", async (req, res) => {
   const invitationToken = toSafeString(req.body?.invitationToken);
   const guestNameHint = toSafeString(req.body?.guestName);
   const guestEmailHint = toLowerString(req.body?.guestEmail);
+  const localeHint = normalizeLocale(req.body?.locale);
   const eventIdHint = toSafeString(req.body?.eventId);
   const submittedStatus = normalizeRsvpStatus(req.body?.status);
 
@@ -266,9 +276,9 @@ router.post("/ticket", async (req, res) => {
         timezone: toSafeString(eventRow.timezone) || "Europe/Madrid",
         locationName: toSafeString(eventRow.location_name),
         locationAddress: toSafeString(eventRow.location_address),
-        locale: "es-ES",
         detailsUrl
-      }
+      },
+      localeHint
     );
 
     registerThrottle(throttleKey);

@@ -943,6 +943,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       const eventIdForTicket = String(data?.[0]?.event_id || invitation?.event_id || "").trim();
       const guestNameForTicket = toNullable(guestName) || toNullable(invitation?.guest_name || "");
       const guestEmailForTicket = toNullable(guestEmail || invitation?.invitee_email || "");
+      const localeForTicket = String(language || "es").trim().toLowerCase() || "es";
 
       // Fire-and-forget: nunca bloquea la confirmacion de RSVP.
       void fetch(ticketEndpoint, {
@@ -956,7 +957,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           status: normalizedFinalStatus,
           eventId: eventIdForTicket || null,
           guestName: guestNameForTicket || null,
-          guestEmail: guestEmailForTicket || null
+          guestEmail: guestEmailForTicket || null,
+          locale: localeForTicket
         })
       })
         .then(async (response) => {

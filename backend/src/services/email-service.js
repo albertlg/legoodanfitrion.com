@@ -3,11 +3,114 @@ import { Resend } from "resend";
 const DEFAULT_SIGNUP_BASE_URL = "https://legoodanfitrion.com/signup";
 const DEFAULT_FROM_EMAIL = "LeGoodAnfitrion <onboarding@resend.dev>";
 const DEFAULT_TICKET_DETAILS_URL = "https://legoodanfitrion.com";
+const SUPPORTED_TICKET_LOCALES = new Set(["es", "ca", "en", "fr", "it"]);
+
+const RSVP_TICKET_COPY = {
+  es: {
+    intlLocale: "es-ES",
+    subject: (eventName) => `🎫 Tu entrada para ${eventName}`,
+    ticketKicker: "LeGoodAnfitrion - Ticket digital",
+    confirmedTitle: "¡Confirmado!",
+    intro: (guestName) => `Hola ${guestName}, tu asistencia ya está confirmada. Aquí tienes tu entrada digital:`,
+    dateLabel: "Fecha y hora",
+    locationLabel: "Ubicación",
+    locationPendingName: "Por confirmar",
+    locationPendingAddress: "Dirección pendiente",
+    addToCalendar: "Añadir a Google Calendar",
+    viewEventDetails: "Ver detalles del evento",
+    textGreeting: (guestName) => `Hola ${guestName},`,
+    textConfirmed: (eventName) => `Tu asistencia a "${eventName}" está confirmada.`,
+    textDate: "Fecha",
+    textLocation: "Ubicación"
+  },
+  ca: {
+    intlLocale: "ca-ES",
+    subject: (eventName) => `🎫 La teva entrada per a ${eventName}`,
+    ticketKicker: "LeGoodAnfitrion - Entrada digital",
+    confirmedTitle: "Confirmat!",
+    intro: (guestName) => `Hola ${guestName}, la teva assistència ja està confirmada. Aquí tens la teva entrada digital:`,
+    dateLabel: "Data i hora",
+    locationLabel: "Lloc",
+    locationPendingName: "Per confirmar",
+    locationPendingAddress: "Adreça pendent",
+    addToCalendar: "Afegeix a Google Calendar",
+    viewEventDetails: "Veure detalls de l'esdeveniment",
+    textGreeting: (guestName) => `Hola ${guestName},`,
+    textConfirmed: (eventName) => `La teva assistència a "${eventName}" està confirmada.`,
+    textDate: "Data",
+    textLocation: "Lloc"
+  },
+  en: {
+    intlLocale: "en-US",
+    subject: (eventName) => `🎫 Your ticket for ${eventName}`,
+    ticketKicker: "LeGoodAnfitrion - Digital ticket",
+    confirmedTitle: "Confirmed!",
+    intro: (guestName) => `Hi ${guestName}, your attendance is confirmed. Here is your digital ticket:`,
+    dateLabel: "Date and time",
+    locationLabel: "Location",
+    locationPendingName: "To be confirmed",
+    locationPendingAddress: "Address pending",
+    addToCalendar: "Add to Google Calendar",
+    viewEventDetails: "View event details",
+    textGreeting: (guestName) => `Hi ${guestName},`,
+    textConfirmed: (eventName) => `Your attendance to "${eventName}" is confirmed.`,
+    textDate: "Date",
+    textLocation: "Location"
+  },
+  fr: {
+    intlLocale: "fr-FR",
+    subject: (eventName) => `🎫 Votre billet pour ${eventName}`,
+    ticketKicker: "LeGoodAnfitrion - Billet numérique",
+    confirmedTitle: "Confirmé !",
+    intro: (guestName) => `Bonjour ${guestName}, votre présence est confirmée. Voici votre billet numérique :`,
+    dateLabel: "Date et heure",
+    locationLabel: "Lieu",
+    locationPendingName: "À confirmer",
+    locationPendingAddress: "Adresse en attente",
+    addToCalendar: "Ajouter à Google Calendar",
+    viewEventDetails: "Voir les détails de l'événement",
+    textGreeting: (guestName) => `Bonjour ${guestName},`,
+    textConfirmed: (eventName) => `Votre présence à "${eventName}" est confirmée.`,
+    textDate: "Date",
+    textLocation: "Lieu"
+  },
+  it: {
+    intlLocale: "it-IT",
+    subject: (eventName) => `🎫 Il tuo biglietto per ${eventName}`,
+    ticketKicker: "LeGoodAnfitrion - Biglietto digitale",
+    confirmedTitle: "Confermato!",
+    intro: (guestName) => `Ciao ${guestName}, la tua presenza è confermata. Ecco il tuo biglietto digitale:`,
+    dateLabel: "Data e ora",
+    locationLabel: "Luogo",
+    locationPendingName: "Da confermare",
+    locationPendingAddress: "Indirizzo in attesa",
+    addToCalendar: "Aggiungi a Google Calendar",
+    viewEventDetails: "Vedi dettagli evento",
+    textGreeting: (guestName) => `Ciao ${guestName},`,
+    textConfirmed: (eventName) => `La tua presenza a "${eventName}" è confermata.`,
+    textDate: "Data",
+    textLocation: "Luogo"
+  }
+};
 
 let resendClient = null;
 
 function toSafeString(value) {
   return String(value || "").trim();
+}
+
+function normalizeTicketLocale(localeValue) {
+  const normalized = toSafeString(localeValue).toLowerCase();
+  if (!normalized) {
+    return "es";
+  }
+  const baseLocale = normalized.split("-")[0];
+  return SUPPORTED_TICKET_LOCALES.has(baseLocale) ? baseLocale : "es";
+}
+
+function getRsvpTicketCopy(localeValue) {
+  const normalizedLocale = normalizeTicketLocale(localeValue);
+  return RSVP_TICKET_COPY[normalizedLocale] || RSVP_TICKET_COPY.es;
 }
 
 function escapeHtml(value) {
@@ -148,44 +251,53 @@ function formatEventDateRange(eventDetails) {
   return `${dateFormatter.format(startAtDate)} - ${endFormatter.format(endAtDate)}`;
 }
 
-function buildRsvpTicketHtml({ guestName, eventDetails, calendarUrl, detailsUrl }) {
-  const escapedGuestName = escapeHtml(guestName || "Invitado");
+function buildRsvpTicketHtml({ guestName, eventDetails, calendarUrl, detailsUrl, copy }) {
   const escapedEventName = escapeHtml(eventDetails?.eventName || "Evento");
   const escapedDateLabel = escapeHtml(formatEventDateRange(eventDetails));
-  const escapedLocationName = escapeHtml(toSafeString(eventDetails?.locationName) || "Por confirmar");
-  const escapedLocationAddress = escapeHtml(toSafeString(eventDetails?.locationAddress) || "Dirección pendiente");
+  const escapedLocationName = escapeHtml(toSafeString(eventDetails?.locationName) || copy.locationPendingName);
+  const escapedLocationAddress = escapeHtml(toSafeString(eventDetails?.locationAddress) || copy.locationPendingAddress);
   const escapedCalendarUrl = escapeHtml(calendarUrl);
   const escapedDetailsUrl = escapeHtml(detailsUrl);
+  const escapedTicketKicker = escapeHtml(copy.ticketKicker);
+  const escapedConfirmedTitle = escapeHtml(copy.confirmedTitle);
+  const escapedIntro = escapeHtml(copy.intro(guestName || "Invitado"));
+  const escapedDateLabelTitle = escapeHtml(copy.dateLabel);
+  const escapedLocationLabelTitle = escapeHtml(copy.locationLabel);
+  const escapedCalendarCta = escapeHtml(copy.addToCalendar);
+  const escapedDetailsCta = escapeHtml(copy.viewEventDetails);
 
   return `
     <div style="margin:0;padding:24px;background:#eef2ff;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:660px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;">
         <tr>
           <td style="background:linear-gradient(90deg,#2563eb,#7c3aed);padding:18px 24px;color:#ffffff;">
-            <p style="margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.92;">LeGoodAnfitrion - Ticket digital</p>
+            <p style="margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.92;">${escapedTicketKicker}</p>
             <h1 style="margin:8px 0 0;font-size:24px;line-height:1.25;">${escapedEventName}</h1>
           </td>
         </tr>
         <tr>
           <td style="padding:24px;">
+            <p style="margin:0 0 8px;font-size:20px;line-height:1.3;font-weight:800;color:#0f172a;">
+              ${escapedConfirmedTitle}
+            </p>
             <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#334155;">
-              Hola <strong>${escapedGuestName}</strong>, tu asistencia ya esta confirmada. Aqui tienes tu entrada digital:
+              ${escapedIntro}
             </p>
             <div style="border:1px dashed #93c5fd;border-radius:14px;padding:16px;background:#f8fafc;">
-              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700;">Fecha y hora</p>
+              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700;">${escapedDateLabelTitle}</p>
               <p style="margin:0 0 14px;font-size:16px;color:#0f172a;font-weight:700;">${escapedDateLabel}</p>
-              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700;">Ubicacion</p>
+              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700;">${escapedLocationLabelTitle}</p>
               <p style="margin:0;font-size:15px;color:#0f172a;font-weight:700;">${escapedLocationName}</p>
               <p style="margin:6px 0 0;font-size:13px;color:#475569;">${escapedLocationAddress}</p>
             </div>
             <div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;">
               <a href="${escapedCalendarUrl}" target="_blank" rel="noopener noreferrer"
                  style="display:inline-block;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;">
-                Anadir a Google Calendar
+                ${escapedCalendarCta}
               </a>
               <a href="${escapedDetailsUrl}" target="_blank" rel="noopener noreferrer"
                  style="display:inline-block;background:#f1f5f9;color:#1e293b;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;border:1px solid #cbd5e1;">
-                Ver detalles del evento
+                ${escapedDetailsCta}
               </a>
             </div>
           </td>
@@ -236,7 +348,7 @@ export async function sendCoHostInvitation(targetEmail, hostName, eventName) {
   };
 }
 
-export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails) {
+export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, locale = "es") {
   const normalizedEmail = toSafeString(guestEmail).toLowerCase();
   if (!normalizedEmail) {
     const error = new Error("guestEmail es obligatorio.");
@@ -245,10 +357,15 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails) {
   }
 
   const normalizedEventDetails = eventDetails && typeof eventDetails === "object" ? eventDetails : {};
+  const copy = getRsvpTicketCopy(locale || normalizedEventDetails?.locale);
   const eventName = toSafeString(normalizedEventDetails?.eventName) || "Tu evento";
   const detailsUrl = toSafeString(normalizedEventDetails?.detailsUrl) || DEFAULT_TICKET_DETAILS_URL;
-  const calendarUrl = buildGoogleCalendarUrl({
+  const normalizedEventDetailsWithLocale = {
     ...normalizedEventDetails,
+    locale: copy.intlLocale
+  };
+  const calendarUrl = buildGoogleCalendarUrl({
+    ...normalizedEventDetailsWithLocale,
     eventName
   });
 
@@ -257,21 +374,22 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails) {
   const response = await resend.emails.send({
     from: fromEmail,
     to: normalizedEmail,
-    subject: `Tu entrada digital para ${eventName}`,
+    subject: copy.subject(eventName),
     html: buildRsvpTicketHtml({
       guestName: toSafeString(guestName) || "Invitado",
       eventDetails: {
-        ...normalizedEventDetails,
+        ...normalizedEventDetailsWithLocale,
         eventName
       },
       calendarUrl,
-      detailsUrl
+      detailsUrl,
+      copy
     }),
     text: [
-      `Hola ${toSafeString(guestName) || "Invitado"},`,
-      `Tu asistencia a "${eventName}" esta confirmada.`,
-      `Fecha: ${formatEventDateRange(normalizedEventDetails)}`,
-      `Ubicacion: ${toSafeString(normalizedEventDetails?.locationName || normalizedEventDetails?.locationAddress) || "Por confirmar"}`,
+      copy.textGreeting(toSafeString(guestName) || "Invitado"),
+      copy.textConfirmed(eventName),
+      `${copy.textDate}: ${formatEventDateRange(normalizedEventDetailsWithLocale)}`,
+      `${copy.textLocation}: ${toSafeString(normalizedEventDetailsWithLocale?.locationName || normalizedEventDetailsWithLocale?.locationAddress) || copy.locationPendingName}`,
       `Google Calendar: ${calendarUrl}`
     ].join("\n")
   });
