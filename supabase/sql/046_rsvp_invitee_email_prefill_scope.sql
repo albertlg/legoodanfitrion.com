@@ -1,6 +1,8 @@
 -- Add invitee email + token scope to public RSVP payload
 -- so frontend can prefill only for individual invitation tokens.
 
+DROP FUNCTION IF EXISTS get_invitation_public(text);
+
 create or replace function public.get_invitation_public(p_token text)
 returns table (
   invitation_id uuid,

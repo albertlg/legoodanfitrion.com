@@ -177,7 +177,7 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
       .from("invitations")
       .select("id, invitee_email, status")
       .eq("event_id", eventId)
-      .in("status", ["yes", "confirmed", "accepted"])
+      .eq("status", "yes")
       .not("invitee_email", "is", null);
 
     if (invitationsError) {

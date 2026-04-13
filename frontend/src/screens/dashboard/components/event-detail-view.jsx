@@ -526,7 +526,7 @@ export function EventDetailView({
     () =>
       (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : []).filter((guestRow) => {
         const statusValue = String(guestRow?.invitation?.status || "").trim().toLowerCase();
-        return statusValue === "yes" || statusValue === "confirmed" || statusValue === "accepted";
+        return statusValue === "yes";
       }).length,
     [selectedEventDetailGuests]
   );
@@ -535,7 +535,7 @@ export function EventDetailView({
       (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
         .filter((guestRow) => {
           const statusValue = String(guestRow?.invitation?.status || "").trim().toLowerCase();
-          return statusValue === "yes" || statusValue === "confirmed";
+          return statusValue === "yes";
         })
         .map((guestRow) => String(guestRow?.name || "").trim())
         .filter(Boolean),
