@@ -150,6 +150,16 @@ function buildTeamApiUrl(resource) {
     : `${normalizedBase}/api/team/${resource}`;
 }
 
+function buildEventsApiUrl(resource) {
+  const normalizedBase = String(EVENT_DETAIL_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  return /(^|\/)api$/i.test(normalizedBase)
+    ? `${normalizedBase}/events/${resource}`
+    : `${normalizedBase}/api/events/${resource}`;
+}
+
 function getDisplayNameFromEmail(email) {
   const localPart = String(email || "")
     .trim()
@@ -452,6 +462,10 @@ export function EventDetailView({
   const [isSavingEventPhotoGalleryUrl, setIsSavingEventPhotoGalleryUrl] = useState(false);
   const [eventPhotoGalleryFeedback, setEventPhotoGalleryFeedback] = useState("");
   const [eventPhotoGalleryFeedbackType, setEventPhotoGalleryFeedbackType] = useState("info");
+  const [broadcastMessageDraft, setBroadcastMessageDraft] = useState("");
+  const [isSendingBroadcastMessage, setIsSendingBroadcastMessage] = useState(false);
+  const [broadcastFeedback, setBroadcastFeedback] = useState("");
+  const [broadcastFeedbackType, setBroadcastFeedbackType] = useState("info");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -508,6 +522,14 @@ export function EventDetailView({
   const shouldRenderDatePollSection = isPollEvent || hasDatePollOptions;
   const datePollTotalVotes = Array.isArray(selectedEventDateVotes) ? selectedEventDateVotes.length : 0;
   const confirmedGuestsCount = Math.max(0, Number(selectedEventDetailStatusCounts?.yes || 0));
+  const confirmedRecipientsCount = useMemo(
+    () =>
+      (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : []).filter((guestRow) => {
+        const statusValue = String(guestRow?.invitation?.status || "").trim().toLowerCase();
+        return statusValue === "yes" || statusValue === "confirmed" || statusValue === "accepted";
+      }).length,
+    [selectedEventDetailGuests]
+  );
   const confirmedGuestNames = useMemo(
     () =>
       (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
@@ -584,6 +606,13 @@ export function EventDetailView({
     setEventPhotoGalleryFeedbackType("info");
     setIsSavingEventPhotoGalleryUrl(false);
   }, [selectedEventDetail?.id, selectedEventDetail?.photo_gallery_url]);
+
+  useEffect(() => {
+    setBroadcastMessageDraft("");
+    setBroadcastFeedback("");
+    setBroadcastFeedbackType("info");
+    setIsSendingBroadcastMessage(false);
+  }, [selectedEventDetail?.id]);
 
   useEffect(() => {
     if (!splitExpensePaidBy && splitDefaultPayer) {
@@ -1472,6 +1501,79 @@ export function EventDetailView({
       setEventPhotoGalleryFeedback(t("event_gallery_save_error"));
     } finally {
       setIsSavingEventPhotoGalleryUrl(false);
+    }
+  };
+
+  const handleSendBroadcastMessage = async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const broadcastUrl = buildEventsApiUrl(`${eventId}/broadcast`);
+    const trimmedMessage = String(broadcastMessageDraft || "").trim();
+
+    if (!eventId || !broadcastUrl || !supabase) {
+      setBroadcastFeedbackType("error");
+      setBroadcastFeedback(t("event_broadcast_send_error"));
+      return;
+    }
+
+    if (!trimmedMessage) {
+      setBroadcastFeedbackType("error");
+      setBroadcastFeedback(t("event_broadcast_message_required"));
+      return;
+    }
+
+    if (confirmedRecipientsCount <= 0) {
+      setBroadcastFeedbackType("error");
+      setBroadcastFeedback(t("event_broadcast_no_confirmed"));
+      return;
+    }
+
+    setIsSendingBroadcastMessage(true);
+    setBroadcastFeedback("");
+    setBroadcastFeedbackType("info");
+
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error(t("event_broadcast_send_error"));
+      }
+
+      const response = await fetch(broadcastUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        },
+        body: JSON.stringify({
+          customMessage: trimmedMessage,
+          locale: String(language || "es").trim().toLowerCase() || "es"
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        if (String(payload?.code || "") === "EVENT_BROADCAST_COOLDOWN") {
+          const minutes = Math.max(1, Number(payload?.retryAfterMinutes || 30));
+          throw new Error(interpolateText(t("event_broadcast_cooldown"), { minutes }));
+        }
+        throw new Error(String(payload?.error || `HTTP ${response.status}`));
+      }
+
+      const sentCount = Math.max(0, Number(payload?.sentCount || 0));
+      if (sentCount <= 0) {
+        setBroadcastFeedbackType("error");
+        setBroadcastFeedback(t("event_broadcast_no_confirmed"));
+        return;
+      }
+
+      setBroadcastFeedbackType("success");
+      setBroadcastFeedback(interpolateText(t("event_broadcast_send_success"), { count: sentCount }));
+      setBroadcastMessageDraft("");
+    } catch (error) {
+      console.error("[event-broadcast] send error", error);
+      setBroadcastFeedbackType("error");
+      setBroadcastFeedback(String(error?.message || t("event_broadcast_send_error")));
+    } finally {
+      setIsSendingBroadcastMessage(false);
     }
   };
 
@@ -2414,7 +2516,59 @@ export function EventDetailView({
                   />
                 </article>
 
-                <article id="event-rsvp-timeline" className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
+                <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="mail" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_broadcast_title")}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {t("event_broadcast_hint")}
+                  </p>
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("event_broadcast_message_label")}
+                    </span>
+                    <textarea
+                      rows={4}
+                      value={broadcastMessageDraft}
+                      onChange={(event) => {
+                        setBroadcastMessageDraft(event.target.value);
+                        if (broadcastFeedback) {
+                          setBroadcastFeedback("");
+                        }
+                      }}
+                      placeholder={t("event_broadcast_message_placeholder")}
+                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-black/35 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/60 resize-y min-h-[110px]"
+                    />
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {interpolateText(t("event_broadcast_confirmed_count"), { count: confirmedRecipientsCount })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSendBroadcastMessage}
+                      disabled={isSendingBroadcastMessage || confirmedRecipientsCount <= 0}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Icon
+                        name={isSendingBroadcastMessage ? "loader" : "mail"}
+                        className={`w-4 h-4 ${isSendingBroadcastMessage ? "animate-spin" : ""}`}
+                      />
+                      <span>
+                        {isSendingBroadcastMessage
+                          ? t("event_broadcast_sending")
+                          : interpolateText(t("event_broadcast_send_action"), { count: confirmedRecipientsCount })}
+                      </span>
+                    </button>
+                  </div>
+
+                  {broadcastFeedback ? <InlineMessage type={broadcastFeedbackType} text={broadcastFeedback} /> : null}
+                </article>
+
+                <article id="event-rsvp-timeline" className="order-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}

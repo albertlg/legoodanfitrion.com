@@ -123,6 +123,18 @@ function buildRsvpEndpoint(resource) {
   return `${normalizedBase}/api/rsvp/${resource}`;
 }
 
+function resolveInvitationTokenScope(invitationItem) {
+  const explicitScope = String(invitationItem?.token_scope || "").trim().toLowerCase();
+  if (explicitScope) {
+    return explicitScope;
+  }
+  const inviteChannel = String(invitationItem?.invite_channel || "").trim().toLowerCase();
+  if (["email", "sms", "phone", "whatsapp", "individual", "direct"].includes(inviteChannel)) {
+    return "invitation_individual";
+  }
+  return "event_public";
+}
+
 function RsvpFormView({
   t,
   language,
@@ -690,7 +702,11 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
       setInvitation(first);
       setGuestName(first.guest_name || "");
-      setGuestEmail(String(first.invitee_email || "").trim());
+      const normalizedInviteeEmail = String(first.invitee_email || "").trim();
+      const tokenScope = resolveInvitationTokenScope(first);
+      const shouldPrefillGuestEmail =
+        tokenScope === "invitation_individual" && Boolean(normalizedInviteeEmail);
+      setGuestEmail(shouldPrefillGuestEmail ? normalizedInviteeEmail : "");
       if (first.rsvp_status && first.rsvp_status !== "pending") {
         setStatus(first.rsvp_status);
       }
@@ -942,7 +958,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     if (normalizedFinalStatus === "yes" && ticketEndpoint && token) {
       const eventIdForTicket = String(data?.[0]?.event_id || invitation?.event_id || "").trim();
       const guestNameForTicket = toNullable(guestName) || toNullable(invitation?.guest_name || "");
-      const guestEmailForTicket = toNullable(guestEmail || invitation?.invitee_email || "");
+      const invitationTokenScope = resolveInvitationTokenScope(invitation);
+      const invitationEmailFallback =
+        invitationTokenScope === "invitation_individual" ? invitation?.invitee_email : "";
+      const guestEmailForTicket = toNullable(guestEmail || invitationEmailFallback || "");
       const localeForTicket = String(language || "es").trim().toLowerCase() || "es";
 
       // Fire-and-forget: nunca bloquea la confirmacion de RSVP.

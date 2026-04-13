@@ -1,0 +1,246 @@
+import express from "express";
+import { createClient } from "@supabase/supabase-js";
+import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
+import { sendBroadcastEmail } from "../services/email-service.js";
+
+const router = express.Router();
+const broadcastCooldownMap = new Map();
+
+function toSafeString(value) {
+  return String(value || "").trim();
+}
+
+function normalizeLocale(value) {
+  const normalized = toSafeString(value).toLowerCase();
+  if (!normalized) {
+    return "es";
+  }
+  const base = normalized.split("-")[0];
+  return ["es", "ca", "en", "fr", "it"].includes(base) ? base : "es";
+}
+
+function isValidEmail(value) {
+  const normalized = toSafeString(value).toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+function getBroadcastCooldownMinutes() {
+  const parsed = Number(process.env.EVENT_BROADCAST_COOLDOWN_MINUTES || 30);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 30;
+  }
+  return Math.round(parsed);
+}
+
+function getCooldownKey(eventId, hostUserId) {
+  return `${toSafeString(eventId)}::${toSafeString(hostUserId)}`;
+}
+
+function assertBroadcastNotCoolingDown(eventId, hostUserId) {
+  const cooldownMinutes = getBroadcastCooldownMinutes();
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  const key = getCooldownKey(eventId, hostUserId);
+  const previousTimestamp = Number(broadcastCooldownMap.get(key) || 0);
+  const now = Date.now();
+  if (previousTimestamp > 0 && now - previousTimestamp < cooldownMs) {
+    const remainingMinutes = Math.max(1, Math.ceil((cooldownMs - (now - previousTimestamp)) / 60000));
+    const error = new Error(`Broadcast cooldown active. Retry in ${remainingMinutes} minute(s).`);
+    error.code = "EVENT_BROADCAST_COOLDOWN";
+    error.retryAfterMinutes = remainingMinutes;
+    throw error;
+  }
+}
+
+function registerBroadcastTimestamp(eventId, hostUserId) {
+  const key = getCooldownKey(eventId, hostUserId);
+  broadcastCooldownMap.set(key, Date.now());
+}
+
+function getSupabaseAdminClient() {
+  const supabaseUrl = toSafeString(process.env.SUPABASE_URL);
+  const serviceRoleKey = toSafeString(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!supabaseUrl || !serviceRoleKey) {
+    const error = new Error("SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY son obligatorias.");
+    error.code = "EVENT_BROADCAST_CONFIG_ERROR";
+    throw error;
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+function toHostDisplayName(authUser) {
+  const fromEmail = toSafeString(authUser?.email).split("@")[0];
+  if (!fromEmail) {
+    return "LeGoodAnfitrion";
+  }
+  return fromEmail.charAt(0).toUpperCase() + fromEmail.slice(1);
+}
+
+function sendRouteError(res, error, fallbackMessage) {
+  const code = toSafeString(error?.code);
+  if (code === "EVENT_BROADCAST_BAD_REQUEST") {
+    return res.status(400).json({ success: false, error: error?.message || fallbackMessage, code });
+  }
+  if (code === "EVENT_BROADCAST_FORBIDDEN") {
+    return res.status(403).json({ success: false, error: error?.message || fallbackMessage, code });
+  }
+  if (code === "EVENT_BROADCAST_NOT_FOUND") {
+    return res.status(404).json({ success: false, error: error?.message || fallbackMessage, code });
+  }
+  if (code === "EVENT_BROADCAST_COOLDOWN") {
+    return res.status(429).json({
+      success: false,
+      error: error?.message || fallbackMessage,
+      code,
+      retryAfterMinutes: Number(error?.retryAfterMinutes || getBroadcastCooldownMinutes())
+    });
+  }
+  if (code === "EVENT_BROADCAST_CONFIG_ERROR" || code === "EMAIL_CONFIG_ERROR") {
+    return res.status(503).json({ success: false, error: error?.message || fallbackMessage, code });
+  }
+  return res.status(500).json({
+    success: false,
+    error: error?.message || fallbackMessage,
+    code: code || "EVENT_BROADCAST_ERROR"
+  });
+}
+
+router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
+  const eventId = toSafeString(req.params?.id);
+  const customMessage = toSafeString(req.body?.customMessage);
+  const locale = normalizeLocale(req.body?.locale);
+  const requesterId = toSafeString(req.authUser?.id);
+
+  if (!eventId || !customMessage) {
+    return sendRouteError(
+      res,
+      {
+        code: "EVENT_BROADCAST_BAD_REQUEST",
+        message: "eventId y customMessage son obligatorios."
+      },
+      "Faltan datos para enviar el mensaje."
+    );
+  }
+
+  if (customMessage.length < 5) {
+    return sendRouteError(
+      res,
+      {
+        code: "EVENT_BROADCAST_BAD_REQUEST",
+        message: "El mensaje es demasiado corto."
+      },
+      "Mensaje inválido."
+    );
+  }
+
+  let supabase = null;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return sendRouteError(res, error, "El backend no está configurado para enviar correos.");
+  }
+
+  try {
+    const { data: eventData, error: eventError } = await supabase
+      .from("events")
+      .select("id, title, host_user_id")
+      .eq("id", eventId)
+      .maybeSingle();
+
+    if (eventError) {
+      const wrapped = new Error(`No se pudo cargar el evento: ${eventError.message}`);
+      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+      wrapped.details = eventError;
+      throw wrapped;
+    }
+
+    if (!eventData?.id) {
+      const error = new Error("Evento no encontrado.");
+      error.code = "EVENT_BROADCAST_NOT_FOUND";
+      throw error;
+    }
+
+    if (toSafeString(eventData.host_user_id) !== requesterId) {
+      const error = new Error("Solo el anfitrión principal puede usar el megáfono.");
+      error.code = "EVENT_BROADCAST_FORBIDDEN";
+      throw error;
+    }
+
+    assertBroadcastNotCoolingDown(eventId, requesterId);
+
+    const { data: invitations, error: invitationsError } = await supabase
+      .from("invitations")
+      .select("id, invitee_email, status")
+      .eq("event_id", eventId)
+      .in("status", ["yes", "confirmed", "accepted"])
+      .not("invitee_email", "is", null);
+
+    if (invitationsError) {
+      const wrapped = new Error(`No se pudieron cargar invitaciones confirmadas: ${invitationsError.message}`);
+      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+      wrapped.details = invitationsError;
+      throw wrapped;
+    }
+
+    const recipientEmails = Array.from(
+      new Set(
+        (Array.isArray(invitations) ? invitations : [])
+          .map((row) => toSafeString(row?.invitee_email).toLowerCase())
+          .filter((email) => isValidEmail(email))
+      )
+    );
+
+    if (recipientEmails.length === 0) {
+      return res.json({
+        success: true,
+        skipped: true,
+        sentCount: 0,
+        failedCount: 0,
+        totalRecipients: 0
+      });
+    }
+
+    const hostName = toHostDisplayName(req.authUser);
+    const eventName = toSafeString(eventData.title) || "Evento";
+
+    const sendResults = await Promise.allSettled(
+      recipientEmails.map((email) =>
+        sendBroadcastEmail(email, hostName, eventName, customMessage, locale)
+      )
+    );
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    sendResults.forEach((resultItem) => {
+      if (resultItem.status === "fulfilled") {
+        sentCount += 1;
+      } else {
+        failedCount += 1;
+        console.error("[event-broadcast] send email error:", resultItem.reason);
+      }
+    });
+
+    if (sentCount > 0) {
+      registerBroadcastTimestamp(eventId, requesterId);
+    }
+
+    return res.json({
+      success: sentCount > 0,
+      sentCount,
+      failedCount,
+      totalRecipients: recipientEmails.length,
+      cooldownMinutes: getBroadcastCooldownMinutes()
+    });
+  } catch (error) {
+    console.error("[event-broadcast] route error:", error?.details || error?.message || error);
+    return sendRouteError(res, error, "No se pudo enviar el mensaje masivo.");
+  }
+});
+
+export { router as eventsRoute };

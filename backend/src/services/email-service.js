@@ -93,6 +93,49 @@ const RSVP_TICKET_COPY = {
   }
 };
 
+const BROADCAST_EMAIL_COPY = {
+  es: {
+    subject: (eventName) => `📣 Mensaje importante sobre ${eventName}`,
+    kicker: "Comunicacion del anfitrion",
+    heading: "Mensaje para personas confirmadas",
+    intro: (hostName, eventName) =>
+      `${hostName} ha compartido una actualizacion para el evento "${eventName}".`,
+    ctaLabel: "Ver invitacion"
+  },
+  ca: {
+    subject: (eventName) => `📣 Missatge important sobre ${eventName}`,
+    kicker: "Comunicacio de l'amfitrio",
+    heading: "Missatge per a persones confirmades",
+    intro: (hostName, eventName) =>
+      `${hostName} ha compartit una actualitzacio per a l'esdeveniment "${eventName}".`,
+    ctaLabel: "Veure invitacio"
+  },
+  en: {
+    subject: (eventName) => `📣 Important update about ${eventName}`,
+    kicker: "Host broadcast",
+    heading: "Message for confirmed guests",
+    intro: (hostName, eventName) =>
+      `${hostName} shared an update for the event "${eventName}".`,
+    ctaLabel: "View invitation"
+  },
+  fr: {
+    subject: (eventName) => `📣 Message important sur ${eventName}`,
+    kicker: "Communication de l'hote",
+    heading: "Message pour les personnes confirmees",
+    intro: (hostName, eventName) =>
+      `${hostName} a partage une mise a jour pour l'evenement "${eventName}".`,
+    ctaLabel: "Voir l'invitation"
+  },
+  it: {
+    subject: (eventName) => `📣 Messaggio importante su ${eventName}`,
+    kicker: "Comunicazione dell'host",
+    heading: "Messaggio per invitati confermati",
+    intro: (hostName, eventName) =>
+      `${hostName} ha condiviso un aggiornamento per l'evento "${eventName}".`,
+    ctaLabel: "Apri invito"
+  }
+};
+
 let resendClient = null;
 
 function toSafeString(value) {
@@ -111,6 +154,11 @@ function normalizeTicketLocale(localeValue) {
 function getRsvpTicketCopy(localeValue) {
   const normalizedLocale = normalizeTicketLocale(localeValue);
   return RSVP_TICKET_COPY[normalizedLocale] || RSVP_TICKET_COPY.es;
+}
+
+function getBroadcastEmailCopy(localeValue) {
+  const normalizedLocale = normalizeTicketLocale(localeValue);
+  return BROADCAST_EMAIL_COPY[normalizedLocale] || BROADCAST_EMAIL_COPY.es;
 }
 
 function escapeHtml(value) {
@@ -404,5 +452,80 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
   return {
     messageId: toSafeString(response?.data?.id),
     calendarUrl
+  };
+}
+
+export async function sendBroadcastEmail(guestEmail, hostName, eventName, customMessage, locale = "es") {
+  const normalizedEmail = toSafeString(guestEmail).toLowerCase();
+  const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrion";
+  const normalizedEventName = toSafeString(eventName) || "Evento";
+  const normalizedMessage = toSafeString(customMessage);
+
+  if (!normalizedEmail) {
+    const error = new Error("guestEmail es obligatorio.");
+    error.code = "EMAIL_BAD_REQUEST";
+    throw error;
+  }
+
+  if (!normalizedMessage) {
+    const error = new Error("customMessage es obligatorio.");
+    error.code = "EMAIL_BAD_REQUEST";
+    throw error;
+  }
+
+  const copy = getBroadcastEmailCopy(locale);
+  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+  const invitationUrl = toSafeString(process.env.FRONTEND_URL || DEFAULT_TICKET_DETAILS_URL);
+  const escapedMessageHtml = escapeHtml(normalizedMessage).replace(/\n/g, "<br />");
+  const resend = getResendClient();
+
+  const response = await resend.emails.send({
+    from: fromEmail,
+    to: normalizedEmail,
+    subject: copy.subject(normalizedEventName),
+    html: `
+      <div style="margin:0;padding:24px;background:#f3f4f6;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="padding:28px;">
+              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;font-weight:700;">${escapeHtml(copy.kicker)}</p>
+              <h1 style="margin:0 0 10px;font-size:24px;line-height:1.3;color:#111827;">${escapeHtml(copy.heading)}</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#4b5563;">
+                ${escapeHtml(copy.intro(normalizedHostName, normalizedEventName))}
+              </p>
+              <div style="border:1px solid #dbeafe;border-radius:14px;padding:18px;background:#f8fafc;text-align:center;">
+                <p style="margin:0;font-size:16px;line-height:1.7;color:#0f172a;font-weight:600;">
+                  ${escapedMessageHtml}
+                </p>
+              </div>
+              <div style="margin-top:18px;text-align:center;">
+                <a href="${escapeHtml(invitationUrl)}" target="_blank" rel="noopener noreferrer"
+                   style="display:inline-block;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;">
+                  ${escapeHtml(copy.ctaLabel)}
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `,
+    text: [
+      copy.intro(normalizedHostName, normalizedEventName),
+      "",
+      normalizedMessage,
+      "",
+      `${copy.ctaLabel}: ${invitationUrl}`
+    ].join("\n")
+  });
+
+  if (response?.error) {
+    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar el email masivo.");
+    error.code = "EMAIL_SEND_ERROR";
+    error.details = response.error;
+    throw error;
+  }
+
+  return {
+    messageId: toSafeString(response?.data?.id)
   };
 }
