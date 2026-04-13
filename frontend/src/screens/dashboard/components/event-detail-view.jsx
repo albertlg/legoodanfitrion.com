@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion as Motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
@@ -9,10 +8,13 @@ import { HostPlanView } from "./host-plan-view";
 import { HostVenueShortlist } from "../../../components/venues/host-venue-shortlist";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
-import { PhotoGalleryPreview } from "../../../components/events/photo-gallery-preview";
 import { HostVenueSelector } from "../../../components/venues/host-venue-selector";
 import { supabase } from "../../../lib/supabaseClient";
 import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/calendar-utils";
+import {
+  EVENT_MODULE_ZONES,
+  getEventModulesByZone
+} from "../modules/event-module-registry";
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -1942,6 +1944,36 @@ export function EventDetailView({
     );
   };
 
+  const selectedEventResolvedModules =
+    selectedEventDetail && typeof selectedEventDetail.resolved_modules === "object" && selectedEventDetail.resolved_modules
+      ? selectedEventDetail.resolved_modules
+      : {};
+  const activeMainModules = getEventModulesByZone({
+    zone: EVENT_MODULE_ZONES.MAIN,
+    resolvedModules: selectedEventResolvedModules
+  });
+  const mainModuleRenderContext = {
+    t,
+    interpolateText,
+    selectedEventDetail,
+    eventPhotoGalleryUrlDraft,
+    setEventPhotoGalleryUrlDraft,
+    handleSaveEventPhotoGalleryUrl,
+    isSavingEventPhotoGalleryUrl,
+    eventPhotoGalleryNotifyGuests,
+    setEventPhotoGalleryNotifyGuests,
+    eventPhotoGalleryFeedback,
+    eventPhotoGalleryFeedbackType,
+    broadcastMessageDraft,
+    setBroadcastMessageDraft,
+    broadcastFeedback,
+    setBroadcastFeedback,
+    confirmedRecipientsCount,
+    handleSendBroadcastMessage,
+    isSendingBroadcastMessage,
+    broadcastFeedbackType
+  };
+
   return (
     <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
 
@@ -2157,89 +2189,11 @@ export function EventDetailView({
                   ) : null}
                 </article>
 
-                <Motion.article
-                  id="event-gallery"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="order-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon name="camera" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_gallery_title")}</p>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_gallery_hint")}</p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-2">
-                    <label className="relative min-w-0">
-                      <Icon
-                        name="link"
-                        className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                      <input
-                        type="url"
-                        value={eventPhotoGalleryUrlDraft}
-                        onChange={(event) => setEventPhotoGalleryUrlDraft(event.target.value)}
-                        placeholder={t("event_gallery_input_placeholder")}
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-black/35 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleSaveEventPhotoGalleryUrl}
-                      disabled={isSavingEventPhotoGalleryUrl}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <Icon
-                        name={isSavingEventPhotoGalleryUrl ? "loader" : "save"}
-                        className={`w-4 h-4 ${isSavingEventPhotoGalleryUrl ? "animate-spin" : ""}`}
-                      />
-                      <span>{isSavingEventPhotoGalleryUrl ? t("saving_label") : t("event_gallery_save_action")}</span>
-                    </button>
-                  </div>
-
-                  <label className="inline-flex items-start gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/25 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={eventPhotoGalleryNotifyGuests}
-                      onChange={(event) => setEventPhotoGalleryNotifyGuests(event.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900"
-                    />
-                    <span className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
-                      <strong className="font-bold">{t("event_gallery_notify_label")}</strong>
-                      <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                        {t("event_gallery_notify_hint")}
-                      </span>
-                    </span>
-                  </label>
-
-                  <div className="pt-1">
-                    <PhotoGalleryPreview
-                      url={String(eventPhotoGalleryUrlDraft || selectedEventDetail?.photo_gallery_url || "").trim()}
-                    />
-                  </div>
-
-                  {selectedEventDetail?.photo_gallery_url ? (
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3">
-                      <p className="text-xs text-gray-600 dark:text-gray-300 truncate min-w-0" title={selectedEventDetail.photo_gallery_url}>
-                        {selectedEventDetail.photo_gallery_url}
-                      </p>
-                      <a
-                        href={selectedEventDetail.photo_gallery_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700/40 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200 px-3 py-1.5 text-[11px] font-bold shrink-0"
-                      >
-                        <Icon name="camera" className="w-3.5 h-3.5" />
-                        <span>{t("event_gallery_open_action")}</span>
-                      </a>
-                    </div>
-                  ) : null}
-
-                  {eventPhotoGalleryFeedback ? (
-                    <InlineMessage type={eventPhotoGalleryFeedbackType} text={eventPhotoGalleryFeedback} />
-                  ) : null}
-                </Motion.article>
+                {activeMainModules.map((moduleItem) => (
+                  <React.Fragment key={moduleItem.key}>
+                    {moduleItem.render(mainModuleRenderContext)}
+                  </React.Fragment>
+                ))}
 
                 {shouldRenderDatePollSection ? (
                   <article
@@ -2573,58 +2527,6 @@ export function EventDetailView({
                     selectingVenueId={selectingFinalVenueId}
                     t={t}
                   />
-                </article>
-
-                <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
-                  <div className="flex items-center gap-2">
-                    <Icon name="mail" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_broadcast_title")}</p>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {t("event_broadcast_hint")}
-                  </p>
-
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("event_broadcast_message_label")}
-                    </span>
-                    <textarea
-                      rows={4}
-                      value={broadcastMessageDraft}
-                      onChange={(event) => {
-                        setBroadcastMessageDraft(event.target.value);
-                        if (broadcastFeedback) {
-                          setBroadcastFeedback("");
-                        }
-                      }}
-                      placeholder={t("event_broadcast_message_placeholder")}
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white/90 dark:bg-black/35 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-blue-500/60 resize-y min-h-[110px]"
-                    />
-                  </label>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {interpolateText(t("event_broadcast_confirmed_count"), { count: confirmedRecipientsCount })}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleSendBroadcastMessage}
-                      disabled={isSendingBroadcastMessage || confirmedRecipientsCount <= 0}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <Icon
-                        name={isSendingBroadcastMessage ? "loader" : "mail"}
-                        className={`w-4 h-4 ${isSendingBroadcastMessage ? "animate-spin" : ""}`}
-                      />
-                      <span>
-                        {isSendingBroadcastMessage
-                          ? t("event_broadcast_sending")
-                          : interpolateText(t("event_broadcast_send_action"), { count: confirmedRecipientsCount })}
-                      </span>
-                    </button>
-                  </div>
-
-                  {broadcastFeedback ? <InlineMessage type={broadcastFeedbackType} text={broadcastFeedback} /> : null}
                 </article>
 
                 <article id="event-rsvp-timeline" className="order-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
