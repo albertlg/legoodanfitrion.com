@@ -178,7 +178,8 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
       .select("id, invitee_email, status")
       .eq("event_id", eventId)
       .eq("status", "yes")
-      .not("invitee_email", "is", null);
+      .not("invitee_email", "is", null)
+      .neq("invitee_email", "");
 
     if (invitationsError) {
       const wrapped = new Error(`No se pudieron cargar invitaciones confirmadas: ${invitationsError.message}`);
@@ -186,6 +187,11 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
       wrapped.details = invitationsError;
       throw wrapped;
     }
+
+    console.log(
+      "[BROADCAST DEBUG] Invitaciones recuperadas: ",
+      Array.isArray(invitations) ? invitations.length : 0
+    );
 
     const recipientEmails = Array.from(
       new Set(
