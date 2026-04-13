@@ -8,6 +8,7 @@ import {
 } from "../lib/guest-helpers";
 import { getHostPlanStateFromSnapshot } from "../lib/host-plan";
 import { hasEventSettingsColumns, normalizeEventSettings } from "../lib/event-planner-helpers";
+import { normalizeEventActiveModules, resolveEventModules } from "../lib/event-modules";
 import {
   isCompatibilityError,
   isMissingRelationError,
@@ -91,7 +92,7 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .order("created_at", { ascending: false })
       .limit(50);
@@ -111,6 +112,8 @@ export function useDashboardDataController({
         "poll_status",
         "expenses",
         "photo_gallery_url",
+        "active_modules",
+        "modules_version",
         "end_at"
       ])
     ) {
@@ -212,7 +215,7 @@ export function useDashboardDataController({
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
         .eq("id", routeEventDetailId)
         .maybeSingle();
@@ -232,6 +235,8 @@ export function useDashboardDataController({
           "poll_status",
           "expenses",
           "photo_gallery_url",
+          "active_modules",
+          "modules_version",
           "end_at"
         ])
       ) {
@@ -455,6 +460,11 @@ export function useDashboardDataController({
     }
 
     const cachedEventSettingsById = readEventSettingsCache(sessionUserId);
+    const datePollOptionEventIds = new Set(
+      (Array.isArray(eventDateOptionsRows) ? eventDateOptionsRows : [])
+        .map((optionItem) => String(optionItem?.event_id || "").trim())
+        .filter(Boolean)
+    );
     const normalizedEventsData = (eventsData || []).map((eventItem) => {
       const settingsFromRow = normalizeEventSettings(eventItem);
       const settingsFromCache = normalizeEventSettings(cachedEventSettingsById[eventItem.id] || {});
@@ -474,13 +484,20 @@ export function useDashboardDataController({
       );
       const shouldUseCache = !hasEventSettingsColumns(eventItem) || (!rowHasAnyValue && cacheHasAnyValue);
       const effectiveSettings = shouldUseCache ? settingsFromCache : settingsFromRow;
+      const rawActiveModules = normalizeEventActiveModules(eventItem?.active_modules);
+      const resolvedModules = resolveEventModules(eventItem, {
+        hasDatePollOptions: datePollOptionEventIds.has(String(eventItem?.id || "").trim())
+      });
       return {
         ...eventItem,
         description: effectiveSettings.description,
         allow_plus_one: effectiveSettings.allow_plus_one,
         auto_reminders: effectiveSettings.auto_reminders,
         dress_code: effectiveSettings.dress_code,
-        playlist_mode: effectiveSettings.playlist_mode
+        playlist_mode: effectiveSettings.playlist_mode,
+        active_modules: rawActiveModules,
+        modules_version: Number(eventItem?.modules_version || 1),
+        resolved_modules: resolvedModules
       };
     });
 

@@ -2,6 +2,7 @@ import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
 import { sendBroadcastEmail, sendGalleryNotificationEmail } from "../services/email-service.js";
+import { normalizeEventActiveModules, resolveEventModules } from "../services/event-modules-service.js";
 
 const router = express.Router();
 const broadcastCooldownMap = new Map();
@@ -313,6 +314,8 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
   const requesterId = toSafeString(req.authUser?.id);
   const locale = normalizeLocale(req.body?.locale);
   const notifyGallery = Boolean(req.body?.notifyGallery);
+  const shouldUpdateActiveModules = Object.prototype.hasOwnProperty.call(req.body || {}, "active_modules");
+  const activeModulesInput = req.body?.active_modules;
   const photoGalleryUrlRaw = req.body?.photo_gallery_url;
   const normalizedPhotoGalleryUrl = photoGalleryUrlRaw == null ? null : toSafeString(photoGalleryUrlRaw);
 
@@ -332,6 +335,21 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
     );
   }
 
+  if (
+    shouldUpdateActiveModules &&
+    (activeModulesInput == null || typeof activeModulesInput !== "object" || Array.isArray(activeModulesInput))
+  ) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "active_modules debe ser un objeto JSON." },
+      "Formato de módulos inválido."
+    );
+  }
+
+  const normalizedActiveModules = shouldUpdateActiveModules
+    ? normalizeEventActiveModules(activeModulesInput)
+    : null;
+
   let supabase = null;
   try {
     supabase = getSupabaseAdminClient();
@@ -342,7 +360,7 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
   try {
     const { data: eventData, error: eventError } = await supabase
       .from("events")
-      .select("id, title, host_user_id")
+      .select("id, title, host_user_id, schedule_mode, poll_status, expenses, photo_gallery_url, active_modules, modules_version")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -365,11 +383,17 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
       throw error;
     }
 
+    const updatePayload = {
+      photo_gallery_url: normalizedPhotoGalleryUrl || null
+    };
+    if (shouldUpdateActiveModules) {
+      updatePayload.active_modules = normalizedActiveModules;
+      updatePayload.modules_version = 1;
+    }
+
     const { error: updateError } = await supabase
       .from("events")
-      .update({
-        photo_gallery_url: normalizedPhotoGalleryUrl || null
-      })
+      .update(updatePayload)
       .eq("id", eventId)
       .eq("host_user_id", requesterId);
 
@@ -423,6 +447,18 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
       success: true,
       eventId,
       photo_gallery_url: normalizedPhotoGalleryUrl || null,
+      active_modules: shouldUpdateActiveModules
+        ? normalizedActiveModules
+        : normalizeEventActiveModules(eventData?.active_modules),
+      modules_version: shouldUpdateActiveModules ? 1 : Number(eventData?.modules_version || 1),
+      resolved_modules: resolveEventModules({
+        ...(eventData || {}),
+        photo_gallery_url: normalizedPhotoGalleryUrl || null,
+        active_modules: shouldUpdateActiveModules
+          ? normalizedActiveModules
+          : eventData?.active_modules,
+        modules_version: shouldUpdateActiveModules ? 1 : Number(eventData?.modules_version || 1)
+      }),
       notifyGallery,
       totalRecipients,
       notifiedCount,
