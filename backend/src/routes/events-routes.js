@@ -1,7 +1,7 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
-import { sendBroadcastEmail } from "../services/email-service.js";
+import { sendBroadcastEmail, sendGalleryNotificationEmail } from "../services/email-service.js";
 
 const router = express.Router();
 const broadcastCooldownMap = new Map();
@@ -22,6 +22,19 @@ function normalizeLocale(value) {
 function isValidEmail(value) {
   const normalized = toSafeString(value).toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+function isValidHttpUrl(value) {
+  const normalized = toSafeString(value);
+  if (!normalized) {
+    return false;
+  }
+  try {
+    const parsed = new URL(normalized);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function getBroadcastCooldownMinutes() {
@@ -76,9 +89,76 @@ function getSupabaseAdminClient() {
 function toHostDisplayName(authUser) {
   const fromEmail = toSafeString(authUser?.email).split("@")[0];
   if (!fromEmail) {
-    return "LeGoodAnfitrion";
+    return "LeGoodAnfitrión";
   }
   return fromEmail.charAt(0).toUpperCase() + fromEmail.slice(1);
+}
+
+async function getConfirmedRecipientEmails({ supabase, eventId, requesterId, debugPrefix = "[BROADCAST DEBUG]" }) {
+  const { data: invitations, error: invitationsError } = await supabase
+    .from("invitations")
+    .select("id, guest_id, invitee_email, status")
+    .eq("event_id", eventId)
+    .eq("status", "yes");
+
+  if (invitationsError) {
+    const wrapped = new Error(`No se pudieron cargar invitaciones confirmadas: ${invitationsError.message}`);
+    wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+    wrapped.details = invitationsError;
+    throw wrapped;
+  }
+
+  console.log(
+    `${debugPrefix} Invitaciones recuperadas: `,
+    Array.isArray(invitations) ? invitations.length : 0
+  );
+
+  const invitationRows = Array.isArray(invitations) ? invitations : [];
+  const guestIdsForFallback = Array.from(
+    new Set(
+      invitationRows
+        .filter((row) => !isValidEmail(row?.invitee_email))
+        .map((row) => toSafeString(row?.guest_id))
+        .filter(Boolean)
+    )
+  );
+
+  let guestEmailById = {};
+  if (guestIdsForFallback.length > 0) {
+    const { data: guestsFallbackData, error: guestsFallbackError } = await supabase
+      .from("guests")
+      .select("id, email")
+      .eq("host_user_id", requesterId)
+      .in("id", guestIdsForFallback);
+
+    if (guestsFallbackError) {
+      const wrapped = new Error(`No se pudieron cargar emails fallback de agenda: ${guestsFallbackError.message}`);
+      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+      wrapped.details = guestsFallbackError;
+      throw wrapped;
+    }
+
+    guestEmailById = Object.fromEntries(
+      (Array.isArray(guestsFallbackData) ? guestsFallbackData : [])
+        .map((guestRow) => [toSafeString(guestRow?.id), toSafeString(guestRow?.email).toLowerCase()])
+        .filter(([guestId, email]) => Boolean(guestId && email))
+    );
+  }
+
+  return Array.from(
+    new Set(
+      invitationRows
+        .map((row) => {
+          const invitationEmail = toSafeString(row?.invitee_email).toLowerCase();
+          if (isValidEmail(invitationEmail)) {
+            return invitationEmail;
+          }
+          const guestId = toSafeString(row?.guest_id);
+          return toSafeString(guestEmailById[guestId]).toLowerCase();
+        })
+        .filter((email) => isValidEmail(email))
+    )
+  );
 }
 
 function sendRouteError(res, error, fallbackMessage) {
@@ -173,70 +253,12 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
 
     assertBroadcastNotCoolingDown(eventId, requesterId);
 
-    const { data: invitations, error: invitationsError } = await supabase
-      .from("invitations")
-      .select("id, guest_id, invitee_email, status")
-      .eq("event_id", eventId)
-      .eq("status", "yes");
-
-    if (invitationsError) {
-      const wrapped = new Error(`No se pudieron cargar invitaciones confirmadas: ${invitationsError.message}`);
-      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
-      wrapped.details = invitationsError;
-      throw wrapped;
-    }
-
-    console.log(
-      "[BROADCAST DEBUG] Invitaciones recuperadas: ",
-      Array.isArray(invitations) ? invitations.length : 0
-    );
-
-    const invitationRows = Array.isArray(invitations) ? invitations : [];
-    const guestIdsForFallback = Array.from(
-      new Set(
-        invitationRows
-          .filter((row) => !isValidEmail(row?.invitee_email))
-          .map((row) => toSafeString(row?.guest_id))
-          .filter(Boolean)
-      )
-    );
-
-    let guestEmailById = {};
-    if (guestIdsForFallback.length > 0) {
-      const { data: guestsFallbackData, error: guestsFallbackError } = await supabase
-        .from("guests")
-        .select("id, email")
-        .eq("host_user_id", requesterId)
-        .in("id", guestIdsForFallback);
-
-      if (guestsFallbackError) {
-        const wrapped = new Error(`No se pudieron cargar emails fallback de agenda: ${guestsFallbackError.message}`);
-        wrapped.code = "EVENT_BROADCAST_DB_ERROR";
-        wrapped.details = guestsFallbackError;
-        throw wrapped;
-      }
-
-      guestEmailById = Object.fromEntries(
-        (Array.isArray(guestsFallbackData) ? guestsFallbackData : [])
-          .map((guestRow) => [toSafeString(guestRow?.id), toSafeString(guestRow?.email).toLowerCase()])
-          .filter(([guestId, email]) => Boolean(guestId && email))
-      );
-    }
-
-    const recipientEmails = Array.from(
-      new Set(
-        invitationRows
-          .map((row) => {
-            const invitationEmail = toSafeString(row?.invitee_email).toLowerCase();
-            if (isValidEmail(invitationEmail)) {
-              return invitationEmail;
-            }
-            const guestId = toSafeString(row?.guest_id);
-            return toSafeString(guestEmailById[guestId]).toLowerCase();
-          })
-          .filter((email) => isValidEmail(email))
-      )
-    );
+    const recipientEmails = await getConfirmedRecipientEmails({
+      supabase,
+      eventId,
+      requesterId,
+      debugPrefix: "[BROADCAST DEBUG]"
+    });
 
     if (recipientEmails.length === 0) {
       return res.json({
@@ -283,6 +305,132 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
   } catch (error) {
     console.error("[event-broadcast] route error:", error?.details || error?.message || error);
     return sendRouteError(res, error, "No se pudo enviar el mensaje masivo.");
+  }
+});
+
+router.put("/:id", requireAuthenticatedUser, async (req, res) => {
+  const eventId = toSafeString(req.params?.id);
+  const requesterId = toSafeString(req.authUser?.id);
+  const locale = normalizeLocale(req.body?.locale);
+  const notifyGallery = Boolean(req.body?.notifyGallery);
+  const photoGalleryUrlRaw = req.body?.photo_gallery_url;
+  const normalizedPhotoGalleryUrl = photoGalleryUrlRaw == null ? null : toSafeString(photoGalleryUrlRaw);
+
+  if (!eventId) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "eventId es obligatorio." },
+      "Faltan datos del evento."
+    );
+  }
+
+  if (normalizedPhotoGalleryUrl && !isValidHttpUrl(normalizedPhotoGalleryUrl)) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "photo_gallery_url debe ser una URL http(s) válida." },
+      "URL de galería no válida."
+    );
+  }
+
+  let supabase = null;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return sendRouteError(res, error, "El backend no está configurado correctamente.");
+  }
+
+  try {
+    const { data: eventData, error: eventError } = await supabase
+      .from("events")
+      .select("id, title, host_user_id")
+      .eq("id", eventId)
+      .maybeSingle();
+
+    if (eventError) {
+      const wrapped = new Error(`No se pudo cargar el evento: ${eventError.message}`);
+      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+      wrapped.details = eventError;
+      throw wrapped;
+    }
+
+    if (!eventData?.id) {
+      const error = new Error("Evento no encontrado.");
+      error.code = "EVENT_BROADCAST_NOT_FOUND";
+      throw error;
+    }
+
+    if (toSafeString(eventData.host_user_id) !== requesterId) {
+      const error = new Error("Solo el anfitrión principal puede editar este evento.");
+      error.code = "EVENT_BROADCAST_FORBIDDEN";
+      throw error;
+    }
+
+    const { error: updateError } = await supabase
+      .from("events")
+      .update({
+        photo_gallery_url: normalizedPhotoGalleryUrl || null
+      })
+      .eq("id", eventId)
+      .eq("host_user_id", requesterId);
+
+    if (updateError) {
+      const wrapped = new Error(`No se pudo actualizar el evento: ${updateError.message}`);
+      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+      wrapped.details = updateError;
+      throw wrapped;
+    }
+
+    let totalRecipients = 0;
+    let notifiedCount = 0;
+    let failedCount = 0;
+
+    if (notifyGallery && normalizedPhotoGalleryUrl) {
+      const recipientEmails = await getConfirmedRecipientEmails({
+        supabase,
+        eventId,
+        requesterId,
+        debugPrefix: "[GALLERY NOTIFY DEBUG]"
+      });
+      totalRecipients = recipientEmails.length;
+
+      if (totalRecipients > 0) {
+        const hostName = toHostDisplayName(req.authUser);
+        const eventName = toSafeString(eventData.title) || "Evento";
+        const sendResults = await Promise.allSettled(
+          recipientEmails.map((email) =>
+            sendGalleryNotificationEmail(
+              email,
+              hostName,
+              eventName,
+              normalizedPhotoGalleryUrl,
+              locale
+            )
+          )
+        );
+
+        sendResults.forEach((resultItem) => {
+          if (resultItem.status === "fulfilled") {
+            notifiedCount += 1;
+          } else {
+            failedCount += 1;
+            console.error("[gallery-notify] send email error:", resultItem.reason);
+          }
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      eventId,
+      photo_gallery_url: normalizedPhotoGalleryUrl || null,
+      notifyGallery,
+      totalRecipients,
+      notifiedCount,
+      failedCount
+    });
+  } catch (error) {
+    console.error("[event-update] route error:", error?.details || error?.message || error);
+    return sendRouteError(res, error, "No se pudo actualizar el evento.");
   }
 });
 

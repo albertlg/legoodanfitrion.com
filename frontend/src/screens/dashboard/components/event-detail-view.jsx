@@ -476,6 +476,7 @@ export function EventDetailView({
   const [eventVenuesFeedbackType, setEventVenuesFeedbackType] = useState("info");
   const [selectingFinalVenueId, setSelectingFinalVenueId] = useState("");
   const [eventPhotoGalleryUrlDraft, setEventPhotoGalleryUrlDraft] = useState("");
+  const [eventPhotoGalleryNotifyGuests, setEventPhotoGalleryNotifyGuests] = useState(false);
   const [isSavingEventPhotoGalleryUrl, setIsSavingEventPhotoGalleryUrl] = useState(false);
   const [eventPhotoGalleryFeedback, setEventPhotoGalleryFeedback] = useState("");
   const [eventPhotoGalleryFeedbackType, setEventPhotoGalleryFeedbackType] = useState("info");
@@ -619,6 +620,7 @@ export function EventDetailView({
 
   useEffect(() => {
     setEventPhotoGalleryUrlDraft(String(selectedEventDetail?.photo_gallery_url || "").trim());
+    setEventPhotoGalleryNotifyGuests(false);
     setEventPhotoGalleryFeedback("");
     setEventPhotoGalleryFeedbackType("info");
     setIsSavingEventPhotoGalleryUrl(false);
@@ -1474,7 +1476,9 @@ export function EventDetailView({
   };
 
   const handleSaveEventPhotoGalleryUrl = async () => {
-    if (!supabase || !selectedEventDetail?.id) {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const updateUrl = buildEventsApiUrl(eventId);
+    if (!supabase || !eventId || !updateUrl) {
       return;
     }
     const trimmedUrl = String(eventPhotoGalleryUrlDraft || "").trim();
@@ -1497,17 +1501,40 @@ export function EventDetailView({
     setEventPhotoGalleryFeedback("");
     setEventPhotoGalleryFeedbackType("info");
     try {
-      const { error } = await supabase
-        .from("events")
-        .update({ photo_gallery_url: trimmedUrl || null })
-        .eq("id", selectedEventDetail.id);
-
-      if (error) {
-        throw error;
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error(t("event_gallery_save_error"));
+      }
+      const response = await fetch(updateUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        },
+        body: JSON.stringify({
+          photo_gallery_url: trimmedUrl || null,
+          notifyGallery: eventPhotoGalleryNotifyGuests,
+          locale: String(language || "es").trim().toLowerCase() || "es"
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success === false) {
+        throw new Error(String(payload?.error || `HTTP ${response.status}`));
       }
 
       setEventPhotoGalleryFeedbackType("success");
-      setEventPhotoGalleryFeedback(t("event_gallery_save_success"));
+      const notifiedCount = Math.max(0, Number(payload?.notifiedCount || 0));
+      if (eventPhotoGalleryNotifyGuests && notifiedCount > 0) {
+        setEventPhotoGalleryFeedback(
+          interpolateText(t("event_gallery_save_success_notified"), { count: notifiedCount })
+        );
+      } else if (eventPhotoGalleryNotifyGuests) {
+        setEventPhotoGalleryFeedback(t("event_gallery_notify_none"));
+      } else {
+        setEventPhotoGalleryFeedback(t("event_gallery_save_success"));
+      }
+      setEventPhotoGalleryNotifyGuests(false);
 
       if (typeof loadDashboardData === "function") {
         await loadDashboardData();
@@ -2170,6 +2197,21 @@ export function EventDetailView({
                       <span>{isSavingEventPhotoGalleryUrl ? t("saving_label") : t("event_gallery_save_action")}</span>
                     </button>
                   </div>
+
+                  <label className="inline-flex items-start gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/25 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={eventPhotoGalleryNotifyGuests}
+                      onChange={(event) => setEventPhotoGalleryNotifyGuests(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900"
+                    />
+                    <span className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
+                      <strong className="font-bold">{t("event_gallery_notify_label")}</strong>
+                      <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {t("event_gallery_notify_hint")}
+                      </span>
+                    </span>
+                  </label>
 
                   <div className="pt-1">
                     <PhotoGalleryPreview

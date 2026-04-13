@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const DEFAULT_SIGNUP_BASE_URL = "https://legoodanfitrion.com/signup";
-const DEFAULT_FROM_EMAIL = "LeGoodAnfitrion <onboarding@resend.dev>";
+const DEFAULT_FROM_EMAIL = "LeGoodAnfitrión <onboarding@resend.dev>";
 const DEFAULT_TICKET_DETAILS_URL = "https://legoodanfitrion.com";
 const SUPPORTED_TICKET_LOCALES = new Set(["es", "ca", "en", "fr", "it"]);
 
@@ -9,7 +9,7 @@ const RSVP_TICKET_COPY = {
   es: {
     intlLocale: "es-ES",
     subject: (eventName) => `🎫 Tu entrada para ${eventName}`,
-    ticketKicker: "LeGoodAnfitrion - Ticket digital",
+    ticketKicker: "LeGoodAnfitrión - Ticket digital",
     confirmedTitle: "¡Confirmado!",
     intro: (guestName) => `Hola ${guestName}, tu asistencia ya está confirmada. Aquí tienes tu entrada digital:`,
     dateLabel: "Fecha y hora",
@@ -26,7 +26,7 @@ const RSVP_TICKET_COPY = {
   ca: {
     intlLocale: "ca-ES",
     subject: (eventName) => `🎫 La teva entrada per a ${eventName}`,
-    ticketKicker: "LeGoodAnfitrion - Entrada digital",
+    ticketKicker: "LeGoodAnfitrión - Entrada digital",
     confirmedTitle: "Confirmat!",
     intro: (guestName) => `Hola ${guestName}, la teva assistència ja està confirmada. Aquí tens la teva entrada digital:`,
     dateLabel: "Data i hora",
@@ -43,7 +43,7 @@ const RSVP_TICKET_COPY = {
   en: {
     intlLocale: "en-US",
     subject: (eventName) => `🎫 Your ticket for ${eventName}`,
-    ticketKicker: "LeGoodAnfitrion - Digital ticket",
+    ticketKicker: "LeGoodAnfitrión - Digital ticket",
     confirmedTitle: "Confirmed!",
     intro: (guestName) => `Hi ${guestName}, your attendance is confirmed. Here is your digital ticket:`,
     dateLabel: "Date and time",
@@ -60,7 +60,7 @@ const RSVP_TICKET_COPY = {
   fr: {
     intlLocale: "fr-FR",
     subject: (eventName) => `🎫 Votre billet pour ${eventName}`,
-    ticketKicker: "LeGoodAnfitrion - Billet numérique",
+    ticketKicker: "LeGoodAnfitrión - Billet numérique",
     confirmedTitle: "Confirmé !",
     intro: (guestName) => `Bonjour ${guestName}, votre présence est confirmée. Voici votre billet numérique :`,
     dateLabel: "Date et heure",
@@ -77,7 +77,7 @@ const RSVP_TICKET_COPY = {
   it: {
     intlLocale: "it-IT",
     subject: (eventName) => `🎫 Il tuo biglietto per ${eventName}`,
-    ticketKicker: "LeGoodAnfitrion - Biglietto digitale",
+    ticketKicker: "LeGoodAnfitrión - Biglietto digitale",
     confirmedTitle: "Confermato!",
     intro: (guestName) => `Ciao ${guestName}, la tua presenza è confermata. Ecco il tuo biglietto digitale:`,
     dateLabel: "Data e ora",
@@ -96,19 +96,19 @@ const RSVP_TICKET_COPY = {
 const BROADCAST_EMAIL_COPY = {
   es: {
     subject: (eventName) => `📣 Mensaje importante sobre ${eventName}`,
-    kicker: "Comunicacion del anfitrion",
+    kicker: "Comunicación del anfitrión",
     heading: "Mensaje para personas confirmadas",
     intro: (hostName, eventName) =>
-      `${hostName} ha compartido una actualizacion para el evento "${eventName}".`,
-    ctaLabel: "Ver invitacion"
+      `${hostName} ha compartido una actualización para el evento "${eventName}".`,
+    ctaLabel: "Ver invitación"
   },
   ca: {
     subject: (eventName) => `📣 Missatge important sobre ${eventName}`,
-    kicker: "Comunicacio de l'amfitrio",
+    kicker: "Comunicació de l'amfitrió",
     heading: "Missatge per a persones confirmades",
     intro: (hostName, eventName) =>
-      `${hostName} ha compartit una actualitzacio per a l'esdeveniment "${eventName}".`,
-    ctaLabel: "Veure invitacio"
+      `${hostName} ha compartit una actualització per a l'esdeveniment "${eventName}".`,
+    ctaLabel: "Veure invitació"
   },
   en: {
     subject: (eventName) => `📣 Important update about ${eventName}`,
@@ -120,10 +120,10 @@ const BROADCAST_EMAIL_COPY = {
   },
   fr: {
     subject: (eventName) => `📣 Message important sur ${eventName}`,
-    kicker: "Communication de l'hote",
-    heading: "Message pour les personnes confirmees",
+    kicker: "Communication de l'hôte",
+    heading: "Message pour les personnes confirmées",
     intro: (hostName, eventName) =>
-      `${hostName} a partage une mise a jour pour l'evenement "${eventName}".`,
+      `${hostName} a partagé une mise à jour pour l'événement "${eventName}".`,
     ctaLabel: "Voir l'invitation"
   },
   it: {
@@ -133,6 +133,49 @@ const BROADCAST_EMAIL_COPY = {
     intro: (hostName, eventName) =>
       `${hostName} ha condiviso un aggiornamento per l'evento "${eventName}".`,
     ctaLabel: "Apri invito"
+  }
+};
+
+const GALLERY_EMAIL_COPY = {
+  es: {
+    subject: (eventName) => `📸 Ya está disponible la galería de ${eventName}`,
+    kicker: "Nuevos recuerdos del evento",
+    heading: "¡Ya podéis revivir el evento!",
+    intro: (hostName, eventName) =>
+      `${hostName} compartió la galería de fotos de "${eventName}".`,
+    ctaLabel: "Ver galería"
+  },
+  ca: {
+    subject: (eventName) => `📸 Ja tens disponible la galeria de ${eventName}`,
+    kicker: "Nous records de l'esdeveniment",
+    heading: "Ja podeu reviure l'esdeveniment!",
+    intro: (hostName, eventName) =>
+      `${hostName} ha compartit la galeria de fotos de "${eventName}".`,
+    ctaLabel: "Veure galeria"
+  },
+  en: {
+    subject: (eventName) => `📸 The gallery for ${eventName} is live`,
+    kicker: "New event memories",
+    heading: "Relive the best moments",
+    intro: (hostName, eventName) =>
+      `${hostName} shared the photo gallery for "${eventName}".`,
+    ctaLabel: "Open gallery"
+  },
+  fr: {
+    subject: (eventName) => `📸 La galerie de ${eventName} est disponible`,
+    kicker: "Nouveaux souvenirs de l'événement",
+    heading: "Revivez les meilleurs moments",
+    intro: (hostName, eventName) =>
+      `${hostName} a partagé la galerie photos de "${eventName}".`,
+    ctaLabel: "Voir la galerie"
+  },
+  it: {
+    subject: (eventName) => `📸 La galleria di ${eventName} è disponibile`,
+    kicker: "Nuovi ricordi dell'evento",
+    heading: "Rivivi i momenti migliori",
+    intro: (hostName, eventName) =>
+      `${hostName} ha condiviso la galleria foto di "${eventName}".`,
+    ctaLabel: "Apri galleria"
   }
 };
 
@@ -161,6 +204,11 @@ function getBroadcastEmailCopy(localeValue) {
   return BROADCAST_EMAIL_COPY[normalizedLocale] || BROADCAST_EMAIL_COPY.es;
 }
 
+function getGalleryEmailCopy(localeValue) {
+  const normalizedLocale = normalizeTicketLocale(localeValue);
+  return GALLERY_EMAIL_COPY[normalizedLocale] || GALLERY_EMAIL_COPY.es;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -168,6 +216,20 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function buildEmailDocument({ title, content }) {
+  return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(title || "LeGoodAnfitrión")}</title>
+  </head>
+  <body style="margin:0;padding:0;">
+    ${content}
+  </body>
+</html>`;
 }
 
 function getResendClient() {
@@ -199,18 +261,20 @@ function buildCoHostInviteHtml({ signupUrl, hostName, eventName }) {
   const escapedEventName = escapeHtml(eventName);
   const escapedSignupUrl = escapeHtml(signupUrl);
 
-  return `
+  return buildEmailDocument({
+    title: "Invitación para co-organizar evento",
+    content: `
     <div style="margin:0;padding:24px;background:#f3f4f6;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="padding:28px 28px 20px 28px;">
-            <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6366f1;font-weight:700;">LeGoodAnfitrion</p>
+            <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6366f1;font-weight:700;">LeGoodAnfitrión</p>
             <h1 style="margin:0 0 14px;font-size:24px;line-height:1.25;color:#111827;">T'han convidat a co-organitzar un esdeveniment</h1>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#374151;">
               <strong>${escapedHostName}</strong> vol que l'ajudis a organitzar <strong>${escapedEventName}</strong>.
             </p>
             <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#374151;">
-              Crea el teu compte gratuït a LeGoodAnfitrion per formar part de l'equip de l'esdeveniment.
+              Crea el teu compte gratuït a LeGoodAnfitrión per formar part de l'equip de l'esdeveniment.
             </p>
             <a href="${escapedSignupUrl}" target="_blank" rel="noopener noreferrer"
                style="display:inline-block;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:12px 18px;border-radius:10px;">
@@ -224,7 +288,8 @@ function buildCoHostInviteHtml({ signupUrl, hostName, eventName }) {
         </tr>
       </table>
     </div>
-  `;
+  `
+  });
 }
 
 function formatCalendarDateUtc(value) {
@@ -247,8 +312,8 @@ function toValidDateOrNull(value) {
 }
 
 function buildGoogleCalendarUrl(eventDetails) {
-  const title = toSafeString(eventDetails?.eventName) || "LeGoodAnfitrion event";
-  const description = toSafeString(eventDetails?.description) || "RSVP confirmed via LeGoodAnfitrion";
+  const title = toSafeString(eventDetails?.eventName) || "Evento LeGoodAnfitrión";
+  const description = toSafeString(eventDetails?.description) || "RSVP confirmado con LeGoodAnfitrión";
   const location = toSafeString(eventDetails?.locationAddress || eventDetails?.locationName);
 
   const startAtDate = toValidDateOrNull(eventDetails?.startAt);
@@ -314,7 +379,9 @@ function buildRsvpTicketHtml({ guestName, eventDetails, calendarUrl, detailsUrl,
   const escapedCalendarCta = escapeHtml(copy.addToCalendar);
   const escapedDetailsCta = escapeHtml(copy.viewEventDetails);
 
-  return `
+  return buildEmailDocument({
+    title: escapedEventName,
+    content: `
     <div style="margin:0;padding:24px;background:#eef2ff;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:660px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:18px;overflow:hidden;">
         <tr>
@@ -352,12 +419,13 @@ function buildRsvpTicketHtml({ guestName, eventDetails, calendarUrl, detailsUrl,
         </tr>
       </table>
     </div>
-  `;
+  `
+  });
 }
 
 export async function sendCoHostInvitation(targetEmail, hostName, eventName) {
   const normalizedEmail = toSafeString(targetEmail).toLowerCase();
-  const normalizedHostName = toSafeString(hostName) || "Un anfitrión de LeGoodAnfitrion";
+  const normalizedHostName = toSafeString(hostName) || "Un anfitrión de LeGoodAnfitrión";
   const normalizedEventName = toSafeString(eventName) || "tu evento";
 
   if (!normalizedEmail) {
@@ -379,7 +447,7 @@ export async function sendCoHostInvitation(targetEmail, hostName, eventName) {
       hostName: normalizedHostName,
       eventName: normalizedEventName
     }),
-    text: `${normalizedHostName} te invita a co-organizar "${normalizedEventName}" en LeGoodAnfitrion. Crea tu cuenta gratuita aquí: ${signupUrl}`
+    text: `${normalizedHostName} te invita a co-organizar "${normalizedEventName}" en LeGoodAnfitrión. Crea tu cuenta gratuita aquí: ${signupUrl}`
   });
 
   if (response?.error) {
@@ -455,9 +523,73 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
   };
 }
 
+function buildBroadcastEmailHtml({ hostName, eventName, customMessage, invitationUrl, copy }) {
+  const escapedMessageHtml = escapeHtml(customMessage).replace(/\n/g, "<br />");
+  return buildEmailDocument({
+    title: copy.subject(eventName),
+    content: `
+      <div style="margin:0;padding:24px;background:#f3f4f6;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="padding:28px;">
+              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;font-weight:700;">${escapeHtml(copy.kicker)}</p>
+              <h1 style="margin:0 0 10px;font-size:24px;line-height:1.3;color:#111827;">${escapeHtml(copy.heading)}</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#4b5563;">
+                ${escapeHtml(copy.intro(hostName, eventName))}
+              </p>
+              <div style="border:1px solid #dbeafe;border-radius:14px;padding:18px;background:#f8fafc;text-align:center;">
+                <p style="margin:0;font-size:16px;line-height:1.7;color:#0f172a;font-weight:600;">
+                  ${escapedMessageHtml}
+                </p>
+              </div>
+              <div style="margin-top:18px;text-align:center;">
+                <a href="${escapeHtml(invitationUrl)}" target="_blank" rel="noopener noreferrer"
+                   style="display:inline-block;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;">
+                  ${escapeHtml(copy.ctaLabel)}
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  });
+}
+
+function buildGalleryNotificationHtml({ hostName, eventName, galleryUrl, copy }) {
+  return buildEmailDocument({
+    title: copy.subject(eventName),
+    content: `
+      <div style="margin:0;padding:24px;background:#eef2ff;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:660px;margin:0 auto;background:#ffffff;border:1px solid #c7d2fe;border-radius:18px;overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(90deg,#4f46e5,#7c3aed);padding:18px 24px;color:#ffffff;">
+              <p style="margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.92;">${escapeHtml(copy.kicker)}</p>
+              <h1 style="margin:8px 0 0;font-size:24px;line-height:1.25;">${escapeHtml(copy.heading)}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">
+                ${escapeHtml(copy.intro(hostName, eventName))}
+              </p>
+              <div style="text-align:center;">
+                <a href="${escapeHtml(galleryUrl)}" target="_blank" rel="noopener noreferrer"
+                   style="display:inline-block;background:#4f46e5;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:12px 18px;border-radius:10px;">
+                  ${escapeHtml(copy.ctaLabel)}
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  });
+}
+
 export async function sendBroadcastEmail(guestEmail, hostName, eventName, customMessage, locale = "es") {
   const normalizedEmail = toSafeString(guestEmail).toLowerCase();
-  const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrion";
+  const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrión";
   const normalizedEventName = toSafeString(eventName) || "Evento";
   const normalizedMessage = toSafeString(customMessage);
 
@@ -476,39 +608,19 @@ export async function sendBroadcastEmail(guestEmail, hostName, eventName, custom
   const copy = getBroadcastEmailCopy(locale);
   const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
   const invitationUrl = toSafeString(process.env.FRONTEND_URL || DEFAULT_TICKET_DETAILS_URL);
-  const escapedMessageHtml = escapeHtml(normalizedMessage).replace(/\n/g, "<br />");
   const resend = getResendClient();
 
   const response = await resend.emails.send({
     from: fromEmail,
     to: normalizedEmail,
     subject: copy.subject(normalizedEventName),
-    html: `
-      <div style="margin:0;padding:24px;background:#f3f4f6;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
-          <tr>
-            <td style="padding:28px;">
-              <p style="margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;font-weight:700;">${escapeHtml(copy.kicker)}</p>
-              <h1 style="margin:0 0 10px;font-size:24px;line-height:1.3;color:#111827;">${escapeHtml(copy.heading)}</h1>
-              <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#4b5563;">
-                ${escapeHtml(copy.intro(normalizedHostName, normalizedEventName))}
-              </p>
-              <div style="border:1px solid #dbeafe;border-radius:14px;padding:18px;background:#f8fafc;text-align:center;">
-                <p style="margin:0;font-size:16px;line-height:1.7;color:#0f172a;font-weight:600;">
-                  ${escapedMessageHtml}
-                </p>
-              </div>
-              <div style="margin-top:18px;text-align:center;">
-                <a href="${escapeHtml(invitationUrl)}" target="_blank" rel="noopener noreferrer"
-                   style="display:inline-block;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;">
-                  ${escapeHtml(copy.ctaLabel)}
-                </a>
-              </div>
-            </td>
-          </tr>
-        </table>
-      </div>
-    `,
+    html: buildBroadcastEmailHtml({
+      hostName: normalizedHostName,
+      eventName: normalizedEventName,
+      customMessage: normalizedMessage,
+      invitationUrl,
+      copy
+    }),
     text: [
       copy.intro(normalizedHostName, normalizedEventName),
       "",
@@ -520,6 +632,56 @@ export async function sendBroadcastEmail(guestEmail, hostName, eventName, custom
 
   if (response?.error) {
     const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar el email masivo.");
+    error.code = "EMAIL_SEND_ERROR";
+    error.details = response.error;
+    throw error;
+  }
+
+  return {
+    messageId: toSafeString(response?.data?.id)
+  };
+}
+
+export async function sendGalleryNotificationEmail(guestEmail, hostName, eventName, galleryUrl, locale = "es") {
+  const normalizedEmail = toSafeString(guestEmail).toLowerCase();
+  const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrión";
+  const normalizedEventName = toSafeString(eventName) || "Evento";
+  const normalizedGalleryUrl = toSafeString(galleryUrl);
+
+  if (!normalizedEmail) {
+    const error = new Error("guestEmail es obligatorio.");
+    error.code = "EMAIL_BAD_REQUEST";
+    throw error;
+  }
+  if (!normalizedGalleryUrl) {
+    const error = new Error("galleryUrl es obligatorio.");
+    error.code = "EMAIL_BAD_REQUEST";
+    throw error;
+  }
+
+  const copy = getGalleryEmailCopy(locale);
+  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+  const resend = getResendClient();
+
+  const response = await resend.emails.send({
+    from: fromEmail,
+    to: normalizedEmail,
+    subject: copy.subject(normalizedEventName),
+    html: buildGalleryNotificationHtml({
+      hostName: normalizedHostName,
+      eventName: normalizedEventName,
+      galleryUrl: normalizedGalleryUrl,
+      copy
+    }),
+    text: [
+      copy.intro(normalizedHostName, normalizedEventName),
+      "",
+      `${copy.ctaLabel}: ${normalizedGalleryUrl}`
+    ].join("\n")
+  });
+
+  if (response?.error) {
+    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar la notificación de galería.");
     error.code = "EMAIL_SEND_ERROR";
     error.details = response.error;
     throw error;
