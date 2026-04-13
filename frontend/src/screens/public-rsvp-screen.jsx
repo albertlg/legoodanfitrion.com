@@ -107,6 +107,17 @@ function buildVenueEndpoint(resource) {
   return `${normalizedBase}/api/venues/${resource}`;
 }
 
+function buildRsvpEndpoint(resource) {
+  const normalizedBase = String(RSVP_BACKEND_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  if (/(^|\/)api$/i.test(normalizedBase)) {
+    return `${normalizedBase}/rsvp/${resource}`;
+  }
+  return `${normalizedBase}/api/rsvp/${resource}`;
+}
+
 function RsvpFormView({
   t,
   language,
@@ -885,6 +896,39 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           }
           : prev
       );
+    }
+
+    const normalizedFinalStatus = String(data?.[0]?.status || status || "").trim().toLowerCase();
+    const ticketEndpoint = buildRsvpEndpoint("ticket");
+    if (normalizedFinalStatus === "yes" && ticketEndpoint && token) {
+      const eventIdForTicket = String(data?.[0]?.event_id || invitation?.event_id || "").trim();
+      const guestNameForTicket = toNullable(guestName) || toNullable(invitation?.guest_name || "");
+      const guestEmailForTicket = toNullable(invitation?.invitee_email || "");
+
+      // Fire-and-forget: nunca bloquea la confirmacion de RSVP.
+      void fetch(ticketEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          invitationToken: token,
+          status: normalizedFinalStatus,
+          eventId: eventIdForTicket || null,
+          guestName: guestNameForTicket || null,
+          guestEmail: guestEmailForTicket || null
+        })
+      })
+        .then(async (response) => {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || payload?.success === false) {
+            console.warn("[rsvp-ticket] Ticket email not sent:", payload?.error || `HTTP ${response.status}`);
+          }
+        })
+        .catch((ticketError) => {
+          console.warn("[rsvp-ticket] Ticket request failed:", ticketError);
+        });
     }
   };
 

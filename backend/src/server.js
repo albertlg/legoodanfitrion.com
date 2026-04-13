@@ -6,6 +6,7 @@ import { adminAnalyticsRoute } from "./routes/admin-analytics-route.js";
 import { spotifyRoute } from "./routes/spotify-routes.js";
 import { venueRoute } from "./routes/venue-routes.js";
 import { teamRoute } from "./routes/team-routes.js";
+import { rsvpRoute } from "./routes/rsvp-routes.js";
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use("/api/admin/analytics", adminAnalyticsRoute);
 app.use("/api/spotify", spotifyRoute);
 app.use("/api/venues", venueRoute);
 app.use("/api/team", teamRoute);
+app.use("/api/rsvp", rsvpRoute);
 
 // --- ESTE ES EL TRUCO PARA QUE FUNCIONE EN AMBOS ---
 
