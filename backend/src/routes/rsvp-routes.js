@@ -203,11 +203,25 @@ router.post("/ticket", async (req, res) => {
       });
     }
 
-    const targetEmail = isValidEmail(invitationRow.invitee_email)
+    const currentInvitationEmail = isValidEmail(invitationRow.invitee_email)
       ? toLowerString(invitationRow.invitee_email)
-      : isValidEmail(guestEmailHint)
-        ? guestEmailHint
-        : "";
+      : "";
+    const providedGuestEmail = isValidEmail(guestEmailHint) ? guestEmailHint : "";
+
+    if (providedGuestEmail && providedGuestEmail !== currentInvitationEmail) {
+      const { error: updateInvitationEmailError } = await supabase
+        .from("invitations")
+        .update({ invitee_email: providedGuestEmail })
+        .eq("id", invitationRow.id);
+
+      if (updateInvitationEmailError) {
+        console.error("[rsvp-ticket] failed to persist invitee_email:", updateInvitationEmailError);
+      } else {
+        invitationRow.invitee_email = providedGuestEmail;
+      }
+    }
+
+    const targetEmail = providedGuestEmail || currentInvitationEmail;
 
     if (!targetEmail) {
       return res.status(202).json({
@@ -271,4 +285,3 @@ router.post("/ticket", async (req, res) => {
 });
 
 export { router as rsvpRoute };
-

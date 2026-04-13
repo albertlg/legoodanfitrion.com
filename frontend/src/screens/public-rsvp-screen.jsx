@@ -17,6 +17,11 @@ function toNullable(value) {
   return trimmed === "" ? null : trimmed;
 }
 
+function isValidEmail(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
 function statusText(t, status) {
   return t(`status_${String(status || "").toLowerCase()}`);
 }
@@ -125,6 +130,8 @@ function RsvpFormView({
   setStatus,
   guestName,
   setGuestName,
+  guestEmail,
+  setGuestEmail,
   plusOne,
   setPlusOne,
   dietaryNeeds,
@@ -166,6 +173,28 @@ function RsvpFormView({
           maxLength={120}
         />
       </label>
+
+      {!isDatePollOpen && status === "yes" ? (
+        <label className="flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
+            <Icon name="mail" className="w-3.5 h-3.5" />
+            {t("rsvp_email_label")}
+          </span>
+          <input
+            type="email"
+            className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
+            value={guestEmail}
+            onChange={(event) => setGuestEmail(event.target.value)}
+            placeholder={t("rsvp_email_placeholder")}
+            autoComplete="email"
+            required
+            maxLength={160}
+          />
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
+            {t("rsvp_email_help")}
+          </p>
+        </label>
+      ) : null}
 
       {isDatePollOpen ? (
         <RsvpDatePollView
@@ -499,6 +528,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [invitation, setInvitation] = useState(null);
   const [status, setStatus] = useState("yes");
   const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
   const [note, setNote] = useState("");
   const [plusOne, setPlusOne] = useState(false);
   const [dietaryNeeds, setDietaryNeeds] = useState([]);
@@ -660,6 +690,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
       setInvitation(first);
       setGuestName(first.guest_name || "");
+      setGuestEmail(String(first.invitee_email || "").trim());
       if (first.rsvp_status && first.rsvp_status !== "pending") {
         setStatus(first.rsvp_status);
       }
@@ -825,6 +856,14 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       p_rsvp_dietary_needs: dietaryNeeds
     };
 
+    const normalizedGuestEmail = toNullable(guestEmail || "");
+    if (!isDatePollOpen && status === "yes" && (!normalizedGuestEmail || !isValidEmail(normalizedGuestEmail))) {
+      setIsSubmitting(false);
+      setIsRsvpSaved(false);
+      setSubmitMessage(t("rsvp_email_required_error"));
+      return;
+    }
+
     let { data, error } = await supabase.rpc("submit_rsvp_by_token", payload);
 
     if (error && isLegacyRsvpFunctionError(error)) {
@@ -903,7 +942,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     if (normalizedFinalStatus === "yes" && ticketEndpoint && token) {
       const eventIdForTicket = String(data?.[0]?.event_id || invitation?.event_id || "").trim();
       const guestNameForTicket = toNullable(guestName) || toNullable(invitation?.guest_name || "");
-      const guestEmailForTicket = toNullable(invitation?.invitee_email || "");
+      const guestEmailForTicket = toNullable(guestEmail || invitation?.invitee_email || "");
 
       // Fire-and-forget: nunca bloquea la confirmacion de RSVP.
       void fetch(ticketEndpoint, {
@@ -1282,6 +1321,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     setStatus={setStatus}
                     guestName={guestName}
                     setGuestName={setGuestName}
+                    guestEmail={guestEmail}
+                    setGuestEmail={setGuestEmail}
                     plusOne={plusOne}
                     setPlusOne={setPlusOne}
                     dietaryNeeds={dietaryNeeds}
