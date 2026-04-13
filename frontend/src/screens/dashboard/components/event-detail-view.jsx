@@ -173,6 +173,23 @@ function getDisplayNameFromEmail(email) {
   return cleanChunk.charAt(0).toUpperCase() + cleanChunk.slice(1);
 }
 
+function isValidEmail(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+function resolveGuestRecipientEmail(guestRow) {
+  const invitationEmail = String(guestRow?.invitation?.invitee_email || "").trim().toLowerCase();
+  if (isValidEmail(invitationEmail)) {
+    return invitationEmail;
+  }
+  const guestEmail = String(guestRow?.guest?.email || "").trim().toLowerCase();
+  if (isValidEmail(guestEmail)) {
+    return guestEmail;
+  }
+  return "";
+}
+
 function formatMoneyAmount(value, language) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -526,7 +543,7 @@ export function EventDetailView({
     () =>
       (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : []).filter((guestRow) => {
         const statusValue = String(guestRow?.invitation?.status || "").trim().toLowerCase();
-        return statusValue === "yes";
+        return statusValue === "yes" && Boolean(resolveGuestRecipientEmail(guestRow));
       }).length,
     [selectedEventDetailGuests]
   );

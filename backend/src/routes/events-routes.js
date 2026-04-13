@@ -175,11 +175,9 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
 
     const { data: invitations, error: invitationsError } = await supabase
       .from("invitations")
-      .select("id, invitee_email, status")
+      .select("id, guest_id, invitee_email, status")
       .eq("event_id", eventId)
-      .eq("status", "yes")
-      .not("invitee_email", "is", null)
-      .neq("invitee_email", "");
+      .eq("status", "yes");
 
     if (invitationsError) {
       const wrapped = new Error(`No se pudieron cargar invitaciones confirmadas: ${invitationsError.message}`);
@@ -193,10 +191,49 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
       Array.isArray(invitations) ? invitations.length : 0
     );
 
+    const invitationRows = Array.isArray(invitations) ? invitations : [];
+    const guestIdsForFallback = Array.from(
+      new Set(
+        invitationRows
+          .filter((row) => !isValidEmail(row?.invitee_email))
+          .map((row) => toSafeString(row?.guest_id))
+          .filter(Boolean)
+      )
+    );
+
+    let guestEmailById = {};
+    if (guestIdsForFallback.length > 0) {
+      const { data: guestsFallbackData, error: guestsFallbackError } = await supabase
+        .from("guests")
+        .select("id, email")
+        .eq("host_user_id", requesterId)
+        .in("id", guestIdsForFallback);
+
+      if (guestsFallbackError) {
+        const wrapped = new Error(`No se pudieron cargar emails fallback de agenda: ${guestsFallbackError.message}`);
+        wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+        wrapped.details = guestsFallbackError;
+        throw wrapped;
+      }
+
+      guestEmailById = Object.fromEntries(
+        (Array.isArray(guestsFallbackData) ? guestsFallbackData : [])
+          .map((guestRow) => [toSafeString(guestRow?.id), toSafeString(guestRow?.email).toLowerCase()])
+          .filter(([guestId, email]) => Boolean(guestId && email))
+      );
+    }
+
     const recipientEmails = Array.from(
       new Set(
-        (Array.isArray(invitations) ? invitations : [])
-          .map((row) => toSafeString(row?.invitee_email).toLowerCase())
+        invitationRows
+          .map((row) => {
+            const invitationEmail = toSafeString(row?.invitee_email).toLowerCase();
+            if (isValidEmail(invitationEmail)) {
+              return invitationEmail;
+            }
+            const guestId = toSafeString(row?.guest_id);
+            return toSafeString(guestEmailById[guestId]).toLowerCase();
+          })
           .filter((email) => isValidEmail(email))
       )
     );
