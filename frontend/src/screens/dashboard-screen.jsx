@@ -463,7 +463,9 @@ function DashboardScreen({
   const [guestLastName, setGuestLastName] = useState("");
   const [guestPhotoUrl, setGuestPhotoUrl] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
+  const [guestWorkEmail, setGuestWorkEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
+  const [guestCompanyName, setGuestCompanyName] = useState("");
   const [guestRelationship, setGuestRelationship] = useState("");
   const [guestCity, setGuestCity] = useState("");
   const [guestCountry, setGuestCountry] = useState("");
@@ -2161,7 +2163,7 @@ function DashboardScreen({
       }
       const guestFullName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim();
       pushPair({
-        name: guestItem.company || guestFullName || guestAddress,
+        name: guestItem.company_name || guestItem.company || guestFullName || guestAddress,
         address: guestAddress
       });
     }
@@ -3735,6 +3737,7 @@ function DashboardScreen({
         guestItem.last_name,
         guestItem.email,
         guestItem.phone,
+        guestItem.company_name,
         guestItem.company,
         guestItem.address,
         guestItem.relationship,
@@ -4241,7 +4244,6 @@ function DashboardScreen({
       address: guestItem?.address || "",
       postalCode: guestItem?.postal_code || "",
       stateRegion: guestItem?.state_region || "",
-      company: guestItem?.company || "",
       birthday: guestItem?.birthday || "",
       twitter: guestItem?.twitter || "",
       instagram: guestItem?.instagram || "",
@@ -4334,7 +4336,9 @@ function DashboardScreen({
     setGuestFirstName(guestItem.first_name || "");
     setGuestLastName(guestItem.last_name || "");
     setGuestEmail(guestItem.email || "");
+    setGuestWorkEmail(guestItem.work_email || "");
     setGuestPhone(guestItem.phone || "");
+    setGuestCompanyName(guestItem.company_name || guestItem.company || "");
     setGuestRelationship(toCatalogLabel("relationship", guestItem.relationship, language));
     setGuestCity(guestItem.city || "");
     setGuestCountry(guestItem.country || "");
@@ -4884,7 +4888,9 @@ function DashboardScreen({
       setGuestFirstName(linkedGuest.first_name || firstName || fallbackName);
       setGuestLastName(linkedGuest.last_name || lastName || "");
       setGuestEmail(linkedGuest.email || session?.user?.email || "");
+      setGuestWorkEmail(linkedGuest.work_email || "");
       setGuestPhone(linkedGuest.phone || hostProfilePhone || "");
+      setGuestCompanyName(linkedGuest.company_name || linkedGuest.company || "");
       setGuestRelationship(toCatalogLabel("relationship", linkedGuest.relationship, language));
       setGuestCity(linkedGuest.city || hostProfileCity || "");
       setGuestCountry(linkedGuest.country || hostProfileCountry || "");
@@ -4905,7 +4911,9 @@ function DashboardScreen({
       setGuestFirstName(firstName || fallbackName);
       setGuestLastName(lastName || "");
       setGuestEmail(session?.user?.email || "");
+      setGuestWorkEmail("");
       setGuestPhone(hostProfilePhone || "");
+      setGuestCompanyName("");
       setGuestRelationship(hostProfileRelationship || "");
       setGuestCity(hostProfileCity || "");
       setGuestCountry(hostProfileCountry || "");
@@ -6850,6 +6858,7 @@ function DashboardScreen({
       setGuestLastName(contact.lastName || guestLastName);
       setGuestEmail(contact.email || guestEmail);
       setGuestPhone(contact.phone || guestPhone);
+      setGuestCompanyName(contact.company || guestCompanyName);
       setGuestCity(contact.city || guestCity);
       setGuestCountry(contact.country || guestCountry);
       setGuestPhotoUrl(contact.photoUrl || guestPhotoUrl);
@@ -7020,6 +7029,7 @@ function DashboardScreen({
           firstName: guestFirstName,
           lastName: guestLastName,
           email: guestEmail,
+          workEmail: guestWorkEmail,
           phone: guestPhone,
           relationship: guestRelationship,
           city: guestCity,
@@ -7027,7 +7037,7 @@ function DashboardScreen({
           address: guestAdvanced.address,
           postalCode: guestAdvanced.postalCode,
           stateRegion: guestAdvanced.stateRegion,
-          company: guestAdvanced.company,
+          companyName: guestCompanyName,
           twitter: guestAdvanced.twitter,
           instagram: guestAdvanced.instagram,
           linkedIn: guestAdvanced.linkedIn
@@ -7103,7 +7113,9 @@ function DashboardScreen({
       guestFirstName,
       guestLastName,
       guestEmail,
+      guestWorkEmail,
       guestPhone,
+      guestCompanyName,
       guestRelationship,
       guestCity,
       guestCountry,
@@ -7281,7 +7293,7 @@ function DashboardScreen({
         };
 
         const mergePayload = {};
-        const assignMergeField = (field, existingValue, incomingValue) => {
+        const assignMergeField = (field, existingValue, incomingValue, dbField = field) => {
           if (!isMergeFieldAllowed(field)) {
             return;
           }
@@ -7289,7 +7301,7 @@ function DashboardScreen({
           if (typeof mergedValue === "undefined") {
             return;
           }
-          mergePayload[field] = toNullable(mergedValue);
+          mergePayload[dbField] = toNullable(mergedValue);
         };
 
         assignMergeField("first_name", existingGuest.first_name, fallbackFirstName);
@@ -7300,7 +7312,7 @@ function DashboardScreen({
         assignMergeField("city", existingGuest.city, contactItem.city);
         assignMergeField("country", existingGuest.country, contactItem.country);
         assignMergeField("address", existingGuest.address, contactItem.address);
-        assignMergeField("company", existingGuest.company, contactItem.company);
+        assignMergeField("company", existingGuest.company_name || existingGuest.company, contactItem.company, "company_name");
         assignMergeField("postal_code", existingGuest.postal_code, contactItem.postalCode);
         assignMergeField("state_region", existingGuest.state_region, contactItem.stateRegion);
         assignMergeField("birthday", existingGuest.birthday, contactItem.birthday);
@@ -7355,7 +7367,7 @@ function DashboardScreen({
         city: toNullable(contactItem.city),
         country: toNullable(contactItem.country),
         address: toNullable(contactItem.address),
-        company: toNullable(contactItem.company),
+        company_name: toNullable(contactItem.company),
         postal_code: toNullable(contactItem.postalCode),
         state_region: toNullable(contactItem.stateRegion),
         birthday: toNullable(contactItem.birthday),
@@ -7371,7 +7383,7 @@ function DashboardScreen({
         city: toNullable(contactItem.city),
         country: toNullable(contactItem.country),
         address: toNullable(contactItem.address),
-        company: toNullable(contactItem.company)
+        company_name: toNullable(contactItem.company)
       };
 
       if (matchingKeys.some((matchingKey) => insertedMatchingKeys.has(matchingKey))) {
@@ -7513,7 +7525,9 @@ function DashboardScreen({
     setGuestFirstName(guestItem.first_name || "");
     setGuestLastName(guestItem.last_name || "");
     setGuestEmail(guestItem.email || "");
+    setGuestWorkEmail(guestItem.work_email || "");
     setGuestPhone(guestItem.phone || "");
+    setGuestCompanyName(guestItem.company_name || guestItem.company || "");
     setGuestRelationship(toCatalogLabel("relationship", guestItem.relationship, language));
     setGuestCity(guestItem.city || "");
     setGuestCountry(guestItem.country || "");
@@ -7543,7 +7557,9 @@ function DashboardScreen({
     setGuestFirstName("");
     setGuestLastName("");
     setGuestEmail("");
+    setGuestWorkEmail("");
     setGuestPhone("");
+    setGuestCompanyName("");
     setGuestRelationship("");
     setGuestCity("");
     setGuestCountry("");
@@ -7584,6 +7600,7 @@ function DashboardScreen({
       firstName: guestFirstName,
       lastName: guestLastName,
       email: guestEmail,
+      workEmail: guestWorkEmail,
       phone: guestPhone,
       relationship: guestRelationship,
       city: guestCity,
@@ -7591,7 +7608,7 @@ function DashboardScreen({
       address: guestAdvanced.address,
       postalCode: guestAdvanced.postalCode,
       stateRegion: guestAdvanced.stateRegion,
-      company: guestAdvanced.company,
+      companyName: guestCompanyName,
       twitter: guestAdvanced.twitter,
       instagram: guestAdvanced.instagram,
       linkedIn: guestAdvanced.linkedIn
@@ -7671,6 +7688,7 @@ function DashboardScreen({
       content_language: language,
       last_name: toNullable(guestLastName),
       email: toNullable(guestEmail),
+      work_email: toNullable(guestWorkEmail),
       phone: toNullable(guestPhone),
       relationship: toNullable(toCatalogCode("relationship", guestRelationship)),
       city: toNullable(guestCity),
@@ -7678,7 +7696,7 @@ function DashboardScreen({
       address: toNullable(selectedGuestAddressPlace?.formattedAddress || guestAdvanced.address),
       postal_code: toNullable(guestAdvanced.postalCode),
       state_region: toNullable(guestAdvanced.stateRegion),
-      company: toNullable(guestAdvanced.company),
+      company_name: toNullable(guestCompanyName),
       birthday: toNullable(guestAdvanced.birthday),
       twitter: toNullable(guestAdvanced.twitter),
       instagram: toNullable(guestAdvanced.instagram),
@@ -7722,7 +7740,8 @@ function DashboardScreen({
         "postal_code",
         "state_region",
         "address",
-        "company",
+        "work_email",
+        "company_name",
         "birthday",
         "twitter",
         "instagram",
@@ -8027,10 +8046,12 @@ function DashboardScreen({
     guestCity,
     guestCountry,
     guestEmail,
+    guestWorkEmail,
     guestFirstName,
     guestLastName,
     guestPhotoUrl,
     guestPhone,
+    guestCompanyName,
     guestRelationship,
     guests,
     isEditingGuest,
@@ -8126,7 +8147,11 @@ function DashboardScreen({
       fillGuestField("address", targetGuest.address, sourceGuest.address);
       fillGuestField("postal_code", targetGuest.postal_code, sourceGuest.postal_code);
       fillGuestField("state_region", targetGuest.state_region, sourceGuest.state_region);
-      fillGuestField("company", targetGuest.company, sourceGuest.company);
+      fillGuestField(
+        "company_name",
+        targetGuest.company_name || targetGuest.company,
+        sourceGuest.company_name || sourceGuest.company
+      );
       fillGuestField("birthday", targetGuest.birthday, sourceGuest.birthday);
       fillGuestField("twitter", targetGuest.twitter, sourceGuest.twitter);
       fillGuestField("instagram", targetGuest.instagram, sourceGuest.instagram);
@@ -9462,8 +9487,12 @@ function DashboardScreen({
               handleRemoveGuestPhoto,
               guestEmail,
               setGuestEmail,
+              guestWorkEmail,
+              setGuestWorkEmail,
               guestPhone,
               setGuestPhone,
+              guestCompanyName,
+              setGuestCompanyName,
               guestRelationship,
               setGuestRelationship,
               relationshipOptions,

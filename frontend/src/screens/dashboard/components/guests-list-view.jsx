@@ -231,6 +231,7 @@ export function GuestsListView({
                                             const conversionSource = getConversionSource(conversion);
                                             const conversionSourceLabel = getConversionSourceLabel(t, conversionSource);
                                             const guestFullName = `${guestItem.first_name || ""} ${guestItem.last_name || ""}`.trim() || t("field_guest");
+                                            const guestCompanyLabel = String(guestItem.company_name || guestItem.company || "").trim();
                                             const guestEventsCount = guestEventCountByGuestId[guestItem.id] || 0;
                                             const sensitiveData = guestSensitiveById[guestItem.id] || {};
 
@@ -272,6 +273,11 @@ export function GuestsListView({
                                                                 {guestItem.relationship ? (
                                                                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 font-medium block w-full" title={toCatalogLabel("relationship", guestItem.relationship, language)}>
                                                                         {toCatalogLabel("relationship", guestItem.relationship, language)}
+                                                                    </p>
+                                                                ) : null}
+                                                                {guestCompanyLabel ? (
+                                                                    <p className="mt-1 inline-flex max-w-full items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:border-indigo-800/60 dark:bg-indigo-900/30 dark:text-indigo-300" title={guestCompanyLabel}>
+                                                                        {guestCompanyLabel}
                                                                     </p>
                                                                 ) : null}
                                                             </div>

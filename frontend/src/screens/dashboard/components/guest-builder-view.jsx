@@ -38,8 +38,12 @@ export function GuestBuilderView({
   handleRemoveGuestPhoto,
   guestEmail,
   setGuestEmail,
+  guestWorkEmail,
+  setGuestWorkEmail,
   guestPhone,
   setGuestPhone,
+  guestCompanyName,
+  setGuestCompanyName,
   guestRelationship,
   setGuestRelationship,
   relationshipOptions,
@@ -365,6 +369,38 @@ export function GuestBuilderView({
           {(guestErrors.phone || guestErrors.contact) && <span className="text-xs font-medium text-red-500 ml-1">{guestErrors.phone ? t(guestErrors.phone) : t(guestErrors.contact)}</span>}
         </label>
 
+        <label className="flex flex-col gap-2" htmlFor="guestWorkEmail">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
+            <Icon name="mail" className="w-3 h-3" /> {t("field_work_email")}
+          </span>
+          <input
+            type="email"
+            className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.workEmail ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`}
+            value={guestWorkEmail}
+            id="guestWorkEmail"
+            name="guestWorkEmail"
+            onChange={(event) => setGuestWorkEmail(event.target.value)}
+            placeholder={t("placeholder_work_email")}
+          />
+          {guestErrors.workEmail && <span className="text-xs font-medium text-red-500 ml-1">{t(guestErrors.workEmail)}</span>}
+        </label>
+
+        <label className="flex flex-col gap-2" htmlFor="guestCompanyName">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
+            <Icon name="id_card" className="w-3 h-3" /> {t("field_company_name")}
+          </span>
+          <input
+            type="text"
+            className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.companyName ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`}
+            value={guestCompanyName}
+            id="guestCompanyName"
+            name="guestCompanyName"
+            onChange={(event) => setGuestCompanyName(event.target.value)}
+            placeholder={t("placeholder_company_name")}
+          />
+          {guestErrors.companyName && <span className="text-xs font-medium text-red-500 ml-1">{t(guestErrors.companyName)}</span>}
+        </label>
+
         <label className="flex flex-col gap-2" htmlFor="guestRelationship">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_relationship")}</span>
           <select className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none ${guestErrors.relationship ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestRelationship}
@@ -485,10 +521,6 @@ export function GuestBuilderView({
             {guestAdvancedEditTab === "identity" && (
               <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.identity = node; }}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestCompany">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_company")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.company} id="advGuestCompany" name="guest_company" onChange={(event) => setGuestAdvancedField("company", event.target.value)} placeholder={t("placeholder_company")} />
-                  </label>
                   <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestAddress">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_address")}</span>
                     <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.address} id="advGuestAddress" name="guest_address" onChange={(event) => { const nextValue = event.target.value; setGuestAdvancedField("address", nextValue); if (selectedGuestAddressPlace && normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)) { setSelectedGuestAddressPlace(null); } }} placeholder={t("placeholder_address")} autoComplete="off" />

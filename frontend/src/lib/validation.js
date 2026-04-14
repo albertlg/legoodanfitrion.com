@@ -21,6 +21,11 @@ const guestSchema = z
       .trim()
       .max(180, "guest_email_invalid")
       .optional(),
+    workEmail: z
+      .string()
+      .trim()
+      .max(180, "guest_work_email_invalid")
+      .optional(),
     phone: z
       .string()
       .trim()
@@ -32,7 +37,7 @@ const guestSchema = z
     address: z.string().trim().max(220, "guest_address_length"),
     postalCode: z.string().trim().max(20, "guest_postal_code_length"),
     stateRegion: z.string().trim().max(80, "guest_state_region_length"),
-    company: z.string().trim().max(120, "guest_company_length"),
+    companyName: z.string().trim().max(120, "guest_company_name_length"),
     twitter: z.string().trim().max(120, "guest_social_length"),
     instagram: z.string().trim().max(120, "guest_social_length"),
     linkedIn: z.string().trim().max(180, "guest_social_length")
@@ -55,6 +60,15 @@ const guestSchema = z
         code: z.ZodIssueCode.custom,
         path: ["email"],
         message: "guest_email_invalid"
+      });
+    }
+
+    const hasWorkEmail = Boolean(value.workEmail);
+    if (hasWorkEmail && !z.string().email().safeParse(value.workEmail).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["workEmail"],
+        message: "guest_work_email_invalid"
       });
     }
 

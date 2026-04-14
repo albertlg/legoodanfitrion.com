@@ -1905,5 +1905,11 @@
   "event_group_invite_load_error": "Ara mateix no hem pogut carregar els teus grups.",
   "event_group_invite_empty_title": "Encara no tens grups creats",
   "event_group_invite_empty_hint": "Crea un grup a la secció de Persones convidades per convidar en bloc amb 2 clics.",
-  "event_group_invite_open_groups_action": "Anar a Grups"
+  "event_group_invite_open_groups_action": "Anar a Grups",
+  "guest_work_email_invalid": "El correu professional no té un format vàlid.",
+  "guest_company_name_length": "L'empresa/departament no pot superar 120 caràcters.",
+  "placeholder_work_email": "nom@empresa.cat",
+  "placeholder_company_name": "Ex. Acme Corp · Vendes",
+  "field_work_email": "Correu professional",
+  "field_company_name": "Empresa / departament"
 }

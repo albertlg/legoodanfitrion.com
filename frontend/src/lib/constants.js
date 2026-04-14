@@ -34,7 +34,7 @@ export const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
 };
 
 export const GUEST_ADVANCED_ERROR_FIELDS_BY_TAB = {
-    identity: ["firstName", "lastName", "email", "phone", "contact", "relationship", "city", "country", "address", "postalCode", "stateRegion", "company", "twitter", "instagram", "linkedIn"],
+    identity: ["firstName", "lastName", "email", "workEmail", "phone", "contact", "relationship", "city", "country", "address", "postalCode", "stateRegion", "companyName", "twitter", "instagram", "linkedIn"],
     health: ["sensitiveConsent"]
 };
 
@@ -103,7 +103,7 @@ export const EVENT_TEMPLATE_DEFINITIONS = [
 ];
 
 export const GUEST_ADVANCED_INITIAL_STATE = {
-    address: "", postalCode: "", stateRegion: "", company: "", birthday: "", twitter: "", instagram: "", linkedIn: "", lastMeetAt: "",
+    address: "", postalCode: "", stateRegion: "", birthday: "", twitter: "", instagram: "", linkedIn: "", lastMeetAt: "",
     experienceTypes: "", preferredGuestRelationships: "", preferredDayMoments: "", periodicity: "", cuisineTypes: "", dietType: "", tastingPreferences: "", foodLikes: "", foodDislikes: "", drinkLikes: "", drinkDislikes: "",
     allergies: "", intolerances: "", petAllergies: "", medicalConditions: "", dietaryMedicalRestrictions: "", pets: "",
     musicGenres: "", favoriteColor: "", books: "", movies: "", series: "", sports: "", teamFan: "", punctuality: "", lastTalkTopic: "", tabooTopics: "", sensitiveConsent: false

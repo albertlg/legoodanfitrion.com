@@ -68,7 +68,7 @@ export function useDashboardDataController({
     const guestsPromise = supabase
       .from("guests")
       .select(
-        "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
+        "id, first_name, last_name, email, work_email, phone, relationship, city, country, address, postal_code, state_region, company, company_name, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
       )
       .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })
@@ -140,6 +140,8 @@ export function useDashboardDataController({
         "state_region",
         "address",
         "company",
+        "work_email",
+        "company_name",
         "twitter",
         "instagram",
         "linkedin",
@@ -258,7 +260,7 @@ export function useDashboardDataController({
       let routeGuestResult = await supabase
         .from("guests")
         .select(
-          "id, first_name, last_name, email, phone, relationship, city, country, address, postal_code, state_region, company, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
+          "id, first_name, last_name, email, work_email, phone, relationship, city, country, address, postal_code, state_region, company, company_name, birthday, twitter, instagram, linkedin, last_meet_at, avatar_url, created_at"
         )
         .eq("host_user_id", sessionUserId)
         .eq("id", routeGuestDetailId)
@@ -271,6 +273,8 @@ export function useDashboardDataController({
           "state_region",
           "address",
           "company",
+          "work_email",
+          "company_name",
           "twitter",
           "instagram",
           "linkedin",

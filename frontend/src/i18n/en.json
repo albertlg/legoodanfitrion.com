@@ -1905,5 +1905,11 @@
   "event_group_invite_load_error": "We couldn't load your groups right now.",
   "event_group_invite_empty_title": "You don't have any groups yet",
   "event_group_invite_empty_hint": "Create a group in the Guests section to invite people in bulk in 2 clicks.",
-  "event_group_invite_open_groups_action": "Go to Groups"
+  "event_group_invite_open_groups_action": "Go to Groups",
+  "guest_work_email_invalid": "Work email format is invalid.",
+  "guest_company_name_length": "Company/department cannot exceed 120 characters.",
+  "placeholder_work_email": "name@company.com",
+  "placeholder_company_name": "e.g., Acme Corp · Sales",
+  "field_work_email": "Work email",
+  "field_company_name": "Company / department"
 }

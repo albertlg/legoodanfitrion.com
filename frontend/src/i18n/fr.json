@@ -1905,5 +1905,11 @@
   "event_group_invite_load_error": "Nous n'avons pas pu charger tes groupes pour le moment.",
   "event_group_invite_empty_title": "Tu n'as pas encore de groupes",
   "event_group_invite_empty_hint": "Crée un groupe dans la section Invités pour inviter en masse en 2 clics.",
-  "event_group_invite_open_groups_action": "Aller aux groupes"
+  "event_group_invite_open_groups_action": "Aller aux groupes",
+  "guest_work_email_invalid": "Le format de l'email professionnel est invalide.",
+  "guest_company_name_length": "L'entreprise/département ne peut pas dépasser 120 caractères.",
+  "placeholder_work_email": "prenom@entreprise.com",
+  "placeholder_company_name": "Ex. Acme Corp · Ventes",
+  "field_work_email": "Email professionnel",
+  "field_company_name": "Entreprise / département"
 }
