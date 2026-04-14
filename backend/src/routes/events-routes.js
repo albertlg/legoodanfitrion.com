@@ -44,6 +44,43 @@ function toBoolean(value, fallback = false) {
   return Boolean(fallback);
 }
 
+function toRoundedMoney(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function parseNullableMoney(value) {
+  if (value == null) {
+    return { ok: true, value: null };
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return { ok: true, value: null };
+    }
+    const parsed = Number(trimmed.replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return { ok: false, value: null };
+    }
+    return { ok: true, value: toRoundedMoney(parsed) };
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return { ok: false, value: null };
+  }
+  return { ok: true, value: toRoundedMoney(parsed) };
+}
+
+function normalizeFinanceMode(value, fallback = "split_tickets") {
+  const normalized = toSafeString(value).toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+  if (["fixed_price", "split_tickets", "corporate_budget"].includes(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
 function isValidEmail(value) {
   const normalized = toSafeString(value).toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
@@ -338,6 +375,10 @@ router.post("/", requireAuthenticatedUser, async (req, res) => {
   const title = toSafeString(req.body?.title);
   const locale = normalizeLocale(req.body?.content_language || req.body?.locale);
   const activeModulesInput = req.body?.active_modules;
+  const financeModeInput = req.body?.finance_mode;
+  const normalizedFinanceMode = normalizeFinanceMode(financeModeInput, "split_tickets");
+  const parsedFinanceFixedPrice = parseNullableMoney(req.body?.finance_fixed_price);
+  const parsedFinanceTotalBudget = parseNullableMoney(req.body?.finance_total_budget);
 
   if (!requesterId || !title) {
     return sendRouteError(
@@ -347,6 +388,30 @@ router.post("/", requireAuthenticatedUser, async (req, res) => {
         message: "title es obligatorio."
       },
       "Faltan datos para crear el evento."
+    );
+  }
+
+  if (!normalizedFinanceMode) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "finance_mode no es válido." },
+      "Modo financiero inválido."
+    );
+  }
+
+  if (!parsedFinanceFixedPrice.ok) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "finance_fixed_price debe ser numérico." },
+      "El precio fijo debe ser numérico."
+    );
+  }
+
+  if (!parsedFinanceTotalBudget.ok) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "finance_total_budget debe ser numérico." },
+      "El presupuesto total debe ser numérico."
     );
   }
 
@@ -387,7 +452,11 @@ router.post("/", requireAuthenticatedUser, async (req, res) => {
     location_place_id: toNullableString(req.body?.location_place_id),
     location_lat: typeof req.body?.location_lat === "number" ? req.body.location_lat : null,
     location_lng: typeof req.body?.location_lng === "number" ? req.body.location_lng : null,
-    photo_gallery_url: toNullableString(req.body?.photo_gallery_url)
+    photo_gallery_url: toNullableString(req.body?.photo_gallery_url),
+    finance_mode: normalizedFinanceMode,
+    finance_fixed_price: parsedFinanceFixedPrice.value,
+    finance_payment_info: toNullableString(req.body?.finance_payment_info),
+    finance_total_budget: parsedFinanceTotalBudget.value
   };
 
   if (normalizedActiveModules) {
@@ -407,7 +476,7 @@ router.post("/", requireAuthenticatedUser, async (req, res) => {
       .from("events")
       .insert(insertPayload)
       .select(
-        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .single();
 
@@ -438,10 +507,24 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
   const requesterId = toSafeString(req.authUser?.id);
   const locale = normalizeLocale(req.body?.locale);
   const notifyGallery = Boolean(req.body?.notifyGallery);
+  const shouldUpdatePhotoGalleryUrl = Object.prototype.hasOwnProperty.call(req.body || {}, "photo_gallery_url");
   const shouldUpdateActiveModules = Object.prototype.hasOwnProperty.call(req.body || {}, "active_modules");
   const activeModulesInput = req.body?.active_modules;
   const photoGalleryUrlRaw = req.body?.photo_gallery_url;
   const normalizedPhotoGalleryUrl = photoGalleryUrlRaw == null ? null : toSafeString(photoGalleryUrlRaw);
+  const shouldUpdateFinanceMode = Object.prototype.hasOwnProperty.call(req.body || {}, "finance_mode");
+  const shouldUpdateFinanceFixedPrice = Object.prototype.hasOwnProperty.call(req.body || {}, "finance_fixed_price");
+  const shouldUpdateFinancePaymentInfo = Object.prototype.hasOwnProperty.call(req.body || {}, "finance_payment_info");
+  const shouldUpdateFinanceTotalBudget = Object.prototype.hasOwnProperty.call(req.body || {}, "finance_total_budget");
+  const normalizedFinanceMode = shouldUpdateFinanceMode
+    ? normalizeFinanceMode(req.body?.finance_mode, "split_tickets")
+    : null;
+  const parsedFinanceFixedPrice = shouldUpdateFinanceFixedPrice
+    ? parseNullableMoney(req.body?.finance_fixed_price)
+    : { ok: true, value: null };
+  const parsedFinanceTotalBudget = shouldUpdateFinanceTotalBudget
+    ? parseNullableMoney(req.body?.finance_total_budget)
+    : { ok: true, value: null };
 
   if (!eventId) {
     return sendRouteError(
@@ -451,11 +534,35 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
     );
   }
 
-  if (normalizedPhotoGalleryUrl && !isValidHttpUrl(normalizedPhotoGalleryUrl)) {
+  if (shouldUpdatePhotoGalleryUrl && normalizedPhotoGalleryUrl && !isValidHttpUrl(normalizedPhotoGalleryUrl)) {
     return sendRouteError(
       res,
       { code: "EVENT_BROADCAST_BAD_REQUEST", message: "photo_gallery_url debe ser una URL http(s) válida." },
       "URL de galería no válida."
+    );
+  }
+
+  if (shouldUpdateFinanceMode && !normalizedFinanceMode) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "finance_mode no es válido." },
+      "Modo financiero inválido."
+    );
+  }
+
+  if (shouldUpdateFinanceFixedPrice && !parsedFinanceFixedPrice.ok) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "finance_fixed_price debe ser numérico." },
+      "El precio fijo debe ser numérico."
+    );
+  }
+
+  if (shouldUpdateFinanceTotalBudget && !parsedFinanceTotalBudget.ok) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "finance_total_budget debe ser numérico." },
+      "El presupuesto total debe ser numérico."
     );
   }
 
@@ -484,7 +591,7 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
   try {
     const { data: eventData, error: eventError } = await supabase
       .from("events")
-      .select("id, title, host_user_id, schedule_mode, poll_status, expenses, photo_gallery_url, active_modules, modules_version")
+      .select("id, title, host_user_id, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -507,32 +614,53 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
       throw error;
     }
 
-    const updatePayload = {
-      photo_gallery_url: normalizedPhotoGalleryUrl || null
-    };
+    const updatePayload = {};
+
+    if (shouldUpdatePhotoGalleryUrl) {
+      updatePayload.photo_gallery_url = normalizedPhotoGalleryUrl || null;
+    }
+
+    if (shouldUpdateFinanceMode) {
+      updatePayload.finance_mode = normalizedFinanceMode;
+    }
+
+    if (shouldUpdateFinanceFixedPrice) {
+      updatePayload.finance_fixed_price = parsedFinanceFixedPrice.value;
+    }
+
+    if (shouldUpdateFinancePaymentInfo) {
+      updatePayload.finance_payment_info = toNullableString(req.body?.finance_payment_info);
+    }
+
+    if (shouldUpdateFinanceTotalBudget) {
+      updatePayload.finance_total_budget = parsedFinanceTotalBudget.value;
+    }
+
     if (shouldUpdateActiveModules) {
       updatePayload.active_modules = normalizedActiveModules;
       updatePayload.modules_version = 1;
     }
 
-    const { error: updateError } = await supabase
-      .from("events")
-      .update(updatePayload)
-      .eq("id", eventId)
-      .eq("host_user_id", requesterId);
+    if (Object.keys(updatePayload).length > 0) {
+      const { error: updateError } = await supabase
+        .from("events")
+        .update(updatePayload)
+        .eq("id", eventId)
+        .eq("host_user_id", requesterId);
 
-    if (updateError) {
-      const wrapped = new Error(`No se pudo actualizar el evento: ${updateError.message}`);
-      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
-      wrapped.details = updateError;
-      throw wrapped;
+      if (updateError) {
+        const wrapped = new Error(`No se pudo actualizar el evento: ${updateError.message}`);
+        wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+        wrapped.details = updateError;
+        throw wrapped;
+      }
     }
 
     let totalRecipients = 0;
     let notifiedCount = 0;
     let failedCount = 0;
 
-    if (notifyGallery && normalizedPhotoGalleryUrl) {
+    if (shouldUpdatePhotoGalleryUrl && notifyGallery && normalizedPhotoGalleryUrl) {
       const recipientEmails = await getConfirmedRecipientEmails({
         supabase,
         eventId,
@@ -570,14 +698,42 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
     return res.json({
       success: true,
       eventId,
-      photo_gallery_url: normalizedPhotoGalleryUrl || null,
+      photo_gallery_url: shouldUpdatePhotoGalleryUrl
+        ? normalizedPhotoGalleryUrl || null
+        : toNullableString(eventData?.photo_gallery_url),
+      finance_mode: shouldUpdateFinanceMode
+        ? normalizedFinanceMode
+        : normalizeFinanceMode(eventData?.finance_mode, "split_tickets"),
+      finance_fixed_price: shouldUpdateFinanceFixedPrice
+        ? parsedFinanceFixedPrice.value
+        : eventData?.finance_fixed_price ?? null,
+      finance_payment_info: shouldUpdateFinancePaymentInfo
+        ? toNullableString(req.body?.finance_payment_info)
+        : toNullableString(eventData?.finance_payment_info),
+      finance_total_budget: shouldUpdateFinanceTotalBudget
+        ? parsedFinanceTotalBudget.value
+        : eventData?.finance_total_budget ?? null,
       active_modules: shouldUpdateActiveModules
         ? normalizedActiveModules
         : normalizeEventActiveModules(eventData?.active_modules),
       modules_version: shouldUpdateActiveModules ? 1 : Number(eventData?.modules_version || 1),
       resolved_modules: resolveEventModules({
         ...(eventData || {}),
-        photo_gallery_url: normalizedPhotoGalleryUrl || null,
+        photo_gallery_url: shouldUpdatePhotoGalleryUrl
+          ? normalizedPhotoGalleryUrl || null
+          : toNullableString(eventData?.photo_gallery_url),
+        finance_mode: shouldUpdateFinanceMode
+          ? normalizedFinanceMode
+          : normalizeFinanceMode(eventData?.finance_mode, "split_tickets"),
+        finance_fixed_price: shouldUpdateFinanceFixedPrice
+          ? parsedFinanceFixedPrice.value
+          : eventData?.finance_fixed_price ?? null,
+        finance_payment_info: shouldUpdateFinancePaymentInfo
+          ? toNullableString(req.body?.finance_payment_info)
+          : toNullableString(eventData?.finance_payment_info),
+        finance_total_budget: shouldUpdateFinanceTotalBudget
+          ? parsedFinanceTotalBudget.value
+          : eventData?.finance_total_budget ?? null,
         active_modules: shouldUpdateActiveModules
           ? normalizedActiveModules
           : eventData?.active_modules,

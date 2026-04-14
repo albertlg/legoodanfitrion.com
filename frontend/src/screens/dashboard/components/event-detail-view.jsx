@@ -215,6 +215,29 @@ function normalizeExpenseAmount(value) {
   return roundMoneyAmount(parsed);
 }
 
+function normalizeFinanceModeValue(value, fallback = "split_tickets") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["fixed_price", "split_tickets", "corporate_budget"].includes(normalized)) {
+    return normalized;
+  }
+  return fallback;
+}
+
+function parseNullableMoneyInput(value) {
+  if (value == null) {
+    return null;
+  }
+  const normalized = String(value).trim().replace(",", ".");
+  if (!normalized) {
+    return null;
+  }
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  return roundMoneyAmount(parsed);
+}
+
 function normalizeExpenseEntry(expenseItem) {
   if (!expenseItem || typeof expenseItem !== "object") {
     return null;
@@ -449,6 +472,16 @@ export function EventDetailView({
   const [splitExpensePaidBy, setSplitExpensePaidBy] = useState("");
   const [splitHelperMessage, setSplitHelperMessage] = useState("");
   const [splitHelperMessageType, setSplitHelperMessageType] = useState("info");
+  const [financeMode, setFinanceMode] = useState("split_tickets");
+  const [financeFixedPrice, setFinanceFixedPrice] = useState("");
+  const [financePaymentInfo, setFinancePaymentInfo] = useState("");
+  const [financeTotalBudget, setFinanceTotalBudget] = useState("");
+  const [isSavingFinanceConfig, setIsSavingFinanceConfig] = useState(false);
+  const [financeFeedback, setFinanceFeedback] = useState("");
+  const [financeFeedbackType, setFinanceFeedbackType] = useState("info");
+  const [fixedPricePaidInvitationIds, setFixedPricePaidInvitationIds] = useState(() => new Set());
+  const [isLoadingFixedPricePayments, setIsLoadingFixedPricePayments] = useState(false);
+  const [togglingFixedPaymentInvitationId, setTogglingFixedPaymentInvitationId] = useState("");
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [cohostEmailDraft, setCohostEmailDraft] = useState("");
   const [cohosts, setCohosts] = useState([]);
@@ -568,14 +601,19 @@ export function EventDetailView({
     if (confirmedGuestNames.length > 0) {
       return Array.from(new Set(confirmedGuestNames));
     }
-    return Array.from(
+    const fallbackParticipants = Array.from(
       new Set(
         (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
           .map((guestRow) => String(guestRow?.name || "").trim())
           .filter(Boolean)
       )
     );
-  }, [confirmedGuestNames, selectedEventDetailGuests]);
+    if (fallbackParticipants.length > 0) {
+      return fallbackParticipants;
+    }
+    const fallbackHostName = String(hostDisplayName || t("host_default_name")).trim();
+    return fallbackHostName ? [fallbackHostName] : [];
+  }, [confirmedGuestNames, hostDisplayName, selectedEventDetailGuests, t]);
   const splitTotalGuests = confirmedGuestsCount > 0 ? confirmedGuestsCount : 0;
   const splitDefaultPayer = splitParticipants[0] || "";
   const splitTotalAmount = roundMoneyAmount(
@@ -587,6 +625,29 @@ export function EventDetailView({
     () => calculateDebts(splitExpenses, splitTotalGuests, splitParticipants),
     [splitExpenses, splitTotalGuests, splitParticipants]
   );
+  const fixedPriceGuests = useMemo(
+    () =>
+      (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
+        .filter((guestRow) => String(guestRow?.invitation?.status || "").trim().toLowerCase() === "yes")
+        .map((guestRow) => {
+          const invitationId = String(guestRow?.invitation?.id || "").trim();
+          return {
+            invitationId,
+            name: String(guestRow?.name || t("field_guest")).trim() || t("field_guest"),
+            contact: resolveGuestRecipientEmail(guestRow) || String(guestRow?.contact || "").trim()
+          };
+        })
+        .filter((guestRow) => Boolean(guestRow.invitationId)),
+    [selectedEventDetailGuests, t]
+  );
+  const fixedPricePaidCount = useMemo(
+    () => fixedPriceGuests.filter((guestRow) => fixedPricePaidInvitationIds.has(guestRow.invitationId)).length,
+    [fixedPriceGuests, fixedPricePaidInvitationIds]
+  );
+  const fixedPricePendingCount = Math.max(0, fixedPriceGuests.length - fixedPricePaidCount);
+  const fixedPriceAmount = Number(parseNullableMoneyInput(financeFixedPrice) || 0);
+  const fixedPriceCollectedAmount = roundMoneyAmount(fixedPricePaidCount * fixedPriceAmount);
+  const fixedPricePendingAmount = roundMoneyAmount(fixedPricePendingCount * fixedPriceAmount);
   const splitSettlementShareText = useMemo(() => {
     const eventTitle = String(selectedEventDetail?.title || t("field_event")).trim();
     const totalLabel = `${formatMoneyAmount(splitTotalAmount, language)} €`;
@@ -626,7 +687,25 @@ export function EventDetailView({
     setSplitExpensePaidBy("");
     setSplitHelperMessage("");
     setSplitHelperMessageType("info");
-  }, [selectedEventDetail?.id, selectedEventDetail?.expenses]);
+    setFinanceMode(normalizeFinanceModeValue(selectedEventDetail?.finance_mode, "split_tickets"));
+    setFinanceFixedPrice(
+      selectedEventDetail?.finance_fixed_price == null ? "" : String(selectedEventDetail.finance_fixed_price)
+    );
+    setFinancePaymentInfo(String(selectedEventDetail?.finance_payment_info || "").trim());
+    setFinanceTotalBudget(
+      selectedEventDetail?.finance_total_budget == null ? "" : String(selectedEventDetail.finance_total_budget)
+    );
+    setFinanceFeedback("");
+    setFinanceFeedbackType("info");
+    setIsSavingFinanceConfig(false);
+  }, [
+    selectedEventDetail?.id,
+    selectedEventDetail?.expenses,
+    selectedEventDetail?.finance_mode,
+    selectedEventDetail?.finance_fixed_price,
+    selectedEventDetail?.finance_payment_info,
+    selectedEventDetail?.finance_total_budget
+  ]);
 
   useEffect(() => {
     setEventPhotoGalleryUrlDraft(String(selectedEventDetail?.photo_gallery_url || "").trim());
@@ -665,6 +744,48 @@ export function EventDetailView({
     setIsCalendarMenuOpen(false);
     setIsEventAdminMenuOpen(false);
   }, [selectedEventDetail?.id]);
+
+  const loadFixedPricePayments = useCallback(async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    if (!eventId || !supabase) {
+      setFixedPricePaidInvitationIds(new Set());
+      setIsLoadingFixedPricePayments(false);
+      return;
+    }
+
+    setIsLoadingFixedPricePayments(true);
+    try {
+      const { data, error } = await supabase
+        .from("event_fixed_price_payments")
+        .select("invitation_id")
+        .eq("event_id", eventId);
+
+      if (error) {
+        const errorCode = String(error.code || "").trim();
+        if (errorCode !== "42P01") {
+          console.error("[event-finance] load fixed payments error", error);
+        }
+        setFixedPricePaidInvitationIds(new Set());
+        return;
+      }
+
+      const paidIds = new Set(
+        (Array.isArray(data) ? data : [])
+          .map((row) => String(row?.invitation_id || "").trim())
+          .filter(Boolean)
+      );
+      setFixedPricePaidInvitationIds(paidIds);
+    } catch (error) {
+      console.error("[event-finance] load fixed payments error", error);
+      setFixedPricePaidInvitationIds(new Set());
+    } finally {
+      setIsLoadingFixedPricePayments(false);
+    }
+  }, [selectedEventDetail?.id]);
+
+  useEffect(() => {
+    void loadFixedPricePayments();
+  }, [loadFixedPricePayments]);
 
   const loadEventSpotifyPlaylist = useCallback(async () => {
     const eventId = String(selectedEventDetail?.id || "").trim();
@@ -1696,6 +1817,109 @@ export function EventDetailView({
     }
   };
 
+  const handleSaveFinanceConfig = async () => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    if (!supabase || !eventId) {
+      return;
+    }
+
+    const payload = {
+      finance_mode: normalizeFinanceModeValue(financeMode, "split_tickets"),
+      finance_fixed_price: parseNullableMoneyInput(financeFixedPrice),
+      finance_payment_info: String(financePaymentInfo || "").trim() || null,
+      finance_total_budget: parseNullableMoneyInput(financeTotalBudget)
+    };
+
+    setIsSavingFinanceConfig(true);
+    setFinanceFeedback("");
+    setFinanceFeedbackType("info");
+
+    try {
+      const { error } = await supabase.from("events").update(payload).eq("id", eventId);
+      if (error) {
+        throw error;
+      }
+
+      setFinanceFeedbackType("success");
+      setFinanceFeedback(t("event_finance_save_success"));
+      if (typeof loadDashboardData === "function") {
+        await loadDashboardData();
+      }
+    } catch (error) {
+      console.error("[event-finance] save config error", error);
+      setFinanceFeedbackType("error");
+      setFinanceFeedback(t("event_finance_save_error"));
+    } finally {
+      setIsSavingFinanceConfig(false);
+    }
+  };
+
+  const handleToggleFixedPriceGuestPaid = async (invitationId, shouldMarkPaid) => {
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    const hostUserId = String(selectedEventDetail?.host_user_id || "").trim();
+    const normalizedInvitationId = String(invitationId || "").trim();
+
+    if (!supabase || !eventId || !hostUserId || !normalizedInvitationId || togglingFixedPaymentInvitationId) {
+      return;
+    }
+
+    const wasPaid = fixedPricePaidInvitationIds.has(normalizedInvitationId);
+    setTogglingFixedPaymentInvitationId(normalizedInvitationId);
+    setFinanceFeedback("");
+    setFinanceFeedbackType("info");
+
+    setFixedPricePaidInvitationIds((current) => {
+      const next = new Set(current);
+      if (shouldMarkPaid) {
+        next.add(normalizedInvitationId);
+      } else {
+        next.delete(normalizedInvitationId);
+      }
+      return next;
+    });
+
+    try {
+      if (shouldMarkPaid) {
+        const { error } = await supabase.from("event_fixed_price_payments").upsert(
+          {
+            event_id: eventId,
+            host_user_id: hostUserId,
+            invitation_id: normalizedInvitationId,
+            paid_at: new Date().toISOString()
+          },
+          { onConflict: "event_id,invitation_id" }
+        );
+        if (error) {
+          throw error;
+        }
+      } else {
+        const { error } = await supabase
+          .from("event_fixed_price_payments")
+          .delete()
+          .eq("event_id", eventId)
+          .eq("invitation_id", normalizedInvitationId);
+        if (error) {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error("[event-finance] toggle paid error", error);
+      setFixedPricePaidInvitationIds((current) => {
+        const rollback = new Set(current);
+        if (wasPaid) {
+          rollback.add(normalizedInvitationId);
+        } else {
+          rollback.delete(normalizedInvitationId);
+        }
+        return rollback;
+      });
+      setFinanceFeedbackType("error");
+      setFinanceFeedback(t("event_finance_payment_toggle_error"));
+    } finally {
+      setTogglingFixedPaymentInvitationId("");
+    }
+  };
+
   const handleAddSplitExpense = () => {
     const description = String(splitExpenseDescription || "").trim();
     const paidBy = String(splitExpensePaidBy || "").trim();
@@ -2077,6 +2301,27 @@ export function EventDetailView({
     splitDebts,
     handleShareSettlementWhatsApp,
     splitHelperMessageType,
+    financeMode,
+    setFinanceMode,
+    financeFixedPrice,
+    setFinanceFixedPrice,
+    financePaymentInfo,
+    setFinancePaymentInfo,
+    financeTotalBudget,
+    setFinanceTotalBudget,
+    handleSaveFinanceConfig,
+    isSavingFinanceConfig,
+    financeFeedback,
+    financeFeedbackType,
+    fixedPriceGuests,
+    fixedPricePaidInvitationIds,
+    isLoadingFixedPricePayments,
+    togglingFixedPaymentInvitationId,
+    handleToggleFixedPriceGuestPaid,
+    fixedPricePaidCount,
+    fixedPricePendingCount,
+    fixedPriceCollectedAmount,
+    fixedPricePendingAmount,
     eventPhotoGalleryUrlDraft,
     setEventPhotoGalleryUrlDraft,
     handleSaveEventPhotoGalleryUrl,
