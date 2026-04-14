@@ -41,6 +41,7 @@ function buildTemplateModules(enabledKeys = [], { useDefaults = false } = {}) {
 export const EVENT_TEMPLATES = Object.freeze({
   dinner: Object.freeze({
     key: "dinner",
+    audience: "personal",
     titleKey: "event_template_preset_dinner_title",
     descriptionKey: "event_template_preset_dinner_description",
     icon: "utensils",
@@ -54,6 +55,7 @@ export const EVENT_TEMPLATES = Object.freeze({
   }),
   weekend: Object.freeze({
     key: "weekend",
+    audience: "personal",
     titleKey: "event_template_preset_weekend_title",
     descriptionKey: "event_template_preset_weekend_description",
     icon: "location",
@@ -67,6 +69,7 @@ export const EVENT_TEMPLATES = Object.freeze({
   }),
   party: Object.freeze({
     key: "party",
+    audience: "personal",
     titleKey: "event_template_preset_party_title",
     descriptionKey: "event_template_preset_party_description",
     icon: "sparkle",
@@ -78,8 +81,51 @@ export const EVENT_TEMPLATES = Object.freeze({
     playlistMode: "spotify_collaborative",
     modules: Object.freeze(buildTemplateModules(["spotify", "megaphone", "gallery"]))
   }),
+  team_building: Object.freeze({
+    key: "team_building",
+    audience: "professional",
+    titleKey: "event_template_preset_team_building_title",
+    descriptionKey: "event_template_preset_team_building_description",
+    icon: "users",
+    suggestedTypeCode: "networking",
+    suggestedHour: 10,
+    scheduleMode: "tbd",
+    allowPlusOne: false,
+    dressCode: "casual",
+    playlistMode: "host_only",
+    modules: Object.freeze(buildTemplateModules(["date_poll", "venues", "icebreaker"]))
+  }),
+  all_hands: Object.freeze({
+    key: "all_hands",
+    audience: "professional",
+    titleKey: "event_template_preset_all_hands_title",
+    descriptionKey: "event_template_preset_all_hands_description",
+    icon: "message",
+    suggestedTypeCode: "networking",
+    suggestedHour: 11,
+    scheduleMode: "fixed",
+    allowPlusOne: false,
+    dressCode: "none",
+    playlistMode: "host_only",
+    modules: Object.freeze(buildTemplateModules(["megaphone", "icebreaker"]))
+  }),
+  corporate_dinner: Object.freeze({
+    key: "corporate_dinner",
+    audience: "professional",
+    titleKey: "event_template_preset_corporate_dinner_title",
+    descriptionKey: "event_template_preset_corporate_dinner_description",
+    icon: "utensils",
+    suggestedTypeCode: "cocktail",
+    suggestedHour: 20,
+    scheduleMode: "fixed",
+    allowPlusOne: false,
+    dressCode: "elegant",
+    playlistMode: "host_only",
+    modules: Object.freeze(buildTemplateModules(["venues", "megaphone"]))
+  }),
   custom: Object.freeze({
     key: "custom",
+    audience: "both",
     titleKey: "event_template_preset_custom_title",
     descriptionKey: "event_template_preset_custom_description",
     icon: "settings",

@@ -5116,6 +5116,27 @@ function DashboardScreen({
     setEventPlaylistMode(templateItem.playlistMode || "host_only");
   };
 
+  const handleChangeEventTemplateAudience = useCallback(
+    (nextAudience) => {
+      const normalizedAudience = String(nextAudience || "").trim().toLowerCase() === "professional"
+        ? "professional"
+        : "personal";
+      const selectedTemplate = eventTemplates.find((item) => item.key === eventTemplateKey);
+      if (!selectedTemplate) {
+        return;
+      }
+      const selectedTemplateAudience = String(selectedTemplate.audience || "personal").trim().toLowerCase();
+      const isCompatibleWithAudience =
+        selectedTemplateAudience === "both" || selectedTemplateAudience === normalizedAudience;
+      if (isCompatibleWithAudience) {
+        return;
+      }
+      setEventTemplateKey("");
+      setEventActiveModules({ ...EVENT_MODULE_DEFAULTS });
+    },
+    [eventTemplateKey, eventTemplates]
+  );
+
   const handleApplySuggestedEventSettings = () => {
     let changedCount = 0;
     if (eventBuilderSuggestedSettings.allowPlusOne && !eventAllowPlusOne) {
@@ -9183,6 +9204,7 @@ function DashboardScreen({
               eventTemplates,
               activeEventTemplateKey,
               handleApplyEventTemplate,
+              handleChangeEventTemplateAudience,
               eventTitle,
               setEventTitle,
               eventErrors,

@@ -606,6 +606,7 @@ export function EventBuilderWizardView(props) {
         eventTemplates,
         activeEventTemplateKey,
         handleApplyEventTemplate,
+        handleChangeEventTemplateAudience,
         eventTitle,
         setEventTitle,
         eventErrors,
@@ -648,15 +649,32 @@ export function EventBuilderWizardView(props) {
     } = props;
 
     const [currentStep, setCurrentStep] = React.useState(1);
+    const [templateAudienceTab, setTemplateAudienceTab] = React.useState("personal");
     const totalSteps = 2;
+    const visibleTemplates = React.useMemo(
+        () =>
+            (Array.isArray(eventTemplates) ? eventTemplates : []).filter((templateItem) => {
+                const audience = String(templateItem?.audience || "personal").trim().toLowerCase();
+                return audience === "both" || audience === templateAudienceTab;
+            }),
+        [eventTemplates, templateAudienceTab]
+    );
 
     const handleNext = () => setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
     const handleBack = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+    const handleAudienceTabChange = (nextAudience) => {
+        const normalizedAudience = String(nextAudience || "").trim().toLowerCase() === "professional"
+            ? "professional"
+            : "personal";
+        setTemplateAudienceTab(normalizedAudience);
+        if (typeof handleChangeEventTemplateAudience === "function") {
+            handleChangeEventTemplateAudience(normalizedAudience);
+        }
+    };
     const handleTemplateSelection = (event, templateKey) => {
         event.preventDefault();
         event.stopPropagation();
         handleApplyEventTemplate(templateKey);
-        setCurrentStep(2);
     };
     const handleWizardSubmit = (event) => {
         if (currentStep < totalSteps) {
@@ -698,8 +716,32 @@ export function EventBuilderWizardView(props) {
                             {t("event_onboarding_templates_title")}
                         </p>
                         <p className="text-xs text-blue-800/70 dark:text-blue-200/70">{t("event_onboarding_templates_hint")}</p>
+                        <div className="inline-flex w-full sm:w-auto rounded-xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 p-1 gap-1">
+                            <button
+                                type="button"
+                                onClick={() => handleAudienceTabChange("personal")}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${templateAudienceTab === "personal"
+                                        ? "bg-blue-600 text-white"
+                                        : "text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
+                                    }`}
+                                aria-pressed={templateAudienceTab === "personal"}
+                            >
+                                {t("event_onboarding_tab_personal")}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleAudienceTabChange("professional")}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${templateAudienceTab === "professional"
+                                        ? "bg-blue-600 text-white"
+                                        : "text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
+                                    }`}
+                                aria-pressed={templateAudienceTab === "professional"}
+                            >
+                                {t("event_onboarding_tab_professional")}
+                            </button>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-                            {eventTemplates.map((templateItem) => (
+                            {visibleTemplates.map((templateItem) => (
                                 <button
                                     key={templateItem.key}
                                     type="button"
