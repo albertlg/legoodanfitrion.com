@@ -36,9 +36,9 @@ function EventsWorkspaceContainer(props) {
       ) : (
         <div key={`events-${routeEventsWorkspace}`} className="dashboard-grid single-section workspace-content">
           {routeEventsWorkspace === "create" ? (
-            (!props.events || props.events.length === 0)
-              ? <EventBuilderWizardView {...props} /> // Asistente para el primer evento
-              : <EventBuilderView {...props} />       // Formulario avanzado para los siguientes
+            props.isEditingEvent
+              ? <EventBuilderView {...props} />
+              : <EventBuilderWizardView {...props} />
           ) : null}
 
           {routeEventsWorkspace === "latest" ? (

@@ -37,7 +37,7 @@ import {
   GUEST_ADVANCED_PRIORITY_SECTION_MAP, GUEST_ADVANCED_ERROR_FIELDS_BY_TAB, DASHBOARD_PREFS_KEY_PREFIX,
   EVENT_SETTINGS_STORAGE_KEY_PREFIX, GUEST_GEO_CACHE_KEY_PREFIX, EVENT_DRESS_CODE_OPTIONS,
   EVENT_PLAYLIST_OPTIONS, CITY_OPTIONS_BY_LANGUAGE, COUNTRY_OPTIONS_BY_LANGUAGE, WORKSPACE_ITEMS,
-  EVENT_TEMPLATE_DEFINITIONS, GUEST_ADVANCED_INITIAL_STATE
+  GUEST_ADVANCED_INITIAL_STATE
 } from "../lib/constants";
 
 import {
@@ -68,6 +68,13 @@ import {
   buildEventPlannerContext, buildEventMealPlan, applyPlannerOverrides, buildEventPlannerPromptBundle,
   buildEventHostPlaybook
 } from "../lib/event-planner-helpers";
+import {
+  EVENT_MODULE_DEFAULTS,
+  EVENT_MODULE_KEYS,
+  EVENT_TEMPLATE_LIST,
+  getEventTemplateModules,
+  normalizeEventActiveModules
+} from "../lib/event-modules";
 
 import {
   isCompatibilityError, isMissingRelationError, isMissingDbFeatureError, readEventSettingsCache,
@@ -123,6 +130,28 @@ function toPlannerArray(value) {
 
 function toPlannerObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function resolveEventTemplateKeyFromModules(moduleMap) {
+  const normalizedModules = {
+    ...EVENT_MODULE_DEFAULTS,
+    ...normalizeEventActiveModules(moduleMap)
+  };
+
+  for (const templateItem of EVENT_TEMPLATE_LIST) {
+    if (templateItem.key === "custom") {
+      continue;
+    }
+    const templateModules = getEventTemplateModules(templateItem.key);
+    const isMatch = EVENT_MODULE_KEYS.every(
+      (moduleKey) => Boolean(normalizedModules[moduleKey]) === Boolean(templateModules[moduleKey])
+    );
+    if (isMatch) {
+      return templateItem.key;
+    }
+  }
+
+  return "custom";
 }
 
 function normalizeAiPlannerResult(aiPayload, { fallbackSections = {}, fallbackAlerts = {} } = {}) {
@@ -401,6 +430,8 @@ function DashboardScreen({
   const [eventAutoReminders, setEventAutoReminders] = useState(false);
   const [eventDressCode, setEventDressCode] = useState("none");
   const [eventPlaylistMode, setEventPlaylistMode] = useState("host_only");
+  const [eventTemplateKey, setEventTemplateKey] = useState("custom");
+  const [eventActiveModules, setEventActiveModules] = useState(() => getEventTemplateModules("custom"));
   const [mapsStatus, setMapsStatus] = useState(isGoogleMapsConfigured() ? "loading" : "unconfigured");
   const [mapsError, setMapsError] = useState("");
   const [addressPredictions, setAddressPredictions] = useState([]);
@@ -1643,17 +1674,15 @@ function DashboardScreen({
   );
   const eventTemplates = useMemo(
     () =>
-      EVENT_TEMPLATE_DEFINITIONS.map((templateItem) => ({
+      EVENT_TEMPLATE_LIST.map((templateItem) => ({
         ...templateItem,
-        eventTypeLabel: toCatalogLabel("experience_type", templateItem.typeCode, language)
+        eventTypeLabel: templateItem.suggestedTypeCode
+          ? toCatalogLabel("experience_type", templateItem.suggestedTypeCode, language)
+          : ""
       })),
     [language]
   );
-  const activeEventTemplateKey = useMemo(() => {
-    const normalizedEventTypeCode = toCatalogCode("experience_type", eventType);
-    const matchedTemplate = eventTemplates.find((templateItem) => templateItem.typeCode === normalizedEventTypeCode) || null;
-    return matchedTemplate?.key || "";
-  }, [eventTemplates, eventType]);
+  const activeEventTemplateKey = eventTemplateKey;
   const relationshipOptions = useMemo(() => {
     const normalizeRelationshipOptionKey = (value) =>
       normalizeLookupValue(String(value || "").replace(/\s+/g, " ").trim());
@@ -5052,17 +5081,34 @@ function DashboardScreen({
     if (!templateItem) {
       return;
     }
-    setEventType(templateItem.eventTypeLabel || toCatalogLabel("experience_type", templateItem.typeCode, language));
+    const nextTemplateKey = String(templateItem.key || "custom").trim().toLowerCase() || "custom";
+    const suggestedType = templateItem.eventTypeLabel || "";
+    const suggestedHour = Number(templateItem.suggestedHour || 19);
+    const scheduleMode = String(templateItem.scheduleMode || "fixed").trim().toLowerCase();
+    const isDatePollTemplate = scheduleMode === "tbd";
+
+    setEventTemplateKey(nextTemplateKey);
+    setEventActiveModules(getEventTemplateModules(nextTemplateKey));
+    setEventType(suggestedType);
     setEventStatus("draft");
     setEventErrors((prev) => ({ ...prev, eventType: undefined, title: undefined }));
     setEventMessage(`${t("event_template_applied")} ${t(templateItem.titleKey)}`);
     if (!String(eventTitle || "").trim() || !isEditingEvent) {
       setEventTitle(t(templateItem.titleKey));
     }
-    if (!eventStartAt) {
-      setEventStartAt(getSuggestedEventDateTime(templateItem.defaultHour));
+    if (!isDatePollTemplate && !eventStartAt) {
+      setEventStartAt(getSuggestedEventDateTime(suggestedHour));
     }
-    setEventEndAt("");
+    if (isDatePollTemplate) {
+      setEventSchedulingMode("tbd");
+      setEventStartAt("");
+      setEventEndAt("");
+      setEventIsMultiDay(false);
+    } else {
+      setEventSchedulingMode("fixed");
+      setEventEndAt("");
+      setEventIsMultiDay(false);
+    }
     setEventIsMultiDay(false);
     setEventAutoReminders(true);
     setEventAllowPlusOne(Boolean(templateItem.allowPlusOne));
@@ -6296,6 +6342,14 @@ function DashboardScreen({
       scheduleMode === "tbd" ||
       pollStatus === "open" ||
       (!pollStatus && existingDatePollOptions.length > 0 && !eventItem.start_at);
+    const nextResolvedModules = {
+      ...EVENT_MODULE_DEFAULTS,
+      ...(eventItem?.resolved_modules && typeof eventItem.resolved_modules === "object"
+        ? eventItem.resolved_modules
+        : {}),
+      ...normalizeEventActiveModules(eventItem?.active_modules)
+    };
+    const nextTemplateKey = resolveEventTemplateKeyFromModules(nextResolvedModules);
     setEventSchedulingMode(isDatePollEvent ? "tbd" : "fixed");
     setEventPollOptionDraft("");
     setEventPollOptions(existingDatePollOptions);
@@ -6308,6 +6362,8 @@ function DashboardScreen({
     setEventAutoReminders(eventSettings.auto_reminders);
     setEventDressCode(eventSettings.dress_code);
     setEventPlaylistMode(eventSettings.playlist_mode);
+    setEventActiveModules(nextResolvedModules);
+    setEventTemplateKey(nextTemplateKey);
     setSelectedPlace(
       eventItem.location_address || eventItem.location_place_id || eventItem.location_lat != null || eventItem.location_lng != null
         ? {
@@ -6341,6 +6397,8 @@ function DashboardScreen({
     setEventAutoReminders(false);
     setEventDressCode("none");
     setEventPlaylistMode("host_only");
+    setEventTemplateKey("custom");
+    setEventActiveModules(getEventTemplateModules("custom"));
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventErrors({});
@@ -6429,6 +6487,7 @@ function DashboardScreen({
 
     setEventErrors({});
     setIsSavingEvent(true);
+    const normalizedActiveModules = normalizeEventActiveModules(eventActiveModules);
     const normalizedSettings = normalizeEventSettings({
       description: eventDescription,
       allow_plus_one: eventAllowPlusOne,
@@ -6456,7 +6515,9 @@ function DashboardScreen({
       location_address: toNullable(normalizedAddress),
       location_place_id: selectedPlace?.placeId || null,
       location_lat: selectedPlace?.lat ?? null,
-      location_lng: selectedPlace?.lng ?? null
+      location_lng: selectedPlace?.lng ?? null,
+      active_modules: normalizedActiveModules,
+      modules_version: 1
     };
     const fallbackPayload = {
       title: eventTitle.trim(),
@@ -6510,7 +6571,9 @@ function DashboardScreen({
         error.message?.toLowerCase().includes("end_at") ||
         error.message?.toLowerCase().includes("location_place_id") ||
         error.message?.toLowerCase().includes("location_lat") ||
-        error.message?.toLowerCase().includes("location_lng"))
+        error.message?.toLowerCase().includes("location_lng") ||
+        error.message?.toLowerCase().includes("active_modules") ||
+        error.message?.toLowerCase().includes("modules_version"))
     ) {
       const fallbackResult = isEditingEvent
         ? await supabase.from("events").update(fallbackPayload).eq("id", editingEventId).select("id").maybeSingle()
@@ -6593,6 +6656,8 @@ function DashboardScreen({
     setEventAutoReminders(false);
     setEventDressCode("none");
     setEventPlaylistMode("host_only");
+    setEventTemplateKey("custom");
+    setEventActiveModules(getEventTemplateModules("custom"));
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventMessage(t("event_created"));
@@ -6847,6 +6912,8 @@ function DashboardScreen({
     setEventSchedulingMode("fixed");
     setEventLocationName("");
     setEventLocationAddress(guestAdvanced.address || "");
+    setEventTemplateKey("custom");
+    setEventActiveModules(getEventTemplateModules("custom"));
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventMessage(t("birthday_event_prefilled"));

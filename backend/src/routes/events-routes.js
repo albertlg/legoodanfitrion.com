@@ -20,6 +20,30 @@ function normalizeLocale(value) {
   return ["es", "ca", "en", "fr", "it"].includes(base) ? base : "es";
 }
 
+function toNullableString(value) {
+  const normalized = toSafeString(value);
+  return normalized || null;
+}
+
+function toBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "si", "sí"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no"].includes(normalized)) {
+      return false;
+    }
+  }
+  return Boolean(fallback);
+}
+
 function isValidEmail(value) {
   const normalized = toSafeString(value).toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
@@ -306,6 +330,106 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
   } catch (error) {
     console.error("[event-broadcast] route error:", error?.details || error?.message || error);
     return sendRouteError(res, error, "No se pudo enviar el mensaje masivo.");
+  }
+});
+
+router.post("/", requireAuthenticatedUser, async (req, res) => {
+  const requesterId = toSafeString(req.authUser?.id);
+  const title = toSafeString(req.body?.title);
+  const locale = normalizeLocale(req.body?.content_language || req.body?.locale);
+  const activeModulesInput = req.body?.active_modules;
+
+  if (!requesterId || !title) {
+    return sendRouteError(
+      res,
+      {
+        code: "EVENT_BROADCAST_BAD_REQUEST",
+        message: "title es obligatorio."
+      },
+      "Faltan datos para crear el evento."
+    );
+  }
+
+  if (
+    activeModulesInput != null &&
+    (typeof activeModulesInput !== "object" || Array.isArray(activeModulesInput))
+  ) {
+    return sendRouteError(
+      res,
+      { code: "EVENT_BROADCAST_BAD_REQUEST", message: "active_modules debe ser un objeto JSON." },
+      "Formato de módulos inválido."
+    );
+  }
+
+  const normalizedActiveModules =
+    activeModulesInput == null ? null : normalizeEventActiveModules(activeModulesInput);
+  const scheduleMode = toSafeString(req.body?.schedule_mode).toLowerCase() === "tbd" ? "tbd" : "fixed";
+  const normalizedPollStatus = toSafeString(req.body?.poll_status).toLowerCase();
+
+  const insertPayload = {
+    host_user_id: requesterId,
+    title,
+    event_type: toNullableString(req.body?.event_type),
+    status: toSafeString(req.body?.status) || "draft",
+    description: toNullableString(req.body?.description),
+    allow_plus_one: toBoolean(req.body?.allow_plus_one, false),
+    auto_reminders: toBoolean(req.body?.auto_reminders, false),
+    dress_code: toSafeString(req.body?.dress_code) || "none",
+    playlist_mode: toSafeString(req.body?.playlist_mode) || "host_only",
+    schedule_mode: scheduleMode,
+    poll_status: normalizedPollStatus || (scheduleMode === "tbd" ? "open" : "closed"),
+    content_language: locale,
+    start_at: req.body?.start_at || null,
+    end_at: req.body?.end_at || null,
+    timezone: toSafeString(req.body?.timezone) || "Europe/Madrid",
+    location_name: toNullableString(req.body?.location_name),
+    location_address: toNullableString(req.body?.location_address),
+    location_place_id: toNullableString(req.body?.location_place_id),
+    location_lat: typeof req.body?.location_lat === "number" ? req.body.location_lat : null,
+    location_lng: typeof req.body?.location_lng === "number" ? req.body.location_lng : null,
+    photo_gallery_url: toNullableString(req.body?.photo_gallery_url)
+  };
+
+  if (normalizedActiveModules) {
+    insertPayload.active_modules = normalizedActiveModules;
+    insertPayload.modules_version = 1;
+  }
+
+  let supabase = null;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return sendRouteError(res, error, "El backend no está configurado correctamente.");
+  }
+
+  try {
+    const { data: createdEvent, error: createError } = await supabase
+      .from("events")
+      .insert(insertPayload)
+      .select(
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+      )
+      .single();
+
+    if (createError || !createdEvent?.id) {
+      const wrapped = new Error(`No se pudo crear el evento: ${createError?.message || "unknown_error"}`);
+      wrapped.code = "EVENT_BROADCAST_DB_ERROR";
+      wrapped.details = createError;
+      throw wrapped;
+    }
+
+    return res.status(201).json({
+      success: true,
+      event: {
+        ...createdEvent,
+        active_modules: normalizeEventActiveModules(createdEvent.active_modules),
+        modules_version: Number(createdEvent.modules_version || 1),
+        resolved_modules: resolveEventModules(createdEvent)
+      }
+    });
+  } catch (error) {
+    console.error("[event-create] route error:", error?.details || error?.message || error);
+    return sendRouteError(res, error, "No se pudo crear el evento.");
   }
 });
 

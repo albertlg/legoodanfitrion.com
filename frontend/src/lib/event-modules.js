@@ -24,6 +24,83 @@ export const EVENT_MODULE_DEFAULTS = Object.freeze({
   icebreaker: true
 });
 
+const EVENT_MODULES_ALL_OFF = Object.freeze(
+  Object.fromEntries(MODULE_KEYS.map((key) => [key, false]))
+);
+
+function buildTemplateModules(enabledKeys = [], { useDefaults = false } = {}) {
+  const base = useDefaults ? { ...EVENT_MODULE_DEFAULTS } : { ...EVENT_MODULES_ALL_OFF };
+  for (const key of enabledKeys) {
+    if (Object.prototype.hasOwnProperty.call(base, key)) {
+      base[key] = true;
+    }
+  }
+  return base;
+}
+
+export const EVENT_TEMPLATES = Object.freeze({
+  dinner: Object.freeze({
+    key: "dinner",
+    titleKey: "event_template_preset_dinner_title",
+    descriptionKey: "event_template_preset_dinner_description",
+    icon: "utensils",
+    suggestedTypeCode: "family_lunch",
+    suggestedHour: 20,
+    scheduleMode: "tbd",
+    allowPlusOne: true,
+    dressCode: "none",
+    playlistMode: "host_only",
+    modules: Object.freeze(buildTemplateModules(["date_poll"]))
+  }),
+  weekend: Object.freeze({
+    key: "weekend",
+    titleKey: "event_template_preset_weekend_title",
+    descriptionKey: "event_template_preset_weekend_description",
+    icon: "location",
+    suggestedTypeCode: "outdoor_meetup",
+    suggestedHour: 11,
+    scheduleMode: "fixed",
+    allowPlusOne: true,
+    dressCode: "casual",
+    playlistMode: "host_only",
+    modules: Object.freeze(buildTemplateModules(["finance", "venues", "icebreaker"]))
+  }),
+  party: Object.freeze({
+    key: "party",
+    titleKey: "event_template_preset_party_title",
+    descriptionKey: "event_template_preset_party_description",
+    icon: "sparkle",
+    suggestedTypeCode: "party",
+    suggestedHour: 21,
+    scheduleMode: "fixed",
+    allowPlusOne: true,
+    dressCode: "themed",
+    playlistMode: "spotify_collaborative",
+    modules: Object.freeze(buildTemplateModules(["spotify", "megaphone", "gallery"]))
+  }),
+  custom: Object.freeze({
+    key: "custom",
+    titleKey: "event_template_preset_custom_title",
+    descriptionKey: "event_template_preset_custom_description",
+    icon: "settings",
+    suggestedTypeCode: "",
+    suggestedHour: 19,
+    scheduleMode: "fixed",
+    allowPlusOne: false,
+    dressCode: "none",
+    playlistMode: "host_only",
+    modules: Object.freeze(buildTemplateModules([], { useDefaults: true }))
+  })
+});
+
+export const EVENT_TEMPLATE_LIST = Object.freeze(
+  Object.values(EVENT_TEMPLATES)
+);
+
+export const EVENT_TEMPLATE_KEYS = Object.freeze(
+  EVENT_TEMPLATE_LIST.map((templateItem) => templateItem.key)
+);
+
 function toObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -56,6 +133,17 @@ export function normalizeEventActiveModules(input) {
   }
 
   return normalized;
+}
+
+export function getEventTemplateModules(templateKey, { useAllOffForCustom = false } = {}) {
+  const normalizedKey = String(templateKey || "").trim().toLowerCase();
+  const template = EVENT_TEMPLATES[normalizedKey] || EVENT_TEMPLATES.custom;
+
+  if (template.key === "custom" && useAllOffForCustom) {
+    return { ...EVENT_MODULES_ALL_OFF };
+  }
+
+  return normalizeEventActiveModules(template.modules);
 }
 
 export function inferLegacyEventModules(event, hints = {}) {

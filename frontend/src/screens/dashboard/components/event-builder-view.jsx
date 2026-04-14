@@ -599,51 +599,89 @@ export function EventBuilderView({
 
 // 🚀 NUEVO COMPONENTE: El Asistente Paso a Paso (Pégalo debajo de EventBuilderView)
 export function EventBuilderWizardView(props) {
-    // Extraemos de las props solo lo que necesitamos para el renderizado condicional y los textos
     const {
-        t, handleSaveEvent, isSavingEvent, eventTemplates, activeEventTemplateKey,
-        handleApplyEventTemplate, eventTitle, setEventTitle, eventErrors,
-        eventDescription, setEventDescription, eventType, setEventType,
-        eventTypeOptions, eventStatus, eventStartAt,
-        setEventStartAt, eventEndAt, setEventEndAt, eventIsMultiDay, setEventIsMultiDay,
-        eventSchedulingMode, setEventSchedulingMode,
-        eventPollOptionDraft, setEventPollOptionDraft, eventPollOptions,
-        handleAddEventPollOption, handleUpdateEventPollOption, handleRemoveEventPollOption,
-        eventLocationName, setEventLocationName,
-        eventLocationAddress, setEventLocationAddress, mapsStatus,
-        addressPredictions, isAddressLoading, handleSelectAddressPrediction,
-        selectedPlace, getMapEmbedUrl, eventAllowPlusOne, setEventAllowPlusOne,
-        eventAutoReminders, setEventAutoReminders, eventMessage, locationNameOptions,
+        t,
+        handleSaveEvent,
+        isSavingEvent,
+        eventTemplates,
+        activeEventTemplateKey,
+        handleApplyEventTemplate,
+        eventTitle,
+        setEventTitle,
+        eventErrors,
+        eventDescription,
+        setEventDescription,
+        eventType,
+        setEventType,
+        eventTypeOptions,
+        eventStartAt,
+        setEventStartAt,
+        eventEndAt,
+        setEventEndAt,
+        eventIsMultiDay,
+        setEventIsMultiDay,
+        eventSchedulingMode,
+        setEventSchedulingMode,
+        eventPollOptionDraft,
+        setEventPollOptionDraft,
+        eventPollOptions,
+        handleAddEventPollOption,
+        handleUpdateEventPollOption,
+        handleRemoveEventPollOption,
+        eventLocationName,
+        setEventLocationName,
+        eventLocationAddress,
+        setEventLocationAddress,
+        mapsStatus,
+        addressPredictions,
+        isAddressLoading,
+        handleSelectAddressPrediction,
+        selectedPlace,
+        getMapEmbedUrl,
+        eventAllowPlusOne,
+        setEventAllowPlusOne,
+        eventAutoReminders,
+        setEventAutoReminders,
+        eventMessage,
+        locationNameOptions,
         locationAddressOptions
     } = props;
 
-    // Estado interno para controlar el paso actual (1, 2 o 3)
     const [currentStep, setCurrentStep] = React.useState(1);
+    const totalSteps = 2;
 
-    // Funciones de navegación del Asistente
-    const handleNext = () => setCurrentStep((prev) => Math.min(prev + 1, 3));
+    const handleNext = () => setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
     const handleBack = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
-
-    // Cálculos para la barra de progreso
-    const progressPercent = currentStep === 1 ? 33 : currentStep === 2 ? 66 : 100;
+    const handleTemplateSelection = (event, templateKey) => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleApplyEventTemplate(templateKey);
+        setCurrentStep(2);
+    };
+    const handleWizardSubmit = (event) => {
+        if (currentStep < totalSteps) {
+            event.preventDefault();
+            return;
+        }
+        handleSaveEvent(event);
+    };
+    const progressPercent = currentStep === 1 ? 50 : 100;
+    const currentStepTitleKey = currentStep === 1 ? "event_onboarding_step_templates" : "event_onboarding_step_details";
 
     return (
         <div className="w-full max-w-3xl mx-auto flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-500">
-
-            {/* --- CABECERA Y BARRA DE PROGRESO --- */}
             <header className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl p-6 shadow-sm">
                 <div className="flex justify-between items-end mb-4">
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">
-                            {t("wizard_progress")}
+                            {t("event_onboarding_progress")}
                         </p>
                         <h2 className="text-2xl font-black text-gray-900 dark:text-white">
-                            {t(`wizard_step_${currentStep}`)}
+                            {t(currentStepTitleKey)}
                         </h2>
                     </div>
-                    <strong className="text-xl font-black text-gray-300 dark:text-gray-700">{currentStep}/3</strong>
+                    <strong className="text-xl font-black text-gray-300 dark:text-gray-700">{currentStep}/{totalSteps}</strong>
                 </div>
-                {/* Barra de progreso visual */}
                 <div className="w-full bg-black/5 dark:bg-white/10 rounded-full h-2 overflow-hidden">
                     <span
                         className="bg-blue-600 h-full block rounded-full transition-all duration-500 ease-out"
@@ -652,32 +690,44 @@ export function EventBuilderWizardView(props) {
                 </div>
             </header>
 
-            {/* --- CUERPO DEL FORMULARIO --- */}
-            <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8" onSubmit={handleSaveEvent} noValidate>
-
-                {/* PASO 1: PLANIFICACIÓN */}
+            <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8" onSubmit={handleWizardSubmit} noValidate>
                 <div className={currentStep === 1 ? "flex flex-col gap-6 animate-in slide-in-from-right-8 duration-300" : "hidden"}>
-                    {/* Plantillas */}
-                    <section className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 p-5 flex flex-col gap-3">
+                    <section className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 p-5 flex flex-col gap-4">
                         <p className="flex items-center gap-2 text-sm font-bold text-blue-900 dark:text-blue-200">
                             <Icon name="sparkle" className="w-5 h-5" />
-                            {t("wizard_quick_templates_title")}
+                            {t("event_onboarding_templates_title")}
                         </p>
-                        <p className="text-xs text-blue-800/70 dark:text-blue-200/70">{t("wizard_quick_templates_hint")}</p>
-                        <div className="flex flex-wrap gap-2 mt-1">
+                        <p className="text-xs text-blue-800/70 dark:text-blue-200/70">{t("event_onboarding_templates_hint")}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                             {eventTemplates.map((templateItem) => (
                                 <button
                                     key={templateItem.key}
                                     type="button"
-                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${activeEventTemplateKey === templateItem.key ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-                                    onClick={() => handleApplyEventTemplate(templateItem.key)}
+                                    className={`text-left rounded-2xl border px-4 py-3 transition-all shadow-sm ${activeEventTemplateKey === templateItem.key
+                                        ? "bg-blue-600 text-white border-blue-700 shadow-md"
+                                        : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                        }`}
+                                    onClick={(event) => handleTemplateSelection(event, templateItem.key)}
                                 >
-                                    {t(templateItem.titleKey)}
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <Icon name={templateItem.icon || "sparkle"} className="w-4 h-4" />
+                                            <span className="text-sm font-bold">{t(templateItem.titleKey)}</span>
+                                        </div>
+                                        {activeEventTemplateKey === templateItem.key ? (
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">{t("event_onboarding_selected")}</span>
+                                        ) : null}
+                                    </div>
+                                    <p className={`mt-2 text-xs leading-relaxed ${activeEventTemplateKey === templateItem.key ? "text-white/90" : "text-gray-500 dark:text-gray-400"}`}>
+                                        {t(templateItem.descriptionKey)}
+                                    </p>
                                 </button>
                             ))}
                         </div>
                     </section>
+                </div>
 
+                <div className={currentStep === 2 ? "flex flex-col gap-6 animate-in slide-in-from-right-8 duration-300" : "hidden"}>
                     <label>
                         <span className="block mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">{t("field_title")} *</span>
                         <input
@@ -693,30 +743,33 @@ export function EventBuilderWizardView(props) {
                     <label>
                         <span className="block mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">{t("field_event_description")}</span>
                         <textarea
-                            rows={4}
+                            rows={3}
                             className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
                             value={eventDescription}
                             onChange={(event) => setEventDescription(event.target.value)}
                             placeholder={t("placeholder_event_description")}
                         />
+                        <FieldMeta errorText={eventErrors.description ? t(eventErrors.description) : ""} />
                     </label>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <label>
                             <span className="block mb-2 ml-1 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">{t("field_event_type")}</span>
-                            <select className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm" value={eventType} onChange={(event) => setEventType(event.target.value)}>
+                            <select
+                                className="w-full bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-4 text-base font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                value={eventType}
+                                onChange={(event) => setEventType(event.target.value)}
+                                aria-invalid={Boolean(eventErrors.eventType)}
+                            >
                                 <option value="">{t("select_option_prompt")}</option>
-                                {eventTypeOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                                {eventTypeOptions.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                ))}
                             </select>
+                            <FieldMeta errorText={eventErrors.eventType ? t(eventErrors.eventType) : ""} />
                         </label>
-
-                        {/* Ocultamos el Status en el Wizard, siempre será Draft al crear */}
-                        <input type="hidden" value={eventStatus} onChange={() => { }} />
                     </div>
-                </div>
 
-                {/* PASO 2: LOGÍSTICA */}
-                <div className={currentStep === 2 ? "flex flex-col gap-6 animate-in slide-in-from-right-8 duration-300" : "hidden"}>
                     <div className="bg-white/70 dark:bg-black/30 border border-black/10 dark:border-white/10 rounded-2xl p-4 flex flex-col gap-3">
                         <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
                             {t("event_date_mode_label")}
@@ -912,8 +965,6 @@ export function EventBuilderWizardView(props) {
                                 ))}
                             </ul>
                         ) : null}
-
-                        {/* Feedback visual de que Google Maps lo ha validado correctamente */}
                         {selectedPlace?.placeId ? (
                             <p className="text-xs font-bold text-green-600 dark:text-green-400 mt-2">{t("address_validated")}</p>
                         ) : null}
@@ -924,11 +975,6 @@ export function EventBuilderWizardView(props) {
                             <iframe title={t("map_preview_title")} className="w-full h-full" src={getMapEmbedUrl(selectedPlace.lat, selectedPlace.lng)} loading="lazy" />
                         </div>
                     ) : null}
-                </div>
-
-                {/* PASO 3: CONFIGURACIÓN Y GUARDADO */}
-                <div className={currentStep === 3 ? "flex flex-col gap-6 animate-in slide-in-from-right-8 duration-300" : "hidden"}>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t("event_settings_hint")}</p>
 
                     <label className="flex flex-row items-center gap-4 p-4 bg-white dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-colors shadow-sm">
                         <input type="checkbox" className="w-6 h-6 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600" checked={eventAllowPlusOne} onChange={(event) => setEventAllowPlusOne(event.target.checked)} />
@@ -939,31 +985,27 @@ export function EventBuilderWizardView(props) {
                         <input type="checkbox" className="w-6 h-6 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600" checked={eventAutoReminders} onChange={(event) => setEventAutoReminders(event.target.checked)} />
                         <span className="text-base font-bold text-gray-900 dark:text-white flex-1">{t("event_setting_auto_reminders")}</span>
                     </label>
-
-                    {/* Botón final (Submit) */}
-                    <div className="mt-8 pt-6 border-t border-black/10 dark:border-white/10">
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-black text-lg py-4 px-8 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all w-full flex justify-center items-center gap-3" type="submit" disabled={isSavingEvent}>
-                            <Icon name="check" className="w-6 h-6" />
-                            {isSavingEvent ? t("saving_event") : t("wizard_btn_save")}
-                        </button>
-                        <InlineMessage text={eventMessage} className="mt-4" />
-                    </div>
                 </div>
 
-                {/* --- BOTONERA DE NAVEGACIÓN (Prev/Next) --- */}
                 <div className="flex justify-between items-center pt-6 border-t border-black/5 dark:border-white/5 mt-4">
                     {currentStep > 1 ? (
                         <button type="button" onClick={handleBack} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white font-bold py-2 px-4 rounded-xl transition-colors flex items-center gap-2">
                             <Icon name="arrow-left" className="w-4 h-4" /> {t("wizard_btn_back")}
                         </button>
-                    ) : <div></div> /* Espaciador invisible */}
+                    ) : <div />}
 
-                    {currentStep < 3 && (
+                    {currentStep < totalSteps ? (
                         <button type="button" onClick={handleNext} className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold py-3 px-8 rounded-xl shadow-md hover:scale-105 transition-all flex items-center gap-2">
                             {t("wizard_btn_next")} <Icon name="arrow-right" className="w-4 h-4" />
                         </button>
+                    ) : (
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-8 rounded-xl shadow-md transition-all w-full sm:w-auto flex justify-center items-center gap-2 disabled:opacity-50" type="submit" disabled={isSavingEvent}>
+                            <Icon name="check" className="w-5 h-5" />
+                            {isSavingEvent ? t("saving_event") : t("wizard_btn_save")}
+                        </button>
                     )}
                 </div>
+                <InlineMessage text={eventMessage} />
 
                 <datalist id="wizard-place-options">
                     {locationNameOptions?.map((opt) => <option key={opt} value={opt} />)}
