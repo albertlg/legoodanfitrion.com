@@ -1,9 +1,12 @@
 import { Component } from "react";
 import { hydrateRoot, createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { inject } from "@vercel/speed-insights";
 import App from "./App";
 import "./styles.css";
 import { HelmetProvider } from "react-helmet-async";
+
+inject();
 
 const rootNode = document.getElementById("root");
 

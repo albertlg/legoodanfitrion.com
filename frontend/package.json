@@ -17,6 +17,7 @@
     "@sanity/image-url": "^2.0.3",
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/vite": "^4.2.1",
+    "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "html-to-image": "^1.11.13",
