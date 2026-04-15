@@ -779,6 +779,43 @@ function LandingScreen({
                 </article>
               </div>
 
+              <section className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8 md:p-10">
+                <div className="max-w-3xl mb-8">
+                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white mb-3">
+                    {t("landing_features_corporate_title")}
+                  </h2>
+                  <p className="text-sm md:text-base text-gray-600 dark:text-gray-300">
+                    {t("landing_features_corporate_subtitle")}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/20 p-5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-4">
+                      <Icon name="mail" className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t("landing_feature_corporate_title")}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_corporate_desc")}</p>
+                  </article>
+
+                  <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/20 p-5">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
+                      <Icon name="trend" className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t("landing_feature_analytics_title")}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_analytics_desc")}</p>
+                  </article>
+
+                  <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/20 p-5">
+                    <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-4">
+                      <Icon name="download" className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t("landing_feature_export_title")}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_export_desc")}</p>
+                  </article>
+                </div>
+              </section>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <article className="bg-blue-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
                   <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_events_title")}</p>
