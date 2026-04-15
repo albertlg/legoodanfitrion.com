@@ -310,6 +310,8 @@ export function useDashboardDataController({
     let eventDateOptionsRows = [];
     let eventDateVotesRows = [];
     let eventDatePollError = null;
+    let sharedTasksEventIds = new Set();
+    let sharedTasksError = null;
     const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
     if (eventIdsForPlans.length > 0) {
       const plannerResult = await supabase
@@ -368,6 +370,23 @@ export function useDashboardDataController({
           eventDateVotesRows = Array.isArray(votesResult.data) ? votesResult.data : [];
         }
       }
+
+      const sharedTasksResult = await supabase
+        .from("event_shared_tasks")
+        .select("event_id")
+        .in("event_id", eventIdsForPlans);
+
+      if (sharedTasksResult.error) {
+        if (!isMissingRelationError(sharedTasksResult.error, "event_shared_tasks")) {
+          sharedTasksError = sharedTasksResult.error;
+        }
+      } else {
+        sharedTasksEventIds = new Set(
+          (Array.isArray(sharedTasksResult.data) ? sharedTasksResult.data : [])
+            .map((row) => String(row?.event_id || "").trim())
+            .filter(Boolean)
+        );
+      }
     }
 
     if (
@@ -377,7 +396,8 @@ export function useDashboardDataController({
       receivedInvitationsError ||
       hostProfileError ||
       eventPlannerError ||
-      eventDatePollError
+      eventDatePollError ||
+      sharedTasksError
     ) {
       setDashboardError(
         eventsError?.message ||
@@ -387,6 +407,7 @@ export function useDashboardDataController({
           hostProfileError?.message ||
           eventPlannerError?.message ||
           eventDatePollError?.message ||
+          sharedTasksError?.message ||
           t("error_load_data")
       );
       setIsLoading(false);
@@ -498,7 +519,8 @@ export function useDashboardDataController({
       const effectiveSettings = shouldUseCache ? settingsFromCache : settingsFromRow;
       const rawActiveModules = normalizeEventActiveModules(eventItem?.active_modules);
       const resolvedModules = resolveEventModules(eventItem, {
-        hasDatePollOptions: datePollOptionEventIds.has(String(eventItem?.id || "").trim())
+        hasDatePollOptions: datePollOptionEventIds.has(String(eventItem?.id || "").trim()),
+        hasSharedTasks: sharedTasksEventIds.has(String(eventItem?.id || "").trim())
       });
       return {
         ...eventItem,

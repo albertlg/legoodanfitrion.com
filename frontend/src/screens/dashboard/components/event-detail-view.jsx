@@ -2237,6 +2237,7 @@ export function EventDetailView({
     { key: "date_poll", labelKey: "event_modules_toggle_date_poll_label", hintKey: "event_modules_toggle_date_poll_hint" },
     { key: "venues", labelKey: "event_modules_toggle_venues_label", hintKey: "event_modules_toggle_venues_hint" },
     { key: "spaces", labelKey: "event_modules_toggle_spaces_label", hintKey: "event_modules_toggle_spaces_hint" },
+    { key: "shared_tasks", labelKey: "event_modules_toggle_shared_tasks_label", hintKey: "event_modules_toggle_shared_tasks_hint" },
     { key: "finance", labelKey: "event_modules_toggle_finance_label", hintKey: "event_modules_toggle_finance_hint" },
     { key: "spotify", labelKey: "event_modules_toggle_spotify_label", hintKey: "event_modules_toggle_spotify_hint" },
     { key: "icebreaker", labelKey: "event_modules_toggle_icebreaker_label", hintKey: "event_modules_toggle_icebreaker_hint" }

@@ -7,6 +7,7 @@ import { EventIcebreakerModuleCard } from "./event-icebreaker-module-card";
 import { EventMegaphoneModuleCard } from "./event-megaphone-module-card";
 import { EventSpotifyHeaderAction } from "./event-spotify-header-action";
 import { EventSpacesModuleCard } from "./event-spaces-module-card";
+import { EventSharedTasksModuleCard } from "./event-shared-tasks-module-card";
 import { EventVenuesModuleCard } from "./event-venues-module-card";
 
 export const EVENT_MODULE_ZONES = Object.freeze({
@@ -95,6 +96,17 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
     order: 80,
     render: (context) =>
       React.createElement(EventSpacesModuleCard, {
+        t: context.t,
+        selectedEventDetail: context.selectedEventDetail,
+        selectedEventDetailGuests: context.selectedEventDetailGuests
+      })
+  },
+  {
+    key: "shared_tasks",
+    zone: EVENT_MODULE_ZONES.MAIN,
+    order: 85,
+    render: (context) =>
+      React.createElement(EventSharedTasksModuleCard, {
         t: context.t,
         selectedEventDetail: context.selectedEventDetail,
         selectedEventDetailGuests: context.selectedEventDetailGuests
