@@ -1,9 +1,38 @@
 import express from "express";
+import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "../middleware/admin-auth-middleware.js";
 import { getTrafficOverview } from "../services/google-analytics-service.js";
 import { getTopQueries } from "../services/search-console-service.js";
 
 const router = express.Router();
+
+function toSafeString(value) {
+  return String(value || "").trim();
+}
+
+function normalizeLogMode(value) {
+  const normalized = toSafeString(value).toLowerCase();
+  if (["personal", "professional", "auth"].includes(normalized)) {
+    return normalized;
+  }
+  return "";
+}
+
+function getSupabaseAdminClient() {
+  const supabaseUrl = toSafeString(process.env.SUPABASE_URL);
+  const serviceRoleKey = toSafeString(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!supabaseUrl || !serviceRoleKey) {
+    const error = new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    error.code = "SUPABASE_CONFIG_ERROR";
+    throw error;
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
 
 router.get("/overview", requireAdmin, async (req, res) => {
   const startDate = String(req.query.startDate || "").trim();
@@ -61,6 +90,52 @@ router.get("/seo", requireAdmin, async (req, res) => {
     }
     return res.status(500).json({
       error: error?.message || "Failed to fetch SEO analytics."
+    });
+  }
+});
+
+router.get("/communications", requireAdmin, async (req, res) => {
+  const recipientFilter = toSafeString(req.query.recipient || "");
+  const modeFilter = normalizeLogMode(req.query.mode || "");
+  const rawLimit = Number(req.query.limit || 150);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.round(rawLimit), 1), 500) : 150;
+
+  try {
+    const supabase = getSupabaseAdminClient();
+    let query = supabase
+      .from("communication_logs")
+      .select("id, created_at, recipient, subject, mode, status, error_details, metadata")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (recipientFilter) {
+      query = query.ilike("recipient", `%${recipientFilter}%`);
+    }
+    if (modeFilter) {
+      query = query.eq("mode", modeFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw error;
+    }
+
+    return res.json({
+      ok: true,
+      data: {
+        logs: Array.isArray(data) ? data : []
+      }
+    });
+  } catch (error) {
+    const code = String(error?.code || "");
+    if (code === "SUPABASE_CONFIG_ERROR") {
+      return res.status(503).json({
+        error: error.message || "Backend admin data source is not configured.",
+        code
+      });
+    }
+    return res.status(500).json({
+      error: error?.message || "Failed to fetch communication logs."
     });
   }
 });

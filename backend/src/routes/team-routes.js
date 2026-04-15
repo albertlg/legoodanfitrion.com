@@ -291,7 +291,10 @@ router.post("/invite", requireAuthenticatedUser, async (req, res) => {
       toSafeString(hostProfile?.full_name) || getFallbackHostName(req.authUser);
     const eventName = toSafeString(eventData.title) || "tu evento";
 
-    const deliveryResult = await sendCoHostInvitation(targetEmail, hostName, eventName);
+    const deliveryResult = await sendCoHostInvitation(targetEmail, hostName, eventName, {
+      eventId,
+      inviterUserId: toSafeString(req.authUser?.id)
+    });
 
     if (canUseDatabaseThrottle) {
       const nextSentCount = Number(existingLog?.sent_count || 0) + 1;

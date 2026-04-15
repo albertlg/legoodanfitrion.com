@@ -246,7 +246,7 @@ router.post("/ticket", async (req, res) => {
 
     const { data: eventRow, error: eventError } = await supabase
       .from("events")
-      .select("id, title, start_at, end_at, timezone, location_name, location_address, status")
+      .select("id, title, event_type, start_at, end_at, timezone, location_name, location_address, status")
       .eq("id", toSafeString(invitationRow.event_id))
       .eq("host_user_id", toSafeString(invitationRow.host_user_id))
       .maybeSingle();
@@ -270,6 +270,8 @@ router.post("/ticket", async (req, res) => {
       targetEmail,
       guestNameHint || toSafeString(invitationRow.guest_display_name) || "Invitado",
       {
+        eventId: toSafeString(eventRow.id),
+        eventType: toSafeString(eventRow.event_type),
         eventName: toSafeString(eventRow.title) || "Evento",
         startAt: eventRow.start_at,
         endAt: eventRow.end_at,
@@ -278,7 +280,12 @@ router.post("/ticket", async (req, res) => {
         locationAddress: toSafeString(eventRow.location_address),
         detailsUrl
       },
-      localeHint
+      localeHint,
+      {
+        eventId: toSafeString(eventRow.id),
+        invitationId: toSafeString(invitationRow.id),
+        eventType: toSafeString(eventRow.event_type)
+      }
     );
 
     registerThrottle(throttleKey);

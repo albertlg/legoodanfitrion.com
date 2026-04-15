@@ -1,9 +1,18 @@
+import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 const DEFAULT_SIGNUP_BASE_URL = "https://legoodanfitrion.com/signup";
 const DEFAULT_FROM_EMAIL = "LeGoodAnfitrión <onboarding@resend.dev>";
 const DEFAULT_TICKET_DETAILS_URL = "https://legoodanfitrion.com";
 const SUPPORTED_TICKET_LOCALES = new Set(["es", "ca", "en", "fr", "it"]);
+const PROFESSIONAL_EVENT_TYPES = new Set([
+  "networking",
+  "team_building",
+  "corporate_dinner",
+  "all_hands",
+  "business_meeting",
+  "conference"
+]);
 
 const RSVP_TICKET_COPY = {
   es: {
@@ -333,9 +342,99 @@ const EVENT_INVITATION_EMAIL_COPY = {
 };
 
 let resendClient = null;
+let supabaseAdminClient = null;
 
 function toSafeString(value) {
   return String(value || "").trim();
+}
+
+function toLowerSafeString(value) {
+  return toSafeString(value).toLowerCase();
+}
+
+function getSupabaseAdminClient() {
+  if (supabaseAdminClient) {
+    return supabaseAdminClient;
+  }
+
+  const supabaseUrl = toSafeString(process.env.SUPABASE_URL);
+  const serviceRoleKey = toSafeString(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!supabaseUrl || !serviceRoleKey) {
+    const error = new Error("SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY son obligatorias.");
+    error.code = "EMAIL_CONFIG_ERROR";
+    throw error;
+  }
+
+  supabaseAdminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
+  return supabaseAdminClient;
+}
+
+function normalizeCommunicationMode(value, fallback = "auth") {
+  const normalized = toLowerSafeString(value);
+  if (["personal", "professional", "auth"].includes(normalized)) {
+    return normalized;
+  }
+  return fallback;
+}
+
+function inferCommunicationModeFromEventType(eventType, fallback = "personal") {
+  const normalizedType = toLowerSafeString(eventType);
+  if (normalizedType && PROFESSIONAL_EVENT_TYPES.has(normalizedType)) {
+    return "professional";
+  }
+  return fallback;
+}
+
+function toSerializableErrorDetails(error) {
+  const details = error?.details ?? error?.body ?? error?.response?.data ?? error?.message ?? error;
+  try {
+    if (typeof details === "string") {
+      return details;
+    }
+    return JSON.stringify(details);
+  } catch {
+    return String(details || "unknown_error");
+  }
+}
+
+function sanitizeCommunicationMetadata(metadata) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return {};
+  }
+  return metadata;
+}
+
+async function insertCommunicationLog({
+  recipient,
+  subject,
+  mode,
+  status,
+  errorDetails = "",
+  metadata = {}
+}) {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const payload = {
+      recipient: toSafeString(recipient) || "unknown",
+      subject: toSafeString(subject) || "(sin asunto)",
+      mode: normalizeCommunicationMode(mode, "auth"),
+      status: toLowerSafeString(status) === "failed" ? "failed" : "sent",
+      error_details: toSafeString(errorDetails) || null,
+      metadata: sanitizeCommunicationMetadata(metadata)
+    };
+    const { error } = await supabase.from("communication_logs").insert(payload);
+    if (error) {
+      console.warn("[email-service] communication_logs insert failed:", error?.message || error);
+    }
+  } catch (error) {
+    console.warn("[email-service] communication_logs unavailable:", error?.message || error);
+  }
 }
 
 function normalizeTicketLocale(localeValue) {
@@ -710,55 +809,94 @@ function buildEventInvitationHtml({
   });
 }
 
-export async function sendCoHostInvitation(targetEmail, hostName, eventName) {
+export async function sendCoHostInvitation(targetEmail, hostName, eventName, options = {}) {
   const normalizedEmail = toSafeString(targetEmail).toLowerCase();
   const normalizedHostName = toSafeString(hostName) || "Un anfitrión de LeGoodAnfitrión";
   const normalizedEventName = toSafeString(eventName) || "tu evento";
-
-  if (!normalizedEmail) {
-    const error = new Error("targetEmail es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-
-  const resend = getResendClient();
-  const signupUrl = buildSignupUrl(normalizedEmail);
-  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
-
-  const response = await resend.emails.send({
-    from: fromEmail,
-    to: normalizedEmail,
-    subject: `${normalizedHostName} te invita a co-organizar "${normalizedEventName}"`,
-    html: buildCoHostInviteHtml({
-      signupUrl,
-      hostName: normalizedHostName,
-      eventName: normalizedEventName
-    }),
-    text: `${normalizedHostName} te invita a co-organizar "${normalizedEventName}" en LeGoodAnfitrión. Crea tu cuenta gratuita aquí: ${signupUrl}`
-  });
-
-  if (response?.error) {
-    const error = new Error(
-      toSafeString(response.error.message) || "Resend no pudo enviar el email."
-    );
-    error.code = "EMAIL_SEND_ERROR";
-    error.details = response.error;
-    throw error;
-  }
-
-  return {
-    messageId: toSafeString(response?.data?.id)
+  const subject = `${normalizedHostName} te invita a co-organizar "${normalizedEventName}"`;
+  const metadata = {
+    eventId: toSafeString(options?.eventId),
+    inviterUserId: toSafeString(options?.inviterUserId),
+    eventName: normalizedEventName
   };
+
+  try {
+    if (!normalizedEmail) {
+      const error = new Error("targetEmail es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
+
+    const signupUrl = buildSignupUrl(normalizedEmail);
+    if (!isResendConfigured()) {
+      logMockInvitationEmail({
+        to: normalizedEmail,
+        subject,
+        mode: "auth",
+        hasIcsAttachment: false
+      });
+      const mockResult = { messageId: `mock-${Date.now()}`, mock: true };
+      await insertCommunicationLog({
+        recipient: normalizedEmail,
+        subject,
+        mode: "auth",
+        status: "sent",
+        metadata: { ...metadata, mock: true, signupUrl }
+      });
+      return mockResult;
+    }
+
+    const resend = getResendClient();
+    const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+    const response = await resend.emails.send({
+      from: fromEmail,
+      to: normalizedEmail,
+      subject,
+      html: buildCoHostInviteHtml({
+        signupUrl,
+        hostName: normalizedHostName,
+        eventName: normalizedEventName
+      }),
+      text: `${normalizedHostName} te invita a co-organizar "${normalizedEventName}" en LeGoodAnfitrión. Crea tu cuenta gratuita aquí: ${signupUrl}`
+    });
+
+    if (response?.error) {
+      const error = new Error(
+        toSafeString(response.error.message) || "Resend no pudo enviar el email."
+      );
+      error.code = "EMAIL_SEND_ERROR";
+      error.details = response.error;
+      throw error;
+    }
+
+    const result = {
+      messageId: toSafeString(response?.data?.id)
+    };
+
+    await insertCommunicationLog({
+      recipient: normalizedEmail,
+      subject,
+      mode: "auth",
+      status: "sent",
+      metadata: { ...metadata, messageId: result.messageId }
+    });
+
+    return result;
+  } catch (error) {
+    await insertCommunicationLog({
+      recipient: normalizedEmail || toSafeString(targetEmail) || "unknown",
+      subject,
+      mode: "auth",
+      status: "failed",
+      errorDetails: toSerializableErrorDetails(error),
+      metadata
+    });
+    throw error;
+  }
 }
 
-export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, locale = "es") {
+export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, locale = "es", options = {}) {
   const normalizedEmail = toSafeString(guestEmail).toLowerCase();
-  if (!normalizedEmail) {
-    const error = new Error("guestEmail es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-
   const normalizedEventDetails = eventDetails && typeof eventDetails === "object" ? eventDetails : {};
   const copy = getRsvpTicketCopy(locale || normalizedEventDetails?.locale);
   const eventName = toSafeString(normalizedEventDetails?.eventName) || "Tu evento";
@@ -771,43 +909,103 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
     ...normalizedEventDetailsWithLocale,
     eventName
   });
+  const subject = copy.subject(eventName);
+  const mode = normalizeCommunicationMode(
+    options?.mode || inferCommunicationModeFromEventType(options?.eventType || normalizedEventDetails?.eventType, "personal"),
+    "personal"
+  );
+  const metadata = {
+    eventId: toSafeString(options?.eventId || normalizedEventDetails?.eventId),
+    invitationId: toSafeString(options?.invitationId),
+    eventName
+  };
 
-  const resend = getResendClient();
-  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
-  const response = await resend.emails.send({
-    from: fromEmail,
-    to: normalizedEmail,
-    subject: copy.subject(eventName),
-    html: buildRsvpTicketHtml({
-      guestName: toSafeString(guestName) || "Invitado",
-      eventDetails: {
-        ...normalizedEventDetailsWithLocale,
-        eventName
-      },
-      calendarUrl,
-      detailsUrl,
-      copy
-    }),
-    text: [
-      copy.textGreeting(toSafeString(guestName) || "Invitado"),
-      copy.textConfirmed(eventName),
-      `${copy.textDate}: ${formatEventDateRange(normalizedEventDetailsWithLocale)}`,
-      `${copy.textLocation}: ${toSafeString(normalizedEventDetailsWithLocale?.locationName || normalizedEventDetailsWithLocale?.locationAddress) || copy.locationPendingName}`,
-      `Google Calendar: ${calendarUrl}`
-    ].join("\n")
-  });
+  try {
+    if (!normalizedEmail) {
+      const error = new Error("guestEmail es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
 
-  if (response?.error) {
-    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar el ticket RSVP.");
-    error.code = "EMAIL_SEND_ERROR";
-    error.details = response.error;
+    if (!isResendConfigured()) {
+      logMockInvitationEmail({
+        to: normalizedEmail,
+        subject,
+        mode,
+        hasIcsAttachment: false
+      });
+      const mockResult = {
+        messageId: `mock-${Date.now()}`,
+        calendarUrl,
+        mock: true
+      };
+      await insertCommunicationLog({
+        recipient: normalizedEmail,
+        subject,
+        mode,
+        status: "sent",
+        metadata: { ...metadata, mock: true, hasIcsAttachment: false }
+      });
+      return mockResult;
+    }
+
+    const resend = getResendClient();
+    const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+    const response = await resend.emails.send({
+      from: fromEmail,
+      to: normalizedEmail,
+      subject,
+      html: buildRsvpTicketHtml({
+        guestName: toSafeString(guestName) || "Invitado",
+        eventDetails: {
+          ...normalizedEventDetailsWithLocale,
+          eventName
+        },
+        calendarUrl,
+        detailsUrl,
+        copy
+      }),
+      text: [
+        copy.textGreeting(toSafeString(guestName) || "Invitado"),
+        copy.textConfirmed(eventName),
+        `${copy.textDate}: ${formatEventDateRange(normalizedEventDetailsWithLocale)}`,
+        `${copy.textLocation}: ${toSafeString(normalizedEventDetailsWithLocale?.locationName || normalizedEventDetailsWithLocale?.locationAddress) || copy.locationPendingName}`,
+        `Google Calendar: ${calendarUrl}`
+      ].join("\n")
+    });
+
+    if (response?.error) {
+      const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar el ticket RSVP.");
+      error.code = "EMAIL_SEND_ERROR";
+      error.details = response.error;
+      throw error;
+    }
+
+    const result = {
+      messageId: toSafeString(response?.data?.id),
+      calendarUrl
+    };
+
+    await insertCommunicationLog({
+      recipient: normalizedEmail,
+      subject,
+      mode,
+      status: "sent",
+      metadata: { ...metadata, messageId: result.messageId, hasIcsAttachment: false }
+    });
+
+    return result;
+  } catch (error) {
+    await insertCommunicationLog({
+      recipient: normalizedEmail || toSafeString(guestEmail) || "unknown",
+      subject,
+      mode,
+      status: "failed",
+      errorDetails: toSerializableErrorDetails(error),
+      metadata
+    });
     throw error;
   }
-
-  return {
-    messageId: toSafeString(response?.data?.id),
-    calendarUrl
-  };
 }
 
 export async function sendEventInvitationEmail({
@@ -818,15 +1016,10 @@ export async function sendEventInvitationEmail({
   locale = "es",
   eventDetails = {},
   isProfessionalEvent = false,
-  invitationId = ""
+  invitationId = "",
+  eventId = ""
 }) {
   const normalizedEmail = toSafeString(guestEmail).toLowerCase();
-  if (!normalizedEmail) {
-    const error = new Error("guestEmail es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-
   const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrión";
   const normalizedGuestName = toSafeString(guestName) || "Invitado";
   const normalizedInvitationUrl = toSafeString(invitationUrl) || DEFAULT_TICKET_DETAILS_URL;
@@ -842,6 +1035,12 @@ export async function sendEventInvitationEmail({
   };
   const calendarUrl = buildGoogleCalendarUrl(eventDetailsWithLocale);
   const subject = copy.subject(normalizedEventName);
+  const mode = isProfessionalEvent ? "professional" : "personal";
+  const metadata = {
+    eventId: toSafeString(eventId || normalizedEventDetails?.eventId),
+    invitationId: toSafeString(invitationId),
+    eventName: normalizedEventName
+  };
 
   let icsContent = "";
   let hasIcsAttachment = false;
@@ -862,70 +1061,106 @@ export async function sendEventInvitationEmail({
     hasIcsAttachment = false;
   }
 
-  if (!isResendConfigured()) {
-    logMockInvitationEmail({
+  try {
+    if (!normalizedEmail) {
+      const error = new Error("guestEmail es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
+
+    if (!isResendConfigured()) {
+      logMockInvitationEmail({
+        to: normalizedEmail,
+        subject,
+        mode,
+        hasIcsAttachment
+      });
+      const mockResult = {
+        messageId: `mock-${Date.now()}`,
+        calendarUrl,
+        hasIcsAttachment,
+        mock: true
+      };
+      await insertCommunicationLog({
+        recipient: normalizedEmail,
+        subject,
+        mode,
+        status: "sent",
+        metadata: { ...metadata, mock: true, hasIcsAttachment, calendarUrl, messageId: mockResult.messageId }
+      });
+      return mockResult;
+    }
+
+    const resend = getResendClient();
+    const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+    const response = await resend.emails.send({
+      from: fromEmail,
       to: normalizedEmail,
       subject,
-      mode: isProfessionalEvent ? "professional" : "personal",
-      hasIcsAttachment
+      html: buildEventInvitationHtml({
+        hostName: normalizedHostName,
+        guestName: normalizedGuestName,
+        eventDetails: eventDetailsWithLocale,
+        invitationUrl: normalizedInvitationUrl,
+        calendarUrl,
+        copy,
+        isProfessionalEvent,
+        hasIcsAttachment
+      }),
+      text: [
+        copy.intro(normalizedHostName, normalizedEventName),
+        "",
+        `${copy.dateLabel}: ${formatEventDateRange(eventDetailsWithLocale) || copy.pendingDate}`,
+        `${copy.locationLabel}: ${toSafeString(eventDetailsWithLocale.locationName || eventDetailsWithLocale.locationAddress) || copy.pendingLocation}`,
+        `${copy.ctaRsvp}: ${normalizedInvitationUrl}`,
+        `${copy.ctaCalendar}: ${calendarUrl}`,
+        hasIcsAttachment ? copy.ctaIcs : ""
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      attachments: hasIcsAttachment
+        ? [
+            {
+              filename: "event-invitation.ics",
+              content: Buffer.from(icsContent, "utf8").toString("base64")
+            }
+          ]
+        : undefined
     });
-    return {
-      messageId: `mock-${Date.now()}`,
-      calendarUrl,
-      hasIcsAttachment,
-      mock: true
-    };
-  }
 
-  const resend = getResendClient();
-  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
-  const response = await resend.emails.send({
-    from: fromEmail,
-    to: normalizedEmail,
-    subject,
-    html: buildEventInvitationHtml({
-      hostName: normalizedHostName,
-      guestName: normalizedGuestName,
-      eventDetails: eventDetailsWithLocale,
-      invitationUrl: normalizedInvitationUrl,
+    if (response?.error) {
+      const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar la invitación.");
+      error.code = "EMAIL_SEND_ERROR";
+      error.details = response.error;
+      throw error;
+    }
+
+    const result = {
+      messageId: toSafeString(response?.data?.id),
       calendarUrl,
-      copy,
-      isProfessionalEvent,
       hasIcsAttachment
-    }),
-    text: [
-      copy.intro(normalizedHostName, normalizedEventName),
-      "",
-      `${copy.dateLabel}: ${formatEventDateRange(eventDetailsWithLocale) || copy.pendingDate}`,
-      `${copy.locationLabel}: ${toSafeString(eventDetailsWithLocale.locationName || eventDetailsWithLocale.locationAddress) || copy.pendingLocation}`,
-      `${copy.ctaRsvp}: ${normalizedInvitationUrl}`,
-      `${copy.ctaCalendar}: ${calendarUrl}`,
-      hasIcsAttachment ? copy.ctaIcs : ""
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    attachments: hasIcsAttachment
-      ? [
-          {
-            filename: "event-invitation.ics",
-            content: Buffer.from(icsContent, "utf8").toString("base64")
-          }
-        ]
-      : undefined
-  });
+    };
 
-  if (response?.error) {
-    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar la invitación.");
-    error.code = "EMAIL_SEND_ERROR";
-    error.details = response.error;
+    await insertCommunicationLog({
+      recipient: normalizedEmail,
+      subject,
+      mode,
+      status: "sent",
+      metadata: { ...metadata, messageId: result.messageId, calendarUrl, hasIcsAttachment }
+    });
+
+    return result;
+  } catch (error) {
+    await insertCommunicationLog({
+      recipient: normalizedEmail || toSafeString(guestEmail) || "unknown",
+      subject,
+      mode,
+      status: "failed",
+      errorDetails: toSerializableErrorDetails(error),
+      metadata: { ...metadata, hasIcsAttachment }
+    });
     throw error;
   }
-
-  return {
-    messageId: toSafeString(response?.data?.id),
-    calendarUrl,
-    hasIcsAttachment
-  };
 }
 
 function buildBroadcastEmailHtml({ hostName, eventName, customMessage, invitationUrl, copy }) {
@@ -992,107 +1227,220 @@ function buildGalleryNotificationHtml({ hostName, eventName, galleryUrl, copy })
   });
 }
 
-export async function sendBroadcastEmail(guestEmail, hostName, eventName, customMessage, locale = "es") {
+export async function sendBroadcastEmail(
+  guestEmail,
+  hostName,
+  eventName,
+  customMessage,
+  locale = "es",
+  options = {}
+) {
   const normalizedEmail = toSafeString(guestEmail).toLowerCase();
   const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrión";
   const normalizedEventName = toSafeString(eventName) || "Evento";
   const normalizedMessage = toSafeString(customMessage);
-
-  if (!normalizedEmail) {
-    const error = new Error("guestEmail es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-
-  if (!normalizedMessage) {
-    const error = new Error("customMessage es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-
   const copy = getBroadcastEmailCopy(locale);
-  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
   const invitationUrl = toSafeString(process.env.FRONTEND_URL || DEFAULT_TICKET_DETAILS_URL);
-  const resend = getResendClient();
+  const subject = copy.subject(normalizedEventName);
+  const mode = normalizeCommunicationMode(
+    options?.mode || inferCommunicationModeFromEventType(options?.eventType, "personal"),
+    "personal"
+  );
+  const metadata = {
+    eventId: toSafeString(options?.eventId),
+    eventName: normalizedEventName
+  };
 
-  const response = await resend.emails.send({
-    from: fromEmail,
-    to: normalizedEmail,
-    subject: copy.subject(normalizedEventName),
-    html: buildBroadcastEmailHtml({
-      hostName: normalizedHostName,
-      eventName: normalizedEventName,
-      customMessage: normalizedMessage,
-      invitationUrl,
-      copy
-    }),
-    text: [
-      copy.intro(normalizedHostName, normalizedEventName),
-      "",
-      normalizedMessage,
-      "",
-      `${copy.ctaLabel}: ${invitationUrl}`
-    ].join("\n")
-  });
+  try {
+    if (!normalizedEmail) {
+      const error = new Error("guestEmail es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
 
-  if (response?.error) {
-    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar el email masivo.");
-    error.code = "EMAIL_SEND_ERROR";
-    error.details = response.error;
+    if (!normalizedMessage) {
+      const error = new Error("customMessage es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
+
+    if (!isResendConfigured()) {
+      logMockInvitationEmail({
+        to: normalizedEmail,
+        subject,
+        mode,
+        hasIcsAttachment: false
+      });
+      const mockResult = { messageId: `mock-${Date.now()}`, mock: true };
+      await insertCommunicationLog({
+        recipient: normalizedEmail,
+        subject,
+        mode,
+        status: "sent",
+        metadata: { ...metadata, mock: true, hasIcsAttachment: false }
+      });
+      return mockResult;
+    }
+
+    const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+    const resend = getResendClient();
+
+    const response = await resend.emails.send({
+      from: fromEmail,
+      to: normalizedEmail,
+      subject,
+      html: buildBroadcastEmailHtml({
+        hostName: normalizedHostName,
+        eventName: normalizedEventName,
+        customMessage: normalizedMessage,
+        invitationUrl,
+        copy
+      }),
+      text: [
+        copy.intro(normalizedHostName, normalizedEventName),
+        "",
+        normalizedMessage,
+        "",
+        `${copy.ctaLabel}: ${invitationUrl}`
+      ].join("\n")
+    });
+
+    if (response?.error) {
+      const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar el email masivo.");
+      error.code = "EMAIL_SEND_ERROR";
+      error.details = response.error;
+      throw error;
+    }
+
+    const result = {
+      messageId: toSafeString(response?.data?.id)
+    };
+
+    await insertCommunicationLog({
+      recipient: normalizedEmail,
+      subject,
+      mode,
+      status: "sent",
+      metadata: { ...metadata, messageId: result.messageId, hasIcsAttachment: false }
+    });
+
+    return result;
+  } catch (error) {
+    await insertCommunicationLog({
+      recipient: normalizedEmail || toSafeString(guestEmail) || "unknown",
+      subject,
+      mode,
+      status: "failed",
+      errorDetails: toSerializableErrorDetails(error),
+      metadata
+    });
     throw error;
   }
-
-  return {
-    messageId: toSafeString(response?.data?.id)
-  };
 }
 
-export async function sendGalleryNotificationEmail(guestEmail, hostName, eventName, galleryUrl, locale = "es") {
+export async function sendGalleryNotificationEmail(
+  guestEmail,
+  hostName,
+  eventName,
+  galleryUrl,
+  locale = "es",
+  options = {}
+) {
   const normalizedEmail = toSafeString(guestEmail).toLowerCase();
   const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrión";
   const normalizedEventName = toSafeString(eventName) || "Evento";
   const normalizedGalleryUrl = toSafeString(galleryUrl);
-
-  if (!normalizedEmail) {
-    const error = new Error("guestEmail es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-  if (!normalizedGalleryUrl) {
-    const error = new Error("galleryUrl es obligatorio.");
-    error.code = "EMAIL_BAD_REQUEST";
-    throw error;
-  }
-
   const copy = getGalleryEmailCopy(locale);
-  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
-  const resend = getResendClient();
+  const subject = copy.subject(normalizedEventName);
+  const mode = normalizeCommunicationMode(
+    options?.mode || inferCommunicationModeFromEventType(options?.eventType, "personal"),
+    "personal"
+  );
+  const metadata = {
+    eventId: toSafeString(options?.eventId),
+    eventName: normalizedEventName,
+    galleryUrl: normalizedGalleryUrl
+  };
 
-  const response = await resend.emails.send({
-    from: fromEmail,
-    to: normalizedEmail,
-    subject: copy.subject(normalizedEventName),
-    html: buildGalleryNotificationHtml({
-      hostName: normalizedHostName,
-      eventName: normalizedEventName,
-      galleryUrl: normalizedGalleryUrl,
-      copy
-    }),
-    text: [
-      copy.intro(normalizedHostName, normalizedEventName),
-      "",
-      `${copy.ctaLabel}: ${normalizedGalleryUrl}`
-    ].join("\n")
-  });
+  try {
+    if (!normalizedEmail) {
+      const error = new Error("guestEmail es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
+    if (!normalizedGalleryUrl) {
+      const error = new Error("galleryUrl es obligatorio.");
+      error.code = "EMAIL_BAD_REQUEST";
+      throw error;
+    }
 
-  if (response?.error) {
-    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar la notificación de galería.");
-    error.code = "EMAIL_SEND_ERROR";
-    error.details = response.error;
+    if (!isResendConfigured()) {
+      logMockInvitationEmail({
+        to: normalizedEmail,
+        subject,
+        mode,
+        hasIcsAttachment: false
+      });
+      const mockResult = { messageId: `mock-${Date.now()}`, mock: true };
+      await insertCommunicationLog({
+        recipient: normalizedEmail,
+        subject,
+        mode,
+        status: "sent",
+        metadata: { ...metadata, mock: true, hasIcsAttachment: false }
+      });
+      return mockResult;
+    }
+
+    const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+    const resend = getResendClient();
+
+    const response = await resend.emails.send({
+      from: fromEmail,
+      to: normalizedEmail,
+      subject,
+      html: buildGalleryNotificationHtml({
+        hostName: normalizedHostName,
+        eventName: normalizedEventName,
+        galleryUrl: normalizedGalleryUrl,
+        copy
+      }),
+      text: [
+        copy.intro(normalizedHostName, normalizedEventName),
+        "",
+        `${copy.ctaLabel}: ${normalizedGalleryUrl}`
+      ].join("\n")
+    });
+
+    if (response?.error) {
+      const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar la notificación de galería.");
+      error.code = "EMAIL_SEND_ERROR";
+      error.details = response.error;
+      throw error;
+    }
+
+    const result = {
+      messageId: toSafeString(response?.data?.id)
+    };
+
+    await insertCommunicationLog({
+      recipient: normalizedEmail,
+      subject,
+      mode,
+      status: "sent",
+      metadata: { ...metadata, messageId: result.messageId, hasIcsAttachment: false }
+    });
+
+    return result;
+  } catch (error) {
+    await insertCommunicationLog({
+      recipient: normalizedEmail || toSafeString(guestEmail) || "unknown",
+      subject,
+      mode,
+      status: "failed",
+      errorDetails: toSerializableErrorDetails(error),
+      metadata
+    });
     throw error;
   }
-
-  return {
-    messageId: toSafeString(response?.data?.id)
-  };
 }

@@ -1,11 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { isProfessionalEventContext } from "../lib/event-modules";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { AdminAnalyticsWidget } from "./admin/components/admin-analytics-widget";
 
 const PAGE_SIZE = 10;
+const configuredApiUrl = String(
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || ""
+).trim();
+const fallbackApiUrl = "/api";
+const API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+
+function buildAdminAnalyticsEndpoint(baseUrl, resource) {
+  const normalizedBase = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  if (/(^|\/)api$/i.test(normalizedBase)) {
+    return `${normalizedBase}/admin/analytics/${resource}`;
+  }
+  return `${normalizedBase}/api/admin/analytics/${resource}`;
+}
 
 // ─── Info Tooltip ────────────────────────────────────────────────────
 function InfoTooltip({ text }) {
@@ -151,6 +168,39 @@ function RsvpBadge({ status }) {
       {m.label}
     </span>
   );
+}
+
+// ─── Event Context badge ──────────────────────────────────────────────
+function EventContextBadge({ event }) {
+  const isProfessional = isProfessionalEventContext(event);
+  return (
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+      isProfessional
+        ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+        : "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30"
+    }`}>
+      {isProfessional ? "Profesional" : "Personal"}
+    </span>
+  );
+}
+
+function CommunicationModeBadge({ mode }) {
+  const normalized = String(mode || "").trim().toLowerCase();
+  if (normalized === "professional") {
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-blue-500/20 text-blue-300 border-blue-500/30">Profesional</span>;
+  }
+  if (normalized === "personal") {
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30">Personal</span>;
+  }
+  return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Auth</span>;
+}
+
+function CommunicationStatusBadge({ status }) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "failed") {
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-red-500/20 text-red-300 border-red-500/30">Failed</span>;
+  }
+  return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-green-500/20 text-green-300 border-green-500/30">Sent</span>;
 }
 
 // ─── Custom Recharts Tooltip ─────────────────────────────────────────
@@ -315,6 +365,13 @@ export function AdminDashboardScreen({ session, onNavigate }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [eventContextFilter, setEventContextFilter] = useState("all");
+  const [hqTab, setHqTab] = useState("overview");
+  const [communicationLogs, setCommunicationLogs] = useState([]);
+  const [communicationsLoading, setCommunicationsLoading] = useState(false);
+  const [communicationsError, setCommunicationsError] = useState("");
+  const [commRecipientFilter, setCommRecipientFilter] = useState("");
+  const [commModeFilter, setCommModeFilter] = useState("all");
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -332,6 +389,50 @@ export function AdminDashboardScreen({ session, onNavigate }) {
   }, []);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  const fetchCommunicationLogs = useCallback(async () => {
+    const endpoint = buildAdminAnalyticsEndpoint(API_BASE_URL, "communications");
+    if (!endpoint) {
+      setCommunicationsError("No se ha configurado la URL del backend para comunicaciones.");
+      setCommunicationLogs([]);
+      return;
+    }
+
+    setCommunicationsLoading(true);
+    setCommunicationsError("");
+
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error("No se pudo obtener la sesión de administrador.");
+      }
+
+      const response = await fetch(`${endpoint}?limit=300`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        }
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(String(payload?.error || `Error HTTP ${response.status}`));
+      }
+
+      setCommunicationLogs(Array.isArray(payload?.data?.logs) ? payload.data.logs : []);
+    } catch (fetchError) {
+      setCommunicationsError(String(fetchError?.message || "Error cargando comunicaciones."));
+      setCommunicationLogs([]);
+    } finally {
+      setCommunicationsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hqTab === "communications") {
+      fetchCommunicationLogs();
+    }
+  }, [fetchCommunicationLogs, hqTab]);
 
   const fmtDate = (d) => {
     if (!d) return "—";
@@ -355,6 +456,49 @@ export function AdminDashboardScreen({ session, onNavigate }) {
   const recentRsvps = useMemo(() => stats?.recent_rsvps || [], [stats]);
   const waitlistUsers = useMemo(() => stats?.waitlist_users || [], [stats]);
   const trendingEvents = useMemo(() => stats?.trending_events || [], [stats]);
+
+  const professionalEventsCount = useMemo(() => {
+    const dbValue = Number(stats?.events_professional);
+    if (Number.isFinite(dbValue)) return dbValue;
+    return recentEvents.filter((eventItem) => isProfessionalEventContext(eventItem)).length;
+  }, [stats, recentEvents]);
+
+  const personalEventsCount = useMemo(() => {
+    const dbValue = Number(stats?.events_personal);
+    if (Number.isFinite(dbValue)) return dbValue;
+    const total = Number(stats?.total_events || 0);
+    return Math.max(0, total - professionalEventsCount);
+  }, [stats, professionalEventsCount]);
+
+  const professionalGuestsCount = useMemo(() => {
+    const dbValue = Number(stats?.guests_professional);
+    if (Number.isFinite(dbValue)) return dbValue;
+    return 0;
+  }, [stats]);
+
+  const personalGuestsCount = useMemo(() => {
+    const dbValue = Number(stats?.guests_personal);
+    if (Number.isFinite(dbValue)) return dbValue;
+    return Number(stats?.total_unique_guests || 0);
+  }, [stats]);
+
+  const filteredEvents = useMemo(() => {
+    if (eventContextFilter === "all") return recentEvents;
+    return recentEvents.filter((eventItem) => {
+      const isProfessional = isProfessionalEventContext(eventItem);
+      return eventContextFilter === "professional" ? isProfessional : !isProfessional;
+    });
+  }, [recentEvents, eventContextFilter]);
+
+  const filteredCommunicationLogs = useMemo(() => {
+    return communicationLogs.filter((logRow) => {
+      const recipient = String(logRow?.recipient || "").toLowerCase();
+      const mode = String(logRow?.mode || "").toLowerCase();
+      const recipientMatches = !commRecipientFilter.trim() || recipient.includes(commRecipientFilter.trim().toLowerCase());
+      const modeMatches = commModeFilter === "all" || mode === commModeFilter;
+      return recipientMatches && modeMatches;
+    });
+  }, [communicationLogs, commRecipientFilter, commModeFilter]);
 
   const [copyFeedback, setCopyFeedback] = useState("");
 
@@ -422,6 +566,31 @@ export function AdminDashboardScreen({ session, onNavigate }) {
           </div>
         </header>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setHqTab("overview")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              hqTab === "overview"
+                ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setHqTab("communications")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              hqTab === "communications"
+                ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            Comunicaciones
+          </button>
+        </div>
+
         {/* Error */}
         {error && (
           <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
@@ -439,7 +608,7 @@ export function AdminDashboardScreen({ session, onNavigate }) {
         )}
 
         {/* Dashboard content */}
-        {stats && (
+        {hqTab === "overview" && stats && (
           <>
             {/* Row 1: Core KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -477,7 +646,43 @@ export function AdminDashboardScreen({ session, onNavigate }) {
               />
             </div>
 
-            {/* Row 2: Activation + Viral + Waitlist */}
+            {/* Row 2: B2B vs B2C visibility */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <KpiCard
+                label="Eventos Profesionales"
+                value={professionalEventsCount}
+                subtitle={`${stats.total_events || 0} totales`}
+                icon="🏢"
+                accent="bg-blue-500"
+                tooltip="Eventos con contexto corporativo/profesional."
+              />
+              <KpiCard
+                label="Eventos Personales"
+                value={personalEventsCount}
+                subtitle={`${stats.total_events || 0} totales`}
+                icon="🎈"
+                accent="bg-fuchsia-500"
+                tooltip="Eventos sociales/personales."
+              />
+              <KpiCard
+                label="Invitados Pro"
+                value={professionalGuestsCount}
+                subtitle="Flujos corporativos"
+                icon="🧑‍💼"
+                accent="bg-cyan-500"
+                tooltip="Invitados únicos asociados a eventos profesionales."
+              />
+              <KpiCard
+                label="Invitados Personales"
+                value={personalGuestsCount}
+                subtitle="Flujos sociales"
+                icon="🧑‍🤝‍🧑"
+                accent="bg-purple-500"
+                tooltip="Invitados únicos asociados a eventos personales."
+              />
+            </div>
+
+            {/* Row 3: Activation + Viral + Waitlist */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard
                 label="Tasa Activación"
@@ -533,14 +738,35 @@ export function AdminDashboardScreen({ session, onNavigate }) {
             />
 
             {/* Paginated: All Events */}
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { key: "all", label: "Todos" },
+                { key: "professional", label: "Profesionales" },
+                { key: "personal", label: "Personales" }
+              ].map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setEventContextFilter(option.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    eventContextFilter === option.key
+                      ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <PaginatedTable
               title="Eventos"
-              headers={["Evento", "Anfitrión", "Estado", "Fecha", "Creado", "Inv.", "✅", "❌", "🤔"]}
-              allRows={recentEvents}
+              headers={["Evento", "Anfitrión", "Estado", "Contexto", "Fecha", "Creado", "Inv.", "✅", "❌", "🤔"]}
+              allRows={filteredEvents}
               renderRow={(e) => [
                 <span className="font-medium text-white max-w-[200px] truncate block">{e.title}</span>,
                 e.host_name || "—",
                 <StatusBadge status={e.status} />,
+                <EventContextBadge event={e} />,
                 fmtDateTime(e.start_at),
                 fmtDate(e.created_at),
                 e.total_invited,
@@ -686,6 +912,67 @@ export function AdminDashboardScreen({ session, onNavigate }) {
               <WaitlistTable users={waitlistUsers} fmtDate={fmtDate} />
             </div>
           </>
+        )}
+
+        {hqTab === "communications" && (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl p-4 shadow-lg flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <input
+                  type="text"
+                  value={commRecipientFilter}
+                  onChange={(event) => setCommRecipientFilter(event.target.value)}
+                  placeholder="Filtrar por destinatario..."
+                  className="w-full sm:w-72 rounded-lg border border-white/10 bg-gray-900/60 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:border-blue-400/60 focus:outline-none"
+                />
+                <select
+                  value={commModeFilter}
+                  onChange={(event) => setCommModeFilter(event.target.value)}
+                  className="rounded-lg border border-white/10 bg-gray-900/60 px-3 py-2 text-sm text-gray-200 focus:border-blue-400/60 focus:outline-none"
+                >
+                  <option value="all">Todos los modos</option>
+                  <option value="professional">Profesional</option>
+                  <option value="personal">Personal</option>
+                  <option value="auth">Auth</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={fetchCommunicationLogs}
+                disabled={communicationsLoading}
+                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+              >
+                {communicationsLoading ? "Cargando..." : "Refrescar logs"}
+              </button>
+            </div>
+
+            {communicationsError ? (
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+                {communicationsError}
+              </div>
+            ) : null}
+
+            <PaginatedTable
+              title="Comunicaciones Email"
+              headers={["Fecha", "Destinatario", "Asunto", "Modo", "Estado", ".ics", "Error"]}
+              allRows={filteredCommunicationLogs}
+              emptyMsg={communicationsLoading ? "Cargando logs..." : "No hay comunicaciones para estos filtros"}
+              renderRow={(logRow) => {
+                const hasIcs = Boolean(logRow?.metadata?.hasIcsAttachment);
+                return [
+                  logRow?.created_at ? new Date(logRow.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—",
+                  <span className="font-mono text-xs">{String(logRow?.recipient || "—")}</span>,
+                  <span className="max-w-[260px] truncate block" title={String(logRow?.subject || "")}>{String(logRow?.subject || "—")}</span>,
+                  <CommunicationModeBadge mode={logRow?.mode} />,
+                  <CommunicationStatusBadge status={logRow?.status} />,
+                  hasIcs ? <span className="text-emerald-400 text-xs font-semibold">Sí</span> : <span className="text-gray-500 text-xs">No</span>,
+                  logRow?.error_details
+                    ? <span className="max-w-[260px] truncate block text-xs text-red-300" title={String(logRow.error_details)}>{String(logRow.error_details)}</span>
+                    : <span className="text-gray-600">—</span>
+                ];
+              }}
+            />
+          </div>
         )}
 
         {/* Footer */}

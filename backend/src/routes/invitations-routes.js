@@ -268,6 +268,7 @@ router.post("/send", requireAuthenticatedUser, async (req, res) => {
       hostName,
       invitationUrl,
       locale,
+      eventId: toSafeString(eventRow.id),
       invitationId,
       isProfessionalEvent,
       eventDetails: {

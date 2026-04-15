@@ -2,7 +2,7 @@ import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
 import { sendBroadcastEmail, sendGalleryNotificationEmail } from "../services/email-service.js";
-import { normalizeEventActiveModules, resolveEventModules } from "../services/event-modules-service.js";
+import { isProfessionalEventContext, normalizeEventActiveModules, resolveEventModules } from "../services/event-modules-service.js";
 
 const router = express.Router();
 const broadcastCooldownMap = new Map();
@@ -290,7 +290,7 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
   try {
     const { data: eventData, error: eventError } = await supabase
       .from("events")
-      .select("id, title, host_user_id")
+      .select("id, title, host_user_id, event_type")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -334,10 +334,15 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
 
     const hostName = toHostDisplayName(req.authUser);
     const eventName = toSafeString(eventData.title) || "Evento";
+    const isProfessionalEvent = isProfessionalEventContext(eventData);
 
     const sendResults = await Promise.allSettled(
       recipientEmails.map((email) =>
-        sendBroadcastEmail(email, hostName, eventName, customMessage, locale)
+        sendBroadcastEmail(email, hostName, eventName, customMessage, locale, {
+          eventId,
+          eventType: toSafeString(eventData.event_type),
+          mode: isProfessionalEvent ? "professional" : "personal"
+        })
       )
     );
 
@@ -591,7 +596,7 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
   try {
     const { data: eventData, error: eventError } = await supabase
       .from("events")
-      .select("id, title, host_user_id, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version")
+      .select("id, title, host_user_id, event_type, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -672,6 +677,7 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
       if (totalRecipients > 0) {
         const hostName = toHostDisplayName(req.authUser);
         const eventName = toSafeString(eventData.title) || "Evento";
+        const isProfessionalEvent = isProfessionalEventContext(eventData);
         const sendResults = await Promise.allSettled(
           recipientEmails.map((email) =>
             sendGalleryNotificationEmail(
@@ -679,7 +685,12 @@ router.put("/:id", requireAuthenticatedUser, async (req, res) => {
               hostName,
               eventName,
               normalizedPhotoGalleryUrl,
-              locale
+              locale,
+              {
+                eventId,
+                eventType: toSafeString(eventData.event_type),
+                mode: isProfessionalEvent ? "professional" : "personal"
+              }
             )
           )
         );
