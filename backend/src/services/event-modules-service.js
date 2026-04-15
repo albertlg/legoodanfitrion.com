@@ -6,6 +6,7 @@ const MODULE_KEYS = [
   "gallery",
   "spotify",
   "venues",
+  "spaces",
   "ai_planner",
   "icebreaker"
 ];
@@ -18,6 +19,7 @@ const MODULE_DEFAULTS = Object.freeze({
   gallery: true,
   spotify: true,
   venues: true,
+  spaces: false,
   ai_planner: true,
   icebreaker: true
 });
@@ -74,7 +76,8 @@ export function inferLegacyEventModules(event, hints = {}) {
     finance: Boolean(hints.hasExpenses ?? expenses.length > 0) || MODULE_DEFAULTS.finance,
     gallery: Boolean(hints.hasPhotoGallery ?? photoGalleryUrl) || MODULE_DEFAULTS.gallery,
     spotify: Boolean(hints.hasSpotifyPlaylist) || MODULE_DEFAULTS.spotify,
-    venues: Boolean(hints.hasVenues) || MODULE_DEFAULTS.venues
+    venues: Boolean(hints.hasVenues) || MODULE_DEFAULTS.venues,
+    spaces: Boolean(hints.hasSpaces) || MODULE_DEFAULTS.spaces
   };
 }
 

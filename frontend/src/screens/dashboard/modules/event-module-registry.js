@@ -6,6 +6,7 @@ import { EventGalleryModuleCard } from "./event-gallery-module-card";
 import { EventIcebreakerModuleCard } from "./event-icebreaker-module-card";
 import { EventMegaphoneModuleCard } from "./event-megaphone-module-card";
 import { EventSpotifyHeaderAction } from "./event-spotify-header-action";
+import { EventSpacesModuleCard } from "./event-spaces-module-card";
 import { EventVenuesModuleCard } from "./event-venues-module-card";
 
 export const EVENT_MODULE_ZONES = Object.freeze({
@@ -86,6 +87,17 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
         eventVenuesFeedbackType: context.eventVenuesFeedbackType,
         handleSelectFinalVenue: context.handleSelectFinalVenue,
         selectingFinalVenueId: context.selectingFinalVenueId
+      })
+  },
+  {
+    key: "spaces",
+    zone: EVENT_MODULE_ZONES.MAIN,
+    order: 80,
+    render: (context) =>
+      React.createElement(EventSpacesModuleCard, {
+        t: context.t,
+        selectedEventDetail: context.selectedEventDetail,
+        selectedEventDetailGuests: context.selectedEventDetailGuests
       })
   },
   {

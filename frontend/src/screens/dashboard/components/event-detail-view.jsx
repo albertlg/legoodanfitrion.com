@@ -2236,6 +2236,7 @@ export function EventDetailView({
     { key: "gallery", labelKey: "event_modules_toggle_gallery_label", hintKey: "event_modules_toggle_gallery_hint" },
     { key: "date_poll", labelKey: "event_modules_toggle_date_poll_label", hintKey: "event_modules_toggle_date_poll_hint" },
     { key: "venues", labelKey: "event_modules_toggle_venues_label", hintKey: "event_modules_toggle_venues_hint" },
+    { key: "spaces", labelKey: "event_modules_toggle_spaces_label", hintKey: "event_modules_toggle_spaces_hint" },
     { key: "finance", labelKey: "event_modules_toggle_finance_label", hintKey: "event_modules_toggle_finance_hint" },
     { key: "spotify", labelKey: "event_modules_toggle_spotify_label", hintKey: "event_modules_toggle_spotify_hint" },
     { key: "icebreaker", labelKey: "event_modules_toggle_icebreaker_label", hintKey: "event_modules_toggle_icebreaker_hint" }
@@ -2257,6 +2258,7 @@ export function EventDetailView({
     interpolateText,
     language,
     selectedEventDetail,
+    selectedEventDetailGuests,
     getGuestAvatarUrl,
     formatDate,
     formatTimeLabel,

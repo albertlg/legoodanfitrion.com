@@ -6,6 +6,7 @@ const MODULE_KEYS = [
   "gallery",
   "spotify",
   "venues",
+  "spaces",
   "ai_planner",
   "icebreaker"
 ];
@@ -20,6 +21,7 @@ export const EVENT_MODULE_DEFAULTS = Object.freeze({
   gallery: true,
   spotify: true,
   venues: true,
+  spaces: false,
   ai_planner: true,
   icebreaker: true
 });
@@ -65,7 +67,7 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: true,
     dressCode: "casual",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["finance", "venues", "icebreaker"]))
+    modules: Object.freeze(buildTemplateModules(["finance", "venues", "spaces", "icebreaker"]))
   }),
   party: Object.freeze({
     key: "party",
@@ -93,7 +95,7 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: false,
     dressCode: "casual",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["date_poll", "venues", "icebreaker"]))
+    modules: Object.freeze(buildTemplateModules(["date_poll", "venues", "spaces", "icebreaker"]))
   }),
   all_hands: Object.freeze({
     key: "all_hands",
@@ -121,7 +123,7 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: false,
     dressCode: "elegant",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["venues", "megaphone"]))
+    modules: Object.freeze(buildTemplateModules(["venues", "spaces", "megaphone"]))
   }),
   custom: Object.freeze({
     key: "custom",
@@ -208,6 +210,7 @@ export function inferLegacyEventModules(event, hints = {}) {
   const hasGallery = Boolean(hints.hasPhotoGallery ?? photoGalleryUrl);
   const hasSpotify = Boolean(hints.hasSpotifyPlaylist);
   const hasVenues = Boolean(hints.hasVenues);
+  const hasSpaces = Boolean(hints.hasSpaces);
 
   return {
     ...EVENT_MODULE_DEFAULTS,
@@ -215,7 +218,8 @@ export function inferLegacyEventModules(event, hints = {}) {
     finance: hasExpenses || EVENT_MODULE_DEFAULTS.finance,
     gallery: hasGallery || EVENT_MODULE_DEFAULTS.gallery,
     spotify: hasSpotify || EVENT_MODULE_DEFAULTS.spotify,
-    venues: hasVenues || EVENT_MODULE_DEFAULTS.venues
+    venues: hasVenues || EVENT_MODULE_DEFAULTS.venues,
+    spaces: hasSpaces || EVENT_MODULE_DEFAULTS.spaces
   };
 }
 
