@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandMark } from "./components/brand-mark";
 import { Controls } from "./components/controls";
 import es from "./i18n/es.json";
@@ -146,6 +146,7 @@ function App() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isCheckingAdminAuthorization, setIsCheckingAdminAuthorization] = useState(false);
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
+  const hasManualLanguageSelectionRef = useRef(false);
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
 
@@ -159,20 +160,76 @@ function App() {
     }
   }, [route.urlLang, route.kind, language]);
 
-  // 🚀 SEO: Función para interceptar los clicks en el selector de idioma
-  const handleLanguageChange = useCallback((newLang) => {
+  const syncLanguagePreference = useCallback(
+    async (nextLanguage) => {
+      if (!supabase || !session?.user?.id) {
+        return;
+      }
+      const normalizedLanguage = String(nextLanguage || "").trim().toLowerCase();
+      if (!SUPPORTED_LANGUAGES.includes(normalizedLanguage)) {
+        return;
+      }
 
-    // 🚀 FIX CLAVE: Guardamos el idioma en el navegador ANTES de navegar
-    // para que el Smart Router no se confunda y nos devuelva al idioma anterior.
-    window.localStorage.setItem("legood-language", newLang);
+      const basePayload = {
+        id: session.user.id,
+        preferred_language: normalizedLanguage
+      };
+      const profilePayload = themeColumnSupported
+        ? {
+            ...basePayload,
+            preferred_theme: themeMode
+          }
+        : basePayload;
+
+      const { error: profileError } = await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
+      if (
+        profileError &&
+        themeColumnSupported &&
+        (profileError.message?.toLowerCase().includes("preferred_theme") || profileError.code === "42703")
+      ) {
+        setThemeColumnSupported(false);
+        await supabase.from("profiles").upsert(basePayload, { onConflict: "id" });
+      }
+
+      const currentPrefs =
+        session.user?.user_metadata?.preferences && typeof session.user.user_metadata.preferences === "object"
+          ? session.user.user_metadata.preferences
+          : {};
+      const nextPreferences = {
+        ...currentPrefs,
+        locale: normalizedLanguage,
+        theme: themeMode
+      };
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          preferences: nextPreferences
+        }
+      });
+      if (metadataError) {
+        console.warn("[language-sync] No se pudo sincronizar locale en user_metadata:", metadataError.message);
+      }
+    },
+    [session?.user?.id, session?.user?.user_metadata?.preferences, themeColumnSupported, themeMode]
+  );
+
+  // 🚀 SEO + UX: cambio manual siempre gana y sincroniza contra Supabase si hay sesión
+  const handleLanguageChange = useCallback((newLang) => {
+    const normalizedLanguage = String(newLang || "").trim().toLowerCase();
+    if (!SUPPORTED_LANGUAGES.includes(normalizedLanguage)) {
+      return;
+    }
+
+    hasManualLanguageSelectionRef.current = true;
+    window.localStorage.setItem("legood-language", normalizedLanguage);
+    setLanguage(normalizedLanguage);
 
     if (route.kind !== "app" && route.kind !== "login" && route.kind !== "rsvp") {
-      const newCanonicalPath = getCanonicalPathForRoute(route, newLang);
+      const newCanonicalPath = getCanonicalPathForRoute(route, normalizedLanguage);
       navigate(newCanonicalPath, { replace: true });
-    } else {
-      setLanguage(newLang);
     }
-  }, [route, navigate]);
+
+    void syncLanguagePreference(normalizedLanguage);
+  }, [route, navigate, syncLanguagePreference]);
 
   useEffect(() => {
     if (loadedLocales[language] || !LOCALE_LOADERS[language]) {
@@ -237,7 +294,7 @@ function App() {
       } else {
         setSession(data.session);
         const sessionPrefs = getSessionPreferences(data.session?.user);
-        if (sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
+        if (!hasManualLanguageSelectionRef.current && sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
           setLanguage(sessionPrefs.locale);
         }
         if (sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme)) {
@@ -252,7 +309,13 @@ function App() {
       setSession(nextSession);
       setIsSigningInWithGoogle(false);
       const sessionPrefs = getSessionPreferences(nextSession?.user);
-      if (sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
+      const shouldHydrateLocaleFromSession = event === "SIGNED_IN" || event === "USER_UPDATED";
+      if (
+        shouldHydrateLocaleFromSession &&
+        !hasManualLanguageSelectionRef.current &&
+        sessionPrefs.locale &&
+        SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)
+      ) {
         setLanguage(sessionPrefs.locale);
       }
       if (sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme)) {
@@ -265,6 +328,7 @@ function App() {
       if (event === "SIGNED_OUT") {
         setIsRecoveryMode(false);
         setProfilePrefsHydrated(false);
+        hasManualLanguageSelectionRef.current = false;
       }
       // PLG: si el usuario hace login (o confirma email) y aún tiene dietary needs
       // pendientes del RSVP, inyectarlos en su metadata para pre-poblar el perfil
@@ -314,7 +378,8 @@ function App() {
       const hasMetadataLocale = sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale);
       const hasMetadataTheme = sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme);
 
-      if (hasMetadataLocale) {
+      // Manual language choice always wins over background session/profile hydration.
+      if (hasMetadataLocale && !hasManualLanguageSelectionRef.current) {
         setLanguage(sessionPrefs.locale);
       }
       if (hasMetadataTheme) {
@@ -333,6 +398,10 @@ function App() {
       }
 
       if (!hasMetadataLocale && data?.preferred_language && SUPPORTED_LANGUAGES.includes(data.preferred_language)) {
+        if (hasManualLanguageSelectionRef.current) {
+          setProfilePrefsHydrated(true);
+          return;
+        }
         setLanguage(data.preferred_language);
       }
 
