@@ -298,6 +298,23 @@ const RSVP_REFRESH_MARKER_KEY = "lga_rsvp_refresh_at";
 const EVENT_DATE_OPTION_DATETIME_KEYS = ["start_at", "starts_at", "proposed_at", "option_at", "datetime_at"];
 const EVENT_DATE_OPTION_ORDER_KEYS = ["option_order", "sort_order", "position", "display_order"];
 const EVENT_DATE_VOTE_STATUS_KEYS = ["vote", "status", "availability", "response", "answer"];
+const configuredApiUrl = String(
+  import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    ""
+).trim();
+const fallbackApiUrl = "/api";
+const DASHBOARD_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+
+function buildInvitationsApiUrl(resource) {
+  const normalizedBase = String(DASHBOARD_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  return /(^|\/)api$/i.test(normalizedBase)
+    ? `${normalizedBase}/invitations/${resource}`
+    : `${normalizedBase}/api/invitations/${resource}`;
+}
 
 function getEventDateOptionStartAtValue(optionItem) {
   if (!optionItem || typeof optionItem !== "object") {
@@ -8613,6 +8630,85 @@ function DashboardScreen({
     setDeleteTarget(null);
   };
 
+  const sendInvitationEmailViaBackend = useCallback(
+    async ({ invitationId, targetEmail = "" }) => {
+      const normalizedInvitationId = String(invitationId || "").trim();
+      const inviteUrl = buildInvitationsApiUrl("send");
+      if (!normalizedInvitationId || !inviteUrl || !supabase) {
+        return {
+          success: false,
+          code: "INVITATION_EMAIL_PRECONDITION_FAILED"
+        };
+      }
+
+      try {
+        const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+        const accessToken = String(sessionPayload?.session?.access_token || "").trim();
+        if (sessionError || !accessToken) {
+          return {
+            success: false,
+            code: "INVITATION_EMAIL_AUTH_ERROR",
+            error: String(sessionError?.message || "Missing access token")
+          };
+        }
+
+        const response = await fetch(inviteUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            invitationId: normalizedInvitationId,
+            targetEmail: String(targetEmail || "").trim().toLowerCase(),
+            locale: String(language || "es").trim().toLowerCase()
+          })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload?.success === false) {
+          return {
+            success: false,
+            code: String(payload?.code || "").trim() || `INVITATION_EMAIL_HTTP_${response.status}`,
+            error: String(payload?.error || `HTTP ${response.status}`)
+          };
+        }
+
+        return {
+          success: true,
+          payload
+        };
+      } catch (error) {
+        return {
+          success: false,
+          code: "INVITATION_EMAIL_REQUEST_ERROR",
+          error: String(error?.message || error)
+        };
+      }
+    },
+    [language]
+  );
+
+  const resolveInvitationTargetEmailByContext = useCallback(
+    ({ eventId, guestId }) => {
+      const eventItem = eventsById[String(eventId || "").trim()] || null;
+      const guestItem = guestsById[String(guestId || "").trim()] || null;
+      if (!guestItem) {
+        return "";
+      }
+
+      const personalEmail = String(guestItem?.email || "").trim().toLowerCase();
+      const professionalEmail = String(guestItem?.work_email || "").trim().toLowerCase();
+      const isProfessionalEvent = isProfessionalEventContext(eventItem);
+
+      return isProfessionalEvent
+        ? professionalEmail || personalEmail || ""
+        : personalEmail || professionalEmail || "";
+    },
+    [eventsById, guestsById]
+  );
+
   const handleCreateInvitation = async (event) => {
     event.preventDefault();
     if (!supabase || !session?.user?.id) {
@@ -8660,6 +8756,21 @@ function DashboardScreen({
         setInvitationMessage(`${t("error_create_invitation")} ${error.message}`);
       }
       return;
+    }
+
+    const targetEmail = resolveInvitationTargetEmailByContext({
+      eventId: selectedEventId,
+      guestId: selectedGuestId
+    });
+    const invitationDeliveryResult = await sendInvitationEmailViaBackend({
+      invitationId: data?.id,
+      targetEmail
+    });
+    if (!invitationDeliveryResult?.success) {
+      console.warn(
+        "[invitations] could not send email notification",
+        invitationDeliveryResult?.code || invitationDeliveryResult?.error || invitationDeliveryResult
+      );
     }
 
     const sharePayload = buildInvitationSharePayload(data);
@@ -8792,6 +8903,7 @@ function DashboardScreen({
     let skippedCount = 0;
     let failedCount = 0;
     let firstCreatedInvitation = null;
+    const createdInvitations = [];
     const alreadyInvitedForEvent = invitedGuestIdsByEvent.get(selectedEventId) || new Set();
 
     for (const guestId of guestIds) {
@@ -8822,6 +8934,36 @@ function DashboardScreen({
       createdCount += 1;
       if (!firstCreatedInvitation) {
         firstCreatedInvitation = data;
+      }
+      createdInvitations.push({
+        invitationId: data?.id,
+        guestId
+      });
+    }
+
+    if (createdInvitations.length > 0) {
+      const deliveryResults = await Promise.allSettled(
+        createdInvitations.map((item) =>
+          sendInvitationEmailViaBackend({
+            invitationId: item.invitationId,
+            targetEmail: resolveInvitationTargetEmailByContext({
+              eventId: selectedEventId,
+              guestId: item.guestId
+            })
+          })
+        )
+      );
+
+      const deliveryFailures = deliveryResults.filter((result) => {
+        if (result.status === "rejected") {
+          return true;
+        }
+        return !result.value?.success;
+      });
+
+      if (deliveryFailures.length > 0) {
+        failedCount += deliveryFailures.length;
+        console.warn("[invitations] bulk email delivery failures:", deliveryFailures.length);
       }
     }
 

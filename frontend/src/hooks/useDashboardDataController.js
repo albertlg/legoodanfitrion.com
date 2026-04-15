@@ -96,7 +96,7 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, template_id, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .order("created_at", { ascending: false })
       .limit(50);
@@ -122,8 +122,7 @@ export function useDashboardDataController({
         "finance_total_budget",
         "active_modules",
         "modules_version",
-        "end_at",
-        "template_id"
+        "end_at"
       ])
     ) {
       const fallback = await supabase
@@ -226,7 +225,7 @@ export function useDashboardDataController({
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, template_id, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
         .eq("id", routeEventDetailId)
         .maybeSingle();
@@ -252,8 +251,7 @@ export function useDashboardDataController({
           "finance_total_budget",
           "active_modules",
           "modules_version",
-          "end_at",
-          "template_id"
+          "end_at"
         ])
       ) {
         routeEventResult = await supabase

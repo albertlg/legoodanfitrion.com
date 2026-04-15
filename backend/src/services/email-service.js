@@ -179,6 +179,159 @@ const GALLERY_EMAIL_COPY = {
   }
 };
 
+const EVENT_INVITATION_EMAIL_COPY = {
+  es: {
+    personal: {
+      subject: (eventName) => `¡Estás invitado/a a ${eventName}! 🎉`,
+      kicker: "Invitación personal",
+      heading: "Nos encantará verte",
+      intro: (hostName, eventName) =>
+        `${hostName} te ha invitado a "${eventName}".`,
+      ctaRsvp: "Confirmar asistencia",
+      ctaCalendar: "Añadir a Google Calendar",
+      ctaIcs: "Adjunto .ics para Apple/Outlook",
+      dateLabel: "Fecha y hora",
+      locationLabel: "Lugar",
+      pendingDate: "Fecha pendiente de confirmar",
+      pendingLocation: "Ubicación pendiente"
+    },
+    professional: {
+      subject: (eventName) => `Invitación formal: ${eventName}`,
+      kicker: "Invitación corporativa",
+      heading: "Convocatoria y agenda",
+      intro: (hostName, eventName) =>
+        `${hostName} te invita formalmente a "${eventName}".`,
+      ctaRsvp: "Confirmar asistencia",
+      ctaCalendar: "Añadir a Google Calendar",
+      ctaIcs: "Descarga el .ics adjunto",
+      dateLabel: "Fecha y hora",
+      locationLabel: "Ubicación",
+      pendingDate: "Fecha por confirmar",
+      pendingLocation: "Ubicación por confirmar"
+    }
+  },
+  ca: {
+    personal: {
+      subject: (eventName) => `Estàs convidat/da a ${eventName}! 🎉`,
+      kicker: "Invitació personal",
+      heading: "Ens farà molta il·lusió veure't",
+      intro: (hostName, eventName) =>
+        `${hostName} t'ha convidat a "${eventName}".`,
+      ctaRsvp: "Confirmar assistència",
+      ctaCalendar: "Afegir a Google Calendar",
+      ctaIcs: "Adjunt .ics per Apple/Outlook",
+      dateLabel: "Data i hora",
+      locationLabel: "Lloc",
+      pendingDate: "Data pendent de confirmar",
+      pendingLocation: "Ubicació pendent"
+    },
+    professional: {
+      subject: (eventName) => `Invitació formal: ${eventName}`,
+      kicker: "Invitació corporativa",
+      heading: "Convocatòria i agenda",
+      intro: (hostName, eventName) =>
+        `${hostName} et convida formalment a "${eventName}".`,
+      ctaRsvp: "Confirmar assistència",
+      ctaCalendar: "Afegir a Google Calendar",
+      ctaIcs: "Descarrega l'.ics adjunt",
+      dateLabel: "Data i hora",
+      locationLabel: "Ubicació",
+      pendingDate: "Data per confirmar",
+      pendingLocation: "Ubicació per confirmar"
+    }
+  },
+  en: {
+    personal: {
+      subject: (eventName) => `You're invited to ${eventName}! 🎉`,
+      kicker: "Personal invite",
+      heading: "We'd love to see you there",
+      intro: (hostName, eventName) =>
+        `${hostName} invited you to "${eventName}".`,
+      ctaRsvp: "RSVP now",
+      ctaCalendar: "Add to Google Calendar",
+      ctaIcs: ".ics attached for Apple/Outlook",
+      dateLabel: "Date and time",
+      locationLabel: "Location",
+      pendingDate: "Date to be confirmed",
+      pendingLocation: "Location to be confirmed"
+    },
+    professional: {
+      subject: (eventName) => `Formal invitation: ${eventName}`,
+      kicker: "Corporate invitation",
+      heading: "Schedule and attendance",
+      intro: (hostName, eventName) =>
+        `${hostName} formally invites you to "${eventName}".`,
+      ctaRsvp: "Confirm attendance",
+      ctaCalendar: "Add to Google Calendar",
+      ctaIcs: "Download attached .ics",
+      dateLabel: "Date and time",
+      locationLabel: "Location",
+      pendingDate: "Date pending",
+      pendingLocation: "Location pending"
+    }
+  },
+  fr: {
+    personal: {
+      subject: (eventName) => `Tu es invité(e) à ${eventName} ! 🎉`,
+      kicker: "Invitation personnelle",
+      heading: "On serait ravis de te voir",
+      intro: (hostName, eventName) =>
+        `${hostName} t'a invité à "${eventName}".`,
+      ctaRsvp: "Confirmer ma présence",
+      ctaCalendar: "Ajouter à Google Calendar",
+      ctaIcs: ".ics joint pour Apple/Outlook",
+      dateLabel: "Date et heure",
+      locationLabel: "Lieu",
+      pendingDate: "Date à confirmer",
+      pendingLocation: "Lieu à confirmer"
+    },
+    professional: {
+      subject: (eventName) => `Invitation formelle : ${eventName}`,
+      kicker: "Invitation professionnelle",
+      heading: "Convocation et agenda",
+      intro: (hostName, eventName) =>
+        `${hostName} vous invite formellement à "${eventName}".`,
+      ctaRsvp: "Confirmer ma présence",
+      ctaCalendar: "Ajouter à Google Calendar",
+      ctaIcs: "Télécharger le .ics joint",
+      dateLabel: "Date et heure",
+      locationLabel: "Lieu",
+      pendingDate: "Date en attente",
+      pendingLocation: "Lieu en attente"
+    }
+  },
+  it: {
+    personal: {
+      subject: (eventName) => `Sei invitato/a a ${eventName}! 🎉`,
+      kicker: "Invito personale",
+      heading: "Ci farebbe piacere vederti",
+      intro: (hostName, eventName) =>
+        `${hostName} ti ha invitato a "${eventName}".`,
+      ctaRsvp: "Conferma presenza",
+      ctaCalendar: "Aggiungi a Google Calendar",
+      ctaIcs: ".ics allegato per Apple/Outlook",
+      dateLabel: "Data e ora",
+      locationLabel: "Luogo",
+      pendingDate: "Data da confermare",
+      pendingLocation: "Luogo da confermare"
+    },
+    professional: {
+      subject: (eventName) => `Invito formale: ${eventName}`,
+      kicker: "Invito corporate",
+      heading: "Convocazione e agenda",
+      intro: (hostName, eventName) =>
+        `${hostName} ti invita formalmente a "${eventName}".`,
+      ctaRsvp: "Conferma presenza",
+      ctaCalendar: "Aggiungi a Google Calendar",
+      ctaIcs: "Scarica il .ics allegato",
+      dateLabel: "Data e ora",
+      locationLabel: "Luogo",
+      pendingDate: "Data da definire",
+      pendingLocation: "Luogo da definire"
+    }
+  }
+};
+
 let resendClient = null;
 
 function toSafeString(value) {
@@ -207,6 +360,12 @@ function getBroadcastEmailCopy(localeValue) {
 function getGalleryEmailCopy(localeValue) {
   const normalizedLocale = normalizeTicketLocale(localeValue);
   return GALLERY_EMAIL_COPY[normalizedLocale] || GALLERY_EMAIL_COPY.es;
+}
+
+function getEventInvitationEmailCopy({ localeValue, isProfessionalEvent = false }) {
+  const normalizedLocale = normalizeTicketLocale(localeValue);
+  const localeCopy = EVENT_INVITATION_EMAIL_COPY[normalizedLocale] || EVENT_INVITATION_EMAIL_COPY.es;
+  return isProfessionalEvent ? localeCopy.professional : localeCopy.personal;
 }
 
 function escapeHtml(value) {
@@ -246,6 +405,19 @@ function getResendClient() {
 
   resendClient = new Resend(apiKey);
   return resendClient;
+}
+
+function isResendConfigured() {
+  return Boolean(toSafeString(process.env.RESEND_API_KEY));
+}
+
+function logMockInvitationEmail({ to, subject, mode, hasIcsAttachment }) {
+  console.log("\n--- MOCK EMAIL ENVIADO ---");
+  console.log("Para:", to);
+  console.log("Asunto:", subject);
+  console.log("Modo:", mode);
+  console.log("Incluye .ics:", hasIcsAttachment ? "sí" : "no");
+  console.log("--------------------------\n");
 }
 
 function buildSignupUrl(targetEmail) {
@@ -423,6 +595,121 @@ function buildRsvpTicketHtml({ guestName, eventDetails, calendarUrl, detailsUrl,
   });
 }
 
+function escapeIcsText(value) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function buildEventInvitationIcs({
+  uid,
+  eventName,
+  description,
+  location,
+  startAt,
+  endAt,
+  detailsUrl
+}) {
+  const startAtDate = toValidDateOrNull(startAt);
+  if (!startAtDate) {
+    return "";
+  }
+  const endAtDate = toValidDateOrNull(endAt) || new Date(startAtDate.getTime() + 2 * 60 * 60 * 1000);
+  const dtStamp = formatCalendarDateUtc(new Date());
+  const dtStart = formatCalendarDateUtc(startAtDate);
+  const dtEnd = formatCalendarDateUtc(endAtDate);
+  const safeUid = toSafeString(uid) || `lga-${Date.now()}@legoodanfitrion.com`;
+  const safeSummary = escapeIcsText(eventName || "Evento LeGoodAnfitrión");
+  const safeDescription = escapeIcsText(description || "");
+  const safeLocation = escapeIcsText(location || "");
+  const safeUrl = escapeIcsText(detailsUrl || "");
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//LeGoodAnfitrion//Invitation//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${safeUid}`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${safeSummary}`,
+    `DESCRIPTION:${safeDescription}`,
+    `LOCATION:${safeLocation}`,
+    `URL:${safeUrl}`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+}
+
+function buildEventInvitationHtml({
+  hostName,
+  guestName,
+  eventDetails,
+  invitationUrl,
+  calendarUrl,
+  copy,
+  isProfessionalEvent,
+  hasIcsAttachment
+}) {
+  const escapedEventName = escapeHtml(eventDetails?.eventName || "Evento");
+  const escapedHostName = escapeHtml(hostName || "LeGoodAnfitrión");
+  const escapedGuestName = escapeHtml(guestName || "Invitado");
+  const escapedDate = escapeHtml(formatEventDateRange(eventDetails) || copy.pendingDate);
+  const escapedLocation = escapeHtml(
+    toSafeString(eventDetails?.locationName || eventDetails?.locationAddress) || copy.pendingLocation
+  );
+  const escapedInvitationUrl = escapeHtml(invitationUrl);
+  const escapedCalendarUrl = escapeHtml(calendarUrl);
+
+  return buildEmailDocument({
+    title: copy.subject(eventDetails?.eventName || "Evento"),
+    content: `
+      <div style="margin:0;padding:24px;background:${isProfessionalEvent ? "#f3f4f6" : "#eef2ff"};font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+          <tr>
+            <td style="padding:20px 24px;background:${isProfessionalEvent ? "linear-gradient(90deg,#0f172a,#1e293b)" : "linear-gradient(90deg,#2563eb,#7c3aed)"};color:#ffffff;">
+              <p style="margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;opacity:.92;">${escapeHtml(copy.kicker)}</p>
+              <h1 style="margin:8px 0 0;font-size:24px;line-height:1.25;">${escapeHtml(copy.heading)}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;">
+              <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#334155;">
+                ${escapeHtml(copy.intro(hostName, eventDetails?.eventName || "Evento"))}
+              </p>
+              <p style="margin:0 0 16px;font-size:14px;color:#475569;">
+                ${escapedGuestName}, ${escapedHostName} te espera en <strong>${escapedEventName}</strong>.
+              </p>
+              <div style="border:1px solid #dbeafe;border-radius:14px;padding:16px;background:#f8fafc;">
+                <p style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700;">${escapeHtml(copy.dateLabel)}</p>
+                <p style="margin:0 0 14px;font-size:16px;color:#0f172a;font-weight:700;">${escapedDate}</p>
+                <p style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;font-weight:700;">${escapeHtml(copy.locationLabel)}</p>
+                <p style="margin:0;font-size:15px;color:#0f172a;font-weight:700;">${escapedLocation}</p>
+              </div>
+              <div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;">
+                <a href="${escapedInvitationUrl}" target="_blank" rel="noopener noreferrer"
+                   style="display:inline-block;background:#2563eb;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;">
+                  ${escapeHtml(copy.ctaRsvp)}
+                </a>
+                <a href="${escapedCalendarUrl}" target="_blank" rel="noopener noreferrer"
+                   style="display:inline-block;background:#f1f5f9;color:#1e293b;font-weight:700;font-size:14px;text-decoration:none;padding:11px 16px;border-radius:10px;border:1px solid #cbd5e1;">
+                  ${escapeHtml(copy.ctaCalendar)}
+                </a>
+              </div>
+              ${hasIcsAttachment ? `<p style="margin:14px 0 0;font-size:12px;color:#475569;"><strong>${escapeHtml(copy.ctaIcs)}</strong></p>` : ""}
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  });
+}
+
 export async function sendCoHostInvitation(targetEmail, hostName, eventName) {
   const normalizedEmail = toSafeString(targetEmail).toLowerCase();
   const normalizedHostName = toSafeString(hostName) || "Un anfitrión de LeGoodAnfitrión";
@@ -520,6 +807,124 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
   return {
     messageId: toSafeString(response?.data?.id),
     calendarUrl
+  };
+}
+
+export async function sendEventInvitationEmail({
+  guestEmail,
+  guestName,
+  hostName,
+  invitationUrl,
+  locale = "es",
+  eventDetails = {},
+  isProfessionalEvent = false,
+  invitationId = ""
+}) {
+  const normalizedEmail = toSafeString(guestEmail).toLowerCase();
+  if (!normalizedEmail) {
+    const error = new Error("guestEmail es obligatorio.");
+    error.code = "EMAIL_BAD_REQUEST";
+    throw error;
+  }
+
+  const normalizedHostName = toSafeString(hostName) || "LeGoodAnfitrión";
+  const normalizedGuestName = toSafeString(guestName) || "Invitado";
+  const normalizedInvitationUrl = toSafeString(invitationUrl) || DEFAULT_TICKET_DETAILS_URL;
+  const normalizedEventDetails =
+    eventDetails && typeof eventDetails === "object" ? eventDetails : {};
+  const normalizedEventName = toSafeString(normalizedEventDetails.eventName) || "Evento";
+
+  const copy = getEventInvitationEmailCopy({ localeValue: locale, isProfessionalEvent });
+  const eventDetailsWithLocale = {
+    ...normalizedEventDetails,
+    eventName: normalizedEventName,
+    locale: RSVP_TICKET_COPY[normalizeTicketLocale(locale)]?.intlLocale || "es-ES"
+  };
+  const calendarUrl = buildGoogleCalendarUrl(eventDetailsWithLocale);
+  const subject = copy.subject(normalizedEventName);
+
+  let icsContent = "";
+  let hasIcsAttachment = false;
+  try {
+    icsContent = buildEventInvitationIcs({
+      uid: toSafeString(invitationId) ? `${toSafeString(invitationId)}@legoodanfitrion.com` : "",
+      eventName: normalizedEventName,
+      description: `${toSafeString(normalizedEventDetails.description)}\nRSVP: ${normalizedInvitationUrl}`,
+      location: toSafeString(normalizedEventDetails.locationAddress || normalizedEventDetails.locationName),
+      startAt: normalizedEventDetails.startAt,
+      endAt: normalizedEventDetails.endAt,
+      detailsUrl: normalizedInvitationUrl
+    });
+    hasIcsAttachment = Boolean(icsContent);
+  } catch (icsError) {
+    console.error("[email-service] .ics generation failed, sending without attachment:", icsError);
+    icsContent = "";
+    hasIcsAttachment = false;
+  }
+
+  if (!isResendConfigured()) {
+    logMockInvitationEmail({
+      to: normalizedEmail,
+      subject,
+      mode: isProfessionalEvent ? "professional" : "personal",
+      hasIcsAttachment
+    });
+    return {
+      messageId: `mock-${Date.now()}`,
+      calendarUrl,
+      hasIcsAttachment,
+      mock: true
+    };
+  }
+
+  const resend = getResendClient();
+  const fromEmail = toSafeString(process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL);
+  const response = await resend.emails.send({
+    from: fromEmail,
+    to: normalizedEmail,
+    subject,
+    html: buildEventInvitationHtml({
+      hostName: normalizedHostName,
+      guestName: normalizedGuestName,
+      eventDetails: eventDetailsWithLocale,
+      invitationUrl: normalizedInvitationUrl,
+      calendarUrl,
+      copy,
+      isProfessionalEvent,
+      hasIcsAttachment
+    }),
+    text: [
+      copy.intro(normalizedHostName, normalizedEventName),
+      "",
+      `${copy.dateLabel}: ${formatEventDateRange(eventDetailsWithLocale) || copy.pendingDate}`,
+      `${copy.locationLabel}: ${toSafeString(eventDetailsWithLocale.locationName || eventDetailsWithLocale.locationAddress) || copy.pendingLocation}`,
+      `${copy.ctaRsvp}: ${normalizedInvitationUrl}`,
+      `${copy.ctaCalendar}: ${calendarUrl}`,
+      hasIcsAttachment ? copy.ctaIcs : ""
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    attachments: hasIcsAttachment
+      ? [
+          {
+            filename: "event-invitation.ics",
+            content: Buffer.from(icsContent, "utf8").toString("base64")
+          }
+        ]
+      : undefined
+  });
+
+  if (response?.error) {
+    const error = new Error(toSafeString(response.error.message) || "Resend no pudo enviar la invitación.");
+    error.code = "EMAIL_SEND_ERROR";
+    error.details = response.error;
+    throw error;
+  }
+
+  return {
+    messageId: toSafeString(response?.data?.id),
+    calendarUrl,
+    hasIcsAttachment
   };
 }
 

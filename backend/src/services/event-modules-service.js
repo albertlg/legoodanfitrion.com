@@ -26,6 +26,21 @@ const MODULE_DEFAULTS = Object.freeze({
   icebreaker: true
 });
 
+const PROFESSIONAL_TEMPLATE_KEY_SET = new Set([
+  "team_building",
+  "all_hands",
+  "corporate_dinner"
+]);
+
+const PROFESSIONAL_EVENT_TYPE_SET = new Set([
+  "networking",
+  "team_building",
+  "corporate_dinner",
+  "all_hands",
+  "business_meeting",
+  "conference"
+]);
+
 function toObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -100,4 +115,30 @@ export function resolveEventModules(event, hints = {}) {
   }
 
   return resolved;
+}
+
+export function isProfessionalEventContext(event) {
+  if (!event || typeof event !== "object") {
+    return false;
+  }
+
+  const templateKeyCandidates = [
+    event.template_id,
+    event.template_key,
+    event.event_template_key,
+    event.event_template_id
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  if (templateKeyCandidates.some((templateKey) => PROFESSIONAL_TEMPLATE_KEY_SET.has(templateKey))) {
+    return true;
+  }
+
+  const eventType = String(event.event_type || "").trim().toLowerCase();
+  if (eventType && PROFESSIONAL_EVENT_TYPE_SET.has(eventType)) {
+    return true;
+  }
+
+  return false;
 }
