@@ -1208,6 +1208,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       <Helmet htmlAttributes={{ lang: language }}>
         <title>{t("seo_title")}</title>
         <meta name="description" content={t("seo_desc")} />
+        <meta name="robots" content="noindex, nofollow" />
 
         {/* Open Graph Dinámico */}
         <meta property="og:title" content={t("seo_title")} />

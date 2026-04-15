@@ -316,6 +316,16 @@ function buildInvitationsApiUrl(resource) {
     : `${normalizedBase}/api/invitations/${resource}`;
 }
 
+function buildSecurityApiUrl(resource) {
+  const normalizedBase = String(DASHBOARD_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  return /(^|\/)api$/i.test(normalizedBase)
+    ? `${normalizedBase}/security/${resource}`
+    : `${normalizedBase}/api/security/${resource}`;
+}
+
 function getEventDateOptionStartAtValue(optionItem) {
   if (!optionItem || typeof optionItem !== "object") {
     return "";
@@ -450,6 +460,7 @@ function DashboardScreen({
   const [eventPlaylistMode, setEventPlaylistMode] = useState("host_only");
   const [eventTemplateKey, setEventTemplateKey] = useState("custom");
   const [eventActiveModules, setEventActiveModules] = useState(() => getEventTemplateModules("custom"));
+  const [eventHoneypotField, setEventHoneypotField] = useState("");
   const [mapsStatus, setMapsStatus] = useState(isGoogleMapsConfigured() ? "loading" : "unconfigured");
   const [mapsError, setMapsError] = useState("");
   const [addressPredictions, setAddressPredictions] = useState([]);
@@ -484,6 +495,7 @@ function DashboardScreen({
   const [guestWorkEmail, setGuestWorkEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestCompanyName, setGuestCompanyName] = useState("");
+  const [guestHoneypotField, setGuestHoneypotField] = useState("");
   const [guestRelationship, setGuestRelationship] = useState("");
   const [guestCity, setGuestCity] = useState("");
   const [guestCountry, setGuestCountry] = useState("");
@@ -6454,11 +6466,45 @@ function DashboardScreen({
     setSelectedPlace(null);
     setEventErrors({});
     setEventMessage("");
+    setEventHoneypotField("");
   };
+
+  const reportSuspiciousHoneypot = useCallback(async ({ formType = "unknown", honeypotValue = "" } = {}) => {
+    const endpoint = buildSecurityApiUrl("honeypot");
+    if (!endpoint || !String(honeypotValue || "").trim()) {
+      return;
+    }
+    try {
+      await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          formType,
+          route: typeof window !== "undefined" ? window.location.pathname : "/app",
+          source: "dashboard_form",
+          website: String(honeypotValue || "").trim()
+        })
+      });
+    } catch {
+      // Silent on purpose: this is passive anti-bot telemetry.
+    }
+  }, []);
 
   const handleSaveEvent = async (event) => {
     event.preventDefault();
     if (!supabase || !session?.user?.id) {
+      return;
+    }
+    if (String(eventHoneypotField || "").trim()) {
+      await reportSuspiciousHoneypot({
+        formType: "event_create",
+        honeypotValue: eventHoneypotField
+      });
+      setEventHoneypotField("");
+      setEventMessage(t("error_create_event"));
       return;
     }
     setEventMessage("");
@@ -6709,6 +6755,7 @@ function DashboardScreen({
     setEventPlaylistMode("host_only");
     setEventTemplateKey("custom");
     setEventActiveModules(getEventTemplateModules("custom"));
+    setEventHoneypotField("");
     setAddressPredictions([]);
     setSelectedPlace(null);
     setEventMessage(t("event_created"));
@@ -7569,6 +7616,7 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
+    setGuestHoneypotField("");
     setOpenGuestAdvancedOnCreate(Boolean(openAdvanced));
   };
 
@@ -7592,6 +7640,7 @@ function DashboardScreen({
     setGuestAddressPredictions([]);
     setGuestErrors({});
     setGuestMessage("");
+    setGuestHoneypotField("");
     setOpenGuestAdvancedOnCreate(false);
     navigateAppPath("/app/guests/new/advanced/identity");
   };
@@ -7614,6 +7663,15 @@ function DashboardScreen({
 
   const persistGuest = useCallback(async ({ refreshAfterSave = true, successMessageMode = "form" } = {}) => {
     if (!supabase || !session?.user?.id) {
+      return { ok: false, savedGuestId: "" };
+    }
+    if (String(guestHoneypotField || "").trim()) {
+      await reportSuspiciousHoneypot({
+        formType: "guest_create",
+        honeypotValue: guestHoneypotField
+      });
+      setGuestHoneypotField("");
+      setGuestMessage(t("error_create_guest"));
       return { ok: false, savedGuestId: "" };
     }
     setGuestMessage("");
@@ -8070,6 +8128,7 @@ function DashboardScreen({
     guestEmail,
     guestWorkEmail,
     guestFirstName,
+    guestHoneypotField,
     guestLastName,
     guestPhotoUrl,
     guestPhone,
@@ -8082,6 +8141,7 @@ function DashboardScreen({
     navigateAppPath,
     routeGuestAdvancedTab,
     resolveCreatedGuestId,
+    reportSuspiciousHoneypot,
     setSelectedGuestDetailId,
     selectedGuestAddressPlace,
     session?.user?.id,
@@ -9177,6 +9237,7 @@ function DashboardScreen({
       <Helmet htmlAttributes={{ lang: language }}>
         <title>{t("seo_title")}</title>
         <meta name="description" content={t("seo_desc")} />
+        <meta name="robots" content="noindex, nofollow" />
 
         {/* Open Graph Dinámico */}
         <meta property="og:title" content={t("seo_title")} />
@@ -9430,6 +9491,8 @@ function DashboardScreen({
               locationNameOptions,
               locationAddressOptions,
               eventMessage,
+              eventHoneypotField,
+              setEventHoneypotField,
               eventSearch,
               setEventSearch,
               eventDateFilter,
@@ -9639,6 +9702,8 @@ function DashboardScreen({
               setGuestWorkEmail,
               guestPhone,
               setGuestPhone,
+              guestHoneypotField,
+              setGuestHoneypotField,
               guestCompanyName,
               setGuestCompanyName,
               guestRelationship,

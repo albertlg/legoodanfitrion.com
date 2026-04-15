@@ -140,4 +140,36 @@ router.get("/communications", requireAdmin, async (req, res) => {
   }
 });
 
+router.get("/security/summary", requireAdmin, async (_req, res) => {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { count, error } = await supabase
+      .from("communication_logs")
+      .select("id", { count: "exact", head: true })
+      .contains("metadata", { security_event: "honeypot_blocked" });
+
+    if (error) {
+      throw error;
+    }
+
+    return res.json({
+      ok: true,
+      data: {
+        blockedSuspiciousRegistrations: Number(count || 0)
+      }
+    });
+  } catch (error) {
+    const code = String(error?.code || "");
+    if (code === "SUPABASE_CONFIG_ERROR") {
+      return res.status(503).json({
+        error: error.message || "Backend admin data source is not configured.",
+        code
+      });
+    }
+    return res.status(500).json({
+      error: error?.message || "Failed to fetch security summary."
+    });
+  }
+});
+
 export { router as adminAnalyticsRoute };

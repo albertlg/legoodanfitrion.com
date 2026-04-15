@@ -42,6 +42,8 @@ export function GuestBuilderView({
   setGuestWorkEmail,
   guestPhone,
   setGuestPhone,
+  guestHoneypotField,
+  setGuestHoneypotField,
   guestCompanyName,
   setGuestCompanyName,
   guestRelationship,
@@ -121,6 +123,18 @@ export function GuestBuilderView({
     // 🚀 FIX PADDINGCEPTION 1: Eliminamos bordes, radios y paddings en móvil. 
     // En PC (sm:) vuelve a ser una tarjeta redonda centrada.
     <form className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl sm:border border-black/10 dark:border-white/10 sm:rounded-[2.5rem] sm:shadow-sm pb-8 sm:p-6 md:p-8 flex flex-col gap-6 w-full min-w-0 max-w-screen-xl px-4 sm:w-full sm:px-6 sm:mx-auto sm:my-6" onSubmit={handleSaveGuest} noValidate>
+      <div className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden" aria-hidden="true">
+        <label htmlFor="guest-website-field">Website</label>
+        <input
+          id="guest-website-field"
+          name="website"
+          type="text"
+          value={guestHoneypotField}
+          onChange={(event) => setGuestHoneypotField(event.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
 
       {/* 👑 CABECERA DINÁMICA */}
       {isEditingGuest ? (

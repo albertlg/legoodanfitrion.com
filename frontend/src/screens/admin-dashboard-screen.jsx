@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "../lib/supabaseClient";
 import { isProfessionalEventContext } from "../lib/event-modules";
 import {
@@ -372,6 +373,7 @@ export function AdminDashboardScreen({ session, onNavigate }) {
   const [communicationsError, setCommunicationsError] = useState("");
   const [commRecipientFilter, setCommRecipientFilter] = useState("");
   const [commModeFilter, setCommModeFilter] = useState("all");
+  const [blockedSuspiciousRegistrations, setBlockedSuspiciousRegistrations] = useState(0);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -389,6 +391,44 @@ export function AdminDashboardScreen({ session, onNavigate }) {
   }, []);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  const fetchSecuritySummary = useCallback(async () => {
+    const endpoint = buildAdminAnalyticsEndpoint(API_BASE_URL, "security/summary");
+    if (!endpoint) {
+      setBlockedSuspiciousRegistrations(0);
+      return;
+    }
+
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) {
+        throw new Error("No se pudo obtener la sesión de administrador.");
+      }
+
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${sessionPayload.session.access_token}`
+        }
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(String(payload?.error || `Error HTTP ${response.status}`));
+      }
+
+      setBlockedSuspiciousRegistrations(Number(payload?.data?.blockedSuspiciousRegistrations || 0));
+    } catch (fetchError) {
+      console.error("[hq-security] summary error:", fetchError);
+      setBlockedSuspiciousRegistrations(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hqTab === "overview") {
+      fetchSecuritySummary();
+    }
+  }, [fetchSecuritySummary, hqTab]);
 
   const fetchCommunicationLogs = useCallback(async () => {
     const endpoint = buildAdminAnalyticsEndpoint(API_BASE_URL, "communications");
@@ -529,6 +569,10 @@ export function AdminDashboardScreen({ session, onNavigate }) {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      <Helmet>
+        <title>LGA HQ · Admin</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
 
       {/* Background gradients */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -551,7 +595,10 @@ export function AdminDashboardScreen({ session, onNavigate }) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={fetchStats}
+              onClick={async () => {
+                await fetchStats();
+                await fetchSecuritySummary();
+              }}
               disabled={loading}
               className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
             >
@@ -683,7 +730,7 @@ export function AdminDashboardScreen({ session, onNavigate }) {
             </div>
 
             {/* Row 3: Activation + Viral + Waitlist */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <KpiCard
                 label="Tasa Activación"
                 value={`${activationRate}%`}
@@ -715,6 +762,14 @@ export function AdminDashboardScreen({ session, onNavigate }) {
                 icon="🕸️"
                 accent="bg-orange-500"
                 tooltip="Total de correos/contactos únicos almacenados en la plataforma, representando el alcance potencial máximo (TAM) de LeGoodAnfitrión."
+              />
+              <KpiCard
+                label="Registros Sospechosos Bloqueados"
+                value={blockedSuspiciousRegistrations}
+                subtitle="Honeypot"
+                icon="🛡️"
+                accent="bg-rose-500"
+                tooltip="Intentos de alta detectados y bloqueados por el campo honeypot."
               />
             </div>
 

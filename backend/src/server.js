@@ -12,6 +12,7 @@ import { rsvpRoute } from "./routes/rsvp-routes.js";
 import { eventsRoute } from "./routes/events-routes.js";
 import { guestsRoute } from "./routes/guests-routes.js";
 import { invitationsRoute } from "./routes/invitations-routes.js";
+import { securityRoute } from "./routes/security-routes.js";
 
 dotenv.config();
 
@@ -71,6 +72,7 @@ app.use("/api/rsvp", rsvpRoute);
 app.use("/api/events", eventsRoute);
 app.use("/api/guests", guestsRoute);
 app.use("/api/invitations", invitationsRoute);
+app.use("/api/security", securityRoute);
 
 // --- ESTE ES EL TRUCO PARA QUE FUNCIONE EN AMBOS ---
 

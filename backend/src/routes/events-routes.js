@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
 import { sendBroadcastEmail, sendGalleryNotificationEmail } from "../services/email-service.js";
 import { isProfessionalEventContext, normalizeEventActiveModules, resolveEventModules } from "../services/event-modules-service.js";
+import { extractHoneypotValue, logSuspiciousHoneypotAttempt, verifyCaptchaTokenIfEnabled } from "../services/anti-bot-service.js";
 
 const router = express.Router();
 const broadcastCooldownMap = new Map();
@@ -376,6 +377,42 @@ router.post("/:id/broadcast", requireAuthenticatedUser, async (req, res) => {
 });
 
 router.post("/", requireAuthenticatedUser, async (req, res) => {
+  const honeypotValue = extractHoneypotValue(req.body || {});
+  if (honeypotValue) {
+    await logSuspiciousHoneypotAttempt({
+      formType: "event_create",
+      route: "/api/events",
+      source: "backend_route",
+      honeypotValue,
+      payloadKeys: Object.keys(req.body || {})
+    });
+    return res.status(400).json({
+      success: false,
+      code: "HONEYPOT_BLOCKED",
+      error: "Invalid submission."
+    });
+  }
+
+  const captchaToken = toSafeString(
+    req.body?.captchaToken || req.body?.turnstileToken || req.body?.recaptchaToken
+  );
+  const captchaResult = await verifyCaptchaTokenIfEnabled({
+    token: captchaToken,
+    remoteIp: req.ip,
+    action: "event_create"
+  });
+  const captchaEnforced = String(process.env.CAPTCHA_ENFORCE || "").trim().toLowerCase() === "true";
+  if (!captchaResult.success && !captchaResult.skipped) {
+    console.warn("[event-create] captcha verification failed:", captchaResult);
+    if (captchaEnforced) {
+      return res.status(400).json({
+        success: false,
+        code: "CAPTCHA_FAILED",
+        error: "Captcha validation failed."
+      });
+    }
+  }
+
   const requesterId = toSafeString(req.authUser?.id);
   const title = toSafeString(req.body?.title);
   const locale = normalizeLocale(req.body?.content_language || req.body?.locale);

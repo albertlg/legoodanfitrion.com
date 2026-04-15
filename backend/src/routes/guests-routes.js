@@ -1,6 +1,7 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
+import { extractHoneypotValue, logSuspiciousHoneypotAttempt, verifyCaptchaTokenIfEnabled } from "../services/anti-bot-service.js";
 
 const router = express.Router();
 
@@ -142,6 +143,42 @@ function sendRouteError(res, error, fallbackMessage) {
 }
 
 router.post("/", requireAuthenticatedUser, async (req, res) => {
+  const honeypotValue = extractHoneypotValue(req.body || {});
+  if (honeypotValue) {
+    await logSuspiciousHoneypotAttempt({
+      formType: "guest_create",
+      route: "/api/guests",
+      source: "backend_route",
+      honeypotValue,
+      payloadKeys: Object.keys(req.body || {})
+    });
+    return res.status(400).json({
+      success: false,
+      code: "HONEYPOT_BLOCKED",
+      error: "Invalid submission."
+    });
+  }
+
+  const captchaToken = toSafeString(
+    req.body?.captchaToken || req.body?.turnstileToken || req.body?.recaptchaToken
+  );
+  const captchaResult = await verifyCaptchaTokenIfEnabled({
+    token: captchaToken,
+    remoteIp: req.ip,
+    action: "guest_create"
+  });
+  const captchaEnforced = String(process.env.CAPTCHA_ENFORCE || "").trim().toLowerCase() === "true";
+  if (!captchaResult.success && !captchaResult.skipped) {
+    console.warn("[guest-create] captcha verification failed:", captchaResult);
+    if (captchaEnforced) {
+      return res.status(400).json({
+        success: false,
+        code: "CAPTCHA_FAILED",
+        error: "Captcha validation failed."
+      });
+    }
+  }
+
   let supabase = null;
   try {
     supabase = getSupabaseAdminClient();

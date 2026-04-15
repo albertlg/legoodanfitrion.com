@@ -4,9 +4,17 @@
 User-agent: *
 Allow: /
 Disallow: /app/
+Disallow: /dashboard/
+Disallow: /admin/
 Disallow: /login
 Disallow: /rsvp/
 Disallow: /profile
+Disallow: /*token*
+Disallow: /*?*token=*
+Disallow: /*?*auth=*
+Disallow: /*?*invite=*
+Disallow: /*invite*
+Disallow: /*auth*
 
 # AI Crawlers - explicitly allowed
 User-agent: GPTBot

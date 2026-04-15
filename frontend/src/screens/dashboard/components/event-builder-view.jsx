@@ -65,10 +65,24 @@ export function EventBuilderView({
     handleCopyEventBuilderShoppingChecklist,
     locationNameOptions,
     locationAddressOptions,
-    eventMessage
+    eventMessage,
+    eventHoneypotField,
+    setEventHoneypotField
 }) {
     return (
         <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 md:p-8 flex flex-col xl:flex-row gap-8 w-full max-w-7xl mx-auto" onSubmit={handleSaveEvent} noValidate>
+            <div className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden" aria-hidden="true">
+                <label htmlFor="event-website-field">Website</label>
+                <input
+                    id="event-website-field"
+                    name="website"
+                    type="text"
+                    value={eventHoneypotField}
+                    onChange={(event) => setEventHoneypotField(event.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+            </div>
 
             {/* COLUMNA PRINCIPAL (IZQUIERDA) */}
             <div className="flex-1 flex flex-col gap-6">
@@ -644,6 +658,8 @@ export function EventBuilderWizardView(props) {
         eventAutoReminders,
         setEventAutoReminders,
         eventMessage,
+        eventHoneypotField,
+        setEventHoneypotField,
         locationNameOptions,
         locationAddressOptions
     } = props;
@@ -709,6 +725,18 @@ export function EventBuilderWizardView(props) {
             </header>
 
             <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8" onSubmit={handleWizardSubmit} noValidate>
+                <div className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden" aria-hidden="true">
+                    <label htmlFor="event-wizard-website-field">Website</label>
+                    <input
+                        id="event-wizard-website-field"
+                        name="website"
+                        type="text"
+                        value={eventHoneypotField}
+                        onChange={(event) => setEventHoneypotField(event.target.value)}
+                        tabIndex={-1}
+                        autoComplete="off"
+                    />
+                </div>
                 <div className={currentStep === 1 ? "flex flex-col gap-6 animate-in slide-in-from-right-8 duration-300" : "hidden"}>
                     <section className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 p-5 flex flex-col gap-4">
                         <p className="flex items-center gap-2 text-sm font-bold text-blue-900 dark:text-blue-200">

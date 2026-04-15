@@ -35,24 +35,6 @@
         },
         {
             "source": "/([^.]*)",
-            "has": [
-                {
-                    "type": "header",
-                    "key": "user-agent",
-                    "value": ".*(googlebot|bingbot|yandex|baiduspider|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator|whatsapp|GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|anthropic-ai|PerplexityBot|Google-Extended|CCBot|Bytespider|Applebot-Extended|cohere-ai|meta-externalagent|amazonbot|AI2Bot).*"
-                }
-            ],
-            "missing": [
-                {
-                    "type": "header",
-                    "key": "x-prerender",
-                    "value": "1"
-                }
-            ],
-            "destination": "https://service.prerender.io/Pcx95YMiMcvsLMjJrvxj/https://legoodanfitrion.com/$1"
-        },
-        {
-            "source": "/([^.]*)",
             "destination": "/index.html"
         }
     ]
