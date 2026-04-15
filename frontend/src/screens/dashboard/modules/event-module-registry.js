@@ -97,6 +97,7 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
     render: (context) =>
       React.createElement(EventSpacesModuleCard, {
         t: context.t,
+        isProfessionalEvent: context.isProfessionalEvent,
         selectedEventDetail: context.selectedEventDetail,
         selectedEventDetailGuests: context.selectedEventDetailGuests
       })
@@ -108,6 +109,7 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
     render: (context) =>
       React.createElement(EventSharedTasksModuleCard, {
         t: context.t,
+        isProfessionalEvent: context.isProfessionalEvent,
         selectedEventDetail: context.selectedEventDetail,
         selectedEventDetailGuests: context.selectedEventDetailGuests
       })
@@ -139,6 +141,7 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
         t: context.t,
         interpolateText: context.interpolateText,
         language: context.language,
+        isProfessionalEvent: context.isProfessionalEvent,
         splitExpenseDescription: context.splitExpenseDescription,
         setSplitExpenseDescription: context.setSplitExpenseDescription,
         splitExpenseAmount: context.splitExpenseAmount,

@@ -9,7 +9,11 @@ import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
 import { supabase } from "../../../lib/supabaseClient";
 import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/calendar-utils";
-import { EVENT_MODULE_DEFAULTS } from "../../../lib/event-modules";
+import {
+  EVENT_MODULE_DEFAULTS,
+  isProfessionalEventContext,
+  normalizeEventActiveModules
+} from "../../../lib/event-modules";
 import {
   EVENT_MODULE_ZONES,
   getEventModulesByZone
@@ -518,10 +522,11 @@ export function EventDetailView({
   const [isSendingBroadcastMessage, setIsSendingBroadcastMessage] = useState(false);
   const [broadcastFeedback, setBroadcastFeedback] = useState("");
   const [broadcastFeedbackType, setBroadcastFeedbackType] = useState("info");
-  const [eventModuleToggles, setEventModuleToggles] = useState(() => ({ ...EVENT_MODULE_DEFAULTS }));
+  const [localToggles, setLocalToggles] = useState(() => ({ ...EVENT_MODULE_DEFAULTS }));
   const [isSavingEventModules, setIsSavingEventModules] = useState(false);
   const [eventModulesFeedback, setEventModulesFeedback] = useState("");
   const [eventModulesFeedbackType, setEventModulesFeedbackType] = useState("info");
+  const hydratedModulesEventIdRef = useRef("");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
     selectedEventDetail?.host_user_id || selectedEventDetail?.host_id || selectedEventDetail?.owner_user_id || ""
@@ -673,10 +678,12 @@ export function EventDetailView({
     });
   }, [interpolateText, language, selectedEventDetail?.title, splitDebts, splitPerPersonAmount, splitTotalAmount, t]);
 
-  const resolvedModulesSnapshot = useMemo(() => {
-    const raw = selectedEventDetail?.resolved_modules;
-    return raw && typeof raw === "object" ? raw : {};
-  }, [selectedEventDetail?.resolved_modules]);
+  const isProfessionalEvent = useMemo(() => {
+    if (selectedEventDetail && Object.prototype.hasOwnProperty.call(selectedEventDetail, "is_professional_event")) {
+      return Boolean(selectedEventDetail.is_professional_event);
+    }
+    return isProfessionalEventContext(selectedEventDetail);
+  }, [selectedEventDetail]);
 
   useEffect(() => {
     const sourceExpenses = Array.isArray(selectedEventDetail?.expenses) ? selectedEventDetail.expenses : [];
@@ -723,16 +730,40 @@ export function EventDetailView({
   }, [selectedEventDetail?.id]);
 
   useEffect(() => {
-    setEventModuleToggles({
+    const eventId = String(selectedEventDetail?.id || "").trim();
+    if (!eventId) {
+      hydratedModulesEventIdRef.current = "";
+      setLocalToggles({ ...EVENT_MODULE_DEFAULTS });
+      return;
+    }
+    if (hydratedModulesEventIdRef.current === eventId) {
+      return;
+    }
+
+    const rawResolvedModules = selectedEventDetail?.resolved_modules;
+    const safeResolvedModules =
+      rawResolvedModules && typeof rawResolvedModules === "object" ? rawResolvedModules : {};
+    const nextToggleState = {
       ...EVENT_MODULE_DEFAULTS,
       ...Object.fromEntries(
-        Object.entries(resolvedModulesSnapshot).map(([moduleKey, moduleValue]) => [moduleKey, Boolean(moduleValue)])
+        Object.entries(safeResolvedModules).map(([moduleKey, moduleValue]) => [moduleKey, Boolean(moduleValue)])
       )
-    });
+    };
+    hydratedModulesEventIdRef.current = eventId;
+    setLocalToggles(nextToggleState);
     setEventModulesFeedback("");
     setEventModulesFeedbackType("info");
     setIsSavingEventModules(false);
-  }, [resolvedModulesSnapshot, selectedEventDetail?.id]);
+  }, [selectedEventDetail?.id, selectedEventDetail?.resolved_modules]);
+
+  const handleToggle = useCallback((moduleKey, checked) => {
+    console.log("Toggle click:", moduleKey, "Nuevo valor:", checked);
+    setLocalToggles((prev) => ({
+      ...prev,
+      [moduleKey]: Boolean(checked)
+    }));
+    setEventModulesFeedback("");
+  }, []);
 
   useEffect(() => {
     if (!splitExpensePaidBy && splitDefaultPayer) {
@@ -1770,6 +1801,12 @@ export function EventDetailView({
     if (!supabase || !eventId || !updateUrl) {
       return;
     }
+    const normalizedActiveModules = Object.fromEntries(
+      Object.entries({ ...EVENT_MODULE_DEFAULTS, ...localToggles }).map(([moduleKey, moduleValue]) => [
+        moduleKey,
+        Boolean(moduleValue)
+      ])
+    );
 
     setIsSavingEventModules(true);
     setEventModulesFeedback("");
@@ -1789,12 +1826,7 @@ export function EventDetailView({
           Authorization: `Bearer ${sessionPayload.session.access_token}`
         },
         body: JSON.stringify({
-          active_modules: Object.fromEntries(
-            Object.entries({ ...EVENT_MODULE_DEFAULTS, ...eventModuleToggles }).map(([moduleKey, moduleValue]) => [
-              moduleKey,
-              Boolean(moduleValue)
-            ])
-          ),
+          active_modules: normalizedActiveModules,
           locale: String(language || "es").trim().toLowerCase() || "es"
         })
       });
@@ -1805,6 +1837,7 @@ export function EventDetailView({
 
       setEventModulesFeedbackType("success");
       setEventModulesFeedback(t("event_modules_save_success"));
+      setLocalToggles({ ...EVENT_MODULE_DEFAULTS, ...normalizedActiveModules });
       if (typeof loadDashboardData === "function") {
         await loadDashboardData();
       }
@@ -2028,6 +2061,7 @@ export function EventDetailView({
       "flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
     const headerModuleContextBase = {
       t,
+      isProfessionalEvent,
       hasSpotifyPlaylist,
       isLoadingSpotifyState,
       handleOpenSpotifyPlaylist,
@@ -2227,10 +2261,19 @@ export function EventDetailView({
     );
   };
 
-  const selectedEventResolvedModules =
-    selectedEventDetail && typeof selectedEventDetail.resolved_modules === "object" && selectedEventDetail.resolved_modules
-      ? selectedEventDetail.resolved_modules
-      : {};
+  const selectedEventResolvedModules = useMemo(() => {
+    const rawResolvedModules = selectedEventDetail?.resolved_modules;
+    const resolvedFromEvent =
+      rawResolvedModules && typeof rawResolvedModules === "object"
+        ? rawResolvedModules
+        : {};
+    const explicitActiveModules = normalizeEventActiveModules(selectedEventDetail?.active_modules);
+    return {
+      ...EVENT_MODULE_DEFAULTS,
+      ...resolvedFromEvent,
+      ...explicitActiveModules
+    };
+  }, [selectedEventDetail?.active_modules, selectedEventDetail?.resolved_modules]);
   const eventModuleToggleConfig = [
     { key: "megaphone", labelKey: "event_modules_toggle_megaphone_label", hintKey: "event_modules_toggle_megaphone_hint" },
     { key: "gallery", labelKey: "event_modules_toggle_gallery_label", hintKey: "event_modules_toggle_gallery_hint" },
@@ -2254,10 +2297,23 @@ export function EventDetailView({
     zone: EVENT_MODULE_ZONES.HEADER_ACTIONS,
     resolvedModules: selectedEventResolvedModules
   });
+  const activeModuleKeys = useMemo(
+    () => ({
+      main: activeMainModules.map((moduleItem) => moduleItem.key),
+      sidebar: activeSidebarModules.map((moduleItem) => moduleItem.key),
+      header: activeHeaderActionModules.map((moduleItem) => moduleItem.key)
+    }),
+    [activeHeaderActionModules, activeMainModules, activeSidebarModules]
+  );
+
+  useEffect(() => {
+    console.log("Módulos a renderizar:", activeModuleKeys, "resolved:", selectedEventResolvedModules);
+  }, [activeModuleKeys, selectedEventResolvedModules]);
   const sharedModuleRenderContext = {
     t,
     interpolateText,
     language,
+    isProfessionalEvent,
     selectedEventDetail,
     selectedEventDetailGuests,
     getGuestAvatarUrl,
@@ -2574,33 +2630,32 @@ export function EventDetailView({
                   </p>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {eventModuleToggleConfig.map((moduleToggle) => (
-                      <label
-                        key={moduleToggle.key}
+                    {eventModuleToggleConfig.map((moduleToggle) => {
+                      const toggleId = `event-module-toggle-${moduleToggle.key}`;
+                      return (
+                      <div
+                        key={toggleId}
                         className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3"
                       >
-                        <div className="flex flex-col gap-1 min-w-0">
+                        <label htmlFor={toggleId} className="flex flex-col gap-1 min-w-0 cursor-pointer select-none">
                           <span className="text-sm font-bold text-gray-900 dark:text-white">
                             {t(moduleToggle.labelKey)}
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {t(moduleToggle.hintKey)}
                           </span>
-                        </div>
+                        </label>
                         <input
+                          id={toggleId}
                           type="checkbox"
-                          checked={Boolean(eventModuleToggles[moduleToggle.key])}
+                          checked={!!localToggles[moduleToggle.key]}
                           onChange={(event) => {
-                            const checked = event.target.checked;
-                            setEventModuleToggles((current) => ({ ...current, [moduleToggle.key]: checked }));
-                            if (eventModulesFeedback) {
-                              setEventModulesFeedback("");
-                            }
+                            handleToggle(moduleToggle.key, event.target.checked);
                           }}
                           className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
                         />
-                      </label>
-                    ))}
+                      </div>
+                    );})}
                   </div>
 
                   <div className="flex items-center justify-end">

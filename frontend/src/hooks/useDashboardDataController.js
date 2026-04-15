@@ -8,7 +8,11 @@ import {
 } from "../lib/guest-helpers";
 import { getHostPlanStateFromSnapshot } from "../lib/host-plan";
 import { hasEventSettingsColumns, normalizeEventSettings } from "../lib/event-planner-helpers";
-import { normalizeEventActiveModules, resolveEventModules } from "../lib/event-modules";
+import {
+  isProfessionalEventContext,
+  normalizeEventActiveModules,
+  resolveEventModules
+} from "../lib/event-modules";
 import {
   isCompatibilityError,
   isMissingRelationError,
@@ -92,7 +96,7 @@ export function useDashboardDataController({
     let { data: eventsData, error: eventsError } = await supabase
       .from("events")
       .select(
-        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+        "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, template_id, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
       )
       .order("created_at", { ascending: false })
       .limit(50);
@@ -118,12 +122,13 @@ export function useDashboardDataController({
         "finance_total_budget",
         "active_modules",
         "modules_version",
-        "end_at"
+        "end_at",
+        "template_id"
       ])
     ) {
       const fallback = await supabase
         .from("events")
-        .select("id, host_user_id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
+        .select("id, host_user_id, title, status, event_type, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address")
         .order("created_at", { ascending: false })
         .limit(50);
       eventsData = fallback.data || [];
@@ -221,7 +226,7 @@ export function useDashboardDataController({
       let routeEventResult = await supabase
         .from("events")
         .select(
-          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
+          "id, host_user_id, title, status, event_type, description, allow_plus_one, auto_reminders, dress_code, playlist_mode, schedule_mode, poll_status, expenses, photo_gallery_url, finance_mode, finance_fixed_price, finance_payment_info, finance_total_budget, active_modules, modules_version, template_id, start_at, end_at, created_at, updated_at, location_name, location_address, location_place_id, location_lat, location_lng"
         )
         .eq("id", routeEventDetailId)
         .maybeSingle();
@@ -247,12 +252,13 @@ export function useDashboardDataController({
           "finance_total_budget",
           "active_modules",
           "modules_version",
-          "end_at"
+          "end_at",
+          "template_id"
         ])
       ) {
         routeEventResult = await supabase
           .from("events")
-          .select("id, host_user_id, title, status, event_type, start_at, end_at, created_at, updated_at, location_name, location_address")
+          .select("id, host_user_id, title, status, event_type, active_modules, modules_version, start_at, end_at, created_at, updated_at, location_name, location_address")
           .eq("id", routeEventDetailId)
           .maybeSingle();
       }
@@ -310,6 +316,8 @@ export function useDashboardDataController({
     let eventDateOptionsRows = [];
     let eventDateVotesRows = [];
     let eventDatePollError = null;
+    let spacesEventIds = new Set();
+    let spacesError = null;
     let sharedTasksEventIds = new Set();
     let sharedTasksError = null;
     const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
@@ -387,6 +395,23 @@ export function useDashboardDataController({
             .filter(Boolean)
         );
       }
+
+      const spacesResult = await supabase
+        .from("event_spaces")
+        .select("event_id")
+        .in("event_id", eventIdsForPlans);
+
+      if (spacesResult.error) {
+        if (!isMissingRelationError(spacesResult.error, "event_spaces")) {
+          spacesError = spacesResult.error;
+        }
+      } else {
+        spacesEventIds = new Set(
+          (Array.isArray(spacesResult.data) ? spacesResult.data : [])
+            .map((row) => String(row?.event_id || "").trim())
+            .filter(Boolean)
+        );
+      }
     }
 
     if (
@@ -397,6 +422,7 @@ export function useDashboardDataController({
       hostProfileError ||
       eventPlannerError ||
       eventDatePollError ||
+      spacesError ||
       sharedTasksError
     ) {
       setDashboardError(
@@ -407,6 +433,7 @@ export function useDashboardDataController({
           hostProfileError?.message ||
           eventPlannerError?.message ||
           eventDatePollError?.message ||
+          spacesError?.message ||
           sharedTasksError?.message ||
           t("error_load_data")
       );
@@ -520,8 +547,14 @@ export function useDashboardDataController({
       const rawActiveModules = normalizeEventActiveModules(eventItem?.active_modules);
       const resolvedModules = resolveEventModules(eventItem, {
         hasDatePollOptions: datePollOptionEventIds.has(String(eventItem?.id || "").trim()),
+        hasSpaces: spacesEventIds.has(String(eventItem?.id || "").trim()),
         hasSharedTasks: sharedTasksEventIds.has(String(eventItem?.id || "").trim())
       });
+      const mergedResolvedModules = {
+        ...resolvedModules,
+        ...rawActiveModules
+      };
+      const isProfessionalEvent = isProfessionalEventContext(eventItem);
       return {
         ...eventItem,
         description: effectiveSettings.description,
@@ -531,7 +564,8 @@ export function useDashboardDataController({
         playlist_mode: effectiveSettings.playlist_mode,
         active_modules: rawActiveModules,
         modules_version: Number(eventItem?.modules_version || 1),
-        resolved_modules: resolvedModules
+        is_professional_event: isProfessionalEvent,
+        resolved_modules: mergedResolvedModules
       };
     });
 

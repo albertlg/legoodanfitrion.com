@@ -35,6 +35,7 @@ function formatMoneyCompact(value, language) {
 
 function renderExpenseForm({
   t,
+  isProfessionalEvent,
   splitExpenseDescription,
   setSplitExpenseDescription,
   splitExpenseAmount,
@@ -55,7 +56,7 @@ function renderExpenseForm({
         <input
           className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
           type="text"
-          placeholder={t("event_expenses_description_placeholder")}
+          placeholder={t(isProfessionalEvent ? "placeholder_expense_pro" : "placeholder_expense_personal")}
           value={splitExpenseDescription}
           onChange={(event) => {
             setSplitExpenseDescription(event.target.value);
@@ -165,6 +166,7 @@ export function EventFinanceModuleCard({
   t,
   interpolateText,
   language,
+  isProfessionalEvent = false,
   splitExpenseDescription,
   setSplitExpenseDescription,
   splitExpenseAmount,
@@ -402,6 +404,7 @@ export function EventFinanceModuleCard({
         <>
           {renderExpenseForm({
             t,
+            isProfessionalEvent,
             splitExpenseDescription,
             setSplitExpenseDescription,
             splitExpenseAmount,

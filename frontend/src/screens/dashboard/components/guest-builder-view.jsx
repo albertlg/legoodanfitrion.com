@@ -97,6 +97,7 @@ export function GuestBuilderView({
   cityOptions,
   countryOptions,
   isEditingGuest,
+  isProfessionalEvent = false,
   handleCancelEditGuest,
   guestMessage,
   MultiSelectField
@@ -193,7 +194,9 @@ export function GuestBuilderView({
       ) : (
         <div className="mb-2">
           {/* Bloque Importación igual */}
-          <p className="text-sm text-gray-500 dark:text-gray-400 ml-1 mb-6">{t("guest_host_potential_hint")}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 ml-1 mb-6">
+            {t(isProfessionalEvent ? "guest_host_potential_hint_pro" : "guest_host_potential_hint_personal")}
+          </p>
 
           <section className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 flex flex-col gap-4">
             <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">

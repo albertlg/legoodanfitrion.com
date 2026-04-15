@@ -73,6 +73,7 @@ import {
   EVENT_MODULE_KEYS,
   EVENT_TEMPLATE_LIST,
   getEventTemplateModules,
+  isProfessionalEventContext,
   normalizeEventActiveModules
 } from "../lib/event-modules";
 
@@ -2507,6 +2508,10 @@ function DashboardScreen({
     }
     return eventsById[preferredEventId] || events[0] || null;
   }, [events, eventsById, routeSelectedEventDetailId, selectedEventDetailId]);
+  const isProfessionalEvent = useMemo(
+    () => isProfessionalEventContext(selectedEventDetail),
+    [selectedEventDetail]
+  );
   const eventDateOptionsByEventId = useMemo(() => {
     return (Array.isArray(eventDateOptions) ? eventDateOptions : []).reduce((accumulator, optionItem, index) => {
       const eventId = String(optionItem?.event_id || "").trim();
@@ -9410,6 +9415,7 @@ function DashboardScreen({
               routeGuestsWorkspace,
               routeGuestProfileTab,
               routeGuestAdvancedTab,
+              isProfessionalEvent,
               WORKSPACE_ITEMS,
               t,
               openWorkspace,

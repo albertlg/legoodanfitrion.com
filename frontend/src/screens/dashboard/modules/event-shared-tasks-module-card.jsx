@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
+import { isProfessionalEventContext } from "../../../lib/event-modules";
 import { supabase } from "../../../lib/supabaseClient";
 
 const configuredApiUrl = String(
@@ -80,10 +81,15 @@ function toTaskClientState(taskRow) {
 
 export function EventSharedTasksModuleCard({
   t,
+  isProfessionalEvent: isProfessionalEventProp = false,
   selectedEventDetail,
   selectedEventDetailGuests
 }) {
   const eventId = toSafeString(selectedEventDetail?.id);
+  const isProfessionalEvent = useMemo(
+    () => Boolean(isProfessionalEventProp) || isProfessionalEventContext(selectedEventDetail),
+    [isProfessionalEventProp, selectedEventDetail]
+  );
 
   const [tasks, setTasks] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
@@ -436,7 +442,7 @@ export function EventSharedTasksModuleCard({
             className="flex-1 rounded-xl border border-black/10 dark:border-white/15 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
             type="text"
             value={newTaskTitle}
-            placeholder={t("event_shared_tasks_new_task_placeholder")}
+            placeholder={t(isProfessionalEvent ? "placeholder_task_pro" : "placeholder_task_personal")}
             onChange={(event) => setNewTaskTitle(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {

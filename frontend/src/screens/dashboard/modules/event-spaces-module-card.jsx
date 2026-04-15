@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
+import { isProfessionalEventContext } from "../../../lib/event-modules";
 import { supabase } from "../../../lib/supabaseClient";
 
 const configuredApiUrl = String(
@@ -80,11 +81,16 @@ function getSpaceBadgeTypeLabel(spaceType, t) {
 
 export function EventSpacesModuleCard({
   t,
+  isProfessionalEvent: isProfessionalEventProp = false,
   selectedEventDetail,
   selectedEventDetailGuests
 }) {
   const spaceModalTitleId = "event-spaces-modal-title";
   const eventId = toSafeString(selectedEventDetail?.id);
+  const isProfessionalEvent = useMemo(
+    () => Boolean(isProfessionalEventProp) || isProfessionalEventContext(selectedEventDetail),
+    [isProfessionalEventProp, selectedEventDetail]
+  );
 
   const [spaces, setSpaces] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -829,7 +835,7 @@ export function EventSpacesModuleCard({
                 className="w-full rounded-xl border border-black/10 dark:border-white/15 bg-white dark:bg-gray-950 px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                 type="text"
                 value={spaceNameDraft}
-                placeholder={t("event_spaces_name_placeholder")}
+                placeholder={t(isProfessionalEvent ? "placeholder_space_pro" : "placeholder_space_personal")}
                 onChange={(event) => setSpaceNameDraft(event.target.value)}
               />
             </label>
