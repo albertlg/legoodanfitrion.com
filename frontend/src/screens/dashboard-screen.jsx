@@ -352,6 +352,29 @@ function getEventDateOptionOrderValue(optionItem, fallbackIndex = 0) {
   return fallbackIndex;
 }
 
+function buildDateMatchSignature(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) {
+    return {
+      timestamp: Number.NaN,
+      minuteKey: "",
+      dayKey: ""
+    };
+  }
+
+  const parsedTimestamp = new Date(rawValue).getTime();
+  const hasTimestamp = Number.isFinite(parsedTimestamp);
+  const rawMinuteMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  const rawDayMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+  const isoDate = hasTimestamp ? new Date(parsedTimestamp).toISOString() : "";
+
+  return {
+    timestamp: hasTimestamp ? parsedTimestamp : Number.NaN,
+    minuteKey: rawMinuteMatch ? `${rawMinuteMatch[1]}T${rawMinuteMatch[2]}` : isoDate.slice(0, 16),
+    dayKey: rawDayMatch ? rawDayMatch[1] : isoDate.slice(0, 10)
+  };
+}
+
 function normalizeDateVoteStatus(voteValue) {
   const normalized = String(voteValue || "").trim().toLowerCase();
   if (["yes", "si", "sí"].includes(normalized)) {
@@ -2633,6 +2656,48 @@ function DashboardScreen({
     if (!selectedEventDateOptions.length) {
       return "";
     }
+
+    const pollStatus = String(selectedEventDetail?.poll_status || "").trim().toLowerCase();
+    if (pollStatus === "closed") {
+      const officialEventStartAt = String(selectedEventDetail?.start_at || "").trim();
+      if (!officialEventStartAt) {
+        return "";
+      }
+
+      const officialSignature = buildDateMatchSignature(officialEventStartAt);
+      const matchedByMinuteOrTimestamp = selectedEventDateOptions.find((optionItem) => {
+        const optionSignature = buildDateMatchSignature(optionItem.startAt);
+        if (
+          officialSignature.minuteKey &&
+          optionSignature.minuteKey &&
+          optionSignature.minuteKey === officialSignature.minuteKey
+        ) {
+          return true;
+        }
+        if (Number.isFinite(optionSignature.timestamp) && Number.isFinite(officialSignature.timestamp)) {
+          return Math.abs(optionSignature.timestamp - officialSignature.timestamp) <= 1000;
+        }
+        return false;
+      });
+
+      if (matchedByMinuteOrTimestamp?.id) {
+        return matchedByMinuteOrTimestamp.id;
+      }
+
+      if (officialSignature.dayKey) {
+        const sameDayOptions = selectedEventDateOptions.filter((optionItem) => {
+          const optionSignature = buildDateMatchSignature(optionItem.startAt);
+          return optionSignature.dayKey && optionSignature.dayKey === officialSignature.dayKey;
+        });
+        if (sameDayOptions.length === 1) {
+          return sameDayOptions[0].id;
+        }
+      }
+
+      // Encuesta cerrada: solo mostramos ganadora si coincide con la fecha oficial del evento.
+      return "";
+    }
+
     const sortedOptions = [...selectedEventDateOptions].sort((left, right) => {
       const leftSummary = selectedEventDateVoteSummaryByOptionId[left.id] || { score: 0, yes: 0 };
       const rightSummary = selectedEventDateVoteSummaryByOptionId[right.id] || { score: 0, yes: 0 };
@@ -2647,7 +2712,7 @@ function DashboardScreen({
       return leftTime - rightTime;
     });
     return sortedOptions[0]?.id || "";
-  }, [selectedEventDateOptions, selectedEventDateVoteSummaryByOptionId]);
+  }, [selectedEventDateOptions, selectedEventDateVoteSummaryByOptionId, selectedEventDetail?.poll_status, selectedEventDetail?.start_at]);
   const selectedEventDetailInvitations = useMemo(() => {
     if (!selectedEventDetail?.id) {
       return [];
