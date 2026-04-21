@@ -6,7 +6,7 @@ import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
 
 const NAV_ITEMS = [
-    { key: "features", path: "/features", labelKey: "landing_nav_features" },
+    { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
     { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
     { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
     { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
@@ -34,6 +34,13 @@ const PRINCIPLES_KEYS = [
 
 export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const handleNavItemClick = (item) => {
+        if (item?.anchorId) {
+            onNavigate("/#caracteristicas");
+            return;
+        }
+        onNavigate(item.path);
+    };
 
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
@@ -59,7 +66,7 @@ export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t,
                                 key={item.key}
                                 className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${item.key === "about" ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"}`}
                                 type="button"
-                                onClick={() => onNavigate(item.path)}
+                                onClick={() => handleNavItemClick(item)}
                             >
                                 {t(item.labelKey)}
                             </button>
@@ -102,7 +109,7 @@ export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t,
                         <button
                             key={`mob-${item.key}`}
                             className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${item.key === "about" ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"}`}
-                            onClick={() => { onNavigate(item.path); setIsMobileMenuOpen(false); }}
+                            onClick={() => { handleNavItemClick(item); setIsMobileMenuOpen(false); }}
                         >
                             {t(item.labelKey)}
                         </button>

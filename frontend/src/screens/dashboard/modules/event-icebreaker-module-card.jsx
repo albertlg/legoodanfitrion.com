@@ -11,7 +11,7 @@ export function EventIcebreakerModuleCard({
   return (
     <article className="order-3 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-3">
       <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex items-center gap-2">
           <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700">
             <Icon name="sparkle" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -20,9 +20,6 @@ export function EventIcebreakerModuleCard({
             {t("event_icebreaker_title")}
           </p>
         </div>
-        <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider bg-indigo-100/80 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300">
-          IA
-        </span>
       </div>
       <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_icebreaker_hint")}</p>
       <div className="grid grid-cols-1 gap-2">

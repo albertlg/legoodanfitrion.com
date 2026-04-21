@@ -24,7 +24,7 @@ export function EventSpotifyHeaderAction({
 
   const spotifyButtonClass = hasSpotifyPlaylist
     ? "bg-transparent border border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10"
-    : "bg-[#1DB954] hover:bg-[#1ed760] border border-[#1DB954] text-white shadow-lg";
+    : "bg-[#1DB954] hover:bg-[#1ed760] border border-[#1DB954] text-white shadow-sm hover:shadow-md";
 
   const isMobile = variant === "mobile";
 

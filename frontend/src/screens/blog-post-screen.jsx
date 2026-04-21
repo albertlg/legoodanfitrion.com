@@ -25,10 +25,19 @@ const portableTextComponents = {
     },
 };
 
+const NAV_ITEMS = [
+    { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
+    { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
+    { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
+    { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
+    { key: "about", path: "/about", labelKey: "landing_nav_about" }
+];
+
 export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onNavigate, session }) {
     const [post, setPost] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // 1️⃣ PRIMER EFECTO: Traer el post validando el idioma (A prueba de carreras de red)
     useEffect(() => {
@@ -102,6 +111,14 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
             .map((block) => ({ id: block._key, text: block.children[0]?.text || "", level: block.style }));
     }, [post]);
 
+    const handleNavItemClick = (item) => {
+        if (item?.anchorId) {
+            onNavigate("/#caracteristicas");
+            return;
+        }
+        onNavigate(item.path);
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-[#0A0D14] flex items-center justify-center">
@@ -122,7 +139,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
     }
 
     return (
-        <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans overflow-hidden flex flex-col">
+        <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans overflow-x-clip flex flex-col">
             {/* 🚀 SEO DINÁMICO: El componente maestro se encarga de todo el hreflang */}
             <SEO
                 title={`${post.title} | ${t("app_name")}`}
@@ -167,19 +184,80 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
             <div className="fixed top-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-[100px] pointer-events-none z-0"></div>
 
             <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5">
-                <button onClick={() => onNavigate("/blog")} className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors outline-none">
-                    <Icon name="arrow_left" className="w-5 h-5" />
-                    <span className="hidden sm:inline">{t("blog_back")}</span>
-                </button>
-                {/* 🚀 FIX: Inyectamos nuestro interceptor aquí */}
-                <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={handleLocalLanguageChange} t={t} dropdownDirection="down" />
+                <div className="flex items-center gap-6">
+                    <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none" type="button" onClick={() => onNavigate("/")}>
+                        <BrandMark text="" fallback={t("logo_fallback")} className="w-8 h-8" />
+                        <span className="font-black text-lg tracking-tight">{t("app_name")}</span>
+                    </button>
+
+                    <nav className="hidden md:flex items-center gap-1">
+                        {NAV_ITEMS.map((item) => (
+                            <button
+                                key={item.key}
+                                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${item.key === "blog" ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"}`}
+                                type="button"
+                                onClick={() => handleNavItemClick(item)}
+                            >
+                                {t(item.labelKey)}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+
+                <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="hidden md:block">
+                        <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={handleLocalLanguageChange} t={t} dropdownDirection="down" />
+                    </div>
+                    <button
+                        className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
+                        type="button"
+                        onClick={() => onNavigate(session?.user?.id ? "/app" : "/login")}
+                    >
+                        {session?.user?.id ? t("landing_cta_open_app") : t("landing_cta_create_event")}
+                    </button>
+                    <button
+                        className="md:hidden p-2 -mr-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        aria-label={t("open_menu")}
+                        aria-expanded={isMobileMenuOpen}
+                    >
+                        <Icon name="menu" className="w-6 h-6" />
+                    </button>
+                </div>
             </header>
+
+            <div className={`fixed inset-0 z-[100] transition-opacity duration-300 md:hidden backdrop-blur-sm bg-black/40 dark:bg-black/70 ${isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={() => setIsMobileMenuOpen(false)} />
+            <aside className={`fixed inset-y-0 right-0 h-full w-72 z-[101] transform transition-transform duration-300 flex flex-col md:hidden backdrop-blur-2xl bg-white/95 dark:bg-[#0A0D14]/95 border-l border-gray-200 dark:border-white/10 shadow-2xl ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}`}>
+                <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-black/5 dark:border-white/5">
+                    <BrandMark text="" fallback={t("logo_fallback")} className="w-6 h-6" />
+                    <button className="p-1.5 -mr-1.5 rounded-lg text-gray-500 hover:text-black hover:bg-gray-100 dark:hover:bg-white/5 dark:text-gray-400 dark:hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(false)} aria-label={t("close_menu")}>
+                        <Icon name="close" className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-2">
+                    {NAV_ITEMS.map((item) => (
+                        <button
+                            key={`mob-${item.key}`}
+                            className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${item.key === "blog" ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"}`}
+                            onClick={() => { handleNavItemClick(item); setIsMobileMenuOpen(false); }}
+                        >
+                            {t(item.labelKey)}
+                        </button>
+                    ))}
+                    <div className="mt-4 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-6">
+                        <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-2xl font-black text-base shadow-lg" onClick={() => { onNavigate(session?.user?.id ? "/app" : "/login"); setIsMobileMenuOpen(false); }}>
+                            {session?.user?.id ? t("landing_cta_open_app") : t("landing_cta_create_event")}
+                        </button>
+                        <div className="flex justify-center"><Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={handleLocalLanguageChange} t={t} /></div>
+                    </div>
+                </div>
+            </aside>
 
             <div className="flex-1 relative z-10 max-w-7xl mx-auto px-6 py-32 flex flex-col lg:flex-row gap-12 items-start w-full">
 
                 {tocHeadings.length > 0 && (
-                    <aside className="hidden lg:block w-64 shrink-0 sticky top-32">
-                        <div className="bg-white/50 dark:bg-white/5 backdrop-blur-xl border border-black/5 dark:border-white/10 p-6 rounded-3xl shadow-sm">
+                    <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start max-h-[80vh] overflow-y-auto">
+                        <div className="bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-black/5 dark:border-white/10 p-6 rounded-3xl shadow-sm">
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4">
                                 {t("blog_toc_title")}
                             </h4>
@@ -200,6 +278,36 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                 )}
 
                 <article className="w-full max-w-3xl lg:max-w-none mx-auto lg:mx-0">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate("/blog")}
+                        className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                    >
+                        <Icon name="arrow_left" className="w-4 h-4" />
+                        {t("blog_back")}
+                    </button>
+                    {tocHeadings.length > 0 ? (
+                        <div className="lg:hidden sticky top-20 z-20 mb-6 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl p-3 shadow-sm">
+                            <details>
+                                <summary className="list-none flex items-center justify-between text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                    {t("blog_toc_title")}
+                                    <Icon name="chevron_down" className="w-4 h-4" />
+                                </summary>
+                                <nav className="mt-3 flex flex-col gap-2">
+                                    {tocHeadings.map((heading) => (
+                                        <a
+                                            key={`mobile-${heading.id}`}
+                                            href={`#${heading.id}`}
+                                            className={`text-sm transition-colors hover:text-blue-600 dark:hover:text-blue-400 ${heading.level === "h3" ? "pl-3 text-gray-500 dark:text-gray-400" : "font-bold text-gray-700 dark:text-gray-300"}`}
+                                        >
+                                            {heading.text}
+                                        </a>
+                                    ))}
+                                </nav>
+                            </details>
+                        </div>
+                    ) : null}
+
                     <header className="mb-10 sm:mb-12">
                         <div className="flex items-center gap-4 mb-6">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
@@ -261,12 +369,20 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                         <div className="flex flex-col gap-1">
                             <p className="font-black text-lg text-gray-900 dark:text-white">{t("blog_cta_footer")}</p>
                         </div>
-                        <button
-                            onClick={() => onNavigate(session?.user?.id ? "/app" : "/login")}
-                            className="shrink-0 px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black shadow-lg hover:scale-[1.02] transition-transform"
-                        >
-                            {session?.user?.id ? t("landing_cta_open_app") : t("blog_cta_button")}
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            <button
+                                onClick={() => onNavigate("/")}
+                                className="shrink-0 px-6 py-3 border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-800 dark:text-gray-100 rounded-xl font-bold"
+                            >
+                                {t("landing_back_home")}
+                            </button>
+                            <button
+                                onClick={() => onNavigate(session?.user?.id ? "/app" : "/login")}
+                                className="shrink-0 px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black shadow-sm hover:shadow-md hover:scale-[1.02] transition-transform"
+                            >
+                                {session?.user?.id ? t("landing_cta_open_app") : t("blog_cta_button")}
+                            </button>
+                        </div>
                     </div>
                 </article>
             </div>

@@ -666,6 +666,7 @@ export function EventBuilderWizardView(props) {
 
     const [currentStep, setCurrentStep] = React.useState(1);
     const [templateAudienceTab, setTemplateAudienceTab] = React.useState("personal");
+    const [templateSelectionError, setTemplateSelectionError] = React.useState("");
     const totalSteps = 2;
     const visibleTemplates = React.useMemo(
         () =>
@@ -676,7 +677,14 @@ export function EventBuilderWizardView(props) {
         [eventTemplates, templateAudienceTab]
     );
 
-    const handleNext = () => setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+    const handleNext = React.useCallback(() => {
+        if (currentStep === 1 && !String(activeEventTemplateKey || "").trim()) {
+            setTemplateSelectionError("event_onboarding_template_required");
+            return;
+        }
+        setTemplateSelectionError("");
+        setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+    }, [activeEventTemplateKey, currentStep, totalSteps]);
     const handleBack = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
     const handleAudienceTabChange = (nextAudience) => {
         const normalizedAudience = String(nextAudience || "").trim().toLowerCase() === "professional"
@@ -690,14 +698,17 @@ export function EventBuilderWizardView(props) {
     const handleTemplateSelection = (event, templateKey) => {
         event.preventDefault();
         event.stopPropagation();
+        setTemplateSelectionError("");
         handleApplyEventTemplate(templateKey);
     };
-    const handleWizardSubmit = (event) => {
-        if (currentStep < totalSteps) {
-            event.preventDefault();
-            return;
+    const handleWizardFormSubmit = (event) => {
+        event.preventDefault();
+    };
+    const handleFinalSave = (event) => {
+        event.preventDefault();
+        if (typeof handleSaveEvent === "function") {
+            handleSaveEvent(event);
         }
-        handleSaveEvent(event);
     };
     const progressPercent = currentStep === 1 ? 50 : 100;
     const currentStepTitleKey = currentStep === 1 ? "event_onboarding_step_templates" : "event_onboarding_step_details";
@@ -724,7 +735,7 @@ export function EventBuilderWizardView(props) {
                 </div>
             </header>
 
-            <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8" onSubmit={handleWizardSubmit} noValidate>
+            <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-6 md:p-8 flex flex-col gap-8" onSubmit={handleWizardFormSubmit} noValidate>
                 <div className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden" aria-hidden="true">
                     <label htmlFor="event-wizard-website-field">Website</label>
                     <input
@@ -794,6 +805,9 @@ export function EventBuilderWizardView(props) {
                                 </button>
                             ))}
                         </div>
+                        {templateSelectionError ? (
+                            <FieldMeta errorText={t(templateSelectionError)} />
+                        ) : null}
                     </section>
                 </div>
 
@@ -1069,7 +1083,7 @@ export function EventBuilderWizardView(props) {
                             {t("wizard_btn_next")} <Icon name="arrow-right" className="w-4 h-4" />
                         </button>
                     ) : (
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-8 rounded-xl shadow-md transition-all w-full sm:w-auto flex justify-center items-center gap-2 disabled:opacity-50" type="submit" disabled={isSavingEvent}>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-8 rounded-xl shadow-md transition-all w-full sm:w-auto flex justify-center items-center gap-2 disabled:opacity-50" type="button" onClick={handleFinalSave} disabled={isSavingEvent}>
                             <Icon name="check" className="w-5 h-5" />
                             {isSavingEvent ? t("saving_event") : t("wizard_btn_save")}
                         </button>

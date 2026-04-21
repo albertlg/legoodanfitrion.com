@@ -1,0 +1,50 @@
+wing: new_project
+rooms:
+- name: design
+  description: Files from design/
+  keywords:
+  - design
+  - design
+- name: studio
+  description: Files from studio/
+  keywords:
+  - studio
+  - studio
+- name: frontend
+  description: Files from frontend/
+  keywords:
+  - frontend
+  - frontend
+- name: backend
+  description: Files from backend/
+  keywords:
+  - backend
+  - backend
+- name: documentation
+  description: Files from docs/
+  keywords:
+  - documentation
+  - docs
+- name: supabase
+  description: Files from supabase/
+  keywords:
+  - supabase
+  - supabase
+- name: graphify_out
+  description: Files from graphify-out/
+  keywords:
+  - graphify_out
+  - graphify-out
+- name: scripts
+  description: Files from scripts/
+  keywords:
+  - scripts
+  - scripts
+- name: configuration
+  description: Files from config/
+  keywords:
+  - configuration
+  - config
+- name: general
+  description: Files that don't fit other rooms
+  keywords: []

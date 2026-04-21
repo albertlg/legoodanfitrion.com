@@ -811,7 +811,7 @@ export function EventSpacesModuleCard({
               aria-modal="true"
               aria-labelledby={spaceModalTitleId}
             >
-          <div className="w-full max-w-md rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-gray-900 shadow-2xl p-5 flex flex-col gap-4">
+          <div className="w-full max-w-md rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-2">
               <p id={spaceModalTitleId} className="text-base font-black text-gray-900 dark:text-white">
                 {editingSpaceId ? t("event_spaces_edit_modal_title") : t("event_spaces_add_modal_title")}

@@ -7,7 +7,7 @@ import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
 
 const NAV_ITEMS = [
-    { key: "features", path: "/features", labelKey: "landing_nav_features" },
+    { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
     { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
     { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
     { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
@@ -18,6 +18,14 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    const handleNavItemClick = (item) => {
+        if (item?.anchorId) {
+            onNavigate("/#caracteristicas");
+            return;
+        }
+        onNavigate(item.path);
+    };
 
     useEffect(() => {
         setIsLoading(true);
@@ -71,7 +79,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                                 key={item.key}
                                 className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${item.key === "blog" ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"}`}
                                 type="button"
-                                onClick={() => onNavigate(item.path)}
+                                onClick={() => handleNavItemClick(item)}
                             >
                                 {t(item.labelKey)}
                             </button>
@@ -115,7 +123,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                         <button
                             key={`mob-${item.key}`}
                             className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${item.key === "blog" ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"}`}
-                            onClick={() => { onNavigate(item.path); setIsMobileMenuOpen(false); }}
+                            onClick={() => { handleNavItemClick(item); setIsMobileMenuOpen(false); }}
                         >
                             {t(item.labelKey)}
                         </button>

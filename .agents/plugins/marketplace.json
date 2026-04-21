@@ -1,0 +1,12 @@
+{
+  "plugins": [
+    {
+      "source": {
+        "path": "/Users/albertlg/.codex/plugins/mempalace"
+      },
+      "interface": {
+        "displayName": "MemPalace"
+      }
+    }
+  ]
+}

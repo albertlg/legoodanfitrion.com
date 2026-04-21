@@ -121,6 +121,16 @@ function normalizeAuthErrorMessage(error, t) {
 function App() {
   const { route, navigate, isRecoveryMode: initialRecoveryMode } = useAppRouter();
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (window.location.hash) {
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [route.originalPath]);
+
   // 🚀 SEO 1: Inicializamos el idioma pasándole lo que ha detectado el router
   const [language, setLanguage] = useState(() => detectLanguage(route.urlLang, route.originalPath));
 

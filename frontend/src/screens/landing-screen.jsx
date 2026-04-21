@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -9,7 +9,7 @@ import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
 
 const NAV_ITEMS = [
-  { key: "features", path: "/features", labelKey: "landing_nav_features" },
+  { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
   { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
   { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
   { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
@@ -57,6 +57,7 @@ function LandingScreen({
   const [toast, setToast] = useState({ visible: false, text: "", type: "success" });
   const toastTimerRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isFeaturesSectionInView, setIsFeaturesSectionInView] = useState(false);
 
   const showToast = (text, type = "success") => {
     if (!text) {
@@ -108,7 +109,122 @@ function LandingScreen({
     }
   ];
 
+  const pageMode =
+    currentPath === "/pricing"
+      ? "pricing"
+      : currentPath === "/contact"
+        ? "contact"
+        : "home";
+
   const activeDemo = DEMO_TEMPLATES[activeDemoTab];
+
+  const scrollToSection = useCallback((sectionId) => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const sectionElement = document.getElementById(sectionId);
+    if (sectionElement) {
+      sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const scrollToDemoSection = () => {
+    scrollToSection("landing-demo-section");
+  };
+
+  const handleGoToFeatures = useCallback(() => {
+    if (pageMode !== "home") {
+      onNavigate("/#caracteristicas");
+      return;
+    }
+    scrollToSection("caracteristicas");
+  }, [onNavigate, pageMode, scrollToSection]);
+
+  const handleNavItemClick = useCallback((item) => {
+    if (item?.anchorId) {
+      handleGoToFeatures();
+      return;
+    }
+    onNavigate(item.path);
+  }, [handleGoToFeatures, onNavigate]);
+
+  const handleLogoClick = useCallback(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.hash) {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    if (currentPath !== "/") {
+      onNavigate("/");
+    }
+  }, [currentPath, onNavigate]);
+
+  const isNavItemActive = useCallback((item) => {
+    if (item?.anchorId) {
+      const hasFeaturesHash = typeof window !== "undefined" && window.location.hash === "#caracteristicas";
+      return hasFeaturesHash || isFeaturesSectionInView;
+    }
+    return currentPath === item.path;
+  }, [currentPath, isFeaturesSectionInView]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (window.location.hash === "#caracteristicas") {
+      const timer = window.setTimeout(() => {
+        scrollToSection("caracteristicas");
+      }, 80);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [currentPath, pageMode, scrollToSection]);
+
+  useEffect(() => {
+    if (currentPath === "/features") {
+      const timer = window.setTimeout(() => {
+        scrollToSection("caracteristicas");
+      }, 80);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [currentPath, scrollToSection]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || pageMode !== "home") {
+      setIsFeaturesSectionInView(false);
+      return undefined;
+    }
+    const target = document.getElementById("caracteristicas");
+    if (!target) {
+      setIsFeaturesSectionInView(false);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsFeaturesSectionInView(entry.isIntersecting);
+      },
+      {
+        threshold: 0.35,
+        rootMargin: "-96px 0px -45% 0px"
+      }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [pageMode, currentPath]);
+
+  const handleOpenRealDemo = () => {
+    trackEvent("cta_demo_real_click", { location: "hero" });
+    if (pageMode !== "home") {
+      onNavigate("/");
+      window.setTimeout(() => {
+        scrollToDemoSection();
+      }, 80);
+      return;
+    }
+    scrollToDemoSection();
+  };
 
   const trackEvent = (eventName, eventParams = {}) => {
     if (typeof window !== "undefined" && window.gtag) {
@@ -131,19 +247,9 @@ function LandingScreen({
     []
   );
 
-  const pageMode =
-    currentPath === "/features"
-      ? "features"
-      : currentPath === "/pricing"
-        ? "pricing"
-        : currentPath === "/contact"
-          ? "contact"
-          : "home";
-
   // 🚀 SEO DINÁMICO: Diccionario de metadatos según la página actual
   const seoData = {
     home: { title: t("seo_title"), desc: t("seo_desc"), slug: "/" },
-    features: { title: `${t("landing_nav_features_title")} | LeGoodAnfitrión`, desc: t("landing_features_subtitle"), slug: "features" },
     pricing: { title: `${t("landing_nav_pricing_title")} | LeGoodAnfitrión`, desc: t("landing_pricing_subtitle"), slug: "pricing" },
     contact: { title: `${t("landing_nav_contact_title")} | LeGoodAnfitrión`, desc: t("landing_contact_subtitle"), slug: "contact" }
   };
@@ -365,7 +471,7 @@ function LandingScreen({
         </button>
       </form>
 
-      <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 mt-6 max-w-xs">
+      <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-300 mt-6 max-w-xs">
         {t("waitlist_privacy_hint")}
       </p>
 
@@ -413,7 +519,7 @@ function LandingScreen({
       {/* HEADER (Sticky) */}
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5">
         <div className="flex items-center gap-6">
-          <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none" type="button" onClick={() => onNavigate("/")}>
+          <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none" type="button" onClick={handleLogoClick}>
             <BrandMark text="" fallback={t("logo_fallback")} className="w-8 h-8" />
             <span className="font-black text-lg tracking-tight">{t("app_name")}</span>
           </button>
@@ -423,9 +529,9 @@ function LandingScreen({
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.key}
-                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${currentPath === item.path ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"}`}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${isNavItemActive(item) ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"}`}
                 type="button"
-                onClick={() => onNavigate(item.path)}
+                onClick={() => handleNavItemClick(item)}
               >
                 {t(item.labelKey)}
               </button>
@@ -478,9 +584,9 @@ function LandingScreen({
           {NAV_ITEMS.map((item) => (
             <button
               key={`mob-${item.key}`}
-              className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${currentPath === item.path ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"}`}
+              className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${isNavItemActive(item) ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"}`}
               onClick={() => {
-                onNavigate(item.path);
+                handleNavItemClick(item);
                 setIsMobileMenuOpen(false);
               }}
             >
@@ -528,7 +634,7 @@ function LandingScreen({
               <div className="flex flex-col items-center gap-4 w-full sm:w-auto mt-2">
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
                   <button
-                    className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-black text-lg shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-black text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
                     type="button"
                     onClick={primaryCta.onClick}
                   >
@@ -538,7 +644,7 @@ function LandingScreen({
                   <button
                     className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2"
                     type="button"
-                    onClick={() => onNavigate("/features")}
+                    onClick={handleOpenRealDemo}
                   >
                     <Icon name="eye" className="w-5 h-5 opacity-70" />
                     {t("landing_cta_demo_real")}
@@ -566,7 +672,7 @@ function LandingScreen({
                 </div>
               </div>
 
-              <div className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gray-200 dark:bg-gray-800 border-t border-x border-black/5 dark:border-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl relative overflow-hidden group">
+              <div className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gray-200 dark:bg-gray-800 border-t border-x border-black/5 dark:border-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-sm relative overflow-hidden group">
                 <img
                   src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
                   alt="LeGoodAnfitrión App Preview"
@@ -576,7 +682,7 @@ function LandingScreen({
               </div>
             </section>
 
-            <section id="landing-features" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
+            <section id="caracteristicas" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
               <div className="text-center max-w-3xl mb-16">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">{t("landing_vs_eyebrow")}</p>
                 <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight text-balance">{t("landing_vs_title")}</h2>
@@ -604,7 +710,7 @@ function LandingScreen({
                   </ul>
                 </article>
 
-                <article className="bg-white/70 dark:bg-white/5 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-2xl p-8 flex flex-col relative overflow-hidden transform md:-translate-y-4">
+                <article className="bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-sm p-8 flex flex-col relative overflow-hidden transform md:-translate-y-4">
                   <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
                   <div className="flex items-center gap-4 mb-8">
                     <div className="w-12 h-12 shrink-0 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
@@ -637,7 +743,7 @@ function LandingScreen({
               </div>
             </section>
 
-            <section className="py-24 px-6 w-full max-w-5xl mx-auto flex flex-col items-center overflow-hidden">
+            <section id="landing-demo-section" className="py-24 px-6 w-full max-w-5xl mx-auto flex flex-col items-center overflow-hidden">
               <div className="text-center max-w-3xl mb-12">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">{t("landing_demo_eyebrow")}</p>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 text-balance">{t("landing_demo_title")}</h2>
@@ -666,7 +772,7 @@ function LandingScreen({
                 })}
               </div>
 
-              <div className="w-full max-w-3xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="w-full max-w-3xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="px-6 py-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
                   <div className="flex items-center gap-3">
                     <div className="flex gap-1.5">
@@ -674,7 +780,7 @@ function LandingScreen({
                       <div className="w-3 h-3 rounded-full bg-yellow-400/80"></div>
                       <div className="w-3 h-3 rounded-full bg-green-400/80"></div>
                     </div>
-                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wider">LeGoodAnfitrión Panel</span>
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-300 tracking-wider">LeGoodAnfitrión Panel</span>
                   </div>
                 </div>
 
@@ -696,7 +802,7 @@ function LandingScreen({
 
                   <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8 md:mb-10">
                     <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-3 sm:p-4 border border-black/5 dark:border-white/5 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
-                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 w-full truncate">{t("landing_demo_mock_guests")}</p>
+                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300 mb-1 w-full truncate">{t("landing_demo_mock_guests")}</p>
                       <p className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">{activeDemo.stats.guests}</p>
                     </div>
                     <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-3 sm:p-4 border border-green-100 dark:border-green-800/30 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
@@ -737,108 +843,6 @@ function LandingScreen({
           </>
         ) : null}
 
-        {/* --- PAGE: FEATURES --- */}
-        {pageMode === "features" ? (
-          <>
-            <section className="pt-24 pb-16 px-6 max-w-4xl mx-auto text-center animate-in fade-in slide-in-from-bottom-8 duration-500">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-4">{t("landing_nav_features")}</p>
-              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight">{t("landing_features_title")}</h1>
-              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto">{t("landing_features_subtitle")}</p>
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <button className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] transition-transform" type="button" onClick={primaryCta.onClick}>
-                  {primaryCta.label}
-                </button>
-                <button className="bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm" type="button" onClick={() => onNavigate("/pricing")}>
-                  {t("landing_nav_pricing")}
-                </button>
-              </div>
-            </section>
-
-            <section className="py-12 px-6 w-full max-w-7xl mx-auto flex flex-col gap-12">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-6">
-                    <Icon name="calendar" className="w-6 h-6" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_events_title")}</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_events_desc")}</p>
-                </article>
-                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-6">
-                    <Icon name="user" className="w-6 h-6" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_guests_title")}</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_guests_desc")}</p>
-                </article>
-                <article className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8">
-                  <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-6">
-                    <Icon name="mail" className="w-6 h-6" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{t("landing_feature_rsvp_title")}</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_rsvp_desc")}</p>
-                </article>
-              </div>
-
-              <section className="bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-3xl border border-black/5 dark:border-white/10 shadow-sm p-8 md:p-10">
-                <div className="max-w-3xl mb-8">
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white mb-3">
-                    {t("landing_features_corporate_title")}
-                  </h2>
-                  <p className="text-sm md:text-base text-gray-600 dark:text-gray-300">
-                    {t("landing_features_corporate_subtitle")}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/20 p-5">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-4">
-                      <Icon name="mail" className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t("landing_feature_corporate_title")}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_corporate_desc")}</p>
-                  </article>
-
-                  <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/20 p-5">
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
-                      <Icon name="trend" className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t("landing_feature_analytics_title")}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_analytics_desc")}</p>
-                  </article>
-
-                  <article className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-black/20 p-5">
-                    <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-4">
-                      <Icon name="download" className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{t("landing_feature_export_title")}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{t("landing_feature_export_desc")}</p>
-                  </article>
-                </div>
-              </section>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <article className="bg-blue-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_events_title")}</p>
-                  <p className="text-6xl font-black mb-1">24</p>
-                  <p className="text-xs font-medium opacity-90">{t("latest_events_title")}</p>
-                </article>
-                <article className="bg-purple-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_guests_title")}</p>
-                  <p className="text-6xl font-black mb-1">142</p>
-                  <p className="text-xs font-medium opacity-90">{t("latest_guests_title")}</p>
-                </article>
-                <article className="bg-green-600 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center justify-center text-white">
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">{t("landing_feature_rsvp_title")}</p>
-                  <p className="text-6xl font-black mb-1">67%</p>
-                  <p className="text-xs font-medium opacity-90">RSVP Rate</p>
-                </article>
-              </div>
-            </section>
-
-            {renderWaitlistSection("landing-cta", true)}
-          </>
-        ) : null}
-
         {/* --- PAGE: PRICING --- */}
         {pageMode === "pricing" ? (
           <>
@@ -851,7 +855,7 @@ function LandingScreen({
             <section className="py-12 px-6 w-full max-w-5xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
 
-                <article className="bg-white dark:bg-gray-900 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-8 md:p-10 flex flex-col relative overflow-hidden">
+                <article className="bg-white dark:bg-gray-900 border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-8 md:p-10 flex flex-col relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
                   <p className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">{t("landing_pricing_card_title")}</p>
                   <p className="text-5xl font-black text-gray-900 dark:text-white mb-4">{t("landing_pricing_card_price")}</p>
@@ -866,7 +870,7 @@ function LandingScreen({
                     ))}
                   </ul>
 
-                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] transition-transform" type="button" onClick={primaryCta.onClick}>
+                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200" type="button" onClick={primaryCta.onClick}>
                     {primaryCta.label}
                   </button>
                 </article>
@@ -878,7 +882,7 @@ function LandingScreen({
                   <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">{t("public_coming_title")}</h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">{t("public_coming_subtitle")}</p>
 
-                  <ul className="flex flex-col gap-4 text-gray-500 dark:text-gray-500">
+                  <ul className="flex flex-col gap-4 text-gray-600 dark:text-gray-300">
                     {[1, 2, 3].map((num) => (
                       <li key={num} className="flex items-start gap-3">
                         <Icon name="sparkle" className="w-5 h-5 shrink-0" />
@@ -915,22 +919,22 @@ function LandingScreen({
 
                   <div className="flex flex-col gap-4 mt-2">
                     <div className="flex flex-col gap-1 p-4 bg-white/40 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t("landing_contact_channel_email")}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">{t("landing_contact_channel_email")}</span>
                       <a href="mailto:hello@legoodanfitrion.com" className="text-base font-bold text-blue-600 dark:text-blue-400 hover:underline">hello@legoodanfitrion.com</a>
                     </div>
                     <div className="flex flex-col gap-1 p-4 bg-white/40 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t("landing_contact_channel_web")}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">{t("landing_contact_channel_web")}</span>
                       <a href="https://legoodanfitrion.com" className="text-base font-bold text-gray-900 dark:text-white hover:underline">legoodanfitrion.com</a>
                     </div>
                     <div className="flex flex-col gap-1 p-4 bg-white/40 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t("landing_contact_channel_response")}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300">{t("landing_contact_channel_response")}</span>
                       <span className="text-base font-bold text-gray-900 dark:text-white">{t("landing_contact_channel_response_value")}</span>
                     </div>
                   </div>
                 </article>
 
                 <form
-                  className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-xl p-8 md:p-10 flex flex-col gap-6"
+                  className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-8 md:p-10 flex flex-col gap-6"
                   onSubmit={handleSendContact}
                   noValidate
                 >

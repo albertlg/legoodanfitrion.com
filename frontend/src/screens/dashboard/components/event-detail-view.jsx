@@ -757,7 +757,6 @@ export function EventDetailView({
   }, [selectedEventDetail?.id, selectedEventDetail?.resolved_modules]);
 
   const handleToggle = useCallback((moduleKey, checked) => {
-    console.log("Toggle click:", moduleKey, "Nuevo valor:", checked);
     setLocalToggles((prev) => ({
       ...prev,
       [moduleKey]: Boolean(checked)
@@ -2056,7 +2055,7 @@ export function EventDetailView({
       ? "bg-white/85 hover:bg-white text-gray-900 border border-black/10 backdrop-blur-md dark:bg-black/35 dark:hover:bg-black/45 dark:text-white dark:border-white/30"
       : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10";
     const dropdownPanelClass =
-      "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
+      "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
     const dropdownItemClass =
       "flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
     const headerModuleContextBase = {
@@ -2406,7 +2405,7 @@ export function EventDetailView({
   const sidebarModuleRenderContext = sharedModuleRenderContext;
 
   return (
-    <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
+    <section className={`bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-4 md:p-8 flex flex-col gap-6 w-full max-w-6xl mx-auto ${isPlanWorkspace ? "max-w-7xl" : ""}`}>
 
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
@@ -2450,11 +2449,11 @@ export function EventDetailView({
           </div>
           <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6 md:p-8">
             <div className="flex flex-wrap gap-2 mb-3">
-              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border shadow-sm ${statusClass(selectedEventDetail.status)}`}>
+              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${statusClass(selectedEventDetail.status)}`}>
                 {statusText(t, selectedEventDetail.status)}
               </span>
               {selectedEventDetail.event_type ? (
-                <span className="px-2.5 py-1 bg-white/80 text-gray-900 border border-black/10 rounded-lg text-[10px] font-bold uppercase tracking-wide shadow-sm backdrop-blur-md dark:bg-white/20 dark:text-white dark:border-white/20">
+                <span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-100/90 text-[10px] font-bold uppercase tracking-wide text-gray-700 dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-200">
                   {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
                 </span>
               ) : null}
@@ -2564,48 +2563,57 @@ export function EventDetailView({
                 <article id="event-invitations" className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
                   {!hasEventHeroCover ? <p className="text-lg font-black text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
-                    {selectedEventDetail.event_type ? (
-                      <p className="text-xs flex flex-col gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_event_type")}</span>
-                        <strong className="text-gray-900 dark:text-white">{toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}</strong>
+                  {selectedEventDetail.event_type ? (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-100/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-700 dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-200">
+                        {toCatalogLabel("experience_type", selectedEventDetail.event_type, language)}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-5">
+                    <p className="text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2 min-w-0">
+                      <Icon name="calendar" className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
+                      <strong className="truncate">{eventDateDisplay.fullLabel}</strong>
+                    </p>
+                    {eventTimeLabel ? (
+                      <p className="text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2 min-w-0">
+                        <Icon name="clock" className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
+                        <span className="truncate">{eventTimeLabel}</span>
                       </p>
                     ) : null}
-                    <p className="text-xs flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("date")}</span>
-                      <strong className="text-gray-900 dark:text-white">{eventDateDisplay.fullLabel}</strong>
-                    </p>
                     {eventPlaceName ? (
-                      <p className="text-xs flex flex-col gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_place")}</span>
-                        <strong className="text-gray-900 dark:text-white">{eventPlaceName}</strong>
+                      <p className="text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2 min-w-0">
+                        <Icon name="location" className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
+                        <strong className="truncate">{eventPlaceName}</strong>
                       </p>
                     ) : null}
                     {eventPlaceAddress ? (
-                      <p className="text-xs flex flex-col gap-1 sm:col-span-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_address")}</span>
-                        <span className="text-gray-900 dark:text-white">{eventPlaceAddress}</span>
-                      </p>
-                    ) : null}
-                    {selectedEventDetail.description ? (
-                      <p className="text-xs flex flex-col gap-1 sm:col-span-2 mt-2 pt-3 border-t border-black/5 dark:border-white/10">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_event_description")}</span>
-                        <span className="text-gray-700 dark:text-gray-300 leading-relaxed">{selectedEventDetail.description}</span>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 flex items-start gap-2 min-w-0 sm:col-span-2">
+                        <Icon name="location" className="w-3.5 h-3.5 mt-0.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                        <span className="break-words">{eventPlaceAddress}</span>
                       </p>
                     ) : null}
                   </div>
 
+                  {selectedEventDetail.description ? (
+                    <p className="text-xs flex items-start gap-2 mt-1 pt-3 border-t border-black/5 dark:border-white/10 text-gray-700 dark:text-gray-300 leading-relaxed">
+                      <Icon name="info" className="w-3.5 h-3.5 mt-0.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                      <span>{selectedEventDetail.description}</span>
+                    </p>
+                  ) : null}
+
                   <div className="flex flex-wrap gap-2 mt-2 pt-4 border-t border-black/5 dark:border-white/10">
-                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${selectedEventDetail.allow_plus_one ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400"}`}>
+                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border ${selectedEventDetail.allow_plus_one ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400"}`}>
                       {t("event_setting_allow_plus_one")}: {selectedEventDetail.allow_plus_one ? t("status_yes") : t("status_no")}
                     </span>
-                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${selectedEventDetail.auto_reminders ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400"}`}>
+                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border ${selectedEventDetail.auto_reminders ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400"}`}>
                       {t("event_setting_auto_reminders")}: {selectedEventDetail.auto_reminders ? t("status_yes") : t("status_no")}
                     </span>
-                    <span className="px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400">
+                    <span className="px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
                       {t("event_setting_dress_code")}: {t(`event_dress_code_${normalizeEventDressCode(selectedEventDetail.dress_code)}`)}
                     </span>
-                    <span className="px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400">
+                    <span className="px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
                       {t("event_setting_playlist_mode")}: {t(`event_playlist_mode_${normalizeEventPlaylistMode(selectedEventDetail.playlist_mode)}`)}
                     </span>
                   </div>
@@ -2841,15 +2849,12 @@ export function EventDetailView({
                 {/* AI Planner Banner */}
                 <article className="order-1 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-4">
                   <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
-                  <div className="flex justify-between items-start">
+                  <div className="flex items-start">
                     <span className="flex items-center gap-2 text-sm font-black">
                       <Icon name="sparkle" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
                         {t("event_plan_cta_title")}
                       </span>
-                    </span>
-                    <span className="px-2.5 py-1 bg-indigo-100/80 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg text-[9px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
-                      {t("event_planner_ai_badge")}
                     </span>
                   </div>
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_plan_cta_hint")}</p>
@@ -3023,7 +3028,7 @@ export function EventDetailView({
       {selectedEventDetail && isTeamModalOpen
         ? renderGlobalModal(
             <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-2xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[88vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-5 sm:p-6 flex flex-col gap-4 max-h-[88vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700/30">
@@ -3184,7 +3189,7 @@ export function EventDetailView({
       {selectedEventDetail && isGroupInviteModalOpen
         ? renderGlobalModal(
             <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
-              <div className="w-full max-w-lg bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[86vh] overflow-y-auto">
+              <div className="w-full max-w-lg bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-5 sm:p-6 flex flex-col gap-4 max-h-[86vh] overflow-y-auto">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700/30">
@@ -3263,7 +3268,7 @@ export function EventDetailView({
       {selectedEventDetail && isIcebreakerOpen
         ? renderGlobalModal(
             <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/55 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 sm:p-6 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-xl bg-white/95 dark:bg-gray-900/95 border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-5 sm:p-6 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 border border-fuchsia-200 dark:border-fuchsia-700/30">

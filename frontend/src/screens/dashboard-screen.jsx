@@ -481,7 +481,7 @@ function DashboardScreen({
   const [eventAutoReminders, setEventAutoReminders] = useState(false);
   const [eventDressCode, setEventDressCode] = useState("none");
   const [eventPlaylistMode, setEventPlaylistMode] = useState("host_only");
-  const [eventTemplateKey, setEventTemplateKey] = useState("custom");
+  const [eventTemplateKey, setEventTemplateKey] = useState("");
   const [eventActiveModules, setEventActiveModules] = useState(() => getEventTemplateModules("custom"));
   const [eventHoneypotField, setEventHoneypotField] = useState("");
   const [mapsStatus, setMapsStatus] = useState(isGoogleMapsConfigured() ? "loading" : "unconfigured");
@@ -6525,7 +6525,7 @@ function DashboardScreen({
     setEventAutoReminders(false);
     setEventDressCode("none");
     setEventPlaylistMode("host_only");
-    setEventTemplateKey("custom");
+    setEventTemplateKey("");
     setEventActiveModules(getEventTemplateModules("custom"));
     setAddressPredictions([]);
     setSelectedPlace(null);
@@ -6818,7 +6818,7 @@ function DashboardScreen({
     setEventAutoReminders(false);
     setEventDressCode("none");
     setEventPlaylistMode("host_only");
-    setEventTemplateKey("custom");
+    setEventTemplateKey("");
     setEventActiveModules(getEventTemplateModules("custom"));
     setEventHoneypotField("");
     setAddressPredictions([]);
