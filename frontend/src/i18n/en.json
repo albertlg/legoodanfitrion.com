@@ -2068,6 +2068,10 @@
   "event_meals_course_default_label": "Main menu",
   "rsvp_meals_title": "Choose your meal",
   "rsvp_meals_hint": "Select one option per course so the host can prepare everything on time.",
+  "rsvp_meals_guest_self_title": "Your choices",
+  "rsvp_meals_guest_plus_one_title": "Your plus one choices",
+  "rsvp_meals_guest_plus_one_hint": "Pick one option per course for your plus one (+1).",
+  "meals_guest_plus_one_label": "{{name}}'s plus one",
   "rsvp_meals_save_success": "Your meal preferences were saved successfully.",
   "rsvp_meals_save_error": "We could not save your meal preferences. Please try again."
 }

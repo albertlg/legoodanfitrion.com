@@ -2068,6 +2068,10 @@
   "event_meals_course_default_label": "Menú principal",
   "rsvp_meals_title": "Elige tu menú",
   "rsvp_meals_hint": "Selecciona una opción por categoría para que el anfitrión prepare todo a tiempo.",
+  "rsvp_meals_guest_self_title": "Tus opciones",
+  "rsvp_meals_guest_plus_one_title": "Opciones de tu acompañante",
+  "rsvp_meals_guest_plus_one_hint": "Selecciona una opción por categoría para tu acompañante (+1).",
+  "meals_guest_plus_one_label": "Acompañante de {{name}}",
   "rsvp_meals_save_success": "Tus preferencias de comida se han guardado correctamente.",
   "rsvp_meals_save_error": "No hemos podido guardar tus preferencias de comida. Inténtalo de nuevo."
 }

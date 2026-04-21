@@ -12,6 +12,25 @@ function toNullableString(value) {
   return normalized || null;
 }
 
+function toBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "si", "sí"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no"].includes(normalized)) {
+      return false;
+    }
+  }
+  return false;
+}
+
 function normalizeCourseKey(value, fallback = DEFAULT_MEALS_COURSE_KEY) {
   const normalized = toSafeString(value)
     .toLowerCase()
@@ -153,7 +172,7 @@ async function assertGuestConfirmedForEvent(eventId, hostUserId, guestId) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("invitations")
-    .select("id, status")
+    .select("id, status, rsvp_plus_one")
     .eq("event_id", toSafeString(eventId))
     .eq("host_user_id", toSafeString(hostUserId))
     .eq("guest_id", normalizedGuestId)
@@ -177,6 +196,11 @@ async function assertGuestConfirmedForEvent(eventId, hostUserId, guestId) {
     wrapped.code = "MEALS_BAD_REQUEST";
     throw wrapped;
   }
+
+  return {
+    invitationId: toSafeString(data.id),
+    hasPlusOne: Boolean(data.rsvp_plus_one)
+  };
 }
 
 function sanitizeMealOptionPayload(input, { mode = "create" } = {}) {
@@ -227,7 +251,7 @@ async function resolveInvitationByToken(token) {
 
   const { data, error } = await supabase
     .from("invitations")
-    .select("id, event_id, host_user_id, guest_id, status, public_token")
+    .select("id, event_id, host_user_id, guest_id, status, rsvp_plus_one, public_token")
     .eq("public_token", normalizedToken)
     .maybeSingle();
 
@@ -262,20 +286,23 @@ function normalizeIncomingPublicSelections(input) {
     for (const item of rawSelections) {
       rows.push({
         courseKey: normalizeCourseKey(item?.courseKey || item?.course_key),
-        optionId: toNullableString(item?.optionId || item?.option_id)
+        optionId: toNullableString(item?.optionId || item?.option_id),
+        isPlusOne: toBoolean(item?.isPlusOne ?? item?.is_plus_one)
       });
     }
   } else if (rawSelections && typeof rawSelections === "object") {
     for (const [courseKey, optionId] of Object.entries(rawSelections)) {
       rows.push({
         courseKey: normalizeCourseKey(courseKey),
-        optionId: toNullableString(optionId)
+        optionId: toNullableString(optionId),
+        isPlusOne: false
       });
     }
   } else if (Object.prototype.hasOwnProperty.call(raw, "optionId") || Object.prototype.hasOwnProperty.call(raw, "option_id")) {
     rows.push({
       courseKey: normalizeCourseKey(raw.courseKey || raw.course_key),
-      optionId: toNullableString(raw.optionId || raw.option_id)
+      optionId: toNullableString(raw.optionId || raw.option_id),
+      isPlusOne: toBoolean(raw?.isPlusOne ?? raw?.is_plus_one)
     });
   }
 
@@ -284,9 +311,11 @@ function normalizeIncomingPublicSelections(input) {
     if (!row?.courseKey) {
       continue;
     }
-    deduplicated.set(row.courseKey, {
+    const dedupeKey = `${row.isPlusOne ? "plus_one" : "self"}::${row.courseKey}`;
+    deduplicated.set(dedupeKey, {
       courseKey: row.courseKey,
-      optionId: row.optionId
+      optionId: row.optionId,
+      isPlusOne: Boolean(row.isPlusOne)
     });
   }
 
@@ -306,9 +335,10 @@ export async function listEventMealsState(eventId, requesterUserId) {
       .order("created_at", { ascending: true }),
     supabase
       .from("event_meal_selections")
-      .select("id, event_id, host_user_id, option_id, guest_id, course_key, created_at, updated_at")
+      .select("id, event_id, host_user_id, option_id, guest_id, course_key, is_plus_one, created_at, updated_at")
       .eq("event_id", access.eventId)
       .order("course_key", { ascending: true })
+      .order("is_plus_one", { ascending: true })
       .order("updated_at", { ascending: false })
   ]);
 
@@ -427,13 +457,19 @@ export async function upsertMealSelection(eventId, requesterUserId, input) {
   const guestId = toSafeString(input?.guestId || input?.guest_id);
   const optionId = toNullableString(input?.optionId || input?.option_id);
   const requestedCourseKey = normalizeCourseKey(input?.courseKey || input?.course_key);
+  const isPlusOneSelection = toBoolean(input?.isPlusOne ?? input?.is_plus_one);
   if (!guestId) {
     const error = new Error("guestId es obligatorio.");
     error.code = "MEALS_BAD_REQUEST";
     throw error;
   }
 
-  await assertGuestConfirmedForEvent(access.eventId, access.ownerUserId, guestId);
+  const guestInvitation = await assertGuestConfirmedForEvent(access.eventId, access.ownerUserId, guestId);
+  if (isPlusOneSelection && !guestInvitation.hasPlusOne) {
+    const error = new Error("La persona invitada no ha confirmado acompañante (+1).");
+    error.code = "MEALS_BAD_REQUEST";
+    throw error;
+  }
   const supabase = getSupabaseAdminClient();
 
   if (!optionId) {
@@ -441,7 +477,8 @@ export async function upsertMealSelection(eventId, requesterUserId, input) {
       .from("event_meal_selections")
       .delete()
       .eq("event_id", access.eventId)
-      .eq("guest_id", guestId);
+      .eq("guest_id", guestId)
+      .eq("is_plus_one", isPlusOneSelection);
 
     if (requestedCourseKey) {
       deleteQuery = deleteQuery.eq("course_key", requestedCourseKey);
@@ -477,12 +514,13 @@ export async function upsertMealSelection(eventId, requesterUserId, input) {
           host_user_id: access.ownerUserId,
           guest_id: guestId,
           course_key: resolvedCourseKey,
-          option_id: optionId
+          option_id: optionId,
+          is_plus_one: isPlusOneSelection
         }
       ],
-      { onConflict: "event_id,guest_id,course_key" }
+      { onConflict: "event_id,guest_id,course_key,is_plus_one" }
     )
-    .select("id, event_id, host_user_id, option_id, guest_id, course_key, created_at, updated_at")
+    .select("id, event_id, host_user_id, option_id, guest_id, course_key, is_plus_one, created_at, updated_at")
     .single();
 
   if (error) {
@@ -508,10 +546,11 @@ export async function listPublicMealsStateByToken(token) {
       .order("created_at", { ascending: true }),
     supabase
       .from("event_meal_selections")
-      .select("id, event_id, host_user_id, option_id, guest_id, course_key, created_at, updated_at")
+      .select("id, event_id, host_user_id, option_id, guest_id, course_key, is_plus_one, created_at, updated_at")
       .eq("event_id", toSafeString(invitation.event_id))
       .eq("guest_id", toSafeString(invitation.guest_id))
       .order("course_key", { ascending: true })
+      .order("is_plus_one", { ascending: true })
       .order("updated_at", { ascending: false })
   ]);
 
@@ -542,6 +581,7 @@ export async function upsertPublicMealSelectionsByToken(token, input) {
   const eventId = toSafeString(invitation.event_id);
   const hostUserId = toSafeString(invitation.host_user_id);
   const guestId = toSafeString(invitation.guest_id);
+  const invitationHasPlusOne = Boolean(invitation.rsvp_plus_one);
   const normalizedSelections = normalizeIncomingPublicSelections(input);
   const supabase = getSupabaseAdminClient();
 
@@ -572,74 +612,106 @@ export async function upsertPublicMealSelectionsByToken(token, input) {
     availableCourseKeys.add(courseKey);
   }
 
-  const desiredByCourse = new Map();
-  const coursesToClear = new Set();
-  for (const row of normalizedSelections) {
-    const inputCourseKey = normalizeCourseKey(row.courseKey);
-    if (!row.optionId) {
-      coursesToClear.add(inputCourseKey);
-      continue;
+  const buildScopeDesiredRows = (isPlusOneScope) => {
+    const desiredByCourse = new Map();
+    const coursesToClear = new Set();
+    for (const row of normalizedSelections) {
+      if (Boolean(row.isPlusOne) !== Boolean(isPlusOneScope)) {
+        continue;
+      }
+      const inputCourseKey = normalizeCourseKey(row.courseKey);
+      if (!row.optionId) {
+        coursesToClear.add(inputCourseKey);
+        continue;
+      }
+      const option = optionById.get(toSafeString(row.optionId));
+      if (!option || toSafeString(option.event_id) !== eventId) {
+        const wrapped = new Error("Hay una opción de menú inválida para esta invitación.");
+        wrapped.code = "MEALS_BAD_REQUEST";
+        throw wrapped;
+      }
+      desiredByCourse.set(option.course_key, toSafeString(option.id));
+      coursesToClear.delete(option.course_key);
     }
-    const option = optionById.get(toSafeString(row.optionId));
-    if (!option || toSafeString(option.event_id) !== eventId) {
-      const wrapped = new Error("Hay una opción de menú inválida para esta invitación.");
-      wrapped.code = "MEALS_BAD_REQUEST";
-      throw wrapped;
-    }
-    desiredByCourse.set(option.course_key, toSafeString(option.id));
-    coursesToClear.delete(option.course_key);
-  }
+    return { desiredByCourse, coursesToClear };
+  };
 
-  const courseKeysToProcess = new Set([...availableCourseKeys, ...coursesToClear, ...desiredByCourse.keys()]);
-
-  for (const courseKey of courseKeysToProcess) {
-    const desiredOptionId = desiredByCourse.get(courseKey) || null;
-    if (!desiredOptionId) {
-      const { error: deleteError } = await supabase
+  const persistSelectionsByScope = async (isPlusOneScope) => {
+    const normalizedScope = Boolean(isPlusOneScope);
+    if (normalizedScope && !invitationHasPlusOne) {
+      const { error: deletePlusOneError } = await supabase
         .from("event_meal_selections")
         .delete()
         .eq("event_id", eventId)
         .eq("guest_id", guestId)
-        .eq("course_key", courseKey);
-
-      if (deleteError) {
-        const wrapped = new Error(`No se pudo limpiar la selección de menú: ${deleteError.message}`);
+        .eq("is_plus_one", true);
+      if (deletePlusOneError) {
+        const wrapped = new Error(`No se pudieron limpiar las selecciones +1: ${deletePlusOneError.message}`);
         wrapped.code = "MEALS_DB_ERROR";
-        wrapped.details = deleteError;
+        wrapped.details = deletePlusOneError;
         throw wrapped;
       }
-      continue;
+      return;
     }
 
-    const { error: upsertError } = await supabase
-      .from("event_meal_selections")
-      .upsert(
-        [
-          {
-            event_id: eventId,
-            host_user_id: hostUserId,
-            guest_id: guestId,
-            course_key: courseKey,
-            option_id: desiredOptionId
-          }
-        ],
-        { onConflict: "event_id,guest_id,course_key" }
-      );
+    const { desiredByCourse, coursesToClear } = buildScopeDesiredRows(normalizedScope);
+    const courseKeysToProcess = new Set([...availableCourseKeys, ...coursesToClear, ...desiredByCourse.keys()]);
 
-    if (upsertError) {
-      const wrapped = new Error(`No se pudo guardar la selección de menú: ${upsertError.message}`);
-      wrapped.code = "MEALS_DB_ERROR";
-      wrapped.details = upsertError;
-      throw wrapped;
+    for (const courseKey of courseKeysToProcess) {
+      const desiredOptionId = desiredByCourse.get(courseKey) || null;
+      if (!desiredOptionId) {
+        const { error: deleteError } = await supabase
+          .from("event_meal_selections")
+          .delete()
+          .eq("event_id", eventId)
+          .eq("guest_id", guestId)
+          .eq("course_key", courseKey)
+          .eq("is_plus_one", normalizedScope);
+
+        if (deleteError) {
+          const wrapped = new Error(`No se pudo limpiar la selección de menú: ${deleteError.message}`);
+          wrapped.code = "MEALS_DB_ERROR";
+          wrapped.details = deleteError;
+          throw wrapped;
+        }
+        continue;
+      }
+
+      const { error: upsertError } = await supabase
+        .from("event_meal_selections")
+        .upsert(
+          [
+            {
+              event_id: eventId,
+              host_user_id: hostUserId,
+              guest_id: guestId,
+              course_key: courseKey,
+              option_id: desiredOptionId,
+              is_plus_one: normalizedScope
+            }
+          ],
+          { onConflict: "event_id,guest_id,course_key,is_plus_one" }
+        );
+
+      if (upsertError) {
+        const wrapped = new Error(`No se pudo guardar la selección de menú: ${upsertError.message}`);
+        wrapped.code = "MEALS_DB_ERROR";
+        wrapped.details = upsertError;
+        throw wrapped;
+      }
     }
-  }
+  };
+
+  await persistSelectionsByScope(false);
+  await persistSelectionsByScope(true);
 
   const { data: persistedSelections, error: persistedError } = await supabase
     .from("event_meal_selections")
-    .select("id, event_id, host_user_id, option_id, guest_id, course_key, created_at, updated_at")
+    .select("id, event_id, host_user_id, option_id, guest_id, course_key, is_plus_one, created_at, updated_at")
     .eq("event_id", eventId)
     .eq("guest_id", guestId)
     .order("course_key", { ascending: true })
+    .order("is_plus_one", { ascending: true })
     .order("updated_at", { ascending: false });
 
   if (persistedError) {
@@ -678,6 +750,7 @@ export function toClientMealSelectionPayload(selection) {
     option_id: toNullableString(selection?.option_id),
     guest_id: toSafeString(selection?.guest_id),
     course_key: normalizeCourseKey(selection?.course_key),
+    is_plus_one: Boolean(selection?.is_plus_one),
     created_at: toNullableString(selection?.created_at),
     updated_at: toNullableString(selection?.updated_at)
   };

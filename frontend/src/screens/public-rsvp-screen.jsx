@@ -123,6 +123,26 @@ function groupMealOptionsByCourse(options, t) {
   });
 }
 
+function splitMealSelectionsByScope(selections) {
+  return (Array.isArray(selections) ? selections : []).reduce(
+    (accumulator, selectionItem) => {
+      const courseKey = normalizeMealsCourseKey(selectionItem?.course_key);
+      const optionId = String(selectionItem?.option_id || "").trim();
+      if (!courseKey || !optionId) {
+        return accumulator;
+      }
+      const isPlusOneSelection = Boolean(selectionItem?.is_plus_one ?? selectionItem?.isPlusOne);
+      if (isPlusOneSelection) {
+        accumulator.plusOne[courseKey] = optionId;
+      } else {
+        accumulator.self[courseKey] = optionId;
+      }
+      return accumulator;
+    },
+    { self: {}, plusOne: {} }
+  );
+}
+
 const RSVP_SOUND_BY_STATUS = {
   yes: "/sounds/clink.mp3",
   maybe: "/sounds/pop.mp3",
@@ -473,18 +493,22 @@ function RsvpMealsVotingView({
   groupedCourses,
   selectionsByCourse,
   onSelect,
-  isSaving
+  isSaving,
+  title,
+  hint
 }) {
   const hasCourseGroups =
     groupedCourses.length > 1 || groupedCourses.some((courseItem) => courseItem.courseKey !== DEFAULT_MEALS_COURSE_KEY);
+  const sectionTitle = String(title || "").trim() || t("rsvp_meals_title");
+  const sectionHint = String(hint || "").trim() || t("rsvp_meals_hint");
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 p-4">
       <div className="flex items-center gap-2">
         <Icon name="utensils" className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
-        <p className="text-sm font-black text-gray-900 dark:text-white">{t("rsvp_meals_title")}</p>
+        <p className="text-sm font-black text-gray-900 dark:text-white">{sectionTitle}</p>
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">{t("rsvp_meals_hint")}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{sectionHint}</p>
 
       <div className="flex flex-col gap-3">
         {groupedCourses.map((courseGroup) => {
@@ -694,6 +718,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [userVotedVenueIds, setUserVotedVenueIds] = useState([]);
   const [eventMealOptions, setEventMealOptions] = useState([]);
   const [mealSelectionsByCourse, setMealSelectionsByCourse] = useState({});
+  const [plusOneMealSelectionsByCourse, setPlusOneMealSelectionsByCourse] = useState({});
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [isSavingMeals, setIsSavingMeals] = useState(false);
   const [mealsMessage, setMealsMessage] = useState("");
@@ -805,6 +830,20 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     }));
   }, []);
 
+  const handleSelectPlusOneMealOption = useCallback((courseKey, optionId) => {
+    const normalizedCourseKey = normalizeMealsCourseKey(courseKey);
+    const normalizedOptionId = String(optionId || "").trim();
+    if (!normalizedCourseKey || !normalizedOptionId) {
+      return;
+    }
+    setMealsMessage("");
+    setMealsMessageType("info");
+    setPlusOneMealSelectionsByCourse((previous) => ({
+      ...(previous && typeof previous === "object" ? previous : {}),
+      [normalizedCourseKey]: normalizedOptionId
+    }));
+  }, []);
+
   // 🔊 Reproduce sonido según estado RSVP.
   // Archivos esperados en: /public/sounds/{clink,pop,break}.mp3
   const playRsvpSound = (rsvpStatus) => {
@@ -882,6 +921,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setUserVotedVenueIds([]);
       setEventMealOptions([]);
       setMealSelectionsByCourse({});
+      setPlusOneMealSelectionsByCourse({});
       setMealsMessage("");
       setMealsMessageType("info");
       setDateVoteMessage("");
@@ -933,23 +973,16 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                 label: String(optionItem?.label || "").trim()
               }))
               .filter((optionItem) => optionItem.id && optionItem.label);
-            const normalizedSelections = (Array.isArray(mealsPayload?.selections) ? mealsPayload.selections : [])
-              .reduce((accumulator, selectionItem) => {
-                const courseKey = normalizeMealsCourseKey(selectionItem?.course_key);
-                const optionId = String(selectionItem?.option_id || "").trim();
-                if (!courseKey || !optionId) {
-                  return accumulator;
-                }
-                accumulator[courseKey] = optionId;
-                return accumulator;
-              }, {});
+            const normalizedSelections = splitMealSelectionsByScope(mealsPayload?.selections);
 
             setEventMealOptions(normalizedOptions);
-            setMealSelectionsByCourse(normalizedSelections);
+            setMealSelectionsByCourse(normalizedSelections.self);
+            setPlusOneMealSelectionsByCourse(normalizedSelections.plusOne);
           } catch (mealsError) {
             console.error("[rsvp-meals] Error cargando módulo de menús", mealsError);
             setEventMealOptions([]);
             setMealSelectionsByCourse({});
+            setPlusOneMealSelectionsByCourse({});
           } finally {
             setIsLoadingMeals(false);
           }
@@ -1107,10 +1140,17 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
     const normalizedFinalStatus = String(data?.[0]?.status || status || "").trim().toLowerCase();
     if (normalizedFinalStatus === "yes" && hasMealCourses) {
-      const mealsSelectionsPayload = groupedMealCourses.map((courseGroup) => ({
+      const selfSelectionsPayload = groupedMealCourses.map((courseGroup) => ({
         courseKey: courseGroup.courseKey,
-        optionId: String(mealSelectionsByCourse?.[courseGroup.courseKey] || "").trim() || null
+        optionId: String(mealSelectionsByCourse?.[courseGroup.courseKey] || "").trim() || null,
+        isPlusOne: false
       }));
+      const plusOneSelectionsPayload = groupedMealCourses.map((courseGroup) => ({
+        courseKey: courseGroup.courseKey,
+        optionId: String((plusOne ? plusOneMealSelectionsByCourse?.[courseGroup.courseKey] : "") || "").trim() || null,
+        isPlusOne: true
+      }));
+      const mealsSelectionsPayload = [...selfSelectionsPayload, ...plusOneSelectionsPayload];
       const mealsEndpoint = buildMealsEndpoint("public/selections");
 
       if (mealsEndpoint) {
@@ -1134,17 +1174,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             throw new Error(String(mealsPayload?.error || `HTTP ${mealsResponse.status}`));
           }
 
-          const normalizedSelections = (Array.isArray(mealsPayload?.selections) ? mealsPayload.selections : [])
-            .reduce((accumulator, selectionItem) => {
-              const courseKey = normalizeMealsCourseKey(selectionItem?.course_key);
-              const optionId = String(selectionItem?.option_id || "").trim();
-              if (!courseKey || !optionId) {
-                return accumulator;
-              }
-              accumulator[courseKey] = optionId;
-              return accumulator;
-            }, {});
-          setMealSelectionsByCourse(normalizedSelections);
+          const normalizedSelections = splitMealSelectionsByScope(mealsPayload?.selections);
+          setMealSelectionsByCourse(normalizedSelections.self);
+          setPlusOneMealSelectionsByCourse(normalizedSelections.plusOne);
           setMealsMessageType("success");
           setMealsMessage(t("rsvp_meals_save_success"));
         } catch (mealsError) {
@@ -1309,7 +1341,19 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           selectionsByCourse={mealSelectionsByCourse}
           onSelect={handleSelectMealOption}
           isSaving={isSavingMeals || isSubmitting}
+          title={t("rsvp_meals_guest_self_title")}
         />
+        {plusOne ? (
+          <RsvpMealsVotingView
+            t={t}
+            groupedCourses={groupedMealCourses}
+            selectionsByCourse={plusOneMealSelectionsByCourse}
+            onSelect={handleSelectPlusOneMealOption}
+            isSaving={isSavingMeals || isSubmitting}
+            title={t("rsvp_meals_guest_plus_one_title")}
+            hint={t("rsvp_meals_guest_plus_one_hint")}
+          />
+        ) : null}
         {isLoadingMeals ? (
           <InlineMessage type="info" text={t("event_meals_loading")} />
         ) : null}

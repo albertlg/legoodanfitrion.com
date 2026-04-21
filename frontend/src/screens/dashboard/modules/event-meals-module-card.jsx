@@ -12,6 +12,8 @@ const configuredApiUrl = String(
 const fallbackApiUrl = "/api";
 const MEALS_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
 const DEFAULT_COURSE_KEY = "general";
+const GUEST_SELECTION_SCOPE_MAIN = "main";
+const GUEST_SELECTION_SCOPE_PLUS_ONE = "plusone";
 
 function buildMealsApiUrl(resource = "") {
   const normalizedBase = String(MEALS_API_BASE_URL || "").trim().replace(/\/+$/, "");
@@ -72,6 +74,7 @@ function normalizeGuestFromRow(guestRow, t) {
   const invitationStatus = toSafeString(guestRow?.invitation?.status).toLowerCase();
   const guestId = toSafeString(guestRow?.guest?.id || guestRow?.invitation?.guest_id);
   const name = toSafeString(guestRow?.name || guestRow?.guest?.first_name || t("field_guest")) || t("field_guest");
+  const hasPlusOne = Boolean(guestRow?.invitation?.rsvp_plus_one);
   const subtitle =
     toSafeString(guestRow?.guest?.company_name) ||
     toSafeString(guestRow?.guest?.company) ||
@@ -83,8 +86,50 @@ function normalizeGuestFromRow(guestRow, t) {
     id: guestId,
     name,
     subtitle,
-    status: invitationStatus
+    status: invitationStatus,
+    hasPlusOne
   };
+}
+
+function buildGuestSelectionScopeKey(guestId, isPlusOne = false) {
+  const normalizedGuestId = toSafeString(guestId);
+  if (!normalizedGuestId) {
+    return "";
+  }
+  return `${normalizedGuestId}-${isPlusOne ? GUEST_SELECTION_SCOPE_PLUS_ONE : GUEST_SELECTION_SCOPE_MAIN}`;
+}
+
+function parseGuestSelectionScopeKey(value) {
+  const normalized = toSafeString(value);
+  if (!normalized) {
+    return {
+      guestId: "",
+      isPlusOne: false
+    };
+  }
+  const match = normalized.match(/^(.*)-(main|plusone)$/i);
+  if (!match) {
+    return {
+      guestId: normalized,
+      isPlusOne: false
+    };
+  }
+  const guestId = toSafeString(match[1]);
+  const scope = toSafeString(match[2]).toLowerCase();
+  return {
+    guestId,
+    isPlusOne: scope === GUEST_SELECTION_SCOPE_PLUS_ONE
+  };
+}
+
+function formatMealsPlusOneLabel(t, guestName) {
+  const template = toSafeString(t("meals_guest_plus_one_label"));
+  if (!template) {
+    return `+1 ${guestName}`;
+  }
+  return template
+    .replaceAll("{{name}}", guestName)
+    .replaceAll("{name}", guestName);
 }
 
 function toMealOptionState(optionRow, t) {
@@ -105,6 +150,7 @@ function toMealSelectionState(selectionRow) {
     option_id: toNullableString(selectionRow?.option_id),
     guest_id: toSafeString(selectionRow?.guest_id),
     course_key: normalizeCourseKey(selectionRow?.course_key),
+    is_plus_one: Boolean(selectionRow?.is_plus_one),
     created_at: toNullableString(selectionRow?.created_at),
     updated_at: toNullableString(selectionRow?.updated_at)
   };
@@ -164,7 +210,7 @@ export function EventMealsModuleCard({
   const [optionCourseDraft, setOptionCourseDraft] = useState("");
   const [isCreatingOption, setIsCreatingOption] = useState(false);
   const [deletingOptionId, setDeletingOptionId] = useState("");
-  const [selectedGuestId, setSelectedGuestId] = useState("");
+  const [selectedGuestSelectionKey, setSelectedGuestSelectionKey] = useState("");
   const [savingSelectionKey, setSavingSelectionKey] = useState("");
 
   const confirmedGuests = useMemo(
@@ -182,6 +228,36 @@ export function EventMealsModuleCard({
         return accumulator;
       }, {}),
     [confirmedGuests]
+  );
+  const guestSelectionOptions = useMemo(() => {
+    return confirmedGuests.flatMap((guest) => {
+      const baseOption = {
+        key: buildGuestSelectionScopeKey(guest.id, false),
+        guestId: guest.id,
+        isPlusOne: false,
+        label: guest.name
+      };
+      if (!guest.hasPlusOne) {
+        return [baseOption];
+      }
+      return [
+        baseOption,
+        {
+          key: buildGuestSelectionScopeKey(guest.id, true),
+          guestId: guest.id,
+          isPlusOne: true,
+          label: formatMealsPlusOneLabel(t, guest.name)
+        }
+      ];
+    });
+  }, [confirmedGuests, t]);
+  const guestSelectionOptionByKey = useMemo(
+    () =>
+      guestSelectionOptions.reduce((accumulator, optionItem) => {
+        accumulator[optionItem.key] = optionItem;
+        return accumulator;
+      }, {}),
+    [guestSelectionOptions]
   );
 
   const optionsById = useMemo(
@@ -201,18 +277,23 @@ export function EventMealsModuleCard({
     for (const selectionItem of Array.isArray(selections) ? selections : []) {
       const guestId = toSafeString(selectionItem?.guest_id);
       const courseKey = normalizeCourseKey(selectionItem?.course_key);
+      const isPlusOneSelection = Boolean(selectionItem?.is_plus_one);
       if (!guestId) {
         continue;
       }
-      if (!accumulator[guestId]) {
-        accumulator[guestId] = {};
+      const scopeKey = buildGuestSelectionScopeKey(guestId, isPlusOneSelection);
+      if (!scopeKey) {
+        continue;
       }
-      accumulator[guestId][courseKey] = selectionItem;
+      if (!accumulator[scopeKey]) {
+        accumulator[scopeKey] = {};
+      }
+      accumulator[scopeKey][courseKey] = selectionItem;
     }
     return accumulator;
   }, [selections]);
 
-  const selectedGuestSelections = selectedGuestId ? selectionsByGuestCourse[selectedGuestId] || {} : {};
+  const selectedGuestSelections = selectedGuestSelectionKey ? selectionsByGuestCourse[selectedGuestSelectionKey] || {} : {};
 
   const votesByOptionId = useMemo(
     () =>
@@ -228,7 +309,15 @@ export function EventMealsModuleCard({
   );
 
   const totalVotes = Array.isArray(selections) ? selections.length : 0;
-  const expectedVotes = confirmedGuests.length * Math.max(1, groupedCourses.length);
+  const confirmedParticipantsCount = useMemo(
+    () =>
+      confirmedGuests.reduce(
+        (accumulator, guestItem) => accumulator + 1 + (guestItem.hasPlusOne ? 1 : 0),
+        0
+      ),
+    [confirmedGuests]
+  );
+  const expectedVotes = confirmedParticipantsCount * Math.max(1, groupedCourses.length);
   const totalPending = Math.max(0, expectedVotes - totalVotes);
 
   const loadMealsState = useCallback(async () => {
@@ -300,21 +389,22 @@ export function EventMealsModuleCard({
   }, [loadMealsState]);
 
   useEffect(() => {
-    if (!confirmedGuests.length) {
-      setSelectedGuestId("");
+    if (!guestSelectionOptions.length) {
+      setSelectedGuestSelectionKey("");
       return;
     }
 
-    const normalizedCurrentGuest = toSafeString(selectedGuestId);
-    const hasCurrent = confirmedGuests.some((guest) => guest.id === normalizedCurrentGuest);
+    const normalizedCurrentKey = toSafeString(selectedGuestSelectionKey);
+    const hasCurrent = guestSelectionOptions.some((optionItem) => optionItem.key === normalizedCurrentKey);
     if (!hasCurrent) {
-      setSelectedGuestId(toSafeString(confirmedGuests[0]?.id));
+      setSelectedGuestSelectionKey(toSafeString(guestSelectionOptions[0]?.key));
     }
-  }, [confirmedGuests, selectedGuestId]);
+  }, [guestSelectionOptions, selectedGuestSelectionKey]);
 
-  const setGuestSelectionInState = useCallback((guestId, courseKey, selectionPayload) => {
+  const setGuestSelectionInState = useCallback((guestId, courseKey, isPlusOne, selectionPayload) => {
     const normalizedGuestId = toSafeString(guestId);
     const normalizedCourseKey = normalizeCourseKey(courseKey);
+    const normalizedIsPlusOne = Boolean(isPlusOne);
     if (!normalizedGuestId) {
       return;
     }
@@ -323,7 +413,11 @@ export function EventMealsModuleCard({
       const source = Array.isArray(current) ? current : [];
       const filtered = source.filter(
         (item) =>
-          !(toSafeString(item?.guest_id) === normalizedGuestId && normalizeCourseKey(item?.course_key) === normalizedCourseKey)
+          !(
+            toSafeString(item?.guest_id) === normalizedGuestId &&
+            normalizeCourseKey(item?.course_key) === normalizedCourseKey &&
+            Boolean(item?.is_plus_one) === normalizedIsPlusOne
+          )
       );
       if (!selectionPayload) {
         return filtered;
@@ -450,7 +544,9 @@ export function EventMealsModuleCard({
   };
 
   const handleSelectOptionForGuest = async (optionId, courseKey) => {
-    const guestId = toSafeString(selectedGuestId);
+    const selectionScope = parseGuestSelectionScopeKey(selectedGuestSelectionKey);
+    const guestId = selectionScope.guestId;
+    const isPlusOneSelection = Boolean(selectionScope.isPlusOne);
     const normalizedOptionId = toNullableString(optionId);
     const normalizedCourseKey = normalizeCourseKey(courseKey);
     if (!eventId || !supabase || !guestId) {
@@ -464,7 +560,7 @@ export function EventMealsModuleCard({
       return;
     }
 
-    const savingKey = `${guestId}:${normalizedCourseKey}`;
+    const savingKey = `${selectedGuestSelectionKey}:${normalizedCourseKey}`;
     setSavingSelectionKey(savingKey);
     setFeedback("");
     setFeedbackType("info");
@@ -484,6 +580,7 @@ export function EventMealsModuleCard({
         body: JSON.stringify({
           eventId,
           guestId,
+          isPlusOne: isPlusOneSelection,
           courseKey: normalizedCourseKey,
           optionId: normalizedOptionId
         })
@@ -493,7 +590,7 @@ export function EventMealsModuleCard({
         throw new Error(toSafeString(payload?.error) || `HTTP ${response.status}`);
       }
 
-      setGuestSelectionInState(guestId, normalizedCourseKey, payload?.selection || null);
+      setGuestSelectionInState(guestId, normalizedCourseKey, isPlusOneSelection, payload?.selection || null);
       if (normalizedOptionId) {
         const selectedLabel = optionsById[normalizedOptionId]?.label;
         setFeedbackType("success");
@@ -658,13 +755,13 @@ export function EventMealsModuleCard({
                   {t("event_meals_select_guest_label")}
                 </span>
                 <select
-                  value={selectedGuestId}
-                  onChange={(event) => setSelectedGuestId(event.target.value)}
+                  value={selectedGuestSelectionKey}
+                  onChange={(event) => setSelectedGuestSelectionKey(event.target.value)}
                   className="w-full rounded-xl border border-black/10 dark:border-white/15 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-all duration-200"
                 >
-                  {confirmedGuests.map((guest) => (
-                    <option key={guest.id} value={guest.id}>
-                      {guest.name}
+                  {guestSelectionOptions.map((optionItem) => (
+                    <option key={optionItem.key} value={optionItem.key}>
+                      {optionItem.label}
                     </option>
                   ))}
                 </select>
@@ -677,7 +774,7 @@ export function EventMealsModuleCard({
                   {groupedCourses.map((courseGroup) => {
                     const currentSelection = selectedGuestSelections[courseGroup.courseKey];
                     const selectedOptionId = toNullableString(currentSelection?.option_id);
-                    const saveKey = `${selectedGuestId}:${courseGroup.courseKey}`;
+                    const saveKey = `${selectedGuestSelectionKey}:${courseGroup.courseKey}`;
                     const isSavingCurrentCourse = savingSelectionKey === saveKey;
 
                     return (
@@ -755,10 +852,14 @@ export function EventMealsModuleCard({
 
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {selectedGuestId
+                  {selectedGuestSelectionKey
                     ? t("event_meals_selected_guest_caption").replace(
                         "{guest}",
-                        toSafeString(guestById[selectedGuestId]?.name || t("field_guest"))
+                        toSafeString(
+                          guestSelectionOptionByKey[selectedGuestSelectionKey]?.label ||
+                            guestById[parseGuestSelectionScopeKey(selectedGuestSelectionKey).guestId]?.name ||
+                            t("field_guest")
+                        )
                       )
                     : t("event_meals_select_guest_label")}
                 </p>

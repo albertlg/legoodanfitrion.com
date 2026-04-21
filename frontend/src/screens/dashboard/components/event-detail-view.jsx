@@ -263,7 +263,7 @@ function normalizeExpenseEntry(expenseItem) {
   };
 }
 
-function calculateDebts(expenses, totalGuests, participantNames = []) {
+function calculateDebts(expenses, totalGuests, participantNames = [], participantWeights = {}) {
   const cleanedExpenses = Array.isArray(expenses)
     ? expenses
         .map((item) => ({
@@ -285,13 +285,30 @@ function calculateDebts(expenses, totalGuests, participantNames = []) {
   cleanedExpenses.forEach((item) => uniqueParticipants.add(item.paidBy));
 
   const participants = Array.from(uniqueParticipants);
-  const participantsCount = Number(totalGuests) > 0 ? Number(totalGuests) : participants.length;
-  if (participantsCount <= 0) {
+  if (participants.length <= 0) {
     return [];
   }
 
-  while (participants.length < participantsCount) {
-    participants.push(`Invitado ${participants.length + 1}`);
+  const weightsByParticipant = participants.reduce((accumulator, participantName) => {
+    const requestedWeight = Number(participantWeights?.[participantName]);
+    accumulator[participantName] = Number.isFinite(requestedWeight) && requestedWeight > 0 ? requestedWeight : 1;
+    return accumulator;
+  }, {});
+
+  const fallbackTotalWeightFromWeights = participants.reduce(
+    (accumulator, participantName) => accumulator + (weightsByParticipant[participantName] || 1),
+    0
+  );
+  const requestedTotalGuests = Number(totalGuests);
+  const totalWeight =
+    fallbackTotalWeightFromWeights > 0
+      ? fallbackTotalWeightFromWeights
+      : Number.isFinite(requestedTotalGuests) && requestedTotalGuests > 0
+        ? requestedTotalGuests
+        : 0;
+
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+    return [];
   }
 
   const paidByPerson = participants.reduce((accumulator, participant) => {
@@ -306,12 +323,14 @@ function calculateDebts(expenses, totalGuests, participantNames = []) {
   const totalPaid = roundMoneyAmount(
     cleanedExpenses.reduce((accumulator, item) => accumulator + item.amount, 0)
   );
-  const fairShare = roundMoneyAmount(totalPaid / participantsCount);
+  const fairShareByWeight = roundMoneyAmount(totalPaid / totalWeight);
 
   const creditors = [];
   const debtors = [];
   participants.forEach((participant) => {
-    const balance = roundMoneyAmount((paidByPerson[participant] || 0) - fairShare);
+    const participantWeight = weightsByParticipant[participant] || 1;
+    const participantShare = roundMoneyAmount(fairShareByWeight * participantWeight);
+    const balance = roundMoneyAmount((paidByPerson[participant] || 0) - participantShare);
     if (balance > 0.009) {
       creditors.push({ name: participant, amount: balance });
     } else if (balance < -0.009) {
@@ -586,7 +605,26 @@ export function EventDetailView({
   const datePollOpen = Boolean(selectedEventDatePollIsOpen);
   const shouldRenderDatePollSection = isPollEvent || hasDatePollOptions;
   const datePollTotalVotes = Array.isArray(selectedEventDateVotes) ? selectedEventDateVotes.length : 0;
-  const confirmedGuestsCount = Math.max(0, Number(selectedEventDetailStatusCounts?.yes || 0));
+  const confirmedGuestRows = useMemo(
+    () =>
+      (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
+        .filter((guestRow) => String(guestRow?.invitation?.status || "").trim().toLowerCase() === "yes")
+        .map((guestRow) => ({
+          name: String(guestRow?.name || "").trim(),
+          hasPlusOne: Boolean(guestRow?.invitation?.rsvp_plus_one)
+        })),
+    [selectedEventDetailGuests]
+  );
+  const confirmedGuestsCount = useMemo(() => {
+    if (confirmedGuestRows.length > 0) {
+      return confirmedGuestRows.length;
+    }
+    return Math.max(0, Number(selectedEventDetailStatusCounts?.yes || 0));
+  }, [confirmedGuestRows.length, selectedEventDetailStatusCounts?.yes]);
+  const confirmedPlusOnesCount = useMemo(
+    () => confirmedGuestRows.filter((guestRow) => guestRow.hasPlusOne).length,
+    [confirmedGuestRows]
+  );
   const confirmedRecipientsCount = useMemo(
     () =>
       (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : []).filter((guestRow) => {
@@ -597,14 +635,10 @@ export function EventDetailView({
   );
   const confirmedGuestNames = useMemo(
     () =>
-      (Array.isArray(selectedEventDetailGuests) ? selectedEventDetailGuests : [])
-        .filter((guestRow) => {
-          const statusValue = String(guestRow?.invitation?.status || "").trim().toLowerCase();
-          return statusValue === "yes";
-        })
-        .map((guestRow) => String(guestRow?.name || "").trim())
+      confirmedGuestRows
+        .map((guestRow) => guestRow.name)
         .filter(Boolean),
-    [selectedEventDetailGuests]
+    [confirmedGuestRows]
   );
   const splitParticipants = useMemo(() => {
     if (confirmedGuestNames.length > 0) {
@@ -623,7 +657,23 @@ export function EventDetailView({
     const fallbackHostName = String(hostDisplayName || t("host_default_name")).trim();
     return fallbackHostName ? [fallbackHostName] : [];
   }, [confirmedGuestNames, hostDisplayName, selectedEventDetailGuests, t]);
-  const splitTotalGuests = confirmedGuestsCount > 0 ? confirmedGuestsCount : 0;
+  const splitParticipantWeights = useMemo(() => {
+    const nextWeights = {};
+    confirmedGuestRows.forEach((guestRow) => {
+      if (!guestRow.name) {
+        return;
+      }
+      const computedWeight = guestRow.hasPlusOne ? 2 : 1;
+      nextWeights[guestRow.name] = Math.max(nextWeights[guestRow.name] || 1, computedWeight);
+    });
+    splitParticipants.forEach((participantName) => {
+      if (!nextWeights[participantName]) {
+        nextWeights[participantName] = 1;
+      }
+    });
+    return nextWeights;
+  }, [confirmedGuestRows, splitParticipants]);
+  const splitTotalGuests = confirmedGuestsCount > 0 ? confirmedGuestsCount + confirmedPlusOnesCount : 0;
   const splitDefaultPayer = splitParticipants[0] || "";
   const splitTotalAmount = roundMoneyAmount(
     splitExpenses.reduce((accumulator, item) => accumulator + normalizeExpenseAmount(item?.amount), 0)
@@ -631,8 +681,8 @@ export function EventDetailView({
   const splitPerPersonAmount = splitTotalGuests > 0 ? roundMoneyAmount(splitTotalAmount / splitTotalGuests) : 0;
   const splitPerPersonLabel = formatMoneyAmount(splitPerPersonAmount, language);
   const splitDebts = useMemo(
-    () => calculateDebts(splitExpenses, splitTotalGuests, splitParticipants),
-    [splitExpenses, splitTotalGuests, splitParticipants]
+    () => calculateDebts(splitExpenses, splitTotalGuests, splitParticipants, splitParticipantWeights),
+    [splitExpenses, splitTotalGuests, splitParticipants, splitParticipantWeights]
   );
   const fixedPriceGuests = useMemo(
     () =>

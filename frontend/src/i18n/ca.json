@@ -2068,6 +2068,10 @@
   "event_meals_course_default_label": "Menú principal",
   "rsvp_meals_title": "Tria el teu menú",
   "rsvp_meals_hint": "Selecciona una opció per categoria perquè l’amfitrió ho pugui preparar a temps.",
+  "rsvp_meals_guest_self_title": "Les teves opcions",
+  "rsvp_meals_guest_plus_one_title": "Opcions de la teva persona acompanyant",
+  "rsvp_meals_guest_plus_one_hint": "Selecciona una opció per categoria per a la teva persona acompanyant (+1).",
+  "meals_guest_plus_one_label": "Acompanyant de {{name}}",
   "rsvp_meals_save_success": "Les teves preferències de menjar s’han desat correctament.",
   "rsvp_meals_save_error": "No hem pogut desar les teves preferències de menjar. Torna-ho a provar."
 }
