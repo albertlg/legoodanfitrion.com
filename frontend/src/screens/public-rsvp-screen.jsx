@@ -17,11 +17,6 @@ function toNullable(value) {
   return trimmed === "" ? null : trimmed;
 }
 
-function isValidEmail(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
-}
-
 function statusText(t, status) {
   return t(`status_${String(status || "").toLowerCase()}`);
 }
@@ -165,17 +160,6 @@ function buildVenueEndpoint(resource) {
   return `${normalizedBase}/api/venues/${resource}`;
 }
 
-function buildRsvpEndpoint(resource) {
-  const normalizedBase = String(RSVP_BACKEND_API_BASE_URL || "").trim().replace(/\/+$/, "");
-  if (!normalizedBase) {
-    return "";
-  }
-  if (/(^|\/)api$/i.test(normalizedBase)) {
-    return `${normalizedBase}/rsvp/${resource}`;
-  }
-  return `${normalizedBase}/api/rsvp/${resource}`;
-}
-
 function buildMealsEndpoint(resource = "") {
   const normalizedBase = String(RSVP_BACKEND_API_BASE_URL || "").trim().replace(/\/+$/, "");
   if (!normalizedBase) {
@@ -269,7 +253,6 @@ function RsvpFormView({
             onChange={(event) => setGuestEmail(event.target.value)}
             placeholder={t("rsvp_email_placeholder")}
             autoComplete="email"
-            required
             maxLength={160}
           />
           <p className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
@@ -1096,14 +1079,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       p_rsvp_dietary_needs: dietaryNeeds
     };
 
-    const normalizedGuestEmail = toNullable(guestEmail || "");
-    if (!isDatePollOpen && status === "yes" && (!normalizedGuestEmail || !isValidEmail(normalizedGuestEmail))) {
-      setIsSubmitting(false);
-      setIsRsvpSaved(false);
-      setSubmitMessage(t("rsvp_email_required_error"));
-      return;
-    }
-
     let { data, error } = await supabase.rpc("submit_rsvp_by_token", payload);
 
     if (error && isLegacyRsvpFunctionError(error)) {
@@ -1229,43 +1204,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           }
           : prev
       );
-    }
-
-    const ticketEndpoint = buildRsvpEndpoint("ticket");
-    if (normalizedFinalStatus === "yes" && ticketEndpoint && token) {
-      const eventIdForTicket = String(data?.[0]?.event_id || invitation?.event_id || "").trim();
-      const guestNameForTicket = toNullable(guestName) || toNullable(invitation?.guest_name || "");
-      const invitationTokenScope = resolveInvitationTokenScope(invitation);
-      const invitationEmailFallback =
-        invitationTokenScope === "invitation_individual" ? invitation?.invitee_email : "";
-      const guestEmailForTicket = toNullable(guestEmail || invitationEmailFallback || "");
-      const localeForTicket = String(language || "es").trim().toLowerCase() || "es";
-
-      // Fire-and-forget: nunca bloquea la confirmacion de RSVP.
-      void fetch(ticketEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
-        body: JSON.stringify({
-          invitationToken: token,
-          status: normalizedFinalStatus,
-          eventId: eventIdForTicket || null,
-          guestName: guestNameForTicket || null,
-          guestEmail: guestEmailForTicket || null,
-          locale: localeForTicket
-        })
-      })
-        .then(async (response) => {
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok || payload?.success === false) {
-            console.warn("[rsvp-ticket] Ticket email not sent:", payload?.error || `HTTP ${response.status}`);
-          }
-        })
-        .catch((ticketError) => {
-          console.warn("[rsvp-ticket] Ticket request failed:", ticketError);
-        });
     }
   };
 

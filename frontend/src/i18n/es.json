@@ -311,7 +311,7 @@
   "rsvp_name_optional": "Tu nombre (opcional)",
   "rsvp_email_label": "Tu email",
   "rsvp_email_placeholder": "tuemail@ejemplo.com",
-  "rsvp_email_help": "Para enviarte tu entrada digital y recordatorios.",
+  "rsvp_email_help": "Opcional. Compártelo solo si quieres recibir comunicaciones del anfitrión.",
   "rsvp_email_required_error": "Si confirmas asistencia, indica un email válido para enviarte tu entrada digital.",
   "rsvp_question": "¿Asistirás?",
   "rsvp_note_optional": "Nota para quien organiza (opcional)",

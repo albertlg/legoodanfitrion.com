@@ -311,7 +311,7 @@
   "rsvp_name_optional": "El teu nom (opcional)",
   "rsvp_email_label": "El teu correu",
   "rsvp_email_placeholder": "elteucorreu@exemple.com",
-  "rsvp_email_help": "Per enviar-te la teva entrada digital i recordatoris.",
+  "rsvp_email_help": "Opcional. Comparteix-lo només si vols rebre comunicacions de l'amfitrió.",
   "rsvp_email_required_error": "Si confirmes assistència, indica un correu vàlid per enviar-te la teva entrada digital.",
   "rsvp_question": "Vindràs?",
   "rsvp_note_optional": "Nota per a qui organitza (opcional)",

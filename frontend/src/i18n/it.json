@@ -311,7 +311,7 @@
   "rsvp_name_optional": "Il tuo nome (opzionale)",
   "rsvp_email_label": "La tua email",
   "rsvp_email_placeholder": "tuamail@esempio.com",
-  "rsvp_email_help": "Per inviarti il tuo biglietto digitale e i promemoria.",
+  "rsvp_email_help": "Facoltativo. Condividilo solo se vuoi ricevere comunicazioni dall'host.",
   "rsvp_email_required_error": "Se confermi la presenza, inserisci un'email valida per ricevere il tuo biglietto digitale.",
   "rsvp_question": "Parteciperai?",
   "rsvp_note_optional": "Nota per chi organizza (opzionale)",

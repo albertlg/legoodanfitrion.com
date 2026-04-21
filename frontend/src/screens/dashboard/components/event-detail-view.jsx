@@ -2048,6 +2048,30 @@ export function EventDetailView({
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   };
 
+  const handleCopyGuestInvitationLink = async (invitationItem) => {
+    const prepared = handlePrepareInvitationShare(invitationItem);
+    const invitationUrl = String(prepared?.url || "").trim();
+    if (!invitationUrl) {
+      setShareCardMessage(t("invitation_share_unavailable"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(invitationUrl);
+      setShareCardMessage(t("copy_ok"));
+    } catch {
+      setShareCardMessage(t("copy_fail"));
+    }
+  };
+
+  const handleShareGuestInvitationWhatsapp = (invitationItem) => {
+    const prepared = handlePrepareInvitationShare(invitationItem);
+    if (prepared?.whatsappUrl) {
+      window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setShareCardMessage(t("invitation_share_unavailable"));
+  };
+
   const renderEventHeaderActions = ({ inHero = false } = {}) => {
     if (!selectedEventDetail) {
       return null;
@@ -2735,7 +2759,7 @@ export function EventDetailView({
                             <th className="py-3 px-3 w-[52%] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
                             <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")}</th>
                             <th className="py-3 sm:px-2 w-[96px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
-                            <th className="py-3 sm:px-2 w-[84px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
+                            <th className="py-3 sm:px-2 w-[128px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
                           </tr>
                         </thead>
                         <tbody className="block sm:table-row-group divide-y-0 sm:divide-y divide-black/5 dark:divide-white/5">
@@ -2776,25 +2800,29 @@ export function EventDetailView({
                                     {statusText(t, row.invitation.status)}
                                   </span>
                                 </td>
-                                <td className="block sm:table-cell w-[84px] py-2 sm:py-2.5 px-0 sm:px-2 border-none sm:border-none align-middle text-right overflow-hidden">
+                                <td className="block sm:table-cell w-[128px] py-2 sm:py-2.5 px-0 sm:px-2 border-none sm:border-none align-middle text-right overflow-hidden">
                                   <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block text-left">{t("actions_label")}</span>
                                   <div className="flex items-center justify-end gap-1 mt-2 sm:mt-0">
                                     <button
-                                      className="inline-flex items-center justify-center h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-black/10 dark:border-white/10 text-gray-500 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 cursor-pointer"
                                       type="button"
-                                      onClick={() => {
-                                        const prepared = handlePrepareInvitationShare(row.invitation);
-                                        if (prepared?.whatsappUrl) {
-                                          window.open(prepared.whatsappUrl, "_blank", "noopener,noreferrer");
-                                        }
-                                      }}
-                                      aria-label={t("invitation_send_message_action")}
-                                      title={t("invitation_send_message_action")}
+                                      onClick={() => handleCopyGuestInvitationLink(row.invitation)}
+                                      aria-label={t("copy_link")}
+                                      title={t("copy_link")}
                                     >
-                                      <Icon name="message" className="w-5 h-5" />
+                                      <Icon name="link" className="w-4 h-4" />
                                     </button>
                                     <button
-                                      className="inline-flex items-center justify-center h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/20 rounded-md transition-colors border border-red-200/70 dark:border-red-700/40"
+                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-green-200/80 dark:border-green-800/40 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200 cursor-pointer"
+                                      type="button"
+                                      onClick={() => handleShareGuestInvitationWhatsapp(row.invitation)}
+                                      aria-label={t("host_invite_whatsapp_action")}
+                                      title={t("host_invite_whatsapp_action")}
+                                    >
+                                      <Icon name="message" className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      className="inline-flex items-center justify-center h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/20 rounded-md transition-all duration-200 cursor-pointer border border-red-200/70 dark:border-red-700/40"
                                       type="button"
                                       onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
                                       aria-label={t("event_detail_remove_guest_action")}

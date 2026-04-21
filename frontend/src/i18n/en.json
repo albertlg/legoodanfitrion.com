@@ -311,7 +311,7 @@
   "rsvp_name_optional": "Your name (optional)",
   "rsvp_email_label": "Your email",
   "rsvp_email_placeholder": "your@email.com",
-  "rsvp_email_help": "To send you your digital ticket and reminders.",
+  "rsvp_email_help": "Optional. Share it only if you want host communications.",
   "rsvp_email_required_error": "If you confirm attendance, enter a valid email to receive your digital ticket.",
   "rsvp_question": "Will you attend?",
   "rsvp_note_optional": "Note for whoever is hosting (optional)",
