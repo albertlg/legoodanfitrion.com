@@ -318,6 +318,8 @@ export function useDashboardDataController({
     let spacesError = null;
     let sharedTasksEventIds = new Set();
     let sharedTasksError = null;
+    let mealsEventIds = new Set();
+    let mealsError = null;
     const eventIdsForPlans = uniqueValues((eventsData || []).map((eventItem) => eventItem.id));
     if (eventIdsForPlans.length > 0) {
       const plannerResult = await supabase
@@ -410,6 +412,23 @@ export function useDashboardDataController({
             .filter(Boolean)
         );
       }
+
+      const mealsResult = await supabase
+        .from("event_meal_options")
+        .select("event_id")
+        .in("event_id", eventIdsForPlans);
+
+      if (mealsResult.error) {
+        if (!isMissingRelationError(mealsResult.error, "event_meal_options")) {
+          mealsError = mealsResult.error;
+        }
+      } else {
+        mealsEventIds = new Set(
+          (Array.isArray(mealsResult.data) ? mealsResult.data : [])
+            .map((row) => String(row?.event_id || "").trim())
+            .filter(Boolean)
+        );
+      }
     }
 
     if (
@@ -421,7 +440,8 @@ export function useDashboardDataController({
       eventPlannerError ||
       eventDatePollError ||
       spacesError ||
-      sharedTasksError
+      sharedTasksError ||
+      mealsError
     ) {
       setDashboardError(
         eventsError?.message ||
@@ -433,6 +453,7 @@ export function useDashboardDataController({
           eventDatePollError?.message ||
           spacesError?.message ||
           sharedTasksError?.message ||
+          mealsError?.message ||
           t("error_load_data")
       );
       setIsLoading(false);
@@ -546,7 +567,8 @@ export function useDashboardDataController({
       const resolvedModules = resolveEventModules(eventItem, {
         hasDatePollOptions: datePollOptionEventIds.has(String(eventItem?.id || "").trim()),
         hasSpaces: spacesEventIds.has(String(eventItem?.id || "").trim()),
-        hasSharedTasks: sharedTasksEventIds.has(String(eventItem?.id || "").trim())
+        hasSharedTasks: sharedTasksEventIds.has(String(eventItem?.id || "").trim()),
+        hasMeals: mealsEventIds.has(String(eventItem?.id || "").trim())
       });
       const mergedResolvedModules = {
         ...resolvedModules,

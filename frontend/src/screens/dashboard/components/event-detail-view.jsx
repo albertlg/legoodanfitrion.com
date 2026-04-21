@@ -16,8 +16,10 @@ import {
 } from "../../../lib/event-modules";
 import {
   EVENT_MODULE_ZONES,
+  EVENT_MODULE_REGISTRY,
   getEventModulesByZone
 } from "../modules/event-module-registry";
+import { EventModulesManagerModal } from "../modules/event-modules-manager-modal";
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -121,6 +123,7 @@ const configuredApiUrl = String(
 ).trim();
 const fallbackApiUrl = "/api";
 const EVENT_DETAIL_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+const DEFAULT_MODULE_DISCLOSURE_LEVELS = Object.freeze(["core", "primary"]);
 
 function buildSpotifyAuthUrl(eventId) {
   const normalizedEventId = String(eventId || "").trim();
@@ -526,6 +529,7 @@ export function EventDetailView({
   const [isSavingEventModules, setIsSavingEventModules] = useState(false);
   const [eventModulesFeedback, setEventModulesFeedback] = useState("");
   const [eventModulesFeedbackType, setEventModulesFeedbackType] = useState("info");
+  const [isModulesManagerOpen, setIsModulesManagerOpen] = useState(false);
   const hydratedModulesEventIdRef = useRef("");
   const isPlanWorkspace = eventsWorkspace === "plan";
   const selectedEventOwnerId = String(
@@ -773,6 +777,7 @@ export function EventDetailView({
   useEffect(() => {
     setIsCalendarMenuOpen(false);
     setIsEventAdminMenuOpen(false);
+    setIsModulesManagerOpen(false);
   }, [selectedEventDetail?.id]);
 
   const loadFixedPricePayments = useCallback(async () => {
@@ -2273,41 +2278,48 @@ export function EventDetailView({
       ...explicitActiveModules
     };
   }, [selectedEventDetail?.active_modules, selectedEventDetail?.resolved_modules]);
-  const eventModuleToggleConfig = [
-    { key: "megaphone", labelKey: "event_modules_toggle_megaphone_label", hintKey: "event_modules_toggle_megaphone_hint" },
-    { key: "gallery", labelKey: "event_modules_toggle_gallery_label", hintKey: "event_modules_toggle_gallery_hint" },
-    { key: "date_poll", labelKey: "event_modules_toggle_date_poll_label", hintKey: "event_modules_toggle_date_poll_hint" },
-    { key: "venues", labelKey: "event_modules_toggle_venues_label", hintKey: "event_modules_toggle_venues_hint" },
-    { key: "spaces", labelKey: "event_modules_toggle_spaces_label", hintKey: "event_modules_toggle_spaces_hint" },
-    { key: "shared_tasks", labelKey: "event_modules_toggle_shared_tasks_label", hintKey: "event_modules_toggle_shared_tasks_hint" },
-    { key: "finance", labelKey: "event_modules_toggle_finance_label", hintKey: "event_modules_toggle_finance_hint" },
-    { key: "spotify", labelKey: "event_modules_toggle_spotify_label", hintKey: "event_modules_toggle_spotify_hint" },
-    { key: "icebreaker", labelKey: "event_modules_toggle_icebreaker_label", hintKey: "event_modules_toggle_icebreaker_hint" }
-  ];
+
+  const eventModuleToggleConfig = useMemo(() => {
+    const seenModuleKeys = new Set();
+    return EVENT_MODULE_REGISTRY
+      .filter((moduleItem) => moduleItem?.labelKey && moduleItem?.hintKey)
+      .filter((moduleItem) => {
+        const moduleKey = String(moduleItem?.key || "").trim();
+        if (!moduleKey || seenModuleKeys.has(moduleKey)) {
+          return false;
+        }
+        seenModuleKeys.add(moduleKey);
+        return true;
+      })
+      .sort((left, right) => Number(left?.order || 0) - Number(right?.order || 0))
+      .map((moduleItem) => ({
+        key: String(moduleItem.key || "").trim(),
+        labelKey: moduleItem.labelKey,
+        hintKey: moduleItem.hintKey,
+        category: String(moduleItem.category || "").trim(),
+        disclosure: String(moduleItem.disclosure || "").trim(),
+        emptyStateVariant: String(moduleItem.emptyStateVariant || "").trim()
+      }));
+  }, []);
+
   const activeMainModules = getEventModulesByZone({
     zone: EVENT_MODULE_ZONES.MAIN,
-    resolvedModules: selectedEventResolvedModules
+    resolvedModules: selectedEventResolvedModules,
+    disclosures: DEFAULT_MODULE_DISCLOSURE_LEVELS,
+    includeEnabledOutsideDisclosures: true
   });
   const activeSidebarModules = getEventModulesByZone({
     zone: EVENT_MODULE_ZONES.SIDEBAR,
-    resolvedModules: selectedEventResolvedModules
+    resolvedModules: selectedEventResolvedModules,
+    disclosures: DEFAULT_MODULE_DISCLOSURE_LEVELS,
+    includeEnabledOutsideDisclosures: true
   });
   const activeHeaderActionModules = getEventModulesByZone({
     zone: EVENT_MODULE_ZONES.HEADER_ACTIONS,
-    resolvedModules: selectedEventResolvedModules
+    resolvedModules: selectedEventResolvedModules,
+    disclosures: DEFAULT_MODULE_DISCLOSURE_LEVELS,
+    includeEnabledOutsideDisclosures: true
   });
-  const activeModuleKeys = useMemo(
-    () => ({
-      main: activeMainModules.map((moduleItem) => moduleItem.key),
-      sidebar: activeSidebarModules.map((moduleItem) => moduleItem.key),
-      header: activeHeaderActionModules.map((moduleItem) => moduleItem.key)
-    }),
-    [activeHeaderActionModules, activeMainModules, activeSidebarModules]
-  );
-
-  useEffect(() => {
-    console.log("Módulos a renderizar:", activeModuleKeys, "resolved:", selectedEventResolvedModules);
-  }, [activeModuleKeys, selectedEventResolvedModules]);
   const sharedModuleRenderContext = {
     t,
     interpolateText,
@@ -2628,57 +2640,47 @@ export function EventDetailView({
                   ) : null}
                 </article>
 
-                <article id="event-modules" className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
-                  <div className="flex items-center gap-2">
-                    <Icon name="settings" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_modules_section_title")}</p>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {t("event_modules_section_hint")}
-                  </p>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {eventModuleToggleConfig.map((moduleToggle) => {
-                      const toggleId = `event-module-toggle-${moduleToggle.key}`;
-                      return (
-                      <div
-                        key={toggleId}
-                        className="flex items-start justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/20 p-3"
-                      >
-                        <label htmlFor={toggleId} className="flex flex-col gap-1 min-w-0 cursor-pointer select-none">
-                          <span className="text-sm font-bold text-gray-900 dark:text-white">
-                            {t(moduleToggle.labelKey)}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {t(moduleToggle.hintKey)}
-                          </span>
-                        </label>
-                        <input
-                          id={toggleId}
-                          type="checkbox"
-                          checked={!!localToggles[moduleToggle.key]}
-                          onChange={(event) => {
-                            handleToggle(moduleToggle.key, event.target.checked);
-                          }}
-                          className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0"
-                        />
+                <article
+                  id="event-modules"
+                  className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Icon name="settings" className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_modules_section_title")}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_modules_section_hint")}</p>
                       </div>
-                    );})}
-                  </div>
-
-                  <div className="flex items-center justify-end">
+                    </div>
                     <button
                       type="button"
-                      onClick={handleSaveEventModules}
-                      disabled={isSavingEventModules}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        setEventModulesFeedback("");
+                        setIsModulesManagerOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-all duration-200 cursor-pointer shadow-sm"
                     >
-                      <Icon
-                        name={isSavingEventModules ? "loader" : "save"}
-                        className={`w-4 h-4 ${isSavingEventModules ? "animate-spin" : ""}`}
-                      />
-                      <span>{isSavingEventModules ? t("event_modules_saving") : t("event_modules_save_action")}</span>
+                      <Icon name="settings" className="w-4 h-4" />
+                      <span>{t("event_modules_section_title")}</span>
                     </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {eventModuleToggleConfig.map((moduleToggle) => {
+                      const isEnabled = Boolean(localToggles[moduleToggle.key]);
+                      return (
+                        <span
+                          key={`event-module-pill-${moduleToggle.key}`}
+                          className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                            isEnabled
+                              ? "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700"
+                              : "bg-white text-gray-400 border-gray-200 dark:bg-gray-900 dark:text-gray-500 dark:border-gray-700"
+                          }`}
+                        >
+                          {t(moduleToggle.labelKey)}
+                        </span>
+                      );
+                    })}
                   </div>
 
                   {eventModulesFeedback ? (
@@ -3024,6 +3026,23 @@ export function EventDetailView({
           </div>
         </div>
       ) : null}
+
+      {selectedEventDetail && isModulesManagerOpen
+        ? renderGlobalModal(
+            <EventModulesManagerModal
+              t={t}
+              isOpen={isModulesManagerOpen}
+              onClose={() => setIsModulesManagerOpen(false)}
+              moduleToggleConfig={eventModuleToggleConfig}
+              localToggles={localToggles}
+              handleToggle={handleToggle}
+              handleSaveEventModules={handleSaveEventModules}
+              isSavingEventModules={isSavingEventModules}
+              eventModulesFeedback={eventModulesFeedback}
+              eventModulesFeedbackType={eventModulesFeedbackType}
+            />
+          )
+        : null}
 
       {selectedEventDetail && isTeamModalOpen
         ? renderGlobalModal(

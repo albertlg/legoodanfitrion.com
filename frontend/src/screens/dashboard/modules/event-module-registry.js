@@ -4,6 +4,7 @@ import { EventDatePollModuleCard } from "./event-date-poll-module-card";
 import { EventFinanceModuleCard } from "./event-finance-module-card";
 import { EventGalleryModuleCard } from "./event-gallery-module-card";
 import { EventIcebreakerModuleCard } from "./event-icebreaker-module-card";
+import { EventMealsModuleCard } from "./event-meals-module-card";
 import { EventMegaphoneModuleCard } from "./event-megaphone-module-card";
 import { EventSpotifyHeaderAction } from "./event-spotify-header-action";
 import { EventSpacesModuleCard } from "./event-spaces-module-card";
@@ -16,10 +17,28 @@ export const EVENT_MODULE_ZONES = Object.freeze({
   HEADER_ACTIONS: "header_actions"
 });
 
+export const EVENT_MODULE_CATEGORIES = Object.freeze({
+  CORE: "core",
+  LOGISTICS: "logistics",
+  COMMUNICATION: "communication",
+  EXPERIENCE: "experience"
+});
+
+export const EVENT_MODULE_DISCLOSURE = Object.freeze({
+  CORE: "core",
+  PRIMARY: "primary",
+  SECONDARY: "secondary"
+});
+
 export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "spotify",
     zone: EVENT_MODULE_ZONES.HEADER_ACTIONS,
+    category: EVENT_MODULE_CATEGORIES.EXPERIENCE,
+    disclosure: EVENT_MODULE_DISCLOSURE.SECONDARY,
+    emptyStateVariant: "compact",
+    labelKey: "event_modules_toggle_spotify_label",
+    hintKey: "event_modules_toggle_spotify_hint",
     order: 20,
     render: (context) =>
       React.createElement(EventSpotifyHeaderAction, {
@@ -34,6 +53,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "gallery",
     zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.COMMUNICATION,
+    disclosure: EVENT_MODULE_DISCLOSURE.PRIMARY,
+    emptyStateVariant: "rich",
+    labelKey: "event_modules_toggle_gallery_label",
+    hintKey: "event_modules_toggle_gallery_hint",
     order: 30,
     render: (context) =>
       React.createElement(EventGalleryModuleCard, {
@@ -52,6 +76,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "date_poll",
     zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.CORE,
+    disclosure: EVENT_MODULE_DISCLOSURE.CORE,
+    emptyStateVariant: "compact",
+    labelKey: "event_modules_toggle_date_poll_label",
+    hintKey: "event_modules_toggle_date_poll_hint",
     order: 40,
     render: (context) =>
       React.createElement(EventDatePollModuleCard, {
@@ -76,6 +105,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "venues",
     zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.LOGISTICS,
+    disclosure: EVENT_MODULE_DISCLOSURE.PRIMARY,
+    emptyStateVariant: "rich",
+    labelKey: "event_modules_toggle_venues_label",
+    hintKey: "event_modules_toggle_venues_hint",
     order: 50,
     render: (context) =>
       React.createElement(EventVenuesModuleCard, {
@@ -93,6 +127,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "spaces",
     zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.LOGISTICS,
+    disclosure: EVENT_MODULE_DISCLOSURE.SECONDARY,
+    emptyStateVariant: "compact",
+    labelKey: "event_modules_toggle_spaces_label",
+    hintKey: "event_modules_toggle_spaces_hint",
     order: 80,
     render: (context) =>
       React.createElement(EventSpacesModuleCard, {
@@ -105,6 +144,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "shared_tasks",
     zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.LOGISTICS,
+    disclosure: EVENT_MODULE_DISCLOSURE.SECONDARY,
+    emptyStateVariant: "compact",
+    labelKey: "event_modules_toggle_shared_tasks_label",
+    hintKey: "event_modules_toggle_shared_tasks_hint",
     order: 85,
     render: (context) =>
       React.createElement(EventSharedTasksModuleCard, {
@@ -115,8 +159,30 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
       })
   },
   {
+    key: "meals",
+    zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.LOGISTICS,
+    disclosure: EVENT_MODULE_DISCLOSURE.SECONDARY,
+    emptyStateVariant: "compact",
+    labelKey: "event_modules_toggle_meals_label",
+    hintKey: "event_modules_toggle_meals_hint",
+    order: 66,
+    render: (context) =>
+      React.createElement(EventMealsModuleCard, {
+        t: context.t,
+        isProfessionalEvent: context.isProfessionalEvent,
+        selectedEventDetail: context.selectedEventDetail,
+        selectedEventDetailGuests: context.selectedEventDetailGuests
+      })
+  },
+  {
     key: "megaphone",
     zone: EVENT_MODULE_ZONES.MAIN,
+    category: EVENT_MODULE_CATEGORIES.COMMUNICATION,
+    disclosure: EVENT_MODULE_DISCLOSURE.PRIMARY,
+    emptyStateVariant: "rich",
+    labelKey: "event_modules_toggle_megaphone_label",
+    hintKey: "event_modules_toggle_megaphone_hint",
     order: 70,
     render: (context) =>
       React.createElement(EventMegaphoneModuleCard, {
@@ -135,6 +201,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "finance",
     zone: EVENT_MODULE_ZONES.SIDEBAR,
+    category: EVENT_MODULE_CATEGORIES.LOGISTICS,
+    disclosure: EVENT_MODULE_DISCLOSURE.PRIMARY,
+    emptyStateVariant: "rich",
+    labelKey: "event_modules_toggle_finance_label",
+    hintKey: "event_modules_toggle_finance_hint",
     order: 20,
     render: (context) =>
       React.createElement(EventFinanceModuleCard, {
@@ -187,6 +258,11 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   {
     key: "icebreaker",
     zone: EVENT_MODULE_ZONES.SIDEBAR,
+    category: EVENT_MODULE_CATEGORIES.EXPERIENCE,
+    disclosure: EVENT_MODULE_DISCLOSURE.SECONDARY,
+    emptyStateVariant: "compact",
+    labelKey: "event_modules_toggle_icebreaker_label",
+    hintKey: "event_modules_toggle_icebreaker_hint",
     order: 30,
     render: (context) =>
       React.createElement(EventIcebreakerModuleCard, {
@@ -199,9 +275,36 @@ export const EVENT_MODULE_REGISTRY = Object.freeze([
   }
 ]);
 
-export function getEventModulesByZone({ zone, resolvedModules }) {
+export function getEventModulesByZone({
+  zone,
+  resolvedModules,
+  disclosures,
+  includeEnabledOutsideDisclosures = false
+}) {
+  const normalizedDisclosures = Array.isArray(disclosures)
+    ? disclosures
+        .map((item) => String(item || "").trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+
   return EVENT_MODULE_REGISTRY
     .filter((moduleItem) => moduleItem.zone === zone)
-    .filter((moduleItem) => isEventModuleEnabled(resolvedModules, moduleItem.key, true))
+    .filter((moduleItem) => {
+      const isEnabled = isEventModuleEnabled(resolvedModules, moduleItem.key, true);
+      if (!isEnabled) {
+        return false;
+      }
+
+      if (normalizedDisclosures.length === 0) {
+        return true;
+      }
+
+      const disclosure = String(moduleItem.disclosure || "").trim().toLowerCase();
+      if (normalizedDisclosures.includes(disclosure)) {
+        return true;
+      }
+
+      return Boolean(includeEnabledOutsideDisclosures);
+    })
     .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
 }

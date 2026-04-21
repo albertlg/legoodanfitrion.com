@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import { BrandMark } from "../components/brand-mark";
@@ -47,6 +47,7 @@ function isLegacyRsvpFunctionError(error) {
 
 const EVENT_DATE_OPTION_DATETIME_KEYS = ["starts_at", "start_at", "proposed_at", "option_at", "datetime_at"];
 const DATE_VOTE_STATUS_KEYS = ["status", "vote", "availability", "response", "answer"];
+const DEFAULT_MEALS_COURSE_KEY = "general";
 
 function getEventDateOptionStartAt(optionItem) {
   if (!optionItem || typeof optionItem !== "object") {
@@ -73,6 +74,58 @@ function normalizeDateVoteStatus(voteStatus) {
     return "maybe";
   }
   return "pending";
+}
+
+function normalizeMealsCourseKey(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/[\s-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || DEFAULT_MEALS_COURSE_KEY;
+}
+
+function resolveMealsCourseLabel(courseItem, t) {
+  const explicit = String(courseItem?.course_label || "").trim();
+  if (explicit) {
+    return explicit;
+  }
+  const key = normalizeMealsCourseKey(courseItem?.course_key);
+  if (key === DEFAULT_MEALS_COURSE_KEY) {
+    return t("event_meals_course_default_label");
+  }
+  return key.replace(/[_-]+/g, " ").trim() || t("event_meals_course_default_label");
+}
+
+function groupMealOptionsByCourse(options, t) {
+  const grouped = new Map();
+  for (const optionItem of Array.isArray(options) ? options : []) {
+    const optionId = String(optionItem?.id || "").trim();
+    const optionLabel = String(optionItem?.label || "").trim();
+    if (!optionId || !optionLabel) {
+      continue;
+    }
+    const courseKey = normalizeMealsCourseKey(optionItem?.course_key);
+    const existing = grouped.get(courseKey) || {
+      courseKey,
+      courseLabel: resolveMealsCourseLabel(optionItem, t),
+      options: []
+    };
+    existing.options.push(optionItem);
+    grouped.set(courseKey, existing);
+  }
+
+  return Array.from(grouped.values()).sort((left, right) => {
+    if (left.courseKey === DEFAULT_MEALS_COURSE_KEY) {
+      return -1;
+    }
+    if (right.courseKey === DEFAULT_MEALS_COURSE_KEY) {
+      return 1;
+    }
+    return left.courseLabel.localeCompare(right.courseLabel, undefined, { sensitivity: "base" });
+  });
 }
 
 const RSVP_SOUND_BY_STATUS = {
@@ -123,6 +176,22 @@ function buildRsvpEndpoint(resource) {
   return `${normalizedBase}/api/rsvp/${resource}`;
 }
 
+function buildMealsEndpoint(resource = "") {
+  const normalizedBase = String(RSVP_BACKEND_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!normalizedBase) {
+    return "";
+  }
+  const normalizedResource = String(resource || "").trim().replace(/^\/+/, "");
+  if (/(^|\/)api$/i.test(normalizedBase)) {
+    return normalizedResource
+      ? `${normalizedBase}/meals/${normalizedResource}`
+      : `${normalizedBase}/meals`;
+  }
+  return normalizedResource
+    ? `${normalizedBase}/api/meals/${normalizedResource}`
+    : `${normalizedBase}/api/meals`;
+}
+
 function resolveInvitationTokenScope(invitationItem) {
   const explicitScope = String(invitationItem?.token_scope || "").trim().toLowerCase();
   if (explicitScope) {
@@ -162,6 +231,7 @@ function RsvpFormView({
   isSubmittingDateVoteOptionId,
   dateVoteMessage,
   dateVoteMessageType,
+  guestMealsVotingSection,
   guestVenueVotingSection,
   isSubmitting,
   submitMessage
@@ -293,6 +363,7 @@ function RsvpFormView({
       </div>
 
       {guestVenueVotingSection}
+      {guestMealsVotingSection}
 
       {eventId && hasSpotifyPlaylist ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
 
@@ -410,6 +481,81 @@ function RsvpDatePollView({
         <p className="text-sm text-gray-500 dark:text-gray-400 italic">{t("event_date_poll_options_empty")}</p>
       ) : null}
       {submitMessage ? <InlineMessage text={submitMessage} type={submitMessageType} /> : null}
+    </section>
+  );
+}
+
+function RsvpMealsVotingView({
+  t,
+  groupedCourses,
+  selectionsByCourse,
+  onSelect,
+  isSaving
+}) {
+  const hasCourseGroups =
+    groupedCourses.length > 1 || groupedCourses.some((courseItem) => courseItem.courseKey !== DEFAULT_MEALS_COURSE_KEY);
+
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/30 p-4">
+      <div className="flex items-center gap-2">
+        <Icon name="utensils" className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
+        <p className="text-sm font-black text-gray-900 dark:text-white">{t("rsvp_meals_title")}</p>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{t("rsvp_meals_hint")}</p>
+
+      <div className="flex flex-col gap-3">
+        {groupedCourses.map((courseGroup) => {
+          const selectedOptionId = String(selectionsByCourse?.[courseGroup.courseKey] || "").trim();
+          return (
+            <article key={`rsvp-meals-course-${courseGroup.courseKey}`} className="rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-gray-900/40 p-3 flex flex-col gap-2">
+              {hasCourseGroups ? (
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {courseGroup.courseLabel}
+                </p>
+              ) : null}
+              <div className="grid grid-cols-1 gap-2">
+                {courseGroup.options.map((optionItem) => {
+                  const optionId = String(optionItem?.id || "").trim();
+                  const isSelected = optionId && optionId === selectedOptionId;
+                  return (
+                    <button
+                      key={optionId}
+                      type="button"
+                      onClick={() => onSelect(courseGroup.courseKey, optionId)}
+                      disabled={isSaving}
+                      className={`w-full text-left rounded-xl border px-3 py-2.5 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                        isSelected
+                          ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400/70 dark:bg-indigo-900/25"
+                          : "border-black/10 dark:border-white/15 bg-white dark:bg-gray-900 hover:border-indigo-300 dark:hover:border-indigo-700/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className={`text-sm font-bold truncate ${isSelected ? "text-indigo-700 dark:text-indigo-300" : "text-gray-900 dark:text-white"}`}>
+                            {optionItem.label}
+                          </p>
+                          {optionItem.description ? (
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{optionItem.description}</p>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                            isSelected
+                              ? "border-indigo-500 bg-indigo-500 text-white"
+                              : "border-gray-300 dark:border-gray-600 text-transparent"
+                          }`}
+                        >
+                          <Icon name={isSelected ? "check" : "plus"} className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -563,6 +709,12 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [eventVenues, setEventVenues] = useState([]);
   const [finalVenue, setFinalVenue] = useState(null);
   const [userVotedVenueIds, setUserVotedVenueIds] = useState([]);
+  const [eventMealOptions, setEventMealOptions] = useState([]);
+  const [mealSelectionsByCourse, setMealSelectionsByCourse] = useState({});
+  const [isLoadingMeals, setIsLoadingMeals] = useState(false);
+  const [isSavingMeals, setIsSavingMeals] = useState(false);
+  const [mealsMessage, setMealsMessage] = useState("");
+  const [mealsMessageType, setMealsMessageType] = useState("info");
   const optionVotes = dateVotesByOptionId;
   const setOptionVotes = setDateVotesByOptionId;
 
@@ -650,6 +802,26 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     [t]
   );
 
+  const groupedMealCourses = useMemo(
+    () => groupMealOptionsByCourse(eventMealOptions, t),
+    [eventMealOptions, t]
+  );
+  const hasMealCourses = groupedMealCourses.length > 0;
+
+  const handleSelectMealOption = useCallback((courseKey, optionId) => {
+    const normalizedCourseKey = normalizeMealsCourseKey(courseKey);
+    const normalizedOptionId = String(optionId || "").trim();
+    if (!normalizedCourseKey || !normalizedOptionId) {
+      return;
+    }
+    setMealsMessage("");
+    setMealsMessageType("info");
+    setMealSelectionsByCourse((previous) => ({
+      ...(previous && typeof previous === "object" ? previous : {}),
+      [normalizedCourseKey]: normalizedOptionId
+    }));
+  }, []);
+
   // 🔊 Reproduce sonido según estado RSVP.
   // Archivos esperados en: /public/sounds/{clink,pop,break}.mp3
   const playRsvpSound = (rsvpStatus) => {
@@ -725,6 +897,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setEventVenues([]);
       setFinalVenue(null);
       setUserVotedVenueIds([]);
+      setEventMealOptions([]);
+      setMealSelectionsByCourse({});
+      setMealsMessage("");
+      setMealsMessageType("info");
       setDateVoteMessage("");
       setDateVoteMessageType("success");
       setIsRsvpSaved(false);
@@ -746,6 +922,54 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           setHasSpotifyPlaylist(false);
         } else {
           setHasSpotifyPlaylist(Boolean(spotifyResult.data?.id));
+        }
+
+        const mealsPublicUrl = buildMealsEndpoint("public");
+        if (token && mealsPublicUrl) {
+          setIsLoadingMeals(true);
+          try {
+            const mealsUrl = new URL(mealsPublicUrl, window.location.origin);
+            mealsUrl.searchParams.set("token", token);
+            const mealsResponse = await fetch(mealsUrl.toString(), {
+              method: "GET",
+              headers: {
+                Accept: "application/json"
+              }
+            });
+            const mealsPayload = await mealsResponse.json().catch(() => ({}));
+            if (!mealsResponse.ok || mealsPayload?.success === false) {
+              throw new Error(String(mealsPayload?.error || `HTTP ${mealsResponse.status}`));
+            }
+
+            const normalizedOptions = (Array.isArray(mealsPayload?.options) ? mealsPayload.options : [])
+              .map((optionItem) => ({
+                ...optionItem,
+                id: String(optionItem?.id || "").trim(),
+                course_key: normalizeMealsCourseKey(optionItem?.course_key),
+                course_label: resolveMealsCourseLabel(optionItem, t),
+                label: String(optionItem?.label || "").trim()
+              }))
+              .filter((optionItem) => optionItem.id && optionItem.label);
+            const normalizedSelections = (Array.isArray(mealsPayload?.selections) ? mealsPayload.selections : [])
+              .reduce((accumulator, selectionItem) => {
+                const courseKey = normalizeMealsCourseKey(selectionItem?.course_key);
+                const optionId = String(selectionItem?.option_id || "").trim();
+                if (!courseKey || !optionId) {
+                  return accumulator;
+                }
+                accumulator[courseKey] = optionId;
+                return accumulator;
+              }, {});
+
+            setEventMealOptions(normalizedOptions);
+            setMealSelectionsByCourse(normalizedSelections);
+          } catch (mealsError) {
+            console.error("[rsvp-meals] Error cargando módulo de menús", mealsError);
+            setEventMealOptions([]);
+            setMealSelectionsByCourse({});
+          } finally {
+            setIsLoadingMeals(false);
+          }
         }
 
         const effectiveEventDateRaw = String(
@@ -899,12 +1123,66 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       }));
     }
 
-    setIsSubmitting(false);
     if (error) {
+      setIsSubmitting(false);
       setIsRsvpSaved(false);
       setSubmitMessage(`${t("error_submit_rsvp")} ${error.message}`);
       return;
     }
+
+    const normalizedFinalStatus = String(data?.[0]?.status || status || "").trim().toLowerCase();
+    if (normalizedFinalStatus === "yes" && hasMealCourses) {
+      const mealsSelectionsPayload = groupedMealCourses.map((courseGroup) => ({
+        courseKey: courseGroup.courseKey,
+        optionId: String(mealSelectionsByCourse?.[courseGroup.courseKey] || "").trim() || null
+      }));
+      const mealsEndpoint = buildMealsEndpoint("public/selections");
+
+      if (mealsEndpoint) {
+        setIsSavingMeals(true);
+        setMealsMessage("");
+        setMealsMessageType("info");
+        try {
+          const mealsResponse = await fetch(mealsEndpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            body: JSON.stringify({
+              token,
+              selections: mealsSelectionsPayload
+            })
+          });
+          const mealsPayload = await mealsResponse.json().catch(() => ({}));
+          if (!mealsResponse.ok || mealsPayload?.success === false) {
+            throw new Error(String(mealsPayload?.error || `HTTP ${mealsResponse.status}`));
+          }
+
+          const normalizedSelections = (Array.isArray(mealsPayload?.selections) ? mealsPayload.selections : [])
+            .reduce((accumulator, selectionItem) => {
+              const courseKey = normalizeMealsCourseKey(selectionItem?.course_key);
+              const optionId = String(selectionItem?.option_id || "").trim();
+              if (!courseKey || !optionId) {
+                return accumulator;
+              }
+              accumulator[courseKey] = optionId;
+              return accumulator;
+            }, {});
+          setMealSelectionsByCourse(normalizedSelections);
+          setMealsMessageType("success");
+          setMealsMessage(t("rsvp_meals_save_success"));
+        } catch (mealsError) {
+          console.warn("[rsvp-meals] Meal selections were not saved:", mealsError);
+          setMealsMessageType("error");
+          setMealsMessage(t("rsvp_meals_save_error"));
+        } finally {
+          setIsSavingMeals(false);
+        }
+      }
+    }
+
+    setIsSubmitting(false);
 
     setSubmitMessage(t("rsvp_saved"));
     setIsRsvpSaved(true);
@@ -953,7 +1231,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       );
     }
 
-    const normalizedFinalStatus = String(data?.[0]?.status || status || "").trim().toLowerCase();
     const ticketEndpoint = buildRsvpEndpoint("ticket");
     if (normalizedFinalStatus === "yes" && ticketEndpoint && token) {
       const eventIdForTicket = String(data?.[0]?.event_id || invitation?.event_id || "").trim();
@@ -1082,6 +1359,23 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           initialVotedVenueIds={userVotedVenueIds}
           t={t}
         />
+      </section>
+    ) : null;
+
+  const guestMealsVotingSection =
+    !isDatePollOpen && status === "yes" && hasMealCourses ? (
+      <section className="flex flex-col gap-3">
+        <RsvpMealsVotingView
+          t={t}
+          groupedCourses={groupedMealCourses}
+          selectionsByCourse={mealSelectionsByCourse}
+          onSelect={handleSelectMealOption}
+          isSaving={isSavingMeals || isSubmitting}
+        />
+        {isLoadingMeals ? (
+          <InlineMessage type="info" text={t("event_meals_loading")} />
+        ) : null}
+        {mealsMessage ? <InlineMessage type={mealsMessageType} text={mealsMessage} /> : null}
       </section>
     ) : null;
 
@@ -1363,6 +1657,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     isSubmittingDateVoteOptionId={isSubmittingDateVoteOptionId}
                     dateVoteMessage={dateVoteMessage}
                     dateVoteMessageType={dateVoteMessageType}
+                    guestMealsVotingSection={guestMealsVotingSection}
                     guestVenueVotingSection={guestVenueVotingSection}
                     isSubmitting={isSubmitting}
                     submitMessage={submitMessage}

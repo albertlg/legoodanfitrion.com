@@ -8,6 +8,7 @@ const MODULE_KEYS = [
   "venues",
   "spaces",
   "shared_tasks",
+  "meals",
   "ai_planner",
   "icebreaker"
 ];
@@ -24,6 +25,7 @@ export const EVENT_MODULE_DEFAULTS = Object.freeze({
   venues: true,
   spaces: false,
   shared_tasks: false,
+  meals: false,
   ai_planner: true,
   icebreaker: true
 });
@@ -55,7 +57,7 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: true,
     dressCode: "none",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["date_poll"]))
+    modules: Object.freeze(buildTemplateModules(["date_poll", "meals"]))
   }),
   weekend: Object.freeze({
     key: "weekend",
@@ -69,7 +71,9 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: true,
     dressCode: "casual",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["finance", "venues", "spaces", "shared_tasks", "icebreaker"]))
+    modules: Object.freeze(
+      buildTemplateModules(["finance", "venues", "spaces", "shared_tasks", "meals", "icebreaker"])
+    )
   }),
   party: Object.freeze({
     key: "party",
@@ -83,7 +87,7 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: true,
     dressCode: "themed",
     playlistMode: "spotify_collaborative",
-    modules: Object.freeze(buildTemplateModules(["spotify", "megaphone", "gallery", "shared_tasks"]))
+    modules: Object.freeze(buildTemplateModules(["spotify", "megaphone", "gallery", "shared_tasks", "meals"]))
   }),
   team_building: Object.freeze({
     key: "team_building",
@@ -97,7 +101,9 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: false,
     dressCode: "casual",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["date_poll", "venues", "spaces", "shared_tasks", "icebreaker"]))
+    modules: Object.freeze(
+      buildTemplateModules(["date_poll", "venues", "spaces", "shared_tasks", "meals", "icebreaker"])
+    )
   }),
   all_hands: Object.freeze({
     key: "all_hands",
@@ -125,7 +131,7 @@ export const EVENT_TEMPLATES = Object.freeze({
     allowPlusOne: false,
     dressCode: "elegant",
     playlistMode: "host_only",
-    modules: Object.freeze(buildTemplateModules(["venues", "spaces", "megaphone", "shared_tasks"]))
+    modules: Object.freeze(buildTemplateModules(["venues", "spaces", "megaphone", "shared_tasks", "meals"]))
   }),
   custom: Object.freeze({
     key: "custom",
@@ -255,6 +261,7 @@ export function inferLegacyEventModules(event, hints = {}) {
   const hasVenues = Boolean(hints.hasVenues);
   const hasSpaces = Boolean(hints.hasSpaces);
   const hasSharedTasks = Boolean(hints.hasSharedTasks);
+  const hasMeals = Boolean(hints.hasMeals);
 
   return {
     ...EVENT_MODULE_DEFAULTS,
@@ -264,7 +271,8 @@ export function inferLegacyEventModules(event, hints = {}) {
     spotify: hasSpotify || EVENT_MODULE_DEFAULTS.spotify,
     venues: hasVenues || EVENT_MODULE_DEFAULTS.venues,
     spaces: hasSpaces || EVENT_MODULE_DEFAULTS.spaces,
-    shared_tasks: hasSharedTasks || EVENT_MODULE_DEFAULTS.shared_tasks
+    shared_tasks: hasSharedTasks || EVENT_MODULE_DEFAULTS.shared_tasks,
+    meals: hasMeals || EVENT_MODULE_DEFAULTS.meals
   };
 }
 
