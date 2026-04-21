@@ -2072,6 +2072,7 @@
   "rsvp_meals_guest_plus_one_title": "Scelte del tuo accompagnatore",
   "rsvp_meals_guest_plus_one_hint": "Seleziona un’opzione per categoria per il tuo accompagnatore (+1).",
   "meals_guest_plus_one_label": "Accompagnatore di {{name}}",
+  "guest_plus_one_label": "Accompagnatore di {{name}}",
   "rsvp_meals_save_success": "Le tue preferenze di menu sono state salvate correttamente.",
   "rsvp_meals_save_error": "Non siamo riusciti a salvare le tue preferenze di menu. Riprova."
 }

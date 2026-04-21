@@ -12,6 +12,8 @@ const configuredApiUrl = String(
 ).trim();
 const fallbackApiUrl = "/api";
 const SPACES_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
+const GUEST_SCOPE_MAIN = "main";
+const GUEST_SCOPE_PLUS_ONE = "plusone";
 
 function buildSpacesApiUrl(resource = "") {
   const normalizedBase = String(SPACES_API_BASE_URL || "").trim().replace(/\/+$/, "");
@@ -64,8 +66,50 @@ function normalizeGuestFromRow(guestRow, t) {
     name,
     contact,
     company,
-    status: invitationStatus
+    status: invitationStatus,
+    hasPlusOne: Boolean(guestRow?.invitation?.rsvp_plus_one)
   };
+}
+
+function buildGuestScopeKey(guestId, isPlusOne = false) {
+  const normalizedGuestId = toSafeString(guestId);
+  if (!normalizedGuestId) {
+    return "";
+  }
+  return `${normalizedGuestId}-${isPlusOne ? GUEST_SCOPE_PLUS_ONE : GUEST_SCOPE_MAIN}`;
+}
+
+function parseGuestScopeKey(value) {
+  const normalized = toSafeString(value);
+  if (!normalized) {
+    return {
+      guestId: "",
+      isPlusOne: false
+    };
+  }
+
+  const match = normalized.match(/^(.*)-(main|plusone)$/i);
+  if (!match) {
+    return {
+      guestId: normalized,
+      isPlusOne: false
+    };
+  }
+
+  return {
+    guestId: toSafeString(match[1]),
+    isPlusOne: toSafeString(match[2]).toLowerCase() === GUEST_SCOPE_PLUS_ONE
+  };
+}
+
+function formatGuestPlusOneLabel(t, guestName) {
+  const template = toSafeString(t("guest_plus_one_label"));
+  if (!template) {
+    return `+1 ${guestName}`;
+  }
+  return template
+    .replaceAll("{{name}}", guestName)
+    .replaceAll("{name}", guestName);
 }
 
 function getSpaceBadgeTypeLabel(spaceType, t) {
@@ -128,22 +172,63 @@ export function EventSpacesModuleCard({
     [confirmedGuests]
   );
 
-  const assignmentByGuestId = useMemo(
+  const confirmedParticipants = useMemo(
+    () =>
+      confirmedGuests.flatMap((guest) => {
+        const mainParticipant = {
+          key: buildGuestScopeKey(guest.id, false),
+          guestId: guest.id,
+          isPlusOne: false,
+          name: guest.name,
+          contact: guest.contact,
+          company: guest.company
+        };
+        if (!guest.hasPlusOne) {
+          return [mainParticipant];
+        }
+        return [
+          mainParticipant,
+          {
+            key: buildGuestScopeKey(guest.id, true),
+            guestId: guest.id,
+            isPlusOne: true,
+            name: formatGuestPlusOneLabel(t, guest.name),
+            contact: "",
+            company: ""
+          }
+        ];
+      }),
+    [confirmedGuests, t]
+  );
+
+  const participantByKey = useMemo(
+    () =>
+      confirmedParticipants.reduce((accumulator, participant) => {
+        accumulator[participant.key] = participant;
+        return accumulator;
+      }, {}),
+    [confirmedParticipants]
+  );
+
+  const assignmentByParticipantKey = useMemo(
     () =>
       (Array.isArray(assignments) ? assignments : []).reduce((accumulator, assignment) => {
-        const guestId = toSafeString(assignment?.guest_id);
-        if (!guestId) {
+        const participantKey = buildGuestScopeKey(
+          assignment?.guest_id,
+          Boolean(assignment?.is_plus_one)
+        );
+        if (!participantKey) {
           return accumulator;
         }
-        accumulator[guestId] = assignment;
+        accumulator[participantKey] = assignment;
         return accumulator;
       }, {}),
     [assignments]
   );
 
-  const pendingGuests = useMemo(
-    () => confirmedGuests.filter((guest) => !assignmentByGuestId[guest.id]),
-    [confirmedGuests, assignmentByGuestId]
+  const pendingParticipants = useMemo(
+    () => confirmedParticipants.filter((participant) => !assignmentByParticipantKey[participant.key]),
+    [confirmedParticipants, assignmentByParticipantKey]
   );
 
   const usedCountBySpaceId = useMemo(
@@ -159,7 +244,7 @@ export function EventSpacesModuleCard({
     [assignments]
   );
 
-  const totalPendingCount = pendingGuests.length;
+  const totalPendingCount = pendingParticipants.length;
   const totalSpacesCount = Array.isArray(spaces) ? spaces.length : 0;
   const totalAssignedCount = Array.isArray(assignments) ? assignments.length : 0;
   const totalCapacity = useMemo(
@@ -180,13 +265,21 @@ export function EventSpacesModuleCard({
           .filter((assignment) => toSafeString(assignment?.space_id) === spaceId)
           .map((assignment) => {
             const guestId = toSafeString(assignment?.guest_id);
+            const isPlusOne = Boolean(assignment?.is_plus_one);
+            const participantKey = buildGuestScopeKey(guestId, isPlusOne);
             const guest = guestById[guestId];
+            const participant = participantByKey[participantKey];
             return {
               assignmentId: toSafeString(assignment?.id),
               guestId,
-              name: toSafeString(guest?.name || t("field_guest")) || t("field_guest"),
-              contact: toSafeString(guest?.contact),
-              company: toSafeString(guest?.company)
+              isPlusOne,
+              name:
+                toSafeString(participant?.name) ||
+                (isPlusOne
+                  ? formatGuestPlusOneLabel(t, toSafeString(guest?.name || t("field_guest")) || t("field_guest"))
+                  : toSafeString(guest?.name || t("field_guest")) || t("field_guest")),
+              contact: toSafeString(participant?.contact || guest?.contact),
+              company: toSafeString(participant?.company || guest?.company)
             };
           });
         return {
@@ -194,7 +287,7 @@ export function EventSpacesModuleCard({
           members
         };
       }),
-    [spaces, assignments, guestById, t]
+    [spaces, assignments, guestById, participantByKey, t]
   );
 
   const loadSpaces = useCallback(async () => {
@@ -422,9 +515,14 @@ export function EventSpacesModuleCard({
     }
   };
 
-  const getAvailableSpacesForGuest = useCallback(
-    (guestId) => {
+  const getAvailableSpacesForParticipant = useCallback(
+    (participantKey) => {
+      const { guestId, isPlusOne } = parseGuestScopeKey(participantKey);
       const normalizedGuestId = toSafeString(guestId);
+      if (!normalizedGuestId) {
+        return [];
+      }
+      const normalizedIsPlusOne = Boolean(isPlusOne);
       return (Array.isArray(spaces) ? spaces : []).filter((space) => {
         const spaceId = toSafeString(space?.id);
         if (!spaceId) {
@@ -435,28 +533,32 @@ export function EventSpacesModuleCard({
           return true;
         }
         const currentUsed = Number(usedCountBySpaceId[spaceId] || 0);
-        const guestCurrentAssignment = assignmentByGuestId[normalizedGuestId];
-        const isAlreadyAssignedHere = toSafeString(guestCurrentAssignment?.space_id) === spaceId;
+        const participantCurrentAssignment =
+          assignmentByParticipantKey[buildGuestScopeKey(normalizedGuestId, normalizedIsPlusOne)];
+        const isAlreadyAssignedHere = toSafeString(participantCurrentAssignment?.space_id) === spaceId;
         return isAlreadyAssignedHere || currentUsed < capacity;
       });
     },
-    [spaces, usedCountBySpaceId, assignmentByGuestId]
+    [spaces, usedCountBySpaceId, assignmentByParticipantKey]
   );
 
-  const handleOpenAssignPicker = (guestId) => {
-    const normalizedGuestId = toSafeString(guestId);
-    if (!normalizedGuestId) {
+  const handleOpenAssignPicker = (participantKey) => {
+    const normalizedParticipantKey = toSafeString(participantKey);
+    if (!normalizedParticipantKey) {
       return;
     }
-    const availableSpaces = getAvailableSpacesForGuest(normalizedGuestId);
-    setAssigningGuestPickerId(normalizedGuestId);
+    const availableSpaces = getAvailableSpacesForParticipant(normalizedParticipantKey);
+    setAssigningGuestPickerId(normalizedParticipantKey);
     setAssignTargetSpaceId(toSafeString(availableSpaces[0]?.id));
   };
 
-  const handleAssignGuest = async (guestId) => {
+  const handleAssignGuest = async (participantKey) => {
+    const normalizedParticipantKey = toSafeString(participantKey);
+    const { guestId, isPlusOne } = parseGuestScopeKey(normalizedParticipantKey);
     const normalizedGuestId = toSafeString(guestId);
+    const normalizedIsPlusOne = Boolean(isPlusOne);
     const normalizedSpaceId = toSafeString(assignTargetSpaceId);
-    if (!normalizedGuestId || !normalizedSpaceId || !supabase) {
+    if (!normalizedParticipantKey || !normalizedGuestId || !normalizedSpaceId || !supabase) {
       setFeedbackType("error");
       setFeedback(t("event_spaces_assign_error"));
       return;
@@ -469,7 +571,7 @@ export function EventSpacesModuleCard({
       return;
     }
 
-    setAssigningGuestId(normalizedGuestId);
+    setAssigningGuestId(normalizedParticipantKey);
     setFeedback("");
     setFeedbackType("info");
     try {
@@ -487,7 +589,8 @@ export function EventSpacesModuleCard({
         },
         body: JSON.stringify({
           spaceId: normalizedSpaceId,
-          guestId: normalizedGuestId
+          guestId: normalizedGuestId,
+          isPlusOne: normalizedIsPlusOne
         })
       });
       const responsePayload = await response.json().catch(() => ({}));
@@ -601,23 +704,23 @@ export function EventSpacesModuleCard({
 
           {isLoadingSpaces ? (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_spaces_loading")}</p>
-          ) : pendingGuests.length === 0 ? (
+          ) : pendingParticipants.length === 0 ? (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_spaces_unassigned_empty")}</p>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {pendingGuests.map((guest) => {
-                const availableSpaces = getAvailableSpacesForGuest(guest.id);
-                const isAssigningThisGuest = assigningGuestId === guest.id;
-                const isPickerOpen = assigningGuestPickerId === guest.id;
+              {pendingParticipants.map((participant) => {
+                const availableSpaces = getAvailableSpacesForParticipant(participant.key);
+                const isAssigningThisGuest = assigningGuestId === participant.key;
+                const isPickerOpen = assigningGuestPickerId === participant.key;
                 return (
                   <article
-                    key={guest.id}
+                    key={participant.key}
                     className="rounded-xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-900/40 px-3 py-3 flex items-center gap-3"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{guest.name}</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{participant.name}</p>
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                        {guest.company || guest.contact || t("event_spaces_no_company")}
+                        {participant.company || participant.contact || t("event_spaces_no_company")}
                       </p>
                     </div>
 
@@ -625,7 +728,7 @@ export function EventSpacesModuleCard({
                       <button
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 dark:border-blue-700/40 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-3 py-1.5 text-xs font-bold transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/30"
                         type="button"
-                        onClick={() => handleOpenAssignPicker(guest.id)}
+                        onClick={() => handleOpenAssignPicker(participant.key)}
                         disabled={availableSpaces.length === 0}
                       >
                         <Icon name="plus" className="w-3.5 h-3.5" />
@@ -648,7 +751,7 @@ export function EventSpacesModuleCard({
                         <button
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           type="button"
-                          onClick={() => handleAssignGuest(guest.id)}
+                          onClick={() => handleAssignGuest(participant.key)}
                           disabled={!assignTargetSpaceId || isAssigningThisGuest}
                           aria-label={t("event_spaces_assign_confirm")}
                           title={t("event_spaces_assign_confirm")}
@@ -766,7 +869,14 @@ export function EventSpacesModuleCard({
                               className="rounded-lg border border-black/5 dark:border-white/10 bg-white/90 dark:bg-black/20 px-2.5 py-2 flex items-center gap-2"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{member.name}</p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{member.name}</p>
+                                  {member.isPlusOne ? (
+                                    <span className="inline-flex shrink-0 rounded-full border border-indigo-200 dark:border-indigo-700/50 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+                                      +1
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                                   {member.company || member.contact || t("event_spaces_no_company")}
                                 </p>

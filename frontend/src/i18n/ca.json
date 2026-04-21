@@ -2072,6 +2072,7 @@
   "rsvp_meals_guest_plus_one_title": "Opcions de la teva persona acompanyant",
   "rsvp_meals_guest_plus_one_hint": "Selecciona una opció per categoria per a la teva persona acompanyant (+1).",
   "meals_guest_plus_one_label": "Acompanyant de {{name}}",
+  "guest_plus_one_label": "Acompanyant de {{name}}",
   "rsvp_meals_save_success": "Les teves preferències de menjar s’han desat correctament.",
   "rsvp_meals_save_error": "No hem pogut desar les teves preferències de menjar. Torna-ho a provar."
 }

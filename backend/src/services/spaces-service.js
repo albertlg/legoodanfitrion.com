@@ -33,6 +33,25 @@ function normalizeSpaceType(value, fallback = "table") {
   return null;
 }
 
+function toBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "si", "sí"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no"].includes(normalized)) {
+      return false;
+    }
+  }
+  return false;
+}
+
 function getSupabaseAdminClient() {
   if (supabaseAdminClient) {
     return supabaseAdminClient;
@@ -198,7 +217,7 @@ export async function getEventSpacesWithAssignments(eventId, requesterUserId) {
       .order("created_at", { ascending: true }),
     supabase
       .from("event_space_assignments")
-      .select("id, space_id, guest_id, event_id, host_user_id, created_at, updated_at")
+      .select("id, space_id, guest_id, is_plus_one, event_id, host_user_id, created_at, updated_at")
       .eq("event_id", access.eventId)
       .order("created_at", { ascending: true })
   ]);
@@ -306,13 +325,14 @@ export async function deleteEventSpace(spaceId, requesterUserId) {
   };
 }
 
-export async function assignGuestToSpace(spaceId, guestId, requesterUserId) {
+export async function assignGuestToSpace(spaceId, guestId, requesterUserId, options = {}) {
   const normalizedGuestId = toSafeString(guestId);
   if (!normalizedGuestId) {
     const error = new Error("guestId es obligatorio.");
     error.code = "SPACES_BAD_REQUEST";
     throw error;
   }
+  const isPlusOneAssignment = toBoolean(options?.isPlusOne ?? options?.is_plus_one);
 
   const currentSpace = await getSpaceById(spaceId);
   await assertEventEditorAccess(currentSpace.event_id, requesterUserId);
@@ -320,7 +340,7 @@ export async function assignGuestToSpace(spaceId, guestId, requesterUserId) {
 
   const { data: invitationRow, error: invitationError } = await supabase
     .from("invitations")
-    .select("id, status")
+    .select("id, status, rsvp_plus_one")
     .eq("event_id", currentSpace.event_id)
     .eq("host_user_id", toSafeString(currentSpace.host_user_id))
     .eq("guest_id", normalizedGuestId)
@@ -345,6 +365,11 @@ export async function assignGuestToSpace(spaceId, guestId, requesterUserId) {
     error.code = "SPACES_BAD_REQUEST";
     throw error;
   }
+  if (isPlusOneAssignment && !invitationRow?.rsvp_plus_one) {
+    const error = new Error("La invitación no tiene acompañante confirmado (+1).");
+    error.code = "SPACES_BAD_REQUEST";
+    throw error;
+  }
 
   const normalizedCapacity = Number(currentSpace.capacity);
   const hasCapacityLimit = Number.isFinite(normalizedCapacity) && normalizedCapacity > 0;
@@ -357,6 +382,7 @@ export async function assignGuestToSpace(spaceId, guestId, requesterUserId) {
           .select("id, space_id")
           .eq("event_id", currentSpace.event_id)
           .eq("guest_id", normalizedGuestId)
+          .eq("is_plus_one", isPlusOneAssignment)
           .maybeSingle(),
         supabase
           .from("event_space_assignments")
@@ -392,14 +418,15 @@ export async function assignGuestToSpace(spaceId, guestId, requesterUserId) {
       {
         space_id: currentSpace.id,
         guest_id: normalizedGuestId,
+        is_plus_one: isPlusOneAssignment,
         event_id: currentSpace.event_id,
         host_user_id: currentSpace.host_user_id
       },
       {
-        onConflict: "event_id,guest_id"
+        onConflict: "event_id,guest_id,is_plus_one"
       }
     )
-    .select("id, space_id, guest_id, event_id, host_user_id, created_at, updated_at")
+    .select("id, space_id, guest_id, is_plus_one, event_id, host_user_id, created_at, updated_at")
     .single();
 
   if (error) {
@@ -480,6 +507,7 @@ export function toClientAssignmentPayload(assignmentData) {
     id: toSafeString(assignmentData?.id),
     space_id: toSafeString(assignmentData?.space_id),
     guest_id: toSafeString(assignmentData?.guest_id),
+    is_plus_one: Boolean(assignmentData?.is_plus_one),
     event_id: toSafeString(assignmentData?.event_id),
     host_user_id: toSafeString(assignmentData?.host_user_id),
     created_at: toNullableString(assignmentData?.created_at),

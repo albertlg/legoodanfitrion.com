@@ -135,8 +135,9 @@ router.delete("/:spaceId", requireAuthenticatedUser, async (req, res) => {
 router.post("/assignments", requireAuthenticatedUser, async (req, res) => {
   const spaceId = toSafeString(req.body?.spaceId);
   const guestId = toSafeString(req.body?.guestId);
+  const isPlusOne = req.body?.isPlusOne ?? req.body?.is_plus_one;
   try {
-    const assignment = await assignGuestToSpace(spaceId, guestId, req.authUser.id);
+    const assignment = await assignGuestToSpace(spaceId, guestId, req.authUser.id, { isPlusOne });
     return res.json({
       success: true,
       assignment: toClientAssignmentPayload(assignment)
