@@ -19,7 +19,8 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(node --check scripts/prerender.mjs)",
       "Bash(node scripts/prerender.mjs)",
-      "Bash(echo \"EXITCODE=$?\")"
+      "Bash(echo \"EXITCODE=$?\")",
+      "Bash(npm run *)"
     ]
   }
 }

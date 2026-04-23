@@ -30,6 +30,21 @@ const FAQ_ITEMS = [
   { key: "faq_11", questionKey: "landing_faq_q11", answerKey: "landing_faq_a11" }
 ];
 
+const HOW_ITEMS = [
+  { key: "step_1", titleKey: "landing_how_step_1_title", descKey: "landing_how_step_1_desc" },
+  { key: "step_2", titleKey: "landing_how_step_2_title", descKey: "landing_how_step_2_desc" },
+  { key: "step_3", titleKey: "landing_how_step_3_title", descKey: "landing_how_step_3_desc" },
+  { key: "step_4", titleKey: "landing_how_step_4_title", descKey: "landing_how_step_4_desc" },
+  { key: "step_5", titleKey: "landing_how_step_5_title", descKey: "landing_how_step_5_desc" }
+];
+
+const COMPARE_ITEMS = [
+  { key: "excel", iconName: "calendar", accent: "red", titleKey: "landing_compare_excel_title", descKey: "landing_compare_excel_desc", isLga: false },
+  { key: "whatsapp", iconName: "phone", accent: "amber", titleKey: "landing_compare_whatsapp_title", descKey: "landing_compare_whatsapp_desc", isLga: false },
+  { key: "doodle", iconName: "clock", accent: "slate", titleKey: "landing_compare_doodle_title", descKey: "landing_compare_doodle_desc", isLga: false },
+  { key: "lga", iconName: "sparkle", accent: "blue", titleKey: "landing_compare_lga_title", descKey: "landing_compare_lga_desc", isLga: true }
+];
+
 function LandingScreen({
   t,
   language,
@@ -494,7 +509,7 @@ function LandingScreen({
         image="https://legoodanfitrion.com/og-home.jpg"
       />
 
-      {/* 🚀 GEO: FAQPage schema en la Home para AI discoverability */}
+      {/* 🚀 GEO: JSON-LD para AI discoverability (FAQPage + HowTo + Speakable) */}
       {pageMode === "home" && (
         <Helmet>
           <script type="application/ld+json">{JSON.stringify({
@@ -508,6 +523,31 @@ function LandingScreen({
                 "text": t(item.answerKey)
               }
             }))
+          })}</script>
+          <script type="application/ld+json">{JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": t("landing_how_title"),
+            "description": t("landing_how_subtitle"),
+            "totalTime": "PT2M",
+            "step": HOW_ITEMS.map((item, index) => ({
+              "@type": "HowToStep",
+              "position": index + 1,
+              "name": t(item.titleKey),
+              "text": t(item.descKey),
+              "url": `https://legoodanfitrion.com/#como-funciona-${index + 1}`
+            }))
+          })}</script>
+          <script type="application/ld+json">{JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "url": "https://legoodanfitrion.com/",
+            "name": t("seo_title"),
+            "inLanguage": language,
+            "speakable": {
+              "@type": "SpeakableSpecification",
+              "cssSelector": ["#lga-hero-title", "#lga-hero-narrative"]
+            }
           })}</script>
         </Helmet>
       )}
@@ -623,12 +663,16 @@ function LandingScreen({
                 {t("landing_badge")}
               </span>
 
-              <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] mb-6 max-w-4xl text-balance">
+              <h1 id="lga-hero-title" className="text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] mb-6 max-w-4xl text-balance">
                 {t("landing_title")}
               </h1>
 
-              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto font-medium leading-relaxed text-balance">
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto font-medium leading-relaxed text-balance">
                 {t("landing_subtitle")}
+              </p>
+
+              <p id="lga-hero-narrative" className="text-base md:text-lg text-gray-600 dark:text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed text-pretty">
+                {t("landing_hero_narrative")}
               </p>
 
               <div className="flex flex-col items-center gap-4 w-full sm:w-auto mt-2">
@@ -672,14 +716,16 @@ function LandingScreen({
                 </div>
               </div>
 
-              <div className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gray-200 dark:bg-gray-800 border-t border-x border-black/5 dark:border-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-sm relative overflow-hidden group">
+              <figure className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
                 <img
-                  src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
-                  alt="LeGoodAnfitrión App Preview"
-                  className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                  src="https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1600&q=80"
+                  alt={t("landing_hero_narrative")}
+                  className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-[1.02]"
+                  loading="eager"
+                  decoding="async"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 dark:from-[#0A0D14] via-transparent to-transparent"></div>
-              </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 dark:from-[#0A0D14] via-transparent to-transparent pointer-events-none"></div>
+              </figure>
             </section>
 
             <section id="caracteristicas" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
@@ -740,6 +786,97 @@ function LandingScreen({
                     </button>
                   </div>
                 </article>
+              </div>
+            </section>
+
+            <section id="como-funciona" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
+              <div className="text-center max-w-3xl mb-14">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">{t("landing_how_eyebrow")}</p>
+                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight text-balance">{t("landing_how_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_how_subtitle")}</p>
+              </div>
+
+              <ol className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5 w-full">
+                {HOW_ITEMS.map((item, index) => (
+                  <li
+                    key={item.key}
+                    id={`como-funciona-${index + 1}`}
+                    className="group relative bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl p-6 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col"
+                  >
+                    <div className="flex items-center justify-between mb-5">
+                      <span className="inline-flex w-10 h-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 text-white font-black text-lg shadow-sm">
+                        {index + 1}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                        {String(index + 1).padStart(2, "0")}/{String(HOW_ITEMS.length).padStart(2, "0")}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white leading-snug mb-2 text-balance">
+                      {t(item.titleKey)}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                      {t(item.descKey)}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+
+            </section>
+
+            <section id="alternativas" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
+              <div className="text-center max-w-3xl mb-14">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">{t("landing_compare_eyebrow")}</p>
+                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 leading-tight text-balance">{t("landing_compare_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_compare_subtitle")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 w-full items-stretch">
+                {COMPARE_ITEMS.map((item) => {
+                  const highlight = item.isLga;
+                  return (
+                    <article
+                      key={item.key}
+                      className={
+                        highlight
+                          ? "relative rounded-3xl p-6 md:p-7 flex flex-col backdrop-blur-xl bg-gradient-to-br from-blue-500/10 via-white/70 to-purple-500/10 dark:from-blue-500/15 dark:via-gray-900/70 dark:to-purple-500/15 border border-blue-300/40 dark:border-blue-400/30 shadow-lg shadow-blue-500/10 transform lg:-translate-y-2 hover:-translate-y-3 hover:shadow-xl transition-all duration-200"
+                          : "relative rounded-3xl p-6 md:p-7 flex flex-col backdrop-blur-xl bg-white/60 dark:bg-gray-900/50 border border-black/10 dark:border-white/10 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+                      }
+                    >
+                      {highlight && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest rounded-full shadow-md">
+                          {t("landing_badge")}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-3 mb-5">
+                        <div
+                          className={
+                            highlight
+                              ? "w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 text-white flex items-center justify-center shadow-sm"
+                              : "w-11 h-11 shrink-0 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 flex items-center justify-center border border-black/5 dark:border-white/10"
+                          }
+                        >
+                          <Icon name={item.iconName} className="w-5 h-5" />
+                        </div>
+                        <h3 className={`text-lg font-black leading-tight ${highlight ? "text-gray-900 dark:text-white" : "text-gray-800 dark:text-gray-100"}`}>
+                          {t(item.titleKey)}
+                        </h3>
+                      </div>
+                      <p className={`text-sm leading-relaxed ${highlight ? "text-gray-700 dark:text-gray-200 font-medium" : "text-gray-600 dark:text-gray-400"}`}>
+                        {t(item.descKey)}
+                      </p>
+                      {highlight && (
+                        <button
+                          type="button"
+                          onClick={primaryCta.onClick}
+                          className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer"
+                        >
+                          {primaryCta.label}
+                          <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </section>
 
