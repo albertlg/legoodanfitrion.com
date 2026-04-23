@@ -43,6 +43,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
     useEffect(() => {
         let isMounted = true; // 🚀 FIX: Creamos un "semáforo" para esta petición
 
+        if (typeof window !== "undefined") window.prerenderReady = false;
         setIsLoading(true);
         setNotFound(false);
         sanityClient
@@ -69,15 +70,17 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                     setNotFound(true);
                 }
                 setIsLoading(false);
+                if (typeof window !== "undefined") window.prerenderReady = true;
             })
             .catch((error) => {
                 if (!isMounted) return; // 🚀 FIX: Lo mismo para los errores
                 console.error("Error fetching post:", error);
                 setNotFound(true);
                 setIsLoading(false);
+                if (typeof window !== "undefined") window.prerenderReady = true;
             });
 
-        // 🚀 FIX: Función de limpieza. Cuando el componente se actualiza con un nuevo idioma, 
+        // 🚀 FIX: Función de limpieza. Cuando el componente se actualiza con un nuevo idioma,
         // pone el semáforo de la petición anterior en rojo.
         return () => {
             isMounted = false;
@@ -121,9 +124,27 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-[#0A0D14] flex items-center justify-center">
-                <Icon name="sparkle" className="w-8 h-8 text-blue-500 animate-spin" />
-            </div>
+            <main className="min-h-screen bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white pt-32 pb-24 px-6">
+                <div className="max-w-3xl mx-auto animate-pulse" aria-busy="true" aria-live="polite">
+                    <div className="h-3 w-28 rounded-full bg-gray-200 dark:bg-gray-700 mb-6" />
+                    <div className="h-10 w-full rounded-lg bg-gray-200 dark:bg-gray-700 mb-4" />
+                    <div className="h-10 w-3/4 rounded-lg bg-gray-200 dark:bg-gray-700 mb-10" />
+                    <div className="flex items-center gap-3 mb-10">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+                        <div className="flex flex-col gap-2">
+                            <div className="h-3 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+                            <div className="h-2 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+                        </div>
+                    </div>
+                    <div className="w-full aspect-video rounded-3xl bg-gray-200 dark:bg-gray-700 mb-12" />
+                    <div className="space-y-3">
+                        <div className="h-4 w-full rounded bg-gray-200 dark:bg-gray-700" />
+                        <div className="h-4 w-11/12 rounded bg-gray-200 dark:bg-gray-700" />
+                        <div className="h-4 w-10/12 rounded bg-gray-200 dark:bg-gray-700" />
+                        <div className="h-4 w-9/12 rounded bg-gray-200 dark:bg-gray-700" />
+                    </div>
+                </div>
+            </main>
         );
     }
 

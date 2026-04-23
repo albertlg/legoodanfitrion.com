@@ -3,28 +3,29 @@
         {
             "source": "/robots.txt",
             "headers": [
-                {
-                    "key": "Content-Type",
-                    "value": "text/plain; charset=utf-8"
-                }
+                { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
             ]
         },
         {
             "source": "/sitemap.xml",
             "headers": [
-                {
-                    "key": "Content-Type",
-                    "value": "application/xml; charset=utf-8"
-                }
+                { "key": "Content-Type", "value": "application/xml; charset=utf-8" }
             ]
         },
         {
             "source": "/llms.txt",
             "headers": [
-                {
-                    "key": "Content-Type",
-                    "value": "text/plain; charset=utf-8"
-                }
+                { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+            ]
+        },
+        {
+            "source": "/(.*)",
+            "headers": [
+                { "key": "X-Content-Type-Options", "value": "nosniff" },
+                { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+                { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+                { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(self), interest-cohort=()" },
+                { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
             ]
         }
     ],

@@ -4,7 +4,11 @@ import { Controls } from "../components/controls";
 import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { Helmet } from "react-helmet-async";
+import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
+
+const DOMAIN = "https://legoodanfitrion.com";
+const BLOG_PATHS = { es: "/blog", ca: "/ca/blog", en: "/en/blog", fr: "/fr/blog", it: "/it/blog" };
 
 const NAV_ITEMS = [
     { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
@@ -28,6 +32,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
     };
 
     useEffect(() => {
+        if (typeof window !== "undefined") window.prerenderReady = false;
         setIsLoading(true);
         sanityClient
             .fetch(
@@ -47,18 +52,59 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
             .then((data) => {
                 setPosts(data);
                 setIsLoading(false);
+                if (typeof window !== "undefined") window.prerenderReady = true;
             })
             .catch((error) => {
                 console.error("Error fetching posts:", error);
                 setIsLoading(false);
+                if (typeof window !== "undefined") window.prerenderReady = true;
             });
     }, [language]);
 
+    const blogListItemsForSchema = posts.slice(0, 20).map((post, idx) => ({
+        "@type": "ListItem",
+        "position": idx + 1,
+        "url": `${DOMAIN}${language === "es" ? "" : `/${language}`}/blog/${post.slug?.current}`,
+        "name": post.title
+    }));
+
+    const blogSchema = {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        "name": `${t("blog_title")} | ${t("app_name")}`,
+        "description": t("blog_subtitle"),
+        "url": `${DOMAIN}${BLOG_PATHS[language] || BLOG_PATHS.es}`,
+        "inLanguage": language,
+        "publisher": {
+            "@type": "Organization",
+            "name": "LeGoodAnfitrion",
+            "logo": {
+                "@type": "ImageObject",
+                "url": `${DOMAIN}/android-chrome-512x512.png`
+            }
+        }
+    };
+
+    const itemListSchema = blogListItemsForSchema.length > 0 ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "itemListElement": blogListItemsForSchema
+    } : null;
+
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
-            <Helmet htmlAttributes={{ lang: language }}>
-                <title>{t("blog_title")} | {t("app_name")}</title>
-                <meta name="description" content={t("blog_subtitle")} />
+            <SEO
+                title={`${t("blog_title")} | ${t("app_name")}`}
+                description={t("blog_subtitle")}
+                language={language}
+                slug="blog"
+            />
+
+            <Helmet>
+                <script type="application/ld+json">{JSON.stringify(blogSchema)}</script>
+                {itemListSchema && (
+                    <script type="application/ld+json">{JSON.stringify(itemListSchema)}</script>
+                )}
             </Helmet>
 
             {/* Decorative Blobs */}

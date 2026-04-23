@@ -9,7 +9,17 @@
       "Bash(do python3:*)",
       "Bash(done)",
       "Bash(grep -c '\"\"Confirmados\"\"' es.json)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "mcp__plugin_3_3_0_mempalace__mempalace_status",
+      "mcp__plugin_3_3_0_mempalace__mempalace_search",
+      "mcp__plugin_3_3_0_mempalace__mempalace_diary_write",
+      "mcp__plugin_3_3_0_mempalace__mempalace_add_drawer",
+      "mcp__plugin_3_3_0_mempalace__mempalace_kg_add",
+      "Bash(node scripts/generate-sitemap.mjs)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node --check scripts/prerender.mjs)",
+      "Bash(node scripts/prerender.mjs)",
+      "Bash(echo \"EXITCODE=$?\")"
     ]
   }
 }
