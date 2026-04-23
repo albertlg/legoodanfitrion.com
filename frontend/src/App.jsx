@@ -275,6 +275,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", activeTheme);
+    document.documentElement.classList.toggle("dark", activeTheme === "dark");
     document.documentElement.lang = language;
     window.localStorage.setItem("legood-theme-mode", themeMode);
     window.localStorage.setItem("legood-language", language);
@@ -283,8 +284,12 @@ function App() {
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = (event) => setSystemPrefersDark(event.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    }
+    media.addListener(onChange);
+    return () => media.removeListener(onChange);
   }, []);
 
   useEffect(() => {
