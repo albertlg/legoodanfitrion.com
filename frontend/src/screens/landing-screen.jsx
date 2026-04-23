@@ -842,11 +842,6 @@ function LandingScreen({
                           : "relative rounded-3xl p-6 md:p-7 flex flex-col backdrop-blur-xl bg-white/60 dark:bg-gray-900/50 border border-black/10 dark:border-white/10 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
                       }
                     >
-                      {highlight && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest rounded-full shadow-md">
-                          {t("landing_badge")}
-                        </span>
-                      )}
                       <div className="flex items-center gap-3 mb-5">
                         <div
                           className={
