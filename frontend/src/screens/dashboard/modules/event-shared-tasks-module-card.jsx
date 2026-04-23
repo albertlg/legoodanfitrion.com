@@ -85,6 +85,9 @@ export function EventSharedTasksModuleCard({
   selectedEventDetail,
   selectedEventDetailGuests
 }) {
+  const softAddButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-semibold rounded-xl px-4 py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed";
+
   const eventId = toSafeString(selectedEventDetail?.id);
   const isProfessionalEvent = useMemo(
     () => Boolean(isProfessionalEventProp) || isProfessionalEventContext(selectedEventDetail),
@@ -402,12 +405,12 @@ export function EventSharedTasksModuleCard({
   };
 
   return (
-    <article className="order-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-5">
+    <article className="order-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Icon name="check" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_shared_tasks_title")}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_shared_tasks_title")}</p>
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">{t("event_shared_tasks_hint")}</p>
         </div>
@@ -454,7 +457,7 @@ export function EventSharedTasksModuleCard({
             }}
           />
           <button
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-300/70 dark:border-indigo-700/50 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-black py-2.5 px-4 text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className={`${softAddButtonClass} text-sm`}
             type="button"
             onClick={handleCreateTask}
             disabled={isCreatingTask}
@@ -556,7 +559,7 @@ export function EventSharedTasksModuleCard({
                         onClick={() => {
                           setAssignmentMenuTaskId((current) => (current === taskId ? "" : taskId));
                         }}
-                        className="inline-flex w-full sm:w-auto min-w-0 max-w-full sm:max-w-[180px] items-center gap-2 rounded-full border border-blue-200 dark:border-blue-700/40 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2.5 py-1.5 text-xs font-black transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="inline-flex w-full sm:w-auto min-w-0 max-w-full sm:max-w-[180px] items-center gap-2 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                         aria-label={t("event_shared_tasks_assign_label")}
                         title={t("event_shared_tasks_assign_label")}
                       >
@@ -622,7 +625,7 @@ export function EventSharedTasksModuleCard({
                         <>
                           <button
                             type="button"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                             disabled={!canInteract}
                             onClick={() => {
                               const normalizedTitle = toSafeString(editingTaskTitle);
@@ -640,7 +643,7 @@ export function EventSharedTasksModuleCard({
                           </button>
                           <button
                             type="button"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
                             onClick={() => {
                               setEditingTaskId("");
                               setEditingTaskTitle("");
@@ -654,7 +657,7 @@ export function EventSharedTasksModuleCard({
                       ) : (
                         <>
                           <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                             type="button"
                             disabled={!canInteract}
                             onClick={() => {

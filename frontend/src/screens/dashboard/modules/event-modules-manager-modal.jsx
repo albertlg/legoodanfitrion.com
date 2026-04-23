@@ -49,7 +49,7 @@ export function EventModulesManagerModal({
             onClick={onClose}
             aria-label={t("close_modal")}
             title={t("close_modal")}
-            className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-all duration-200 cursor-pointer"
+            className="inline-flex items-center justify-center p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Icon name="close" className="w-5 h-5" />
           </button>
@@ -103,7 +103,7 @@ export function EventModulesManagerModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2.5 text-xs font-black transition-all duration-200 cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer"
             >
               {t("close_modal")}
             </button>
@@ -111,7 +111,7 @@ export function EventModulesManagerModal({
               type="button"
               onClick={handleSaveEventModules}
               disabled={isSavingEventModules}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Icon
                 name={isSavingEventModules ? "loader" : "save"}

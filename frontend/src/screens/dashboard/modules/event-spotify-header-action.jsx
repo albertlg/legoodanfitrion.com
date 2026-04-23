@@ -23,14 +23,14 @@ export function EventSpotifyHeaderAction({
       : t("event_spotify_connect_action");
 
   const spotifyButtonClass = hasSpotifyPlaylist
-    ? "bg-transparent border border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10"
-    : "bg-[#1DB954] hover:bg-[#1ed760] border border-[#1DB954] text-white shadow-sm hover:shadow-md";
+    ? "border border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 bg-transparent"
+    : "bg-[#1DB954] hover:bg-[#1ed760] border border-[#1DB954] text-white";
 
   const isMobile = variant === "mobile";
 
   return (
     <button
-      className={`${spotifyButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed ${
+      className={`${spotifyButtonClass} font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm text-xs inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${
         isMobile ? "w-full min-h-11" : "w-full sm:w-auto"
       }`}
       type="button"

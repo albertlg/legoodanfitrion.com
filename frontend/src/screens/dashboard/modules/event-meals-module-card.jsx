@@ -194,6 +194,11 @@ export function EventMealsModuleCard({
   selectedEventDetail,
   selectedEventDetailGuests
 }) {
+  const secondaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed";
+  const softAddButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-semibold rounded-xl px-4 py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed";
+
   const eventId = toSafeString(selectedEventDetail?.id);
   const isProfessionalEvent = useMemo(
     () => Boolean(isProfessionalEventProp) || isProfessionalEventContext(selectedEventDetail),
@@ -613,12 +618,12 @@ export function EventMealsModuleCard({
   };
 
   return (
-    <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-5">
+    <article className="order-7 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Icon name="utensils" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_meals_title")}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_meals_title")}</p>
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
             {t("event_meals_hint")}
@@ -682,7 +687,7 @@ export function EventMealsModuleCard({
               type="button"
               onClick={handleCreateOption}
               disabled={isCreatingOption}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-300/70 dark:border-indigo-700/50 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-black py-2.5 px-4 text-sm transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className={`${softAddButtonClass} text-sm`}
             >
               <Icon name={isCreatingOption ? "loader" : "plus"} className={`w-4 h-4 ${isCreatingOption ? "animate-spin" : ""}`} />
               <span>{t("event_meals_add_option_action")}</span>
@@ -838,7 +843,7 @@ export function EventMealsModuleCard({
                             onClick={() => {
                               void handleSelectOptionForGuest(null, courseGroup.courseKey);
                             }}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 dark:border-white/15 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 px-3 py-1.5 text-xs font-bold transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                            className={`${secondaryButtonClass} text-xs px-3 py-1.5 rounded-lg`}
                           >
                             <Icon name="close" className="w-3.5 h-3.5" />
                             <span>{t("event_meals_clear_selection_action")}</span>

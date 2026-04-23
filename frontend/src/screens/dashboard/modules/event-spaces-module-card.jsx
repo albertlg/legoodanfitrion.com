@@ -135,6 +135,12 @@ export function EventSpacesModuleCard({
     () => Boolean(isProfessionalEventProp) || isProfessionalEventContext(selectedEventDetail),
     [isProfessionalEventProp, selectedEventDetail]
   );
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+  const secondaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed";
+  const softAddButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-semibold rounded-xl px-4 py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed";
 
   const [spaces, setSpaces] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -661,12 +667,12 @@ export function EventSpacesModuleCard({
   };
 
   return (
-    <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-5">
+    <article className="order-7 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Icon name="location" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_spaces_title")}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_spaces_title")}</p>
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">{t("event_spaces_hint")}</p>
         </div>
@@ -699,7 +705,7 @@ export function EventSpacesModuleCard({
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Icon name="users" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_spaces_unassigned_title")}</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_spaces_unassigned_title")}</p>
           </div>
 
           {isLoadingSpaces ? (
@@ -726,7 +732,7 @@ export function EventSpacesModuleCard({
 
                     {!isPickerOpen ? (
                       <button
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 dark:border-blue-700/40 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-3 py-1.5 text-xs font-bold transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                        className={`${secondaryButtonClass} text-xs px-3 py-1.5`}
                         type="button"
                         onClick={() => handleOpenAssignPicker(participant.key)}
                         disabled={availableSpaces.length === 0}
@@ -749,7 +755,7 @@ export function EventSpacesModuleCard({
                           ))}
                         </select>
                         <button
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                           type="button"
                           onClick={() => handleAssignGuest(participant.key)}
                           disabled={!assignTargetSpaceId || isAssigningThisGuest}
@@ -759,7 +765,7 @@ export function EventSpacesModuleCard({
                           <Icon name={isAssigningThisGuest ? "loader" : "check"} className={`w-4 h-4 ${isAssigningThisGuest ? "animate-spin" : ""}`} />
                         </button>
                         <button
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
                           type="button"
                           onClick={() => {
                             setAssigningGuestPickerId("");
@@ -782,15 +788,22 @@ export function EventSpacesModuleCard({
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Icon name="folder" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
-            <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_spaces_assigned_title")}</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_spaces_assigned_title")}</p>
           </div>
 
           {isLoadingSpaces ? (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_spaces_loading")}</p>
           ) : spacesWithGuests.length === 0 ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_spaces_no_spaces")}</p>
+            <div className="p-6 flex flex-col items-center text-center gap-3">
+              <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-black/5 dark:bg-white/5">
+                <Icon name="home" className="w-9 h-9 text-indigo-300 dark:text-indigo-700" />
+              </span>
+              <p className="text-sm font-semibold tracking-wide text-gray-700 dark:text-gray-300">
+                {t("event_spaces_empty_guide_copy")}
+              </p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid ${spaces.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"} gap-4`}>
               {spacesWithGuests.map((space) => {
                 const spaceId = toSafeString(space?.id);
                 const used = Number(usedCountBySpaceId[spaceId] || 0);
@@ -814,7 +827,7 @@ export function EventSpacesModuleCard({
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
                           type="button"
                           onClick={() => handleOpenEditSpaceModal(space)}
                           aria-label={t("event_spaces_edit_action")}
@@ -840,7 +853,7 @@ export function EventSpacesModuleCard({
                         {t("event_spaces_capacity_label")}
                       </span>
                       <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-black ${
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${
                           isFull
                             ? "border-red-300 text-red-600 dark:border-red-700/40 dark:text-red-300"
                             : "border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-200"
@@ -905,7 +918,7 @@ export function EventSpacesModuleCard({
       </div>
 
       <button
-        className="w-full rounded-xl border border-indigo-300/70 dark:border-indigo-700/50 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-black py-2.5 px-4 text-sm transition-colors inline-flex items-center justify-center gap-2"
+        className={`w-full ${softAddButtonClass} text-sm`}
         type="button"
         onClick={handleOpenCreateSpaceModal}
       >
@@ -923,7 +936,7 @@ export function EventSpacesModuleCard({
             >
           <div className="w-full max-w-md rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-gray-900 shadow-sm p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-2">
-              <p id={spaceModalTitleId} className="text-base font-black text-gray-900 dark:text-white">
+              <p id={spaceModalTitleId} className="text-base font-bold text-gray-900 dark:text-white">
                 {editingSpaceId ? t("event_spaces_edit_modal_title") : t("event_spaces_add_modal_title")}
               </p>
               <button
@@ -983,7 +996,7 @@ export function EventSpacesModuleCard({
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
-                className="rounded-xl border border-black/10 dark:border-white/15 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                className={`${secondaryButtonClass} text-xs px-3 py-2`}
                 type="button"
                 onClick={resetSpaceModal}
                 disabled={isSavingSpace}
@@ -991,7 +1004,7 @@ export function EventSpacesModuleCard({
                 {t("cancel_action")}
               </button>
               <button
-                className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-xs font-black transition-colors inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`${primaryButtonClass} text-xs px-3 py-2`}
                 type="button"
                 onClick={handleSaveSpace}
                 disabled={isSavingSpace}

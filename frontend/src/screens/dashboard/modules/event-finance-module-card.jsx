@@ -20,6 +20,13 @@ const LOCALE_BY_LANGUAGE = {
   it: "it-IT"
 };
 
+const PRIMARY_BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+const SECONDARY_BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed";
+const SOFT_ADD_BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-semibold rounded-xl px-4 py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed";
+
 function formatMoneyCompact(value, language) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -109,7 +116,7 @@ function renderExpenseForm({
         </select>
       </label>
       <button
-        className="sm:col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-xl transition-colors text-xs inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        className={`sm:col-span-2 ${SOFT_ADD_BUTTON_CLASS} text-xs`}
         type="button"
         onClick={handleAddSplitExpense}
         disabled={!splitParticipants.length}
@@ -141,7 +148,7 @@ function renderExpenseList({ t, interpolateText, splitExpenses, formatMoneyAmoun
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                   {formatMoneyAmount(expense.amount, language)} €
                 </span>
                 <button
@@ -225,10 +232,10 @@ export function EventFinanceModuleCard({
       : new Set(Array.isArray(fixedPricePaidInvitationIds) ? fixedPricePaidInvitationIds : []);
 
   return (
-    <article className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+    <article className="order-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
       <div className="flex items-center gap-2">
         <Icon name="activity" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-        <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_finance_title")}</p>
+        <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_finance_title")}</p>
       </div>
       <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_finance_hint")}</p>
 
@@ -305,7 +312,7 @@ export function EventFinanceModuleCard({
         ) : null}
 
         <button
-          className="border border-gray-200 dark:border-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700/70 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold py-2 px-3 rounded-xl transition-colors text-[11px] inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className={`${PRIMARY_BUTTON_CLASS} text-[11px] px-3 py-2`}
           type="button"
           onClick={handleSaveFinanceConfig}
           disabled={isSavingFinanceConfig}
@@ -353,7 +360,7 @@ export function EventFinanceModuleCard({
           <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Icon name="users" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_finance_fixed_price_guest_list_title")}</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_finance_fixed_price_guest_list_title")}</p>
             </div>
             {isLoadingFixedPricePayments ? (
               <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("loading")}</p>
@@ -378,10 +385,10 @@ export function EventFinanceModuleCard({
                         type="button"
                         disabled={isToggling}
                         onClick={() => handleToggleFixedPriceGuestPaid(invitationId, !isPaid)}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${
                           isPaid
-                            ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
-                            : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
+                            ? "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600"
                         }`}
                       >
                         <Icon name={isToggling ? "loader" : isPaid ? "check" : "clock"} className={`w-3.5 h-3.5 ${isToggling ? "animate-spin" : ""}`} />
@@ -454,7 +461,7 @@ export function EventFinanceModuleCard({
           <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Icon name="trend" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
-              <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_expenses_settlement_title")}</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_expenses_settlement_title")}</p>
             </div>
 
             {splitTotalGuests <= 0 ? (
@@ -483,7 +490,7 @@ export function EventFinanceModuleCard({
             )}
 
             <button
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-600/60 bg-green-500 hover:bg-green-600 text-white font-black py-2.5 px-4 text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="mt-1 inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm text-xs disabled:opacity-60 disabled:cursor-not-allowed"
               type="button"
               onClick={handleShareSettlementWhatsApp}
               disabled={splitTotalAmount <= 0 || splitTotalGuests <= 0}

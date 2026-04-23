@@ -21,6 +21,9 @@ export function EventDatePollModuleCard({
   getGuestAvatarUrl,
   datePollTotalVotes
 }) {
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+
   if (!shouldRenderDatePollSection) {
     return null;
   }
@@ -28,11 +31,11 @@ export function EventDatePollModuleCard({
   return (
     <article
       id="event-date-poll"
-      className="order-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
+      className="order-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Icon name="calendar" className="w-4 h-4 text-blue-500" />
             {t("event_date_poll_title")}
           </p>
@@ -108,7 +111,7 @@ export function EventDatePollModuleCard({
                 {datePollOpen ? (
                   <button
                     type="button"
-                    className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-300 bg-green-600 text-white px-3 py-2 text-xs font-bold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    className={`mt-1 ${primaryButtonClass} text-xs px-3 py-2`}
                     onClick={() => handleCloseEventDatePoll(optionItem.id)}
                     disabled={Boolean(isClosingEventDatePollOptionId)}
                   >

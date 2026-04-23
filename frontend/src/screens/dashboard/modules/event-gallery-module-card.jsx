@@ -16,17 +16,22 @@ export function EventGalleryModuleCard({
   eventPhotoGalleryFeedback,
   eventPhotoGalleryFeedbackType
 }) {
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+  const secondaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700";
+
   return (
     <Motion.article
       id="event-gallery"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="order-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
+      className="order-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
     >
       <div className="flex items-center gap-2">
         <Icon name="camera" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-        <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_gallery_title")}</p>
+        <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_gallery_title")}</p>
       </div>
       <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_gallery_hint")}</p>
 
@@ -48,7 +53,7 @@ export function EventGalleryModuleCard({
           type="button"
           onClick={handleSaveEventPhotoGalleryUrl}
           disabled={isSavingEventPhotoGalleryUrl}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className={`${primaryButtonClass} text-xs`}
         >
           <Icon
             name={isSavingEventPhotoGalleryUrl ? "loader" : "save"}
@@ -88,7 +93,7 @@ export function EventGalleryModuleCard({
             href={selectedEventDetail.photo_gallery_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700/40 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200 px-3 py-1.5 text-[11px] font-bold shrink-0"
+            className={`${secondaryButtonClass} text-[11px] px-3 py-1.5 shrink-0`}
           >
             <Icon name="camera" className="w-3.5 h-3.5" />
             <span>{t("event_gallery_open_action")}</span>

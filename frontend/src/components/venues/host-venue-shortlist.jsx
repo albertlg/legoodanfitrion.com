@@ -19,6 +19,8 @@ function HostVenueShortlist({
   t
 }) {
   const translate = (key) => (typeof t === "function" ? t(key) : key);
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
   const normalizedVenues = Array.isArray(venues) ? venues : [];
   const finalVenue = normalizedVenues.find((venueItem) => Boolean(venueItem?.is_final_selection)) || null;
   const visibleVenues = finalVenue ? [finalVenue] : normalizedVenues;
@@ -101,7 +103,7 @@ function HostVenueShortlist({
                       type="button"
                       onClick={() => onSelectFinal?.(venue)}
                       disabled={Boolean(selectingVenueId)}
-                      className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-black py-2.5 px-4 text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      className={`mt-auto ${primaryButtonClass} text-xs`}
                     >
                       <Icon
                         name={isSelecting ? "loader" : "check"}

@@ -124,6 +124,10 @@ const configuredApiUrl = String(
 const fallbackApiUrl = "/api";
 const EVENT_DETAIL_API_BASE_URL = String(configuredApiUrl || fallbackApiUrl).replace(/\/+$/, "");
 const DEFAULT_MODULE_DISCLOSURE_LEVELS = Object.freeze(["core", "primary"]);
+const PRIMARY_BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+const SECONDARY_BUTTON_CLASS =
+  "inline-flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed";
 
 function buildSpotifyAuthUrl(eventId) {
   const normalizedEventId = String(eventId || "").trim();
@@ -2122,17 +2126,13 @@ export function EventDetailView({
     setShareCardMessage(t("invitation_share_unavailable"));
   };
 
-  const renderEventHeaderActions = ({ inHero = false } = {}) => {
+  const renderEventHeaderActions = () => {
     if (!selectedEventDetail) {
       return null;
     }
 
-    const secondaryButtonClass = inHero
-      ? "bg-white/85 hover:bg-white text-gray-900 border border-black/10 backdrop-blur-md dark:bg-black/35 dark:hover:bg-black/45 dark:text-white dark:border-white/30"
-      : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10";
-    const menuTriggerClass = inHero
-      ? "bg-white/85 hover:bg-white text-gray-900 border border-black/10 backdrop-blur-md dark:bg-black/35 dark:hover:bg-black/45 dark:text-white dark:border-white/30"
-      : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10";
+    const secondaryButtonClass = SECONDARY_BUTTON_CLASS;
+    const menuTriggerClass = SECONDARY_BUTTON_CLASS;
     const dropdownPanelClass =
       "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
     const dropdownItemClass =
@@ -2150,7 +2150,7 @@ export function EventDetailView({
       <div className="relative z-20 mt-3 w-full min-w-0">
         <div className="sm:hidden flex flex-col gap-2">
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full min-h-11"
+            className={`${PRIMARY_BUTTON_CLASS} text-xs w-full min-h-11`}
             type="button"
             onClick={handleShareInvitationImage}
             disabled={isSharingInvitationImage}
@@ -2169,7 +2169,7 @@ export function EventDetailView({
             {canAddToCalendar ? (
               <div className="relative flex-1 min-w-0" ref={calendarMenuMobileRef}>
                 <button
-                  className={`${secondaryButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full min-h-11`}
+                  className={`${secondaryButtonClass} text-xs w-full min-h-11`}
                   type="button"
                   onClick={() => {
                     setIsCalendarMenuOpen((currentValue) => !currentValue);
@@ -2200,7 +2200,7 @@ export function EventDetailView({
 
             <div className={`relative ${canAddToCalendar ? "w-11" : "flex-1"}`} ref={adminMenuMobileRef}>
               <button
-                className={`${menuTriggerClass} font-bold rounded-xl transition-all shadow-sm flex items-center justify-center min-h-11 h-11 w-full`}
+                className={`${menuTriggerClass} text-xs min-h-11 h-11 w-full px-0`}
                 aria-label={t("open_menu")}
                 title={t("open_menu")}
                 aria-haspopup="menu"
@@ -2245,7 +2245,7 @@ export function EventDetailView({
 
         <div className="hidden sm:flex sm:flex-row sm:flex-wrap sm:items-center gap-2 min-w-0">
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto"
+            className={`${PRIMARY_BUTTON_CLASS} text-xs w-full sm:w-auto`}
             type="button"
             onClick={handleShareInvitationImage}
             disabled={isSharingInvitationImage}
@@ -2263,7 +2263,7 @@ export function EventDetailView({
           {canAddToCalendar ? (
             <div className="relative w-full sm:w-auto" ref={calendarMenuDesktopRef}>
               <button
-                className={`${secondaryButtonClass} font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2 justify-center w-full sm:w-auto min-h-11`}
+                className={`${secondaryButtonClass} text-xs w-full sm:w-auto min-h-11`}
                 type="button"
                 onClick={() => {
                   setIsCalendarMenuOpen((currentValue) => !currentValue);
@@ -2294,7 +2294,7 @@ export function EventDetailView({
 
           <div className="relative w-full sm:w-auto sm:ml-auto" ref={adminMenuDesktopRef}>
             <button
-              className={`${menuTriggerClass} font-bold rounded-xl transition-all shadow-sm flex items-center justify-center min-h-11 h-11 px-4 w-full sm:w-11 sm:px-0`}
+              className={`${menuTriggerClass} text-xs min-h-11 h-11 px-4 w-full sm:w-11 sm:px-0`}
               aria-label={t("open_menu")}
               title={t("open_menu")}
               aria-haspopup="menu"
@@ -2544,7 +2544,7 @@ export function EventDetailView({
                 </span>
               ) : null}
             </div>
-            <h2 className="text-xl sm:text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight mb-2 truncate">
+            <h2 className="[font-family:var(--font-display)] text-xl sm:text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight mb-2 truncate">
               {selectedEventDetail.title || t("event_detail_title")}
             </h2>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -2563,7 +2563,7 @@ export function EventDetailView({
                 <span className="truncate max-w-[200px] sm:max-w-sm">{eventPlaceLabel}</span>
               </span>
             </div>
-            {renderEventHeaderActions({ inHero: true })}
+            {renderEventHeaderActions()}
           </div>
         </article>
       ) : null}
@@ -2574,7 +2574,7 @@ export function EventDetailView({
           {!hasEventHeroCover ? (
             <div className="flex flex-col gap-2 min-w-0">
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-black text-gray-900 dark:text-white truncate">{selectedEventDetail?.title || t("event_detail_title")}</h2>
+                <h2 className="[font-family:var(--font-display)] text-2xl font-black text-gray-900 dark:text-white truncate">{selectedEventDetail?.title || t("event_detail_title")}</h2>
                 {selectedEventDetail ? (
                   <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${statusClass(selectedEventDetail.status)}`}>{statusText(t, selectedEventDetail.status)}</span>
                 ) : null}
@@ -2604,19 +2604,19 @@ export function EventDetailView({
       {/* KPIs Row */}
       {selectedEventDetail && eventsWorkspace === "detail" ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("event_detail_total_invites")}</p>
             <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{selectedEventDetailInvitations.length}</p>
           </article>
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_yes")}</p>
             <p className="text-2xl font-black text-green-600 dark:text-green-400 leading-none">{selectedEventDetailStatusCounts.yes}</p>
           </article>
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_pending")}</p>
             <p className="text-2xl font-black text-yellow-600 dark:text-yellow-400 leading-none">{selectedEventDetailStatusCounts.pending}</p>
           </article>
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm">
+          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_no")}</p>
             <p className="text-2xl font-black text-red-600 dark:text-red-400 leading-none">{selectedEventDetailStatusCounts.no}</p>
           </article>
@@ -2646,8 +2646,8 @@ export function EventDetailView({
               {/* Columna principal */}
               <div className="flex flex-col gap-6 min-w-0">
 
-                <article id="event-invitations" className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
-                  {!hasEventHeroCover ? <p className="text-lg font-black text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
+                <article id="event-invitations" className="order-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  {!hasEventHeroCover ? <p className="text-lg font-bold text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
 
                   {selectedEventDetail.event_type ? (
                     <div className="flex flex-wrap gap-2">
@@ -2706,7 +2706,7 @@ export function EventDetailView({
 
                   {selectedEventDetail.location_lat != null && selectedEventDetail.location_lng != null ? (
                     <div className="flex mt-2">
-                      <a className="bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-300 font-bold py-2 px-4 rounded-xl transition-all text-xs flex items-center gap-2" href={`https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`} target="_blank" rel="noreferrer">
+                      <a className={`${SECONDARY_BUTTON_CLASS} text-xs px-4 py-2`} href={`https://www.google.com/maps?q=${selectedEventDetail.location_lat},${selectedEventDetail.location_lng}`} target="_blank" rel="noreferrer">
                         <Icon name="location" className="w-3.5 h-3.5" />
                         {t("map_open_external")}
                       </a>
@@ -2716,13 +2716,13 @@ export function EventDetailView({
 
                 <article
                   id="event-modules"
-                  className="order-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28"
+                  className="order-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-2 min-w-0">
                       <Icon name="settings" className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_modules_section_title")}</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_modules_section_title")}</p>
                         <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_modules_section_hint")}</p>
                       </div>
                     </div>
@@ -2732,7 +2732,7 @@ export function EventDetailView({
                         setEventModulesFeedback("");
                         setIsModulesManagerOpen(true);
                       }}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-black transition-all duration-200 cursor-pointer shadow-sm"
+                      className={`${SECONDARY_BUTTON_CLASS} text-xs`}
                     >
                       <Icon name="settings" className="w-4 h-4" />
                       <span>{t("event_modules_section_title")}</span>
@@ -2768,15 +2768,15 @@ export function EventDetailView({
                   </React.Fragment>
                 ))}
 
-                <article className="order-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                <article className="order-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="users" className="w-4 h-4 text-blue-500" />
                       {t("event_detail_guest_list_title")}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
-                        className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 px-3 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2"
+                        className={`${PRIMARY_BUTTON_CLASS} text-xs px-3 py-2`}
                         type="button"
                         onClick={() =>
                           openInvitationCreate({
@@ -2789,7 +2789,7 @@ export function EventDetailView({
                         {t("event_detail_add_invitee_action")}
                       </button>
                       <button
-                        className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-600 font-bold py-2 px-3 rounded-xl transition-all text-xs shadow-sm flex items-center gap-2"
+                        className={`${SECONDARY_BUTTON_CLASS} text-xs px-3 py-2`}
                         type="button"
                         onClick={handleOpenGroupInviteModal}
                       >
@@ -2854,7 +2854,7 @@ export function EventDetailView({
                                   <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block text-left">{t("actions_label")}</span>
                                   <div className="flex items-center justify-end gap-1 mt-2 sm:mt-0">
                                     <button
-                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-black/10 dark:border-white/10 text-gray-500 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 cursor-pointer"
+                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 cursor-pointer"
                                       type="button"
                                       onClick={() => handleCopyGuestInvitationLink(row.invitation)}
                                       aria-label={t("copy_link")}
@@ -2863,7 +2863,7 @@ export function EventDetailView({
                                       <Icon name="link" className="w-4 h-4" />
                                     </button>
                                     <button
-                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-green-200/80 dark:border-green-800/40 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200 cursor-pointer"
+                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-[#25D366] border border-[#25D366] text-white hover:bg-[#20bd5a] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer"
                                       type="button"
                                       onClick={() => handleShareGuestInvitationWhatsapp(row.invitation)}
                                       aria-label={t("host_invite_whatsapp_action")}
@@ -2891,8 +2891,8 @@ export function EventDetailView({
                   )}
                 </article>
 
-                <article id="event-rsvp-timeline" className="order-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <article id="event-rsvp-timeline" className="order-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}
                   </p>
@@ -2906,7 +2906,7 @@ export function EventDetailView({
                           <li key={item.id} className="flex gap-4 items-start">
                             <span className={`w-2.5 h-2.5 rounded-full mt-1.5 ring-4 ring-white dark:ring-gray-900 shrink-0 ${statusClass(item.status).replace('text-', 'bg-').replace('border-', 'bg-') || 'bg-gray-400'}`} />
                             <div className="flex flex-col gap-1">
-                              <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 {item.name}
                                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${statusClass(item.status)}`}>{statusText(t, item.status)}</span>
                               </p>
@@ -2930,7 +2930,7 @@ export function EventDetailView({
                 <article className="order-1 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-4">
                   <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
                   <div className="flex items-start">
-                    <span className="flex items-center gap-2 text-sm font-black">
+                    <span className="flex items-center gap-2 text-sm font-semibold tracking-wide">
                       <Icon name="sparkle" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
                         {t("event_plan_cta_title")}
@@ -2938,7 +2938,7 @@ export function EventDetailView({
                     </span>
                   </div>
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_plan_cta_hint")}</p>
-                  <button className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold py-2.5 px-4 rounded-xl transition-all text-xs w-full shadow-sm flex justify-center items-center gap-2 mt-1" type="button" onClick={() => handleOpenEventPlan("ambience")}>
+                  <button className={`${PRIMARY_BUTTON_CLASS} text-xs w-full mt-1`} type="button" onClick={() => handleOpenEventPlan("ambience")}>
                     {t("event_plan_cta_action")}
                     <Icon name="arrow_right" className="w-3.5 h-3.5" />
                   </button>
@@ -2950,8 +2950,8 @@ export function EventDetailView({
                   </React.Fragment>
                 ))}
 
-                <article className="order-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <article className="order-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="check" className="w-4 h-4 text-green-500" />
                     {t("event_detail_checklist_title")}
                   </p>
@@ -2967,9 +2967,9 @@ export function EventDetailView({
                   </ul>
                 </article>
 
-                <article className="order-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+                <article className="order-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <div className="flex justify-between items-start">
-                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="shield" className="w-4 h-4 text-red-500" />
                       {t("event_detail_alerts_title")}
                     </p>
@@ -3000,8 +3000,8 @@ export function EventDetailView({
                 </article>
 
                 {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
-                  <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
-                    <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <article className="order-7 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="location" className="w-4 h-4 text-blue-500" />
                       {t("map_preview_title")}
                     </p>
@@ -3137,7 +3137,7 @@ export function EventDetailView({
                 </div>
               </div>
               <button
-                className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 type="button"
                 onClick={handleCloseEventTeamModal}
                 disabled={isAddingCohost || Boolean(removingCohostId) || isSendingCohostInvite}
@@ -3169,7 +3169,7 @@ export function EventDetailView({
                   />
                 </label>
                 <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`${PRIMARY_BUTTON_CLASS} text-sm`}
                   type="button"
                   onClick={handleAddCohostByEmail}
                   disabled={isAddingCohost || isSendingCohostInvite}
@@ -3202,7 +3202,7 @@ export function EventDetailView({
                       type="button"
                       onClick={handleSendCohostInvitationEmail}
                       disabled={isSendingCohostInvite}
-                      className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-blue-300/80 dark:border-blue-700/50 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                      className={`${SECONDARY_BUTTON_CLASS} w-fit text-xs px-3 py-2 disabled:opacity-70`}
                     >
                       <Icon name={isSendingCohostInvite ? "loader" : "mail"} className={`w-3.5 h-3.5 ${isSendingCohostInvite ? "animate-spin" : ""}`} />
                       {isSendingCohostInvite
@@ -3216,7 +3216,7 @@ export function EventDetailView({
 
             <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/20 overflow-hidden">
               <div className="px-4 py-3 border-b border-black/5 dark:border-white/10 flex items-center justify-between gap-3">
-                <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_team_list_title")}</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_team_list_title")}</p>
                 {isLoadingCohosts ? (
                   <span className="text-[11px] text-gray-500 dark:text-gray-400">{t("event_team_loading_short")}</span>
                 ) : (
@@ -3298,7 +3298,7 @@ export function EventDetailView({
                     </div>
                   </div>
                   <button
-                    className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                     type="button"
                     onClick={handleCloseGroupInviteModal}
                     disabled={isInvitingGuestGroup}
@@ -3318,7 +3318,7 @@ export function EventDetailView({
                     <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_group_invite_empty_title")}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_group_invite_empty_hint")}</p>
                     <button
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl transition-colors text-xs"
+                      className={`${PRIMARY_BUTTON_CLASS} text-xs px-3 py-2`}
                       type="button"
                       onClick={() => {
                         handleCloseGroupInviteModal();
@@ -3348,7 +3348,7 @@ export function EventDetailView({
                       </select>
                     </label>
                     <button
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      className={`${PRIMARY_BUTTON_CLASS} text-sm`}
                       type="button"
                       onClick={handleInviteGroupToEvent}
                       disabled={isInvitingGuestGroup}
@@ -3381,7 +3381,7 @@ export function EventDetailView({
                 </div>
               </div>
               <button
-                className="p-2 rounded-xl bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-gray-600 dark:text-gray-300 transition-colors"
+                className="inline-flex items-center justify-center p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
                 type="button"
                 onClick={() => handleCloseEventIcebreakerPanel?.()}
                 aria-label={t("close_modal")}
@@ -3394,7 +3394,7 @@ export function EventDetailView({
             {isIcebreakerLoading ? (
               <div className="rounded-2xl border border-fuchsia-200/70 dark:border-fuchsia-700/30 bg-fuchsia-50/70 dark:bg-fuchsia-950/20 p-5 text-center flex flex-col gap-2 items-center">
                 <Icon name="sparkle" className="w-8 h-8 text-fuchsia-500 animate-pulse" />
-                <p className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300">{t("event_icebreaker_loading_title")}</p>
+                <p className="text-sm font-semibold tracking-wide text-fuchsia-700 dark:text-fuchsia-300">{t("event_icebreaker_loading_title")}</p>
                 <p className="text-xs text-fuchsia-600/90 dark:text-fuchsia-300/90">{t("event_icebreaker_loading_label")}</p>
               </div>
             ) : null}

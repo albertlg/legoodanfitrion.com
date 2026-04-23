@@ -14,11 +14,14 @@ export function EventMegaphoneModuleCard({
   isSendingBroadcastMessage,
   broadcastFeedbackType
 }) {
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+
   return (
-    <article className="order-7 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-5 flex flex-col gap-4">
+    <article className="order-7 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
       <div className="flex items-center gap-2">
         <Icon name="mail" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-        <p className="text-sm font-black text-gray-900 dark:text-white">{t("event_broadcast_title")}</p>
+        <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_broadcast_title")}</p>
       </div>
       <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
         {t("event_broadcast_hint")}
@@ -50,7 +53,7 @@ export function EventMegaphoneModuleCard({
           type="button"
           onClick={handleSendBroadcastMessage}
           disabled={isSendingBroadcastMessage || confirmedRecipientsCount <= 0}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className={`${primaryButtonClass} text-xs`}
         >
           <Icon
             name={isSendingBroadcastMessage ? "loader" : "mail"}

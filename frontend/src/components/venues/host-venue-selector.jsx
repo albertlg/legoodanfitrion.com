@@ -112,6 +112,10 @@ function HostVenueSelector({ eventId, t, onVenueAdded }) {
   const [addingVenueId, setAddingVenueId] = useState("");
   const [feedback, setFeedback] = useState("");
   const [feedbackType, setFeedbackType] = useState("info");
+  const primaryButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed";
+  const softAddButtonClass =
+    "inline-flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-semibold rounded-xl px-4 py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed";
 
   const handleSearch = async () => {
     const trimmedQuery = String(query || "").trim();
@@ -228,7 +232,7 @@ function HostVenueSelector({ eventId, t, onVenueAdded }) {
           type="button"
           onClick={handleSearch}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className={`${primaryButtonClass} text-sm`}
         >
           {loading ? (
             <Icon name="loader" className="w-4 h-4 animate-spin" />
@@ -302,7 +306,7 @@ function HostVenueSelector({ eventId, t, onVenueAdded }) {
                     type="button"
                     onClick={() => handleAddVenue(venue)}
                     disabled={Boolean(addingVenueId)}
-                    className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-700/40 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200 font-black py-2.5 px-4 text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed w-full"
+                    className={`mt-auto ${softAddButtonClass} text-xs w-full`}
                   >
                     {isAdding ? (
                       <Icon name="loader" className="w-4 h-4 animate-spin" />

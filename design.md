@@ -1,104 +1,76 @@
 # LGA Design System (`design.md`)
 
-This document is the visual and UX contract for **Le Good Anfitrión (LGA)**.  
-It is inspired by Google Labs design-context standards and adapted to our current Tailwind + React architecture.
-
-Use it as the single source of truth when building or modifying UI.
+This document is the **single visual contract** for Le Good Anfitrión (LGA).
+All new UI work must follow these rules by default.
 
 ---
 
 ## 1) Design Philosophy
 
-### 1.1 Frictionless by default (Doodle philosophy)
-- Prioritize completion speed over decorative complexity.
-- The user should be able to: open, understand, act.
-- Avoid requiring extra steps (email, confirmations, hidden dependencies) unless strictly needed.
+### 1.1 Doodle-first UX
+- Keep interfaces frictionless, fast, and focused on decisions.
+- Prioritize completion over decoration.
+- Prefer progressive disclosure for advanced controls.
 
-### 1.2 Progressive Disclosure
-- Show only what is necessary for the current task.
-- Advanced modules/options live behind explicit actions (`Manage modules`, modal/drawer, secondary zones).
-- Do not overload primary screens with low-frequency controls.
+### 1.2 Premium SaaS clarity
+- Neutral surfaces first, color used semantically.
+- Consistent spacing, borders, and interaction feedback.
+- Zero visual noise and zero punitive language patterns.
 
-### 1.3 Content-first hierarchy
-- Data and decisions are primary; chrome is secondary.
-- If an icon already provides context, do not duplicate with redundant labels.
-- Reduce visual noise: fewer colors, fewer shadow layers, fewer nested containers.
-
-### 1.4 Trust and anti-spam UX
-- Communications are opt-in and host-controlled.
-- Avoid automatic behavior that feels intrusive.
-- Copy must be transparent, direct, and respectful.
+### 1.3 Accessibility as baseline
+- Dark and light mode are first-class.
+- Text contrast must remain readable in all states.
+- Keyboard, focus, and feedback states are mandatory.
 
 ---
 
-## 2) Visual Audit Snapshot (current frontend)
+## 2) Core Primitives (Tailwind)
 
-### 2.1 Typography
-- Primary UI/body font: `DM Sans` (`--font-family`, `--font-ui`).
-- Display/marketing accent font: `Fraunces` (`--font-display`) for selective headings.
-- Typical emphasis:
-  - Section title: `text-sm` + `font-black`
-  - Card title: `text-lg` + `font-black`
-  - Meta labels: `text-[10px]`/`text-xs` + `uppercase` + `tracking-wider`
-
-### 2.2 Color language
-- Neutral surfaces dominate (light/dark variants).
-- Semantic accents:
-  - Primary action: Indigo (`bg-indigo-600` / hover darker)
-  - Success: Emerald/green tones
-  - Danger: Red tones
-  - Informational/supporting: blue/gray subtle backgrounds
-
-### 2.3 Shape, spacing, elevation
-- Radius standard:
-  - Main cards: `rounded-xl` / `rounded-2xl`
-  - Modals: `rounded-2xl` or `rounded-3xl`
-  - Chips/buttons: `rounded-lg` / `rounded-xl` / `rounded-full` depending on semantic role
-- Spacing rhythm: `gap-2`, `gap-3`, `gap-4`, `gap-5`, `gap-6`; paddings mostly `p-3`, `p-4`, `p-5`, `p-6`.
-- Elevation policy: subtle borders + `shadow-sm`. No heavy, stacked shadows in base state.
-
----
-
-## 3) Core Primitives (Tailwind semantic mapping)
-
-### 3.1 App Background
-- Light: warm/neutral gradient via CSS variables.
-- Dark: deep navy/blue gradient via CSS variables.
-- Layout root: no visual clutter; preserve breathing room.
-
-### 3.2 Surface / Card
-- **Default card shell**
+### 2.1 Surfaces
+- App background: subtle gradients only.
+- Default cards:
   - `bg-white dark:bg-gray-800`
   - `border border-gray-200 dark:border-gray-700`
   - `rounded-xl`
   - `shadow-sm`
-  - `overflow-hidden`
-- **Inner soft panel**
-  - `bg-white/70 dark:bg-black/20`
-  - `border border-black/5 dark:border-white/10`
-  - `rounded-2xl`
+- Transparent/glass panels must include:
+  - `backdrop-blur-md`
+  - `border border-black/10 dark:border-white/10`
 
-### 3.3 Text
-- **Primary text**: `text-gray-900 dark:text-white`
-- **Secondary text**: `text-gray-500 dark:text-gray-400` (or `text-gray-600 dark:text-gray-300` when higher contrast is needed)
-- **Muted helper**: `text-xs` or `text-[11px]` + muted color
+### 2.2 Text semantic roles
+- Primary: `text-gray-900 dark:text-white`
+- Secondary: `text-gray-600 dark:text-gray-300`
+- Muted/meta: `text-gray-500 dark:text-gray-400`
 
-### 3.4 Border language
-- Structural borders:
-  - `border-gray-200 dark:border-gray-700`
-- Soft inner borders:
-  - `border-black/5 dark:border-white/10`
-- Semantic borders:
-  - Success: emerald
-  - Danger: red
-  - Primary emphasis: indigo/blue
+### 2.3 Border language
+- Structural: `border-gray-200 dark:border-gray-700`
+- Soft inner: `border-black/5 dark:border-white/10`
+- Semantic only when needed (success/info/error).
+
+---
+
+## 3) Typography & Contrast (Strict)
+
+### 3.1 Forbidden patterns
+- **Never** use `font-black` on small labels (`text-xs`, `text-[10px]`, `text-[11px]`).
+- Avoid low-contrast text over translucent dark layers like `bg-black/20` unless validated.
+
+### 3.2 Label standard
+- Labels/meta headings must use:
+  - `font-semibold` or `font-bold`
+  - `uppercase` (when appropriate)
+  - `tracking-wide` or `tracking-wider`
+
+### 3.3 Contrast minimum
+- Target minimum contrast ratio: **4.5:1** for normal text, including Dark Mode.
+- If contrast is borderline, raise text luminance first (not saturation).
 
 ---
 
 ## 4) Interactive Elements
 
 ### 4.1 Mandatory interaction contract
-All interactive controls must include:
+All clickable elements must include:
 - `cursor-pointer`
 - `transition-all duration-200`
 
@@ -106,179 +78,120 @@ Disabled controls must include:
 - `disabled:opacity-60`
 - `disabled:cursor-not-allowed`
 
-### 4.2 Button system
+### 4.2 Button patterns
 
 #### Primary
-Use for the main action in a scope.
-
-Base pattern:
-- `inline-flex items-center justify-center gap-2`
-- `rounded-xl`
-- `bg-indigo-600 hover:bg-indigo-700`
-- `text-white`
-- `font-black`
-- `px-4 py-2.5 text-xs sm:text-sm`
+- `bg-indigo-600 hover:bg-indigo-700 text-white`
+- `rounded-xl px-4 py-2.5`
+- `font-semibold`
 
 #### Secondary
-Use for neutral support actions.
-
-Base pattern:
-- `inline-flex items-center justify-center gap-2`
-- `rounded-xl`
 - `border border-black/10 dark:border-white/10`
 - `bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700`
 - `text-gray-700 dark:text-gray-200`
-- `font-bold`
+- `rounded-xl`
 
-#### Danger
-Use only for destructive actions.
+#### Danger (non-punitive)
+- Avoid saturated punitive red blocks.
+- Prefer soft danger styling with clear guidance.
 
-Base pattern:
-- `border border-red-200/80 dark:border-red-700/40`
-- `text-red-600 dark:text-red-300`
-- `hover:bg-red-50 dark:hover:bg-red-900/20`
-
-### 4.3 Inputs and selects
-- Always explicit borders and visible focus:
-  - `border border-black/10 dark:border-white/15`
-  - `focus:border-blue-500`
-- Neutral backgrounds:
-  - `bg-white dark:bg-gray-950` or `dark:bg-gray-900`
-- Use `text-sm` + `font-semibold` for readable form controls.
+### 4.3 Micro-interactions (Premium requirement)
+On hover for important cards and primary buttons:
+- add subtle lift: `hover:-translate-y-0.5` (or `hover:translate-y-[-2px]`)
+- combine with subtle elevation: `hover:shadow-md`
+- keep transitions soft and fast (`duration-200`)
 
 ---
 
-## 5) Component Patterns
+## 5) Empty States: “The Helpful Guide”
 
-### 5.1 Module Card Pattern (dashboard modules)
+Every empty state must include:
+1. **Narrative visual slot**
+   - Reserved area for minimal illustration/iconography.
+2. **Empowering copy**
+   - Action-oriented and supportive, never blaming.
+3. **Single primary CTA**
+   - One clear next step.
 
-Structure:
-1. Wrapper card (surface default)
-2. Header row:
-   - Icon + title + optional hint
-   - Optional KPI mini-cards on the right
-3. Body panel (`rounded-2xl`, soft border/background)
-4. Action footer (primary/secondary actions)
+### Empty state anti-patterns
+- No multiple competing CTAs.
+- No dead-end text (“No data”) without an action path.
 
-Rules:
-- Keep the module self-contained.
-- No duplicate labels if icon + value already explain context.
-- Empty states should be actionable, not passive.
+---
 
-### 5.2 Modal Pattern
+## 6) Error States (Non-punitive)
 
+### 6.1 Visual style
+Use soft containers, not aggressive red blocks:
+- `bg-red-50 dark:bg-red-900/20`
+- `border border-red-200 dark:border-red-800/60`
+- `text-red-700 dark:text-red-200`
+
+### 6.2 UX rule
+- Always include a one-click resolution when possible:
+  - retry, fix input, reconnect, or copy support detail.
+- Error copy must explain what happened and what to do next.
+
+---
+
+## 7) Loading Strategy
+
+### 7.1 Preferred loading pattern
+- **Skeleton screens are mandatory by default** for loading content sections.
+- Use `animate-pulse` with realistic content shapes (title, lines, media blocks).
+
+### 7.2 Spinner policy
+- Spinners are secondary and only valid for compact inline actions (e.g. button submit state).
+- Never replace full content areas with spinner-only placeholders.
+
+---
+
+## 8) Component Patterns
+
+### 8.1 Module card pattern
+- Header (title + context)
+- Body (main interaction/data)
+- Footer (single primary action + optional secondary)
+- Keep hierarchy clean and avoid duplicate labels if icon/value already provides context.
+
+### 8.2 Modal pattern
 Backdrop:
 - `fixed inset-0 z-[120]`
-- `bg-black/55 backdrop-blur-sm`
-- `p-4 sm:p-6`
+- `bg-black/55 backdrop-blur-md`
 
 Dialog:
-- `w-full max-w-2xl` (or task-fit width)
-- `rounded-2xl` or `rounded-3xl`
-- `bg-white/95 dark:bg-gray-900/95`
+- `rounded-2xl`
 - `border border-black/10 dark:border-white/10`
+- `bg-white/95 dark:bg-gray-900/95`
 - `shadow-sm`
-- `max-h-[88vh] overflow-y-auto`
 
 Accessibility baseline:
-- `role="dialog"`, `aria-modal="true"`, `aria-labelledby`
-- `Escape` closes modal
-- Focused controls are visibly distinct
-
-### 5.3 Inline Feedback Pattern
-- Use contextual inline message blocks for `info/success/error`.
-- Never rely on color alone; pair with clear wording.
+- `role="dialog"`
+- `aria-modal="true"`
+- `aria-labelledby`
+- Escape closes modal
 
 ---
 
-## 6) Shadows, Motion, and Effects
+## 9) Responsive Contract
 
-### 6.1 Shadows
-- Base: `shadow-sm` only.
-- Hover/focus elevations can use `shadow-md` sparingly.
-- Avoid `shadow-lg`, `shadow-xl`, `shadow-2xl` in everyday UI.
-
-### 6.2 Motion
-- Motion should support comprehension, never distract.
-- Standard transitions:
-  - `transition-all duration-200`
-- Entry animations (when used) must be subtle:
-  - low-distance fade/translate patterns.
-
----
-
-## 7) Responsive Rules (mobile-first)
-
-- Build mobile first; scale upward with `sm/md/lg/xl`.
-- Never allow horizontal scroll in primary app screens.
-- Long text inside rows must be truncatable:
+- Mobile-first always.
+- No horizontal scroll in core flows.
+- Row layouts with long text must use:
   - container: `min-w-0 flex-1`
   - text: `truncate`
-- On constrained widths:
-  - primary info on first line
-  - controls move to second line if needed
-  - action buttons must remain reachable and visible
+- On small screens, controls can wrap into a second line while preserving action visibility.
 
 ---
 
-## 8) Dark Mode Contract
+## 10) AI Coding Directives (Absolute)
 
-- Respect explicit app theme via `data-theme`.
-- When explicit theme is absent, fallback to `prefers-color-scheme`.
-- Maintain AA-like contrast in public and private surfaces.
-- Do not use low-contrast text on saturated backgrounds.
+When generating UI code for LGA, the assistant must:
+1. Use Tailwind utilities first; avoid ad-hoc CSS unless unavoidable.
+2. Follow this document as source of truth.
+3. Enforce typography and contrast rules (including 4.5:1 in Dark Mode).
+4. Use skeletons for loading blocks (`animate-pulse`).
+5. Apply premium micro-hover behavior on key interactive elements.
+6. Build empty/error states with actionable guidance.
+7. Keep progressive disclosure and low cognitive load as default behavior.
 
----
-
-## 9) AI Coding Directives (strict)
-
-When generating UI code for LGA:
-
-1. **Tailwind-first**
-- Prefer Tailwind utility classes for new UI work.
-- Do not introduce ad-hoc CSS files unless there is a clear system-level reason.
-
-2. **Use semantic primitives**
-- Reuse the card/button/text/border patterns defined above.
-- Keep visual language consistent across modules.
-
-3. **Interaction baseline required**
-- Every clickable element must include `cursor-pointer transition-all duration-200`.
-- Disabled states must include `disabled:cursor-not-allowed` and reduced opacity.
-
-4. **Minimal visual noise**
-- Avoid rainbow palettes for structural elements.
-- Use color only for action hierarchy and semantic status.
-
-5. **Progressive disclosure by default**
-- Advanced options belong in secondary zones (modal, drawer, expandable sections).
-- Keep the main event view focused on high-frequency tasks.
-
-6. **No regressions in responsiveness**
-- Ensure mobile layout is tested as first-class, not as fallback.
-- Avoid fixed-width controls that push actions off-screen.
-
-7. **Accessibility baseline is mandatory**
-- Proper ARIA attributes in modals/menus.
-- Keyboard operability for key workflows.
-- Meaningful labels and focus-visible behavior.
-
----
-
-## 10) PR Review Checklist (UI)
-
-Before merging UI changes, verify:
-- [ ] Uses card/button/text primitives from this file.
-- [ ] No heavy shadows or random badge colors.
-- [ ] No horizontal scroll on mobile or desktop.
-- [ ] Interactive states include cursor + transition + disabled handling.
-- [ ] Dark mode contrast remains readable.
-- [ ] Advanced settings are progressively disclosed.
-- [ ] No duplicated labels or redundant visual metadata.
-
----
-
-## 11) Scope Note
-
-There is legacy CSS in `frontend/src/styles.css`.  
-For new dashboard/module work, use this Tailwind contract as the source of truth and avoid expanding legacy custom styles.
