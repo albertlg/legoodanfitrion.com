@@ -2136,5 +2136,6 @@
   "landing_demo_poll_pending_date": "Pendent de votació",
   "landing_demo_range_start": "Arribada",
   "landing_demo_range_end": "Tornada",
-  "landing_demo_range_nights_suffix": " nits"
+  "landing_demo_range_nights_suffix": " nits",
+  "landing_demo_notes_title": "Notes de l'esdeveniment"
 }

@@ -2136,5 +2136,6 @@
   "landing_demo_poll_pending_date": "Awaiting vote",
   "landing_demo_range_start": "Arrival",
   "landing_demo_range_end": "Return",
-  "landing_demo_range_nights_suffix": " nights"
+  "landing_demo_range_nights_suffix": " nights",
+  "landing_demo_notes_title": "Event notes"
 }

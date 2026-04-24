@@ -12,7 +12,7 @@ const STATUS_CONFIG = {
     declined: { iconName: "close", className: "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700" }
 };
 
-export function GuestRosterRow({ name, hint, status, statusLabel, plusOne = false, avatarUrl }) {
+export function GuestRosterRow({ name, hint, status, statusLabel, plusOne = false, avatarUrl, actions }) {
     const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
     return (
         <li className="flex items-center gap-3 px-4 py-3">
@@ -35,6 +35,11 @@ export function GuestRosterRow({ name, hint, status, statusLabel, plusOne = fals
                     <Icon name={statusConfig.iconName} className="w-3 h-3" />
                     {statusLabel}
                 </span>
+            ) : null}
+            {actions ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                    {actions}
+                </div>
             ) : null}
         </li>
     );

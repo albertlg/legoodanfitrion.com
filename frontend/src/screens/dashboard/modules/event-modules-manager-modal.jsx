@@ -1,6 +1,7 @@
 import React from "react";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
+import { ModuleToggleRow } from "../../../components/dashboard/presentational/ModuleToggleRow";
 
 function toSafeKey(value) {
   return String(value || "").trim();
@@ -58,39 +59,16 @@ export function EventModulesManagerModal({
         <div className="flex flex-col gap-3">
           {toggleRows.map((moduleToggle) => {
             const moduleKey = toSafeKey(moduleToggle.key);
-            const toggleId = `event-module-toggle-modal-${moduleKey}`;
-            const isEnabled = Boolean(localToggles?.[moduleKey]);
-
             return (
-              <article
+              <ModuleToggleRow
                 key={moduleKey}
-                className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden p-3 flex flex-col gap-2"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <label
-                    htmlFor={toggleId}
-                    className="flex flex-col gap-1 min-w-0 cursor-pointer transition-all duration-200"
-                  >
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">{t(moduleToggle.labelKey)}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{t(moduleToggle.hintKey)}</span>
-                  </label>
-                  <input
-                    id={toggleId}
-                    type="checkbox"
-                    checked={isEnabled}
-                    onChange={(event) => {
-                      handleToggle(moduleKey, event.target.checked);
-                    }}
-                    className="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0 cursor-pointer transition-all duration-200"
-                  />
-                </div>
-
-                {!isEnabled ? (
-                  <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 shadow-sm p-2.5">
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t(moduleToggle.hintKey)}</p>
-                  </div>
-                ) : null}
-              </article>
+                moduleKey={moduleKey}
+                label={t(moduleToggle.labelKey)}
+                hint={t(moduleToggle.hintKey)}
+                isEnabled={Boolean(localToggles?.[moduleKey])}
+                onToggle={handleToggle}
+                idPrefix="event-module-toggle-modal"
+              />
             );
           })}
         </div>

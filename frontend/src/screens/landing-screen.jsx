@@ -7,6 +7,7 @@ import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
 import { SEO } from "../components/seo"; // 🚀 Importamos el SEO en lugar del Helmet
 import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
+import { ModuleShowcaseCard } from "../components/landing/ModuleShowcaseCard";
 
 const NAV_ITEMS = [
   { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
@@ -738,7 +739,11 @@ function LandingScreen({
                 </div>
               </div>
 
-              <figure className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
+              <div className="w-full flex justify-center mt-16 md:mt-20">
+                <ModuleShowcaseCard t={t} />
+              </div>
+
+              <figure className="w-full mt-12 md:mt-16 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
                 <img
                   src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
                   alt={t("landing_hero_narrative")}

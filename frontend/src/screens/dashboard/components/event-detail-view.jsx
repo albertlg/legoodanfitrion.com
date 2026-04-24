@@ -4,6 +4,7 @@ import { toBlob } from "html-to-image";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
+import { EventKpiTile } from "../../../components/dashboard/presentational/EventKpiTile";
 import { HostPlanView } from "./host-plan-view";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
@@ -2604,22 +2605,10 @@ export function EventDetailView({
       {/* KPIs Row */}
       {selectedEventDetail && eventsWorkspace === "detail" ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("event_detail_total_invites")}</p>
-            <p className="text-2xl font-black text-gray-900 dark:text-white leading-none">{selectedEventDetailInvitations.length}</p>
-          </article>
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_yes")}</p>
-            <p className="text-2xl font-black text-green-600 dark:text-green-400 leading-none">{selectedEventDetailStatusCounts.yes}</p>
-          </article>
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_pending")}</p>
-            <p className="text-2xl font-black text-yellow-600 dark:text-yellow-400 leading-none">{selectedEventDetailStatusCounts.pending}</p>
-          </article>
-          <article className="bg-white/40 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-4 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status_no")}</p>
-            <p className="text-2xl font-black text-red-600 dark:text-red-400 leading-none">{selectedEventDetailStatusCounts.no}</p>
-          </article>
+          <EventKpiTile label={t("event_detail_total_invites")} value={selectedEventDetailInvitations.length} />
+          <EventKpiTile label={t("status_yes")} value={selectedEventDetailStatusCounts.yes} valueClassName="text-green-600 dark:text-green-400" />
+          <EventKpiTile label={t("status_pending")} value={selectedEventDetailStatusCounts.pending} valueClassName="text-yellow-600 dark:text-yellow-400" />
+          <EventKpiTile label={t("status_no")} value={selectedEventDetailStatusCounts.no} valueClassName="text-red-600 dark:text-red-400" />
         </div>
       ) : null}
 
