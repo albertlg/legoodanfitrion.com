@@ -2121,5 +2121,20 @@
   "landing_demo_budget_title": "Pressupost",
   "landing_demo_status_confirmed": "Confirmat",
   "landing_demo_status_pending": "Pendent",
-  "landing_demo_status_declined": "No assisteix"
+  "landing_demo_status_declined": "No assisteix",
+  "landing_demo_scenarios_label": "Escenaris de la demo",
+  "landing_demo_scenario_single_date": "Sopar social",
+  "landing_demo_scenario_date_range": "Escapada",
+  "landing_demo_scenario_voting_poll": "Votació",
+  "landing_demo_scenario_corporate": "Esdeveniment d'empresa",
+  "landing_demo_state_confirming": "Confirmant",
+  "landing_demo_state_voting": "Votació oberta",
+  "landing_demo_state_finalized": "Finalitzat",
+  "landing_demo_poll_options_title": "Propostes de data",
+  "landing_demo_poll_votes_suffix": "vots",
+  "landing_demo_poll_leading": "Favorita",
+  "landing_demo_poll_pending_date": "Pendent de votació",
+  "landing_demo_range_start": "Arribada",
+  "landing_demo_range_end": "Tornada",
+  "landing_demo_range_nights_suffix": " nits"
 }

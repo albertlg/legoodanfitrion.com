@@ -2121,5 +2121,20 @@
   "landing_demo_budget_title": "Presupuesto",
   "landing_demo_status_confirmed": "Confirmado",
   "landing_demo_status_pending": "Pendiente",
-  "landing_demo_status_declined": "No asiste"
+  "landing_demo_status_declined": "No asiste",
+  "landing_demo_scenarios_label": "Escenarios de la demo",
+  "landing_demo_scenario_single_date": "Cena social",
+  "landing_demo_scenario_date_range": "Escapada",
+  "landing_demo_scenario_voting_poll": "Votación",
+  "landing_demo_scenario_corporate": "Evento empresa",
+  "landing_demo_state_confirming": "Confirmando",
+  "landing_demo_state_voting": "Votación abierta",
+  "landing_demo_state_finalized": "Finalizado",
+  "landing_demo_poll_options_title": "Propuestas de fecha",
+  "landing_demo_poll_votes_suffix": "votos",
+  "landing_demo_poll_leading": "Favorita",
+  "landing_demo_poll_pending_date": "Pendiente de votación",
+  "landing_demo_range_start": "Llegada",
+  "landing_demo_range_end": "Vuelta",
+  "landing_demo_range_nights_suffix": " noches"
 }
