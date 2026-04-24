@@ -718,7 +718,7 @@ function LandingScreen({
 
               <figure className="w-full mt-16 md:mt-24 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
                 <img
-                  src="https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1600&q=80"
+                  src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
                   alt={t("landing_hero_narrative")}
                   className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-[1.02]"
                   loading="eager"
@@ -726,6 +726,40 @@ function LandingScreen({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-50 dark:from-[#0A0D14] via-transparent to-transparent pointer-events-none"></div>
               </figure>
+            </section>
+
+            <section id="dos-mundos" className="py-20 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
+              <div className="text-center max-w-3xl mb-12">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">{t("landing_two_worlds_eyebrow")}</p>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-5 leading-tight text-balance">{t("landing_two_worlds_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_two_worlds_subtitle")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 w-full items-stretch">
+                <article className="relative rounded-3xl p-7 md:p-8 flex flex-col backdrop-blur-xl bg-white/70 dark:bg-gray-900/60 border border-black/10 dark:border-white/10 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pink-400 to-orange-400"></div>
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-pink-500 to-orange-400 text-white flex items-center justify-center shadow-sm">
+                      <Icon name="star" className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">{t("landing_two_worlds_b2c_title")}</h3>
+                  </div>
+                  <p className="text-base text-gray-700 dark:text-gray-200 leading-relaxed mb-5">{t("landing_two_worlds_b2c_desc")}</p>
+                  <p className="mt-auto text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 pt-5 border-t border-black/5 dark:border-white/10">{t("landing_two_worlds_b2c_examples")}</p>
+                </article>
+
+                <article className="relative rounded-3xl p-7 md:p-8 flex flex-col backdrop-blur-xl bg-white/70 dark:bg-gray-900/60 border border-black/10 dark:border-white/10 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                      <Icon name="activity" className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">{t("landing_two_worlds_b2b_title")}</h3>
+                  </div>
+                  <p className="text-base text-gray-700 dark:text-gray-200 leading-relaxed mb-5">{t("landing_two_worlds_b2b_desc")}</p>
+                  <p className="mt-auto text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 pt-5 border-t border-black/5 dark:border-white/10">{t("landing_two_worlds_b2b_examples")}</p>
+                </article>
+              </div>
             </section>
 
             <section id="caracteristicas" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">

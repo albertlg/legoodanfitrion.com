@@ -20,7 +20,8 @@
       "Bash(node --check scripts/prerender.mjs)",
       "Bash(node scripts/prerender.mjs)",
       "Bash(echo \"EXITCODE=$?\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(awk -F: '{print $1}')"
     ]
   }
 }
