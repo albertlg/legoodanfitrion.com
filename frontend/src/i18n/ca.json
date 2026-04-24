@@ -2112,5 +2112,14 @@
   "landing_two_worlds_b2c_examples": "Casaments · Aniversaris · Barbacoes · Escapades · Sopars entre amics",
   "landing_two_worlds_b2b_title": "Per al teu equip i empresa",
   "landing_two_worlds_b2b_desc": "Organitza esdeveniments corporatius sense fulls de càlcul interminables. Seguiment en temps real, priorització del correu professional i traçabilitat completa.",
-  "landing_two_worlds_b2b_examples": "Team buildings · Offsites · All-hands · Sopars d'empresa · Kick-offs"
+  "landing_two_worlds_b2b_examples": "Team buildings · Offsites · All-hands · Sopars d'empresa · Kick-offs",
+  "landing_demo_label_invited": "Convidats",
+  "landing_demo_label_confirmed": "Confirmats",
+  "landing_demo_label_pending": "Pendents",
+  "landing_demo_label_allergies": "Al·lèrgies",
+  "landing_demo_guest_list_title": "Llista d'assistència",
+  "landing_demo_budget_title": "Pressupost",
+  "landing_demo_status_confirmed": "Confirmat",
+  "landing_demo_status_pending": "Pendent",
+  "landing_demo_status_declined": "No assisteix"
 }

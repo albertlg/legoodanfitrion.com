@@ -2112,5 +2112,14 @@
   "landing_two_worlds_b2c_examples": "Matrimoni · Compleanni · Barbecue · Gite · Cene tra amici",
   "landing_two_worlds_b2b_title": "Per il tuo team e azienda",
   "landing_two_worlds_b2b_desc": "Organizza eventi aziendali senza fogli di calcolo infiniti. Monitoraggio in tempo reale, priorità email professionale e tracciabilità completa.",
-  "landing_two_worlds_b2b_examples": "Team building · Offsite · All-hands · Cene aziendali · Kick-off"
+  "landing_two_worlds_b2b_examples": "Team building · Offsite · All-hands · Cene aziendali · Kick-off",
+  "landing_demo_label_invited": "Invitati",
+  "landing_demo_label_confirmed": "Confermati",
+  "landing_demo_label_pending": "In attesa",
+  "landing_demo_label_allergies": "Allergie",
+  "landing_demo_guest_list_title": "Lista invitati",
+  "landing_demo_budget_title": "Budget",
+  "landing_demo_status_confirmed": "Confermato",
+  "landing_demo_status_pending": "In attesa",
+  "landing_demo_status_declined": "Non partecipa"
 }

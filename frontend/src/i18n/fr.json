@@ -2112,5 +2112,14 @@
   "landing_two_worlds_b2c_examples": "Mariages · Anniversaires · Barbecues · Escapades · Dîners entre amis",
   "landing_two_worlds_b2b_title": "Pour votre équipe et entreprise",
   "landing_two_worlds_b2b_desc": "Organisez des événements d'entreprise sans tableurs sans fin. Suivi en temps réel, priorité à l'email professionnel et traçabilité complète.",
-  "landing_two_worlds_b2b_examples": "Team buildings · Offsites · All-hands · Dîners d'entreprise · Kick-offs"
+  "landing_two_worlds_b2b_examples": "Team buildings · Offsites · All-hands · Dîners d'entreprise · Kick-offs",
+  "landing_demo_label_invited": "Invités",
+  "landing_demo_label_confirmed": "Confirmés",
+  "landing_demo_label_pending": "En attente",
+  "landing_demo_label_allergies": "Allergies",
+  "landing_demo_guest_list_title": "Liste d'invités",
+  "landing_demo_budget_title": "Budget",
+  "landing_demo_status_confirmed": "Confirmé",
+  "landing_demo_status_pending": "En attente",
+  "landing_demo_status_declined": "N'assiste pas"
 }

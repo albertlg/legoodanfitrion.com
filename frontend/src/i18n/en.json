@@ -2112,5 +2112,14 @@
   "landing_two_worlds_b2c_examples": "Weddings · Birthdays · BBQs · Getaways · Dinners with friends",
   "landing_two_worlds_b2b_title": "For your team and company",
   "landing_two_worlds_b2b_desc": "Run corporate events without endless spreadsheets. Real-time tracking, professional email priority, and full traceability.",
-  "landing_two_worlds_b2b_examples": "Team buildings · Offsites · All-hands · Company dinners · Kick-offs"
+  "landing_two_worlds_b2b_examples": "Team buildings · Offsites · All-hands · Company dinners · Kick-offs",
+  "landing_demo_label_invited": "Invited",
+  "landing_demo_label_confirmed": "Confirmed",
+  "landing_demo_label_pending": "Pending",
+  "landing_demo_label_allergies": "Allergies",
+  "landing_demo_guest_list_title": "Guest list",
+  "landing_demo_budget_title": "Budget",
+  "landing_demo_status_confirmed": "Confirmed",
+  "landing_demo_status_pending": "Pending",
+  "landing_demo_status_declined": "Not attending"
 }

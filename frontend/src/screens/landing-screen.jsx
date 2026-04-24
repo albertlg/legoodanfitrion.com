@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -45,6 +45,43 @@ const COMPARE_ITEMS = [
   { key: "lga", iconName: "sparkle", accent: "blue", titleKey: "landing_compare_lga_title", descKey: "landing_compare_lga_desc", isLga: true }
 ];
 
+// 🚀 SEO/PERF: demo interactiva en chunk aparte (lazy). El bundle principal
+// de la landing no arrastra AvatarCircle, demo-events ni la UI del panel.
+const InteractiveDemo = lazy(() => import("../components/landing/InteractiveDemo"));
+
+function DemoSkeleton() {
+  return (
+    <div
+      className="w-full flex flex-col items-center animate-pulse"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div className="mb-6 h-10 w-72 rounded-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10" />
+      <div className="w-full max-w-3xl rounded-3xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-gray-900/50 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="px-6 py-3.5 border-b border-black/5 dark:border-white/5 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-black/10 dark:bg-white/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-black/10 dark:bg-white/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-black/10 dark:bg-white/10" />
+        </div>
+        <div className="p-6 md:p-8 flex flex-col gap-6">
+          <div className="h-6 w-3/4 rounded-lg bg-black/5 dark:bg-white/5" />
+          <div className="h-4 w-1/2 rounded bg-black/5 dark:bg-white/5" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-20 rounded-2xl bg-black/5 dark:bg-white/5" />
+            ))}
+          </div>
+          <div className="space-y-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-black/5 dark:bg-white/5" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LandingScreen({
   t,
   language,
@@ -73,6 +110,29 @@ function LandingScreen({
   const toastTimerRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFeaturesSectionInView, setIsFeaturesSectionInView] = useState(false);
+  const [shouldLoadDemo, setShouldLoadDemo] = useState(false);
+  const demoSentinelRef = useRef(null);
+
+  useEffect(() => {
+    if (shouldLoadDemo) return undefined;
+    if (typeof window === "undefined" || typeof IntersectionObserver === "undefined") {
+      setShouldLoadDemo(true);
+      return undefined;
+    }
+    const target = demoSentinelRef.current;
+    if (!target) return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoadDemo(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px 0px" }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [shouldLoadDemo]);
 
   const showToast = (text, type = "success") => {
     if (!text) {
@@ -855,6 +915,15 @@ function LandingScreen({
                 ))}
               </ol>
 
+              <div ref={demoSentinelRef} className="w-full mt-14 md:mt-16">
+                {shouldLoadDemo ? (
+                  <Suspense fallback={<DemoSkeleton />}>
+                    <InteractiveDemo t={t} language={language} />
+                  </Suspense>
+                ) : (
+                  <DemoSkeleton />
+                )}
+              </div>
             </section>
 
             <section id="alternativas" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
