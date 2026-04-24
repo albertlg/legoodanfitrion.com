@@ -56,7 +56,7 @@ function buildArticleSchema(post) {
         },
         "publisher": {
             "@type": "Organization",
-            "name": "LeGoodAnfitrion",
+            "name": "LeGoodAnfitrión",
             "logo": {
                 "@type": "ImageObject",
                 "url": `${DOMAIN}/android-chrome-512x512.png`

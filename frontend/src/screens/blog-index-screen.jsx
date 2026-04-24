@@ -77,7 +77,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
         "inLanguage": language,
         "publisher": {
             "@type": "Organization",
-            "name": "LeGoodAnfitrion",
+            "name": "LeGoodAnfitrión",
             "logo": {
                 "@type": "ImageObject",
                 "url": `${DOMAIN}/android-chrome-512x512.png`
@@ -98,6 +98,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                 description={t("blog_subtitle")}
                 language={language}
                 slug="blog"
+                image={`${DOMAIN}/android-chrome-512x512.png`}
             />
 
             <Helmet>
