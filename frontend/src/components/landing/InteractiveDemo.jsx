@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Icon } from "../icons";
-import { AvatarCircle } from "../avatar-circle";
+import { KpiTile } from "../dashboard/presentational/KpiTile";
+import { GuestRosterRow } from "../dashboard/presentational/GuestRosterRow";
 import { demoScenarios, pickLocalized } from "../../data/demo-events";
 
 function formatDateTime(iso, language) {
@@ -44,10 +45,10 @@ function formatCurrency(amount, currency, language) {
     }
 }
 
-const STATUS_CONFIG = {
-    confirmed: { key: "landing_demo_status_confirmed", iconName: "check", className: "bg-green-50 dark:bg-green-900/25 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800/40" },
-    pending: { key: "landing_demo_status_pending", iconName: "clock", className: "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/40" },
-    declined: { key: "landing_demo_status_declined", iconName: "close", className: "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700" }
+const GUEST_STATUS_LABEL_KEY = {
+    confirmed: "landing_demo_status_confirmed",
+    pending: "landing_demo_status_pending",
+    declined: "landing_demo_status_declined"
 };
 
 const STATE_CONFIG = {
@@ -56,23 +57,6 @@ const STATE_CONFIG = {
     landing_demo_state_finalized: { iconName: "check", className: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800/40" }
 };
 
-const STAT_ACCENTS = {
-    neutral: "bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/10 text-gray-900 dark:text-white",
-    confirmed: "bg-green-50 dark:bg-green-900/15 border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-300",
-    pending: "bg-amber-50 dark:bg-amber-900/15 border-amber-100 dark:border-amber-800/30 text-amber-700 dark:text-amber-400",
-    allergy: "bg-orange-50 dark:bg-orange-900/15 border-orange-100 dark:border-orange-800/30 text-orange-700 dark:text-orange-400"
-};
-
-function StatusBadge({ status, t }) {
-    const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-    return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap ${config.className}`}>
-            <Icon name={config.iconName} className="w-3 h-3" />
-            {t(config.key)}
-        </span>
-    );
-}
-
 function StateBadge({ stateKey, t }) {
     const config = STATE_CONFIG[stateKey] || STATE_CONFIG.landing_demo_state_confirming;
     return (
@@ -80,17 +64,6 @@ function StateBadge({ stateKey, t }) {
             <Icon name={config.iconName} className="w-3 h-3" />
             {t(stateKey)}
         </span>
-    );
-}
-
-function StatCard({ labelKey, value, accent, t }) {
-    return (
-        <div className={`rounded-2xl p-3 sm:p-4 flex flex-col min-w-0 border ${STAT_ACCENTS[accent] || STAT_ACCENTS.neutral}`}>
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1 truncate">
-                {t(labelKey)}
-            </span>
-            <span className="text-2xl sm:text-3xl font-black leading-none">{value}</span>
-        </div>
     );
 }
 
@@ -213,37 +186,6 @@ function BudgetPanel({ budget, language, t }) {
     );
 }
 
-function GuestListPanel({ event, t }) {
-    return (
-        <section>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
-                {t("landing_demo_guest_list_title")}
-            </p>
-            <ul className="flex flex-col divide-y divide-black/5 dark:divide-white/5 rounded-2xl border border-black/5 dark:border-white/10 bg-gray-50/60 dark:bg-black/20">
-                {event.guests.map((guest) => (
-                    <li key={guest.id} className="flex items-center gap-3 px-4 py-3">
-                        <AvatarCircle label={guest.name} size={32} />
-                        <div className="flex flex-col flex-1 min-w-0">
-                            <span className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                {guest.name}
-                                {guest.plusOne && (
-                                    <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                                        +1
-                                    </span>
-                                )}
-                            </span>
-                            <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 truncate">
-                                {guest.department || guest.allergy || "\u00A0"}
-                            </span>
-                        </div>
-                        <StatusBadge status={guest.status} t={t} />
-                    </li>
-                ))}
-            </ul>
-        </section>
-    );
-}
-
 export default function InteractiveDemo({ t, language }) {
     const [activeKind, setActiveKind] = useState(demoScenarios[0].kind);
     const event = useMemo(
@@ -341,14 +283,51 @@ export default function InteractiveDemo({ t, language }) {
                         <VotingPanel event={event} language={language} t={t} />
                     ) : (
                         <>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                <StatCard labelKey="landing_demo_label_invited" value={event.stats.invited} accent="neutral" t={t} />
-                                <StatCard labelKey="landing_demo_label_confirmed" value={event.stats.confirmed} accent="confirmed" t={t} />
-                                <StatCard labelKey="landing_demo_label_pending" value={event.stats.pending} accent="pending" t={t} />
-                                <StatCard labelKey="landing_demo_label_allergies" value={event.stats.allergies} accent="allergy" t={t} />
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <KpiTile
+                                    label={t("landing_demo_label_invited")}
+                                    value={event.stats.invited}
+                                    iconName="users"
+                                    accent="blue"
+                                />
+                                <KpiTile
+                                    label={t("landing_demo_label_confirmed")}
+                                    value={event.stats.confirmed}
+                                    iconName="check"
+                                    accent="green"
+                                    valueClassName="text-green-600 dark:text-green-400"
+                                />
+                                <KpiTile
+                                    label={t("landing_demo_label_pending")}
+                                    value={event.stats.pending}
+                                    iconName="clock"
+                                    accent="amber"
+                                />
+                                <KpiTile
+                                    label={t("landing_demo_label_allergies")}
+                                    value={event.stats.allergies}
+                                    iconName="utensils"
+                                    accent="orange"
+                                />
                             </div>
 
-                            <GuestListPanel event={event} t={t} />
+                            <section>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+                                    {t("landing_demo_guest_list_title")}
+                                </p>
+                                <ul className="flex flex-col divide-y divide-black/5 dark:divide-white/5 rounded-2xl border border-black/5 dark:border-white/10 bg-gray-50/60 dark:bg-black/20">
+                                    {event.guests.map((guest) => (
+                                        <GuestRosterRow
+                                            key={guest.id}
+                                            name={guest.name}
+                                            hint={guest.department || guest.allergy}
+                                            status={guest.status}
+                                            statusLabel={t(GUEST_STATUS_LABEL_KEY[guest.status] || GUEST_STATUS_LABEL_KEY.pending)}
+                                            plusOne={guest.plusOne}
+                                        />
+                                    ))}
+                                </ul>
+                            </section>
                         </>
                     )}
 

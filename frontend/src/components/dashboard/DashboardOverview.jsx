@@ -1,6 +1,7 @@
 import { Icon } from "../icons";
 import { AvatarCircle } from "../avatar-circle";
 import { HostChecklistCard } from "./HostChecklistCard";
+import { KpiTile } from "./presentational/KpiTile";
 import { formatEventDateDisplay, interpolateText as interpolateTemplate } from "../../lib/formatters";
 
 function DashboardOverviewSkeleton({ t }) {
@@ -205,126 +206,39 @@ export function DashboardOverview({
 
             {/* --- AQUÍ EMPIEZA TU CÓDIGO ORIGINAL INTACTO --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-
-                {/* TARJETA 1: EVENTOS (AZUL) */}
-                <article
-                    className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2rem] border border-black/5 dark:border-white/10 shadow-sm p-6 flex flex-col gap-4 relative overflow-hidden group hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/50"
-                    tabIndex={0}
-                    role="button"
+                <KpiTile
+                    label={t("kpi_events")}
+                    value={events.length}
+                    hint={latestEventPreview[0]?.meta || t("kpi_latest_events")}
+                    iconName="calendar"
+                    accent="blue"
                     onClick={() => openWorkspace("events", "latest")}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openWorkspace("events", "latest");
-                        }
-                    }}
-                >
-                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mt-2">
-                            {t("kpi_events")}
-                        </p>
-                        <div className="p-3 bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
-                            <Icon name="calendar" className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{events.length}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 truncate font-medium">
-                            {latestEventPreview[0]?.meta || t("kpi_latest_events")}
-                        </p>
-                    </div>
-                </article>
-
-                {/* TARJETA 2: INVITADOS (PÚRPURA) */}
-                <article
-                    className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2rem] border border-black/5 dark:border-white/10 shadow-sm p-6 flex flex-col gap-4 relative overflow-hidden group hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer outline-none focus:ring-2 focus:ring-purple-500/50"
-                    tabIndex={0}
-                    role="button"
+                />
+                <KpiTile
+                    label={t("kpi_guests")}
+                    value={guests.length}
+                    hint={latestGuestPreview[0]?.main || t("kpi_latest_guests")}
+                    iconName="user"
+                    accent="purple"
                     onClick={() => openWorkspace("guests", "latest")}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openWorkspace("guests", "latest");
-                        }
-                    }}
-                >
-                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mt-2">
-                            {t("kpi_guests")}
-                        </p>
-                        <div className="p-3 bg-purple-500/10 text-purple-600 dark:bg-purple-400/10 dark:text-purple-400 rounded-2xl group-hover:scale-110 transition-transform">
-                            <Icon name="user" className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{guests.length}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 truncate font-medium">
-                            {latestGuestPreview[0]?.main || t("kpi_latest_guests")}
-                        </p>
-                    </div>
-                </article>
-
-                {/* TARJETA 3: INVITACIONES (NARANJA) */}
-                <article
-                    className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2rem] border border-black/5 dark:border-white/10 shadow-sm p-6 flex flex-col gap-4 relative overflow-hidden group hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer outline-none focus:ring-2 focus:ring-orange-500/50"
-                    tabIndex={0}
-                    role="button"
+                />
+                <KpiTile
+                    label={t("latest_invitations_title")}
+                    value={invitations.length}
+                    hint={pendingInvitationPreview[0]?.main || `${t("kpi_pending_rsvp")}: ${pendingInvites}`}
+                    iconName="mail"
+                    accent="orange"
                     onClick={() => openWorkspace("invitations", "latest")}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openWorkspace("invitations", "latest");
-                        }
-                    }}
-                >
-                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-orange-500/5 rounded-full blur-2xl group-hover:bg-orange-500/10 transition-colors"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mt-2">
-                            {t("latest_invitations_title")}
-                        </p>
-                        <div className="p-3 bg-orange-500/10 text-orange-600 dark:bg-orange-400/10 dark:text-orange-400 rounded-2xl group-hover:scale-110 transition-transform">
-                            <Icon name="mail" className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{invitations.length}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 truncate font-medium">
-                            {pendingInvitationPreview[0]?.main || `${t("kpi_pending_rsvp")}: ${pendingInvites}`}
-                        </p>
-                    </div>
-                </article>
-
-                {/* TARJETA 4: RSVP RATE (VERDE) */}
-                <article
-                    className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2rem] border border-black/5 dark:border-white/10 shadow-sm p-6 flex flex-col gap-4 relative overflow-hidden group hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer outline-none focus:ring-2 focus:ring-green-500/50"
-                    tabIndex={0}
-                    role="button"
+                />
+                <KpiTile
+                    label={t("kpi_answered_rsvp")}
+                    value={`${respondedInvitesRate}%`}
+                    hint={answeredInvitationPreview[0]?.main || `${t("kpi_answered_rsvp")}: ${respondedInvites}`}
+                    iconName="check"
+                    accent="green"
+                    valueClassName="text-green-600 dark:text-green-400"
                     onClick={() => openWorkspace("invitations", "latest")}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openWorkspace("invitations", "latest");
-                        }
-                    }}
-                >
-                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-colors"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mt-2">
-                            {t("kpi_answered_rsvp")}
-                        </p>
-                        <div className="p-3 bg-green-500/10 text-green-600 dark:bg-green-400/10 dark:text-green-400 rounded-2xl group-hover:scale-110 transition-transform">
-                            <Icon name="check" className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-4xl font-black text-green-600 dark:text-green-400 tracking-tight">{respondedInvitesRate}%</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 truncate font-medium">
-                            {answeredInvitationPreview[0]?.main || `${t("kpi_answered_rsvp")}: ${respondedInvites}`}
-                        </p>
-                    </div>
-                </article>
+                />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-8">

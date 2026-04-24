@@ -148,50 +148,12 @@ function LandingScreen({
     }, 3600);
   };
 
-  const [activeDemoTab, setActiveDemoTab] = useState(0);
-  const [mockLinkCopied, setMockLinkCopied] = useState(false);
-
-  const handleMockCopy = () => {
-    trackEvent("demo_invite_link_copied", { template_index: activeDemoTab });
-    setMockLinkCopied(true);
-    setTimeout(() => setMockLinkCopied(false), 2000);
-  };
-
-  const DEMO_TEMPLATES = [
-    {
-      tabKey: "landing_demo_tab_1",
-      title: t("landing_demo_evt1_title"),
-      date: t("landing_demo_evt1_date"),
-      location: t("landing_demo_evt1_loc"),
-      stats: { guests: 18, confirmed: 15, allergies: 2 },
-      color: "blue"
-    },
-    {
-      tabKey: "landing_demo_tab_2",
-      title: t("landing_demo_evt2_title"),
-      date: t("landing_demo_evt2_date"),
-      location: t("landing_demo_evt2_loc"),
-      stats: { guests: 85, confirmed: 72, allergies: 6 },
-      color: "purple"
-    },
-    {
-      tabKey: "landing_demo_tab_3",
-      title: t("landing_demo_evt3_title"),
-      date: t("landing_demo_evt3_date"),
-      location: t("landing_demo_evt3_loc"),
-      stats: { guests: 42, confirmed: 38, allergies: 4 },
-      color: "green"
-    }
-  ];
-
   const pageMode =
     currentPath === "/pricing"
       ? "pricing"
       : currentPath === "/contact"
         ? "contact"
         : "home";
-
-  const activeDemo = DEMO_TEMPLATES[activeDemoTab];
 
   const scrollToSection = useCallback((sectionId) => {
     if (typeof document === "undefined") {
@@ -914,16 +876,6 @@ function LandingScreen({
                   </li>
                 ))}
               </ol>
-
-              <div ref={demoSentinelRef} className="w-full mt-14 md:mt-16">
-                {shouldLoadDemo ? (
-                  <Suspense fallback={<DemoSkeleton />}>
-                    <InteractiveDemo t={t} language={language} />
-                  </Suspense>
-                ) : (
-                  <DemoSkeleton />
-                )}
-              </div>
             </section>
 
             <section id="alternativas" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
@@ -985,92 +937,14 @@ function LandingScreen({
                 <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_demo_subtitle")}</p>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-2 mb-8 bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl md:rounded-full">
-                {DEMO_TEMPLATES.map((template, index) => {
-                  const isActive = activeDemoTab === index;
-                  return (
-                    <button
-                      key={index}
-                      className={`px-5 py-2.5 rounded-xl md:rounded-full text-sm font-bold transition-all outline-none focus:ring-2 focus:ring-${template.color}-500/50 ${isActive
-                        ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-md scale-105"
-                        : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
-                        }`}
-                      onClick={() => {
-                        setActiveDemoTab(index);
-                        trackEvent("demo_template_selected", { template_index: index, template_name: template.tabKey });
-                      }}
-                      aria-pressed={isActive}
-                    >
-                      {t(template.tabKey)}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="w-full max-w-3xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-2xl border border-black/10 dark:border-white/10 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="px-6 py-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-red-400/80"></div>
-                      <div className="w-3 h-3 rounded-full bg-yellow-400/80"></div>
-                      <div className="w-3 h-3 rounded-full bg-green-400/80"></div>
-                    </div>
-                    <span className="text-xs font-bold text-gray-500 dark:text-gray-300 tracking-wider">LeGoodAnfitrión Panel</span>
-                  </div>
-                </div>
-
-                <div key={activeDemoTab} className="p-5 md:p-10 animate-in fade-in zoom-in-95 duration-300">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
-                    <div>
-                      <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-3">
-                        {activeDemo.title}
-                      </h2>
-                      <div className="flex flex-wrap items-center gap-3 text-sm font-medium text-gray-600 dark:text-gray-400">
-                        <span className="flex items-center gap-1.5"><Icon name="calendar" className="w-4 h-4 shrink-0" /> {activeDemo.date}</span>
-                        <span className="flex items-center gap-1.5"><Icon name="location" className="w-4 h-4 shrink-0" /> {activeDemo.location}</span>
-                      </div>
-                    </div>
-                    <span className={`w-max self-start md:self-center px-3 py-1 bg-${activeDemo.color}-100 text-${activeDemo.color}-800 dark:bg-${activeDemo.color}-900/30 dark:text-${activeDemo.color}-400 rounded-lg text-xs font-bold uppercase tracking-wider border border-${activeDemo.color}-200 dark:border-${activeDemo.color}-800/30`}>
-                      {t("landing_demo_mock_status_active")}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8 md:mb-10">
-                    <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-3 sm:p-4 border border-black/5 dark:border-white/5 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
-                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-300 mb-1 w-full truncate">{t("landing_demo_mock_guests")}</p>
-                      <p className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">{activeDemo.stats.guests}</p>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-3 sm:p-4 border border-green-100 dark:border-green-800/30 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
-                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400 mb-1 w-full truncate">{t("landing_demo_mock_confirmed")}</p>
-                      <p className="text-2xl sm:text-3xl font-black text-green-700 dark:text-green-400 flex items-center justify-center sm:justify-start gap-1 sm:gap-2">
-                        {activeDemo.stats.confirmed} <Icon name="check" className="w-4 h-4 sm:w-5 sm:h-5 hidden sm:block" />
-                      </p>
-                    </div>
-                    <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-3 sm:p-4 border border-orange-100 dark:border-orange-800/30 min-w-0 flex flex-col items-center sm:items-start text-center sm:text-left">
-                      <p className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 mb-1 w-full truncate">{t("landing_demo_mock_allergies")}</p>
-                      <p className="text-2xl sm:text-3xl font-black text-orange-700 dark:text-orange-400">{activeDemo.stats.allergies}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-center gap-3 md:gap-4 pt-6 border-t border-black/5 dark:border-white/5">
-                    <button
-                      className="w-full sm:w-auto flex-1 bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-5 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2 outline-none focus:ring-2 focus:ring-blue-500/50"
-                      onClick={handleMockCopy}
-                    >
-                      {mockLinkCopied ? (
-                        <><Icon name="check" className="w-4 h-4 text-green-500" /> <span className="text-green-600 dark:text-green-400">{t("landing_demo_mock_copied")}</span></>
-                      ) : (
-                        <><Icon name="link" className="w-4 h-4" /> {t("landing_demo_mock_copy_link")}</>
-                      )}
-                    </button>
-                    <button
-                      className="w-full sm:w-auto flex-1 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 outline-none focus:ring-2 focus:ring-blue-500/50"
-                      onClick={primaryCta.onClick}
-                    >
-                      <Icon name="sparkle" className="w-4 h-4" /> {t("landing_demo_mock_cta")}
-                    </button>
-                  </div>
-                </div>
+              <div ref={demoSentinelRef} className="w-full">
+                {shouldLoadDemo ? (
+                  <Suspense fallback={<DemoSkeleton />}>
+                    <InteractiveDemo t={t} language={language} />
+                  </Suspense>
+                ) : (
+                  <DemoSkeleton />
+                )}
               </div>
             </section>
 
