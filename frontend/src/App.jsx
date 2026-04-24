@@ -161,14 +161,18 @@ function App() {
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
 
   // 🚀 SEO: Sincronización maestra. La URL es la única jefa en rutas públicas.
+  // OJO: este efecto debe reaccionar SOLO a cambios de URL (route.urlLang),
+  // nunca a cambios del state `language`. Si incluimos `language` en las deps,
+  // durante handleLanguageChange se produce una race entre setLanguage(nuevo)
+  // y navigate(nuevaURL) que puede resetear el idioma al valor anterior.
   useEffect(() => {
     if (route.kind !== "app" && route.kind !== "login" && route.kind !== "rsvp") {
-      // Si el idioma de la URL no coincide con el de la app, lo actualizamos.
       if (language !== route.urlLang) {
         setLanguage(route.urlLang);
       }
     }
-  }, [route.urlLang, route.kind, language]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.urlLang, route.kind]);
 
   const syncLanguagePreference = useCallback(
     async (nextLanguage) => {

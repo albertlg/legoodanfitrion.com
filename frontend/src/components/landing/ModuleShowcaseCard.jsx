@@ -78,12 +78,11 @@ export function ModuleShowcaseCard({ t }) {
                         key={moduleMeta.key}
                         moduleKey={moduleMeta.key}
                         label={t(moduleMeta.labelKey)}
-                        hint={null}
+                        hint={t(moduleMeta.hintKey)}
                         isEnabled={Boolean(toggles[moduleMeta.key])}
                         onToggle={handleToggle}
                         idPrefix="hero-module-toggle"
                         compact
-                        showEmptyHint={false}
                     />
                 ))}
             </div>

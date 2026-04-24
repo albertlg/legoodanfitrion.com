@@ -124,12 +124,35 @@ function outputPathForRoute(route) {
     return join(DIST_DIR, clean, "index.html");
 }
 
+// Crea un contexto de navegador aislado para cada ruta: sin localStorage,
+// cookies o service workers compartidos entre ellas. Evita la contaminación
+// de idioma (legood-language persistía entre rutas y alteraba el HTML SSG
+// de la siguiente ruta según el locale previo).
+async function createIsolatedContext(browser) {
+    if (typeof browser.createBrowserContext === "function") {
+        return browser.createBrowserContext();
+    }
+    if (typeof browser.createIncognitoBrowserContext === "function") {
+        return browser.createIncognitoBrowserContext();
+    }
+    return null;
+}
+
 async function renderRoute(browser, route) {
-    const page = await browser.newPage();
+    const context = await createIsolatedContext(browser);
+    const page = context ? await context.newPage() : await browser.newPage();
     try {
         await page.setViewport({ width: 1280, height: 800 });
         const url = `http://127.0.0.1:${PORT}${route}`;
         await page.goto(url, { waitUntil: "domcontentloaded", timeout: ROUTE_TIMEOUT_MS });
+
+        // Cinturón y tirantes: aunque el contexto sea aislado, limpiamos
+        // explícitamente localStorage + sessionStorage por si algún loader
+        // o módulo ya ha escrito antes de que termine la hidratación.
+        await page.evaluate(() => {
+            try { window.localStorage.clear(); } catch { /* ignore */ }
+            try { window.sessionStorage.clear(); } catch { /* ignore */ }
+        });
 
         await page.waitForFunction(() => {
             const rootEl = document.getElementById("root");
@@ -146,6 +169,9 @@ async function renderRoute(browser, route) {
         return { ok: false, reason: err.message };
     } finally {
         try { await page.close(); } catch { /* ignore */ }
+        if (context) {
+            try { await context.close(); } catch { /* ignore */ }
+        }
     }
 }
 
