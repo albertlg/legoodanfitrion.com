@@ -992,6 +992,31 @@ function LandingScreen({
                   );
                 })}
               </div>
+
+              {(() => {
+                const blogPath = language === "es" ? "/blog" : `/${language}/blog`;
+                return (
+                  <div className="mt-10 md:mt-12 rounded-2xl border border-black/5 dark:border-white/10 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-900/10 dark:via-gray-900/40 dark:to-purple-900/10 backdrop-blur-sm px-6 py-5 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-center sm:text-left shadow-sm">
+                    <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 text-white flex items-center justify-center shadow-sm">
+                      <Icon name="sparkle" className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm md:text-base text-gray-700 dark:text-gray-200 leading-relaxed text-balance">
+                      {t("landing_faq_blog_cta_text")}{" "}
+                      <a
+                        href={blogPath}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onNavigate(blogPath);
+                        }}
+                        className="font-black text-blue-600 dark:text-blue-400 underline decoration-2 underline-offset-4 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                      >
+                        {t("landing_faq_blog_cta_link")}
+                      </a>
+                      .
+                    </p>
+                  </div>
+                );
+              })()}
             </section>
 
             {renderWaitlistSection("landing-cta")}
