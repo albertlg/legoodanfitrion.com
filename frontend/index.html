@@ -12,29 +12,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0A0D14" />
 
-  <title>Software de Gestion de Eventos y RSVP | LeGoodAnfitrion</title>
-  <meta name="description"
-    content="Deja de perseguir confirmaciones por WhatsApp. Invita con un link y recibe RSVP automaticos. Gestion de invitados, division de gastos y juegos rompehielos." />
+  <!-- Fallback neutro: react-helmet-async lo sobreescribe con el locale activo -->
+  <title>LeGoodAnfitrión</title>
 
   <meta name="author" content="LeGoodAnfitrión" />
   <meta name="google-site-verification" content="mOWekRPruiW8qbOdyaYjf9jhw5SbKDqed2bkBuM5WAg" />
   <meta name="google-site-verification" content="noMua7CUOQz2hf8DKtN53UBdddK73dkeJeRGVSkTRsE" />
 
-  <!-- Open Graph fallback -->
-  <meta property="og:site_name" content="LeGoodAnfitrión" />
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Software de Gestion de Eventos y RSVP | LeGoodAnfitrion" />
-  <meta property="og:description"
-    content="Deja de perseguir confirmaciones por WhatsApp. Invita con un link y recibe RSVP automaticos." />
-  <meta property="og:url" content="https://legoodanfitrion.com" />
+  <!--
+    Meta tags dinámicos (description, og:*, twitter:*) los inyecta
+    react-helmet-async vía SEO.jsx con el contenido localizado por idioma.
+    No mantenemos fallbacks aquí porque Helmet APPEND-ea (no reemplaza) y
+    cualquier estático provoca duplicados que confunden a los crawlers.
+  -->
 
-  <!-- Twitter Card fallback -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Software de Gestion de Eventos y RSVP | LeGoodAnfitrion" />
-  <meta name="twitter:description"
-    content="Deja de perseguir confirmaciones por WhatsApp. Invita con un link y recibe RSVP automaticos." />
-
-  <!-- Schema.org: Organization -->
+  <!-- Schema.org: Organization (descripción en inglés neutro, multilingüe-friendly) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -48,7 +40,7 @@
       "width": 512,
       "height": 512
     },
-    "description": "Plataforma SaaS para anfitriones de eventos: gestion de invitados, RSVP, division de gastos y juegos rompehielos.",
+    "description": "Web platform for hosts and teams who organize personal and professional events: guest management with RSVP, expense splitting, and an AI event planner.",
     "email": "hello@legoodanfitrion.com",
     "contactPoint": {
       "@type": "ContactPoint",
@@ -67,7 +59,7 @@
     "name": "LeGoodAnfitrión",
     "applicationCategory": "LifestyleApplication",
     "operatingSystem": "Web",
-    "description": "Herramienta de organizacion de eventos con gestion de RSVP, division de gastos y juegos rompehielos para anfitriones.",
+    "description": "Web tool to organize personal and professional events: RSVP by unique link, guest profiles with allergies and preferences, expense splitting (Bizum), and an AI event planner for menus, shopping lists, and icebreakers.",
     "url": "https://legoodanfitrion.com",
     "author": {
       "@type": "Organization",
@@ -77,14 +69,15 @@
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "EUR",
-      "description": "Plan gratuito disponible"
+      "description": "Free during beta"
     },
     "featureList": [
-      "Gestion de RSVP automatica",
-      "Gestion de invitados con perfiles detallados",
-      "Division de gastos (Bizum/WhatsApp)",
-      "Juegos rompehielos con IA",
-      "Soporte multilingue (ES, EN, CA, FR, IT)"
+      "Automatic RSVP management",
+      "Guest profiles with allergies and preferences",
+      "Expense splitting (Bizum, shared, corporate budget)",
+      "AI event planner (menus, shopping lists, icebreakers)",
+      "Modular event types (personal and professional)",
+      "Multilingual support (ES, EN, CA, FR, IT)"
     ],
     "inLanguage": ["es", "en", "ca", "fr", "it"]
   }
@@ -127,7 +120,7 @@
 
 <body>
   <div id="root"></div>
-  <noscript>Necesitas activar JavaScript para usar LeGoodAnfitrión.</noscript>
+  <noscript>This site requires JavaScript to run. &mdash; LeGoodAnfitrión</noscript>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 
