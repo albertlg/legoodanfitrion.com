@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Icon } from "../icons";
 import { EventKpiTile } from "../dashboard/presentational/EventKpiTile";
 import { GuestRosterRow } from "../dashboard/presentational/GuestRosterRow";
@@ -72,6 +72,28 @@ const STATE_CONFIG = {
     landing_demo_state_voting: { iconName: "check", className: "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40" },
     landing_demo_state_finalized: { iconName: "check", className: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800/40" }
 };
+
+const SCENARIO_KIND_MAP = {
+    social: "single_date",
+    single_date: "single_date",
+    escapada: "date_range",
+    date_range: "date_range",
+    votacion: "voting_poll",
+    voting_poll: "voting_poll",
+    empresa: "corporate",
+    corporate: "corporate"
+};
+
+function normalizeScenarioKind(scenario) {
+    const key = String(scenario || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    return SCENARIO_KIND_MAP[key] || demoScenarios[0].kind;
+}
 
 function StateBadge({ stateKey, t }) {
     const config = STATE_CONFIG[stateKey] || STATE_CONFIG.landing_demo_state_confirming;
@@ -392,8 +414,14 @@ function MockAppShell({ t, children }) {
     );
 }
 
-export default function InteractiveDemo({ t, language }) {
-    const [activeKind, setActiveKind] = useState(demoScenarios[0].kind);
+export default function InteractiveDemo({ t, language, scenario }) {
+    const requestedKind = useMemo(() => normalizeScenarioKind(scenario), [scenario]);
+    const [activeKind, setActiveKind] = useState(requestedKind);
+
+    useEffect(() => {
+        setActiveKind(requestedKind);
+    }, [requestedKind]);
+
     const event = useMemo(
         () => demoScenarios.find((s) => s.kind === activeKind) || demoScenarios[0],
         [activeKind]

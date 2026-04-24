@@ -157,6 +157,7 @@ async function renderRoute(browser, route) {
         await page.waitForFunction(() => {
             const rootEl = document.getElementById("root");
             if (!rootEl || rootEl.children.length === 0) return false;
+            if (rootEl.textContent.trim() === "Cargando...") return false;
             return window.prerenderReady !== false;
         }, { timeout: ROUTE_TIMEOUT_MS, polling: 200 });
 
@@ -221,9 +222,16 @@ async function main() {
 
     let browser;
     try {
+        // Build-only browser: Sanity CORS is configured for public domains,
+        // while prerender runs from localhost/127.0.0.1 inside Vercel.
         browser = await puppeteer.launch({
             headless: "new",
-            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-web-security"
+            ]
         });
     } catch (err) {
         console.warn(`[prerender] puppeteer.launch failed (${err.message}). Skipping SSG.`);

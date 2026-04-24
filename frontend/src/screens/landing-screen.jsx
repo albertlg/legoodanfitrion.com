@@ -960,6 +960,40 @@ function LandingScreen({
               </div>
             </section>
 
+            <section id="faq" className="py-24 md:py-28 px-6 w-full max-w-3xl mx-auto">
+              <div className="text-center mb-12 md:mb-14">
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-4 text-balance">{t("landing_faq_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 text-balance">{t("landing_faq_hint")}</p>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {FAQ_ITEMS.map((item) => {
+                  const isOpen = openFaqKey === item.key;
+                  return (
+                    <article
+                      key={item.key}
+                      className="bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl border border-black/5 dark:border-white/10 shadow-sm overflow-hidden transition-all"
+                    >
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between gap-4 p-6 text-left focus:outline-none cursor-pointer"
+                        onClick={() => setOpenFaqKey((prev) => (prev === item.key ? "" : item.key))}
+                        aria-expanded={isOpen}
+                      >
+                        <span className="font-bold text-gray-900 dark:text-white pr-2">{t(item.questionKey)}</span>
+                        <Icon name={isOpen ? "chevron_up" : "chevron_down"} className={`w-5 h-5 text-gray-500 transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      <div className={`overflow-hidden transition-all duration-300 ${isOpen ? "max-h-[900px] opacity-100" : "max-h-0 opacity-0"}`} aria-hidden={!isOpen}>
+                        <p className="p-6 pt-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed border-t border-black/5 dark:border-white/5">
+                          {t(item.answerKey)}
+                        </p>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+
             {renderWaitlistSection("landing-cta")}
           </>
         ) : null}
@@ -1113,39 +1147,6 @@ function LandingScreen({
               </div>
             </section>
 
-            <section className="py-24 px-6 w-full max-w-3xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-4">{t("landing_faq_title")}</h2>
-                <p className="text-lg text-gray-600 dark:text-gray-300">{t("landing_faq_hint")}</p>
-              </div>
-
-              <div className="flex flex-col gap-4">
-                {FAQ_ITEMS.map((item) => {
-                  const isOpen = openFaqKey === item.key;
-                  return (
-                    <article
-                      key={item.key}
-                      className="bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl border border-black/5 dark:border-white/10 shadow-sm overflow-hidden transition-all"
-                    >
-                      <button
-                        type="button"
-                        className="w-full flex items-center justify-between p-6 text-left focus:outline-none"
-                        onClick={() => setOpenFaqKey((prev) => (prev === item.key ? "" : item.key))}
-                        aria-expanded={isOpen}
-                      >
-                        <span className="font-bold text-gray-900 dark:text-white pr-4">{t(item.questionKey)}</span>
-                        <Icon name={isOpen ? "chevron_up" : "chevron_down"} className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                      </button>
-                      <div className={`overflow-hidden transition-all duration-300 ${isOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`} aria-hidden={!isOpen}>
-                        <p className="p-6 pt-0 text-sm text-gray-600 dark:text-gray-400 leading-relaxed border-t border-black/5 dark:border-white/5 mt-2">
-                          {t(item.answerKey)}
-                        </p>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
           </>
         ) : null}
 

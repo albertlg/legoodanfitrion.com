@@ -1,4 +1,4 @@
-import {defineType, defineArrayMember} from 'sanity'
+import {defineType, defineArrayMember, defineField} from 'sanity'
 
 /**
  * This is the schema definition for the rich text fields used for
@@ -59,6 +59,46 @@ export default defineType({
     // You can add additional types here. Note that you can't use
     // primitive types such as 'string' and 'number' in the same array
     // as a block type.
+    defineArrayMember({
+      name: 'interactiveDemo',
+      title: 'Interactive demo',
+      type: 'object',
+      fields: [
+        defineField({
+          name: 'scenario',
+          title: 'Scenario',
+          type: 'string',
+          initialValue: 'social',
+          options: {
+            layout: 'dropdown',
+            list: [
+              {title: 'Social', value: 'social'},
+              {title: 'Escapada', value: 'escapada'},
+              {title: 'Votación', value: 'votacion'},
+              {title: 'Empresa', value: 'empresa'},
+            ],
+          },
+          validation: (Rule) => Rule.required(),
+        }),
+      ],
+      preview: {
+        select: {
+          scenario: 'scenario',
+        },
+        prepare({scenario}) {
+          const labels: Record<string, string> = {
+            social: 'Social',
+            escapada: 'Escapada',
+            votacion: 'Votación',
+            empresa: 'Empresa',
+          }
+          return {
+            title: 'Interactive demo',
+            subtitle: labels[scenario] || 'Social',
+          }
+        },
+      },
+    }),
     defineArrayMember({
       type: 'image',
       options: {hotspot: true},

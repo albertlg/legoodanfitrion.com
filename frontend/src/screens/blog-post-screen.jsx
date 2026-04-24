@@ -7,23 +7,83 @@ import { Icon } from "../components/icons";
 import { Helmet } from "react-helmet-async";
 import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
+import InteractiveDemo from "../components/landing/InteractiveDemo";
+import { generateBlogSchema } from "../lib/blog-schema";
 
-const portableTextComponents = {
-    block: {
-        h2: ({ children, value }) => <h2 id={value._key} className="text-2xl sm:text-3xl font-black mt-12 mb-6 text-gray-900 dark:text-white scroll-mt-32">{children}</h2>,
-        h3: ({ children, value }) => <h3 id={value._key} className="text-xl font-bold mt-8 mb-4 text-gray-800 dark:text-gray-200 scroll-mt-32">{children}</h3>,
-        normal: ({ children }) => <p className="text-base sm:text-lg text-gray-700 dark:text-gray-300 leading-relaxed mb-6 font-medium">{children}</p>,
-        blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-500 pl-4 sm:pl-6 py-2 my-8 text-lg sm:text-xl italic text-gray-600 dark:text-gray-400 bg-blue-50/50 dark:bg-blue-900/10 rounded-r-2xl">{children}</blockquote>,
-    },
-    list: {
-        bullet: ({ children }) => <ul className="list-disc pl-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300 text-base sm:text-lg font-medium">{children}</ul>,
-        number: ({ children }) => <ol className="list-decimal pl-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300 text-base sm:text-lg font-medium">{children}</ol>,
-    },
-    marks: {
-        strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
-        link: ({ children, value }) => <a href={value.href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline decoration-2 underline-offset-2">{children}</a>,
-    },
-};
+const SUPPORTED_LANGUAGES = new Set(["es", "ca", "en", "fr", "it"]);
+
+function getBlogRouteFromPath(pathname, fallbackLanguage, fallbackSlug) {
+    const segments = String(pathname || "").split("/").filter(Boolean);
+    const firstSegment = segments[0]?.toLowerCase();
+    if (SUPPORTED_LANGUAGES.has(firstSegment) && segments[1] === "blog") {
+        return { language: firstSegment, slug: segments[2] || fallbackSlug || "" };
+    }
+    if (firstSegment === "blog") {
+        return { language: "es", slug: segments[1] || fallbackSlug || "" };
+    }
+    return { language: fallbackLanguage || "es", slug: fallbackSlug || "" };
+}
+
+function getPostSlug(post, fallbackSlug = "") {
+    if (typeof post?.slug === "string") return post.slug;
+    return post?.slug?.current || fallbackSlug || "";
+}
+
+function buildSeoTranslations(post, language, slug) {
+    const translations = new Map();
+    for (const translation of post?.translations || []) {
+        if (translation?.lang && translation?.slug) {
+            translations.set(translation.lang, {
+                lang: translation.lang,
+                slug: translation.slug
+            });
+        }
+    }
+    if (language && slug) {
+        translations.set(language, { lang: language, slug });
+    }
+    return Array.from(translations.values());
+}
+
+function createPortableTextComponents({ t, language }) {
+    return {
+        block: {
+            h2: ({ children, value }) => <h2 id={value._key} className="text-2xl sm:text-3xl font-black mt-12 mb-6 text-gray-900 dark:text-white scroll-mt-32">{children}</h2>,
+            h3: ({ children, value }) => <h3 id={value._key} className="text-xl font-bold mt-8 mb-4 text-gray-800 dark:text-gray-200 scroll-mt-32">{children}</h3>,
+            normal: ({ children }) => <p className="text-base sm:text-lg text-gray-700 dark:text-gray-300 leading-relaxed mb-6 font-medium">{children}</p>,
+            blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-500 pl-4 sm:pl-6 py-2 my-8 text-lg sm:text-xl italic text-gray-600 dark:text-gray-400 bg-blue-50/50 dark:bg-blue-900/10 rounded-r-2xl">{children}</blockquote>,
+        },
+        types: {
+            image: ({ value }) => {
+                if (!value?.asset) return null;
+                return (
+                    <figure className="my-10 overflow-hidden rounded-3xl border border-black/5 dark:border-white/10 shadow-xl">
+                        <img
+                            src={urlFor(value).width(1200).height(675).url()}
+                            alt={value.alt || ""}
+                            className="w-full aspect-video object-cover"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                    </figure>
+                );
+            },
+            interactiveDemo: ({ value }) => (
+                <section className="my-14 -mx-4 sm:mx-0">
+                    <InteractiveDemo t={t} language={language} scenario={value?.scenario} />
+                </section>
+            )
+        },
+        list: {
+            bullet: ({ children }) => <ul className="list-disc pl-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300 text-base sm:text-lg font-medium">{children}</ul>,
+            number: ({ children }) => <ol className="list-decimal pl-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300 text-base sm:text-lg font-medium">{children}</ol>,
+        },
+        marks: {
+            strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
+            link: ({ children, value }) => <a href={value.href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline decoration-2 underline-offset-2">{children}</a>,
+        },
+    };
+}
 
 const NAV_ITEMS = [
     { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
@@ -39,6 +99,35 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
     const [notFound, setNotFound] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    if (typeof window !== "undefined" && isLoading) {
+        window.prerenderReady = false;
+    }
+
+    const routeBlog = useMemo(
+        () => getBlogRouteFromPath(typeof window !== "undefined" ? window.location.pathname : "", language, slug),
+        [language, slug]
+    );
+    const requestLanguage = routeBlog.language;
+    const requestSlug = routeBlog.slug || slug;
+    const seoLanguage = requestLanguage;
+    const postSlug = getPostSlug(post, requestSlug);
+    const seoTranslations = useMemo(
+        () => buildSeoTranslations(post, seoLanguage, postSlug),
+        [post, seoLanguage, postSlug]
+    );
+    const seoPost = useMemo(
+        () => post ? { ...post, language: seoLanguage, slug: postSlug } : null,
+        [post, seoLanguage, postSlug]
+    );
+    const blogSchemas = useMemo(() => {
+        const schemas = generateBlogSchema(seoPost);
+        return Array.isArray(schemas) ? schemas : schemas ? [schemas] : [];
+    }, [seoPost]);
+    const portableTextComponents = useMemo(
+        () => createPortableTextComponents({ t, language: seoLanguage }),
+        [t, seoLanguage]
+    );
+
     // 1️⃣ PRIMER EFECTO: Traer el post validando el idioma (A prueba de carreras de red)
     useEffect(() => {
         let isMounted = true; // 🚀 FIX: Creamos un "semáforo" para esta petición
@@ -49,7 +138,8 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
         sanityClient
             .fetch(
                 `*[_type == "post" && slug.current == $slug && language == $lang][0]{
-                  _id, title, publishedAt, body, language, excerpt,
+                  _id, _updatedAt, title, "slug": slug.current, publishedAt, body, language, excerpt,
+                  steps[]{title, text},
                   mainImage,
                   "authorName": author->name,
                   "authorImage": author->image,
@@ -59,7 +149,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                     "slug": slug.current
                   }
                 }`,
-                { slug, lang: language }
+                { slug: requestSlug, lang: requestLanguage }
             )
             .then((data) => {
                 if (!isMounted) return; // 🚀 FIX: Si se disparó otra petición mientras tanto, ignoramos esta
@@ -70,14 +160,12 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                     setNotFound(true);
                 }
                 setIsLoading(false);
-                if (typeof window !== "undefined") window.prerenderReady = true;
             })
             .catch((error) => {
                 if (!isMounted) return; // 🚀 FIX: Lo mismo para los errores
                 console.error("Error fetching post:", error);
                 setNotFound(true);
                 setIsLoading(false);
-                if (typeof window !== "undefined") window.prerenderReady = true;
             });
 
         // 🚀 FIX: Función de limpieza. Cuando el componente se actualiza con un nuevo idioma,
@@ -85,11 +173,19 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
         return () => {
             isMounted = false;
         };
-    }, [slug, language]);
+    }, [requestSlug, requestLanguage]);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || isLoading) return;
+        const readyTimer = window.setTimeout(() => {
+            window.prerenderReady = true;
+        }, 0);
+        return () => window.clearTimeout(readyTimer);
+    }, [isLoading, post, notFound, blogSchemas.length]);
 
     // 🚀 FIX: Interceptamos el selector de idioma localmente ANTES de que App.jsx rompa la URL
     const handleLocalLanguageChange = (newLang) => {
-        if (newLang === language) return;
+        if (newLang === seoLanguage) return;
 
         // 🚀 FIX CLAVE: Guardamos el idioma antes de navegar
         window.localStorage.setItem("legood-language", newLang);
@@ -166,40 +262,18 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                 title={`${post.title} | ${t("app_name")}`}
                 description={post.excerpt || t("blog_subtitle")}
                 image={post.mainImage ? urlFor(post.mainImage).width(1200).height(630).url() : null}
-                language={language}
-                slug={slug} // Pasamos el slug que entra por Props, sin necesidad de pedírselo a Sanity
+                language={seoLanguage}
+                slug={postSlug}
                 isBlogPost={true}
-                translations={post.translations || []}
+                translations={seoTranslations}
             />
 
-            {/* 🚀 GEO: Article schema para AI discoverability */}
             <Helmet>
-                <script type="application/ld+json">{JSON.stringify({
-                    "@context": "https://schema.org",
-                    "@type": "Article",
-                    "headline": post.title,
-                    "description": post.excerpt || "",
-                    ...(post.mainImage ? { "image": urlFor(post.mainImage).width(1200).height(675).url() } : {}),
-                    "datePublished": post.publishedAt,
-                    "author": {
-                        "@type": "Person",
-                        "name": post.authorName || "Equipo LGA",
-                        ...(post.authorImage ? { "image": urlFor(post.authorImage).width(200).height(200).url() } : {})
-                    },
-                    "publisher": {
-                        "@type": "Organization",
-                        "name": "LeGoodAnfitrion",
-                        "logo": {
-                            "@type": "ImageObject",
-                            "url": "https://legoodanfitrion.com/android-chrome-512x512.png"
-                        }
-                    },
-                    "mainEntityOfPage": {
-                        "@type": "WebPage",
-                        "@id": `https://legoodanfitrion.com${language === "es" ? "" : `/${language}`}/blog/${slug}`
-                    },
-                    "inLanguage": language
-                })}</script>
+                {blogSchemas.map((schema, index) => (
+                    <script key={`${schema["@type"]}-${index}`} type="application/ld+json">
+                        {JSON.stringify(schema)}
+                    </script>
+                ))}
             </Helmet>
 
             <div className="fixed top-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-[100px] pointer-events-none z-0"></div>
@@ -227,7 +301,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
 
                 <div className="flex items-center gap-3 sm:gap-4">
                     <div className="hidden md:block">
-                        <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={handleLocalLanguageChange} t={t} dropdownDirection="down" />
+                        <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={seoLanguage} setLanguage={handleLocalLanguageChange} t={t} dropdownDirection="down" />
                     </div>
                     <button
                         className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
@@ -269,7 +343,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                         <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-2xl font-black text-base shadow-lg" onClick={() => { onNavigate(session?.user?.id ? "/app" : "/login"); setIsMobileMenuOpen(false); }}>
                             {session?.user?.id ? t("landing_cta_open_app") : t("landing_cta_create_event")}
                         </button>
-                        <div className="flex justify-center"><Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={handleLocalLanguageChange} t={t} /></div>
+                        <div className="flex justify-center"><Controls themeMode={themeMode} setThemeMode={setThemeMode} language={seoLanguage} setLanguage={handleLocalLanguageChange} t={t} /></div>
                     </div>
                 </div>
             </aside>
@@ -332,7 +406,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                     <header className="mb-10 sm:mb-12">
                         <div className="flex items-center gap-4 mb-6">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                                {new Date(post.publishedAt).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                {new Date(post.publishedAt).toLocaleDateString(seoLanguage, { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
                             {post.categories && post.categories.length > 0 && (
                                 <div className="flex items-center gap-2">

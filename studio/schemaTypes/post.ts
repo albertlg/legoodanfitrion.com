@@ -56,6 +56,38 @@ export default defineType({
       type: 'blockContent',
     }),
     defineField({
+      name: 'steps',
+      title: 'HowTo steps',
+      description: 'Optional structured steps used to generate HowTo JSON-LD for search engines.',
+      type: 'array',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            defineField({
+              name: 'title',
+              title: 'Step title',
+              type: 'string',
+              validation: Rule => Rule.required(),
+            }),
+            defineField({
+              name: 'text',
+              title: 'Step text',
+              type: 'text',
+              rows: 3,
+              validation: Rule => Rule.required(),
+            }),
+          ],
+          preview: {
+            select: {
+              title: 'title',
+              subtitle: 'text',
+            },
+          },
+        },
+      ],
+    }),
+    defineField({
       name: 'excerpt',
       title: 'Excerpt',
       description: 'Short summary of the post (max 160 characters)',
