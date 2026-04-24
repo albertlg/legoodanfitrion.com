@@ -682,52 +682,52 @@ function LandingScreen({
           <>
             <section className="flex flex-col justify-center px-6 min-h-[75vh] max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center w-full">
-                <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-5 md:gap-6 min-w-0">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full">
+                <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-4 md:gap-5 min-w-0">
 
                   <span className="px-4 py-1.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
                     {t("landing_badge")}
                   </span>
 
-                  <h1 id="lga-hero-title" className="text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] text-balance">
+                  <h1 id="lga-hero-title" className="text-4xl md:text-5xl lg:text-6xl xl:text-[4.25rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] text-balance">
                     {t("landing_title")}
                   </h1>
 
-                  <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl font-medium leading-relaxed text-balance">
+                  <p className="text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl font-medium leading-relaxed text-balance">
                     {t("landing_subtitle")}
                   </p>
 
-                  <p id="lga-hero-narrative" className="text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed text-pretty">
+                  <p id="lga-hero-narrative" className="text-sm md:text-base text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed text-pretty">
                     {t("landing_hero_narrative")}
                   </p>
 
-                  <div className="flex flex-col items-center lg:items-start gap-4 w-full sm:w-auto mt-2">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-4 w-full sm:w-auto">
+                  <div className="flex flex-col items-center lg:items-start gap-3 w-full sm:w-auto mt-1">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 w-full sm:w-auto">
                       <button
-                        className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-7 py-3.5 rounded-xl font-black text-base md:text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-xl font-black text-base shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                         type="button"
                         onClick={primaryCta.onClick}
                       >
-                        <Icon name="sparkle" className="w-5 h-5" />
+                        <Icon name="sparkle" className="w-4 h-4" />
                         {primaryCta.label}
                       </button>
                       <button
-                        className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-7 py-3.5 rounded-xl font-bold text-base md:text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-6 py-3 rounded-xl font-bold text-base hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                         type="button"
                         onClick={handleOpenRealDemo}
                       >
-                        <Icon name="eye" className="w-5 h-5 opacity-70" />
+                        <Icon name="eye" className="w-4 h-4 opacity-70" />
                         {t("landing_cta_demo_real")}
                       </button>
                     </div>
 
-                    <p className="text-sm font-bold text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                      <Icon name="check" className="w-4 h-4 text-green-500 shrink-0" />
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <Icon name="check" className="w-3.5 h-3.5 text-green-500 shrink-0" />
                       {t("landing_hero_microcopy")}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 mt-4 pt-6 border-t border-black/5 dark:border-white/5 w-full opacity-90">
+                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 mt-3 pt-5 border-t border-black/5 dark:border-white/5 w-full opacity-90">
                     <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
                       <div className="w-7 h-7 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="phone" className="w-3.5 h-3.5" /></div>
                       {t("landing_trust_1")}

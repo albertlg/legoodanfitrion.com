@@ -195,3 +195,57 @@ When generating UI code for LGA, the assistant must:
 6. Build empty/error states with actionable guidance.
 7. Keep progressive disclosure and low cognitive load as default behavior.
 
+---
+
+## 11) AI Feature Cards (Single Visual Pattern)
+
+Any feature powered by AI must use the `MagicCard` component as its outer shell. This is the shared visual DNA between the landing demo and the real app:
+
+- **Planificador IA** (event plan generation) → `colorVariant="purple"`
+- **Modo Rompehielos** (icebreaker generation) → `colorVariant="orange"`
+- Any future AI feature card → pick `"blue" | "purple" | "orange"` to differentiate, but always use `MagicCard`.
+
+**Pattern:**
+- Base component: [frontend/src/screens/dashboard/components/ui/magic-card.jsx](frontend/src/screens/dashboard/components/ui/magic-card.jsx) — pure presentational, no Supabase.
+- Shared wrappers: `PlannerIACard`, `IcebreakerCard` (when worth it) in `frontend/src/components/dashboard/presentational/`.
+- Props contract: `{ title, subtitle, icon, colorVariant, onClick }`. Keep icons minimal (usually `"sparkle"`). Subtitle adapts to state (empty / loading / has-data).
+
+**Why:** unifies the "there's AI here" visual signal across the product. A user who sees the gradient blob + asymmetric border instantly knows it's an AI feature. The landing and the private app share the exact same aesthetic — no dissonance when the user signs up.
+
+**Do NOT:**
+- Create custom AI feature cards from scratch with Tailwind.
+- Use `bg-indigo-50` banners with internal buttons for AI features. That's legacy and has been replaced.
+
+---
+
+## 12) Simulator Convention (Public Landing)
+
+Any component on the public landing that **mocks or previews the real product UI** must be wrapped with a subtle 3D tilt on `lg+` screens:
+
+```
+lg:[transform:perspective(1400px)_rotateY(-6deg)_rotateX(2deg)]
+lg:hover:[transform:perspective(1400px)_rotateY(-2deg)_rotateX(1deg)]
+transition-transform duration-500 ease-out
+```
+
+- Tilt strength varies by importance: hero widget uses `rotateY(-6deg)`; full-page simulator (InteractiveDemo) uses `rotateY(-3deg)` (subtler because it's larger).
+- Never apply tilt below `lg` (mobile must be flat for readability).
+- Hover reduces the tilt toward zero for interactivity.
+
+**Why:** gives a clear visual signal that "this is a preview, not the real app". Users don't confuse the showcase with live data. Adds premium depth without overwhelming.
+
+**Current simulators:**
+- `ModuleShowcaseCard` in hero right column.
+- `InteractiveDemo` MockAppShell in #landing-demo-section.
+
+---
+
+## 13) Third-Party Embed Chrome Masking
+
+When embedding a third-party iframe (Google Maps, YouTube, etc.) as background decoration, the chrome injected by that third party ("Open in Google Maps", attribution, fullscreen buttons) must be masked:
+
+- Add a solid bottom strip `absolute bottom-0 left-0 right-0 h-20 bg-white dark:bg-gray-900 pointer-events-none` BEFORE the fade gradient.
+- Then overlay the aesthetic fade `bg-gradient-to-t from-white via-white/85 to-transparent`.
+
+**Why:** cross-origin iframes can't be fully styled; strip + gradient guarantees the UI is ours, not Google's. Applied in `event-detail-view.jsx` hero cover.
+

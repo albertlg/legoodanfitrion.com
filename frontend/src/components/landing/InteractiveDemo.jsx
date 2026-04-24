@@ -110,10 +110,10 @@ function EventHeroCover({ event, title, locationName, locationCity, language, t 
     const dateLabel = event.kind === "voting_poll" ? t("landing_demo_poll_pending_date") : formatDateTime(event.startAt, language);
     const timeLabel = event.kind === "voting_poll" ? null : formatTimeLabel(event.startAt, language);
     return (
-        <article className="relative w-full h-[14rem] sm:h-[17rem] md:h-[19rem] overflow-hidden shadow-inner">
+        <article className="relative w-full h-[11rem] sm:h-[13rem] md:h-[14rem] overflow-hidden shadow-inner">
             <MapBackdrop />
-            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-900 dark:via-gray-900/85 dark:to-transparent" aria-hidden="true" />
-            <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6 md:p-7">
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-900 dark:via-gray-900/90 dark:to-transparent" aria-hidden="true" />
+            <div className="relative z-10 h-full flex flex-col justify-end p-4 sm:p-5 md:p-6">
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     <StateBadge stateKey={event.stateKey} t={t} />
                     <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wide border whitespace-nowrap ${event.accentChip.className}`}>
@@ -433,6 +433,7 @@ export default function InteractiveDemo({ t, language }) {
                 })}
             </div>
 
+            <div className="w-full max-w-5xl transition-transform duration-500 ease-out lg:[transform:perspective(1600px)_rotateY(-3deg)_rotateX(1deg)] lg:hover:[transform:perspective(1600px)_rotateY(-1deg)_rotateX(0.5deg)]">
             <MockAppShell t={t}>
                 <div key={event.id} className="flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-300">
                     {/* Outer event detail wrapper — rounded-3xl overflow-hidden permite que el
@@ -486,6 +487,7 @@ export default function InteractiveDemo({ t, language }) {
                     </section>
                 </div>
             </MockAppShell>
+            </div>
         </div>
     );
 }

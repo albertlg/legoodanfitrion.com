@@ -2533,7 +2533,10 @@ export function EventDetailView({
                 loading="lazy"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-900 dark:via-gray-900/85 dark:to-transparent" />
+            {/* Solid bottom strip para tapar el chrome de Google Maps
+                ("Abrir en Google Maps", attribution) que el iframe incluye de serie. */}
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-white dark:bg-gray-900 pointer-events-none" aria-hidden="true" />
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-900 dark:via-gray-900/85 dark:to-transparent pointer-events-none" />
           </div>
           <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6 md:p-8">
             <div className="flex flex-wrap gap-2 mb-3">
