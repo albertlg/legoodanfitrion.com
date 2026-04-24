@@ -11,9 +11,29 @@ export function ModuleToggleRow({
     isEnabled,
     onToggle,
     idPrefix = "event-module-toggle",
-    showEmptyHint = true
+    showEmptyHint = true,
+    compact = false
 }) {
     const toggleId = `${idPrefix}-${moduleKey}`;
+    if (compact) {
+        return (
+            <article className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm px-3 py-2 flex items-center justify-between gap-3">
+                <label
+                    htmlFor={toggleId}
+                    className="flex-1 text-[13px] font-bold text-gray-900 dark:text-white cursor-pointer truncate"
+                >
+                    {label}
+                </label>
+                <input
+                    id={toggleId}
+                    type="checkbox"
+                    checked={Boolean(isEnabled)}
+                    onChange={(event) => onToggle?.(moduleKey, event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500/40 bg-white dark:bg-gray-900 shrink-0 cursor-pointer transition-all duration-200"
+                />
+            </article>
+        );
+    }
     return (
         <article
             className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden p-3 flex flex-col gap-2"

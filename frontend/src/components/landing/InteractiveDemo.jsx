@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Icon } from "../icons";
-import { MagicCard } from "../../screens/dashboard/components/ui/magic-card";
 import { EventKpiTile } from "../dashboard/presentational/EventKpiTile";
 import { GuestRosterRow } from "../dashboard/presentational/GuestRosterRow";
+import { PlannerIACard } from "../dashboard/presentational/PlannerIACard";
 import { VIEW_CONFIG } from "../../lib/constants";
 import { demoScenarios, pickLocalized } from "../../data/demo-events";
 
@@ -110,10 +110,10 @@ function EventHeroCover({ event, title, locationName, locationCity, language, t 
     const dateLabel = event.kind === "voting_poll" ? t("landing_demo_poll_pending_date") : formatDateTime(event.startAt, language);
     const timeLabel = event.kind === "voting_poll" ? null : formatTimeLabel(event.startAt, language);
     return (
-        <article className="relative w-full h-[14rem] sm:h-[16rem] rounded-2xl overflow-hidden shadow-inner">
+        <article className="relative w-full h-[14rem] sm:h-[17rem] md:h-[19rem] overflow-hidden shadow-inner">
             <MapBackdrop />
             <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-900 dark:via-gray-900/85 dark:to-transparent" aria-hidden="true" />
-            <div className="relative z-10 h-full flex flex-col justify-end p-4 sm:p-5">
+            <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6 md:p-7">
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     <StateBadge stateKey={event.stateKey} t={t} />
                     <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wide border whitespace-nowrap ${event.accentChip.className}`}>
@@ -211,18 +211,6 @@ function VotingPanel({ event, language, t }) {
                 })}
             </div>
         </article>
-    );
-}
-
-function PlannerIACard({ t }) {
-    return (
-        <MagicCard
-            title={t("event_plan_cta_title")}
-            subtitle={t("event_plan_cta_hint")}
-            icon="sparkle"
-            colorVariant="purple"
-            onClick={() => { /* demo: no-op */ }}
-        />
     );
 }
 
@@ -447,8 +435,9 @@ export default function InteractiveDemo({ t, language }) {
 
             <MockAppShell t={t}>
                 <div key={event.id} className="flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-300">
-                    {/* Outer event detail wrapper — same className pattern as event-detail-view */}
-                    <section className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-sm p-4 md:p-5 flex flex-col gap-5">
+                    {/* Outer event detail wrapper — rounded-3xl overflow-hidden permite que el
+                        mapa vaya a tope sin bordes laterales, mimicando una cabecera de app real. */}
+                    <section className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-sm overflow-hidden flex flex-col">
                         <EventHeroCover
                             event={event}
                             title={title}
@@ -458,38 +447,40 @@ export default function InteractiveDemo({ t, language }) {
                             t={t}
                         />
 
-                        {event.dietaryFlags && event.dietaryFlags.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5">
-                                {event.dietaryFlags.map((flag) => (
-                                    <span key={flag} className="px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800/30 text-[10px] font-bold uppercase tracking-wider">
-                                        {flag}
-                                    </span>
-                                ))}
-                            </div>
-                        ) : null}
+                        <div className="p-5 md:p-7 flex flex-col gap-6">
+                            {event.dietaryFlags && event.dietaryFlags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {event.dietaryFlags.map((flag) => (
+                                        <span key={flag} className="px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800/30 text-[10px] font-bold uppercase tracking-wider">
+                                            {flag}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
 
-                        {event.kind === "date_range" ? <DateRangeStrip event={event} language={language} t={t} /> : null}
+                            {event.kind === "date_range" ? <DateRangeStrip event={event} language={language} t={t} /> : null}
 
-                        {isVoting ? null : (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                                <EventKpiTile label={t("event_detail_total_invites")} value={event.stats.invited} />
-                                <EventKpiTile label={t("status_yes")} value={event.stats.confirmed} valueClassName="text-green-600 dark:text-green-400" />
-                                <EventKpiTile label={t("status_pending")} value={event.stats.pending} valueClassName="text-yellow-600 dark:text-yellow-400" />
-                                <EventKpiTile label={t("status_no")} value={Math.max(0, event.stats.invited - event.stats.confirmed - event.stats.pending)} valueClassName="text-red-600 dark:text-red-400" />
-                            </div>
-                        )}
+                            {isVoting ? null : (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                                    <EventKpiTile label={t("event_detail_total_invites")} value={event.stats.invited} />
+                                    <EventKpiTile label={t("status_yes")} value={event.stats.confirmed} valueClassName="text-green-600 dark:text-green-400" />
+                                    <EventKpiTile label={t("status_pending")} value={event.stats.pending} valueClassName="text-yellow-600 dark:text-yellow-400" />
+                                    <EventKpiTile label={t("status_no")} value={Math.max(0, event.stats.invited - event.stats.confirmed - event.stats.pending)} valueClassName="text-red-600 dark:text-red-400" />
+                                </div>
+                            )}
 
-                        <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,2.05fr)_minmax(0,1fr)] gap-5">
-                            <div className="flex flex-col gap-4 min-w-0">
-                                {isVoting ? (
-                                    <VotingPanel event={event} language={language} t={t} />
-                                ) : (
-                                    <GuestListCard event={event} t={t} />
-                                )}
-                            </div>
-                            <div className="flex flex-col gap-4">
-                                <PlannerIACard t={t} />
-                                <FinanceSelectorCard event={event} language={language} t={t} />
+                            <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,2.05fr)_minmax(0,1fr)] gap-5">
+                                <div className="flex flex-col gap-4 min-w-0">
+                                    {isVoting ? (
+                                        <VotingPanel event={event} language={language} t={t} />
+                                    ) : (
+                                        <GuestListCard event={event} t={t} />
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-4">
+                                    <PlannerIACard t={t} />
+                                    <FinanceSelectorCard event={event} language={language} t={t} />
+                                </div>
                             </div>
                         </div>
                     </section>

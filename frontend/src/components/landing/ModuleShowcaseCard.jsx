@@ -72,7 +72,7 @@ export function ModuleShowcaseCard({ t }) {
                 </span>
             </header>
 
-            <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-1 -mr-1">
+            <div className="flex flex-col gap-1.5">
                 {EVENT_MODULES_CATALOG.map((moduleMeta) => (
                     <ModuleToggleRow
                         key={moduleMeta.key}
@@ -82,6 +82,7 @@ export function ModuleShowcaseCard({ t }) {
                         isEnabled={Boolean(toggles[moduleMeta.key])}
                         onToggle={handleToggle}
                         idPrefix="hero-module-toggle"
+                        compact
                         showEmptyHint={false}
                     />
                 ))}

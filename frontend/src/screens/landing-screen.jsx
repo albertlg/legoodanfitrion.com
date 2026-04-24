@@ -680,70 +680,77 @@ function LandingScreen({
         {/* --- PAGE: HOME --- */}
         {pageMode === "home" ? (
           <>
-            <section className="flex flex-col justify-center items-center text-center px-6 min-h-[75vh] max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <section className="flex flex-col justify-center px-6 min-h-[75vh] max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
 
-              <span className="px-4 py-1.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 rounded-full text-[10px] font-black uppercase tracking-widest mb-8 shadow-sm">
-                {t("landing_badge")}
-              </span>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center w-full">
+                <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-5 md:gap-6 min-w-0">
 
-              <h1 id="lga-hero-title" className="text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] mb-6 max-w-4xl text-balance">
-                {t("landing_title")}
-              </h1>
+                  <span className="px-4 py-1.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                    {t("landing_badge")}
+                  </span>
 
-              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto font-medium leading-relaxed text-balance">
-                {t("landing_subtitle")}
-              </p>
+                  <h1 id="lga-hero-title" className="text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5rem] font-black tracking-tighter text-gray-900 dark:text-white leading-[1.05] text-balance">
+                    {t("landing_title")}
+                  </h1>
 
-              <p id="lga-hero-narrative" className="text-base md:text-lg text-gray-600 dark:text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed text-pretty">
-                {t("landing_hero_narrative")}
-              </p>
+                  <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl font-medium leading-relaxed text-balance">
+                    {t("landing_subtitle")}
+                  </p>
 
-              <div className="flex flex-col items-center gap-4 w-full sm:w-auto mt-2">
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
-                  <button
-                    className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-black text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
-                    type="button"
-                    onClick={primaryCta.onClick}
-                  >
-                    <Icon name="sparkle" className="w-5 h-5" />
-                    {primaryCta.label}
-                  </button>
-                  <button
-                    className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2"
-                    type="button"
-                    onClick={handleOpenRealDemo}
-                  >
-                    <Icon name="eye" className="w-5 h-5 opacity-70" />
-                    {t("landing_cta_demo_real")}
-                  </button>
+                  <p id="lga-hero-narrative" className="text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed text-pretty">
+                    {t("landing_hero_narrative")}
+                  </p>
+
+                  <div className="flex flex-col items-center lg:items-start gap-4 w-full sm:w-auto mt-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-4 w-full sm:w-auto">
+                      <button
+                        className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-7 py-3.5 rounded-xl font-black text-base md:text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                        type="button"
+                        onClick={primaryCta.onClick}
+                      >
+                        <Icon name="sparkle" className="w-5 h-5" />
+                        {primaryCta.label}
+                      </button>
+                      <button
+                        className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-7 py-3.5 rounded-xl font-bold text-base md:text-lg hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                        type="button"
+                        onClick={handleOpenRealDemo}
+                      >
+                        <Icon name="eye" className="w-5 h-5 opacity-70" />
+                        {t("landing_cta_demo_real")}
+                      </button>
+                    </div>
+
+                    <p className="text-sm font-bold text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <Icon name="check" className="w-4 h-4 text-green-500 shrink-0" />
+                      {t("landing_hero_microcopy")}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 mt-4 pt-6 border-t border-black/5 dark:border-white/5 w-full opacity-90">
+                    <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                      <div className="w-7 h-7 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="phone" className="w-3.5 h-3.5" /></div>
+                      {t("landing_trust_1")}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                      <div className="w-7 h-7 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="check" className="w-3.5 h-3.5" /></div>
+                      {t("landing_trust_2")}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                      <div className="w-7 h-7 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="user" className="w-3.5 h-3.5" /></div>
+                      {t("landing_trust_3")}
+                    </div>
+                  </div>
                 </div>
 
-                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-2">
-                  <Icon name="check" className="w-4 h-4 text-green-500" />
-                  {t("landing_hero_microcopy")}
-                </p>
+                <div className="w-full flex justify-center lg:justify-end">
+                  <div className="w-full max-w-md transition-transform duration-500 ease-out lg:[transform:perspective(1400px)_rotateY(-6deg)_rotateX(2deg)] lg:hover:[transform:perspective(1400px)_rotateY(-2deg)_rotateX(1deg)]">
+                    <ModuleShowcaseCard t={t} />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 mt-12 pt-8 border-t border-black/5 dark:border-white/5 w-full max-w-3xl mx-auto opacity-90">
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
-                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="phone" className="w-4 h-4" /></div>
-                  {t("landing_trust_1")}
-                </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
-                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="check" className="w-4 h-4" /></div>
-                  {t("landing_trust_2")}
-                </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
-                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center"><Icon name="user" className="w-4 h-4" /></div>
-                  {t("landing_trust_3")}
-                </div>
-              </div>
-
-              <div className="w-full flex justify-center mt-16 md:mt-20">
-                <ModuleShowcaseCard t={t} />
-              </div>
-
-              <figure className="w-full mt-12 md:mt-16 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
+              <figure className="w-full mt-20 md:mt-24 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
                 <img
                   src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
                   alt={t("landing_hero_narrative")}
@@ -935,8 +942,8 @@ function LandingScreen({
               </div>
             </section>
 
-            <section id="landing-demo-section" className="py-24 px-6 w-full max-w-5xl mx-auto flex flex-col items-center overflow-hidden">
-              <div className="text-center max-w-3xl mb-12">
+            <section id="landing-demo-section" className="py-28 md:py-32 px-6 w-full max-w-5xl mx-auto flex flex-col items-center overflow-hidden">
+              <div className="text-center max-w-3xl mb-14 md:mb-16">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">{t("landing_demo_eyebrow")}</p>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-6 text-balance">{t("landing_demo_title")}</h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_demo_subtitle")}</p>

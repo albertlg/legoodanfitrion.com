@@ -5,6 +5,7 @@ import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { EventKpiTile } from "../../../components/dashboard/presentational/EventKpiTile";
+import { PlannerIACard } from "../../../components/dashboard/presentational/PlannerIACard";
 import { HostPlanView } from "./host-plan-view";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
@@ -2915,23 +2916,10 @@ export function EventDetailView({
               {/* Columna lateral */}
               <div className="flex flex-col gap-6 min-w-0">
 
-                {/* AI Planner Banner */}
-                <article className="order-1 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden relative p-5 flex flex-col gap-4">
-                  <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 z-10" />
-                  <div className="flex items-start">
-                    <span className="flex items-center gap-2 text-sm font-semibold tracking-wide">
-                      <Icon name="sparkle" className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
-                        {t("event_plan_cta_title")}
-                      </span>
-                    </span>
-                  </div>
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">{t("event_plan_cta_hint")}</p>
-                  <button className={`${PRIMARY_BUTTON_CLASS} text-xs w-full mt-1`} type="button" onClick={() => handleOpenEventPlan("ambience")}>
-                    {t("event_plan_cta_action")}
-                    <Icon name="arrow_right" className="w-3.5 h-3.5" />
-                  </button>
-                </article>
+                {/* AI Planner — backport del visual de la landing (MagicCard gradiente púrpura) */}
+                <div className="order-1">
+                  <PlannerIACard t={t} onOpen={() => handleOpenEventPlan("ambience")} />
+                </div>
 
                 {activeSidebarModules.map((moduleItem) => (
                   <React.Fragment key={moduleItem.key}>
