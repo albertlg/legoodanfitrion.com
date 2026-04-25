@@ -178,6 +178,15 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
 
   const isProfessional = detectProfessionalContext(safeEvent);
 
+  // VENUE DETECTION: event at restaurant, hotel, bar, catering space, etc.
+  const venueSearchText = [
+    normalizeText(safeEvent.locationName || safeEvent.location_name || ""),
+    normalizeText(safeEvent.locationAddress || safeEvent.location_address || ""),
+    normalizeText(safeEvent.description || "")
+  ].join(" ").toLowerCase();
+  const isHostedAtVenue = /restaur|hotel|bar\b|cafeter|bistro|catering|sala\s|trattoria|osteria|brasserie|bodega|pub\b|taberna|fond[ao]|mes[oó]n|local\s|chiringuito|terraza/i.test(venueSearchText);
+  const venueName = normalizeText(safeEvent.locationName || safeEvent.location_name || safeEvent.locationAddress || safeEvent.location_address || "");
+
   // PERSONA: Senior Executive Planner (B2B) vs Head Event Planner & Chef (B2C)
   const persona = isProfessional
     ? [
@@ -237,13 +246,38 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
     moduleRules.push("• SPOTIFY ACTIVO: El anfitrión tiene playlist vinculada. En playbook.ambience coordina el estilo musical con el ambiente general y referencia la playlist como parte integral del plan.");
   }
   if (safeActiveModules.meals) {
-    moduleRules.push("• MÓDULO DE MENÚS ACTIVO: Los invitados han podido votar preferencias de menú. Trata estas preferencias colectivas como dato prioritario al diseñar el mealPlan.");
+    const mealVotes = normalizeArray(safeEventContext.insights?.mealVotes);
+    const hasMealVotes = mealVotes.length > 0;
+    moduleRules.push(
+      isHostedAtVenue
+        ? hasMealVotes
+          ? `• MÓDULO DE MENÚS ACTIVO (LOCAL EXTERNO, ${mealVotes.length} PLATOS VOTADOS): Los invitados han votado platos específicos. Están en \`insights.mealVotes\` del INPUT_JSON (campos: label, courseKey, courseLabel, votes). PRIORIDAD MÁXIMA: El mealPlan DEBE construirse alrededor de estos platos votados. Úsalos como la base de lo que el grupo quiere pedir en el local (los más votados primero en su sección). Adapta las notas al chef para solicitar exactamente estos platos o los más similares del menú, respetando siempre las restricciones del grupo.`
+          : "• MÓDULO DE MENÚS ACTIVO (LOCAL EXTERNO): Los invitados han expresado preferencias de comida. Encuéntralas en `insights.foodSuggestions` e `insights.drinkSuggestions` del INPUT_JSON. Úsalas para identificar qué platos y bebidas del local encajan mejor con el grupo y cuáles evitar por restricciones. No sugieras cocinar."
+        : hasMealVotes
+          ? `• MÓDULO DE MENÚS ACTIVO (${mealVotes.length} PLATOS VOTADOS): Los invitados han votado platos específicos. Están en \`insights.mealVotes\` del INPUT_JSON (campos: label, courseKey, courseLabel, votes). PRIORIDAD MÁXIMA: El mealPlan DEBE construirse con estos platos votados — no los sustituyas por otros genéricos. Los más votados van primero en su sección (courseKey). Puedes sugerir cómo prepararlos, maridajes o complementos, pero los platos votados son los platos del menú.`
+          : "• MÓDULO DE MENÚS ACTIVO: Los invitados han votado preferencias de menú. Encuéntralas en `insights.foodSuggestions` e `insights.drinkSuggestions` del INPUT_JSON. Son el dato de mayor prioridad para el mealPlan: basa los platos directamente en estas preferencias, no las trates como sugerencias opcionales."
+    );
   }
   if (safeActiveModules.spaces) {
     moduleRules.push("• MÓDULO DE ESPACIOS ACTIVO: Hay asignación de asientos/zonas en marcha. En playbook.timeline incluye tiempo explícito de configuración y disposición del espacio.");
   }
   const modulesBlock = moduleRules.length > 0
     ? `MÓDULOS ACTIVOS DEL EVENTO:\n${moduleRules.join("\n")}`
+    : "";
+
+  // VENUE BLOCK: overrides menu and shopping rules for hosted-at-venue events
+  const mealVotesForVenue = normalizeArray(safeEventContext.insights?.mealVotes);
+  const hasMealVotesForVenue = mealVotesForVenue.length > 0;
+  const venueBlock = isHostedAtVenue
+    ? [
+        `⚠ CONTEXTO ESPECIAL: EVENTO EN LOCAL DE HOSTELERÍA`,
+        `El evento se celebra en "${venueName}", un espacio externo (restaurante, hotel, bar u otro local).`,
+        `Las reglas 2 y 3 generales quedan ANULADAS y sustituidas por estas instrucciones de obligado cumplimiento:`,
+        hasMealVotesForVenue
+          ? `• MENÚ (mealPlan): NO propongas recetas caseras. Los invitados ya han votado ${mealVotesForVenue.length} platos específicos que quieren pedir (ver \`insights.mealVotes\` en el INPUT_JSON). El mealPlan DEBE construirse alrededor de esos platos votados — agrúpalos por su courseKey ("starter", "main", "dessert", "drink", etc.), pon los más votados primero, y añade notas al chef sobre restricciones. Complementa con sugerencias de maridaje o acompañamientos si falta alguna sección.`
+          : `• MENÚ (mealPlan): NO propongas recetas caseras ni platos para cocinar en casa. El mealPlan debe reflejar QUÉ PEDIR O SOLICITAR en el local, adaptado a las restricciones y gustos del grupo (usa insights.foodSuggestions e insights.drinkSuggestions del INPUT_JSON). Titula las secciones como "Entrantes a solicitar", "Principales recomendados", "Maridaje sugerido", etc. Si no conoces el menú exacto del local, propón opciones de platos coherentes con el tipo de establecimiento y el perfil del grupo.`,
+        `• LISTA DE COORDINACIÓN (shoppingList): NO incluyas ingredientes de supermercado. Genera una "Lista de coordinación con el local" cuyos grupos sean: (a) "Restricciones a comunicar al restaurante" — lista las alergias/intolerancias del grupo que el local debe conocer, (b) "Extras a llevar si está permitido" — vino especial, tarta, decoración, etc., (c) "Confirmaciones pendientes" — menú, alérgenos, distribución de mesas, señal o pago anticipado. Adapta el estimatedCostRange al coste por persona estimado en este tipo de local.`
+      ].join("\n")
     : "";
 
   // PROFESSIONAL-SPECIFIC RULES (only for B2B events)
@@ -284,13 +318,18 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
     insightSignalsBlock,
     rsvpSignalsBlock,
     modulesBlock,
+    venueBlock,
     professionalBlock,
     "REGLAS OBLIGATORIAS Y METODOLOGÍA:",
     isProfessional
       ? "1) TONO EJECUTIVO: Usa un tono profesional, directo y sofisticado. Evita el masculino genérico. Prioriza claridad, eficiencia y relevancia para el entorno de empresa."
       : "1) LENGUAJE INCLUSIVO Y CÁLIDO: Usa siempre un tono empático, cercano pero sofisticado. Evita el masculino genérico (ej: en vez de 'bienvenidos los invitados', usa 'te damos la bienvenida' o 'quienes asistan'). Escribe como si fueras su mejor amigo y asesor experto.",
-    "2) MENÚS CON SENTIDO: Diseña el 'mealPlan' pensando en la armonía de sabores, la temporada y la viabilidad para el anfitrión. No sugieras platos que requieran estar en la cocina mientras la gente disfruta.",
-    `3) LISTA DE LA COMPRA REALISTA: Calcula cantidades estimadas basándote en que es un evento para ${guestCount} personas. Agrupa los ingredientes por pasillos del supermercado lógico (ej: Frescos, Carnicería, Despensa, Bebidas).`,
+    isHostedAtVenue
+      ? "2) MENÚ EN LOCAL: Ver instrucciones del bloque CONTEXTO ESPECIAL arriba. No propongas recetas caseras."
+      : "2) MENÚS CON SENTIDO: Diseña el 'mealPlan' pensando en la armonía de sabores, la temporada y la viabilidad para el anfitrión. No sugieras platos que requieran estar en la cocina mientras la gente disfruta.",
+    isHostedAtVenue
+      ? "3) LISTA DE COORDINACIÓN: Ver instrucciones del bloque CONTEXTO ESPECIAL arriba. No incluyas ingredientes de supermercado."
+      : `3) LISTA DE LA COMPRA REALISTA: Calcula cantidades estimadas basándote en que es un evento para ${guestCount} personas. Agrupa los ingredientes por pasillos del supermercado lógico (ej: Frescos, Carnicería, Despensa, Bebidas).`,
     isProfessional
       ? "4) TIMELINE CORPORATIVO: En el 'playbook.timeline', usa formato de hora estricto (HH:MM). Incluye buffers de transición, tiempos de networking estructurado y breaks explícitos."
       : "4) TIMELINE PROFESIONAL (T-MINUS): En el 'playbook.timeline', usa el framework de Wedding Planners. Ej: 'T-1 Semana', 'T-24h', 'T-2h (Ice & Chill)', 'H-0 (Llegada)'. Da consejos tácticos (ej: 'Saca la carne de la nevera 1h antes').",

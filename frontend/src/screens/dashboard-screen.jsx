@@ -5709,6 +5709,41 @@ function DashboardScreen({
           }
         };
 
+        // Fetch explicit meal votes when the meals module is active
+        let mealVotesForAi = [];
+        const activeMods = normalizeEventActiveModules(selectedEventDetail?.active_modules);
+        if (activeMods.meals && (isAllScope || safeScope === "menu" || safeScope === "shopping")) {
+          try {
+            const [optionsResult, votesResult] = await Promise.all([
+              supabase
+                .from("event_meal_options")
+                .select("id, course_key, course_label, label")
+                .eq("event_id", eventId),
+              supabase
+                .from("event_meal_selections")
+                .select("option_id")
+                .eq("event_id", eventId)
+            ]);
+            if (!optionsResult.error && !votesResult.error) {
+              const voteCount = {};
+              for (const row of (Array.isArray(votesResult.data) ? votesResult.data : [])) {
+                if (row.option_id) voteCount[row.option_id] = (voteCount[row.option_id] || 0) + 1;
+              }
+              mealVotesForAi = (Array.isArray(optionsResult.data) ? optionsResult.data : [])
+                .map(o => ({
+                  courseKey: String(o.course_key || "").trim(),
+                  courseLabel: String(o.course_label || o.course_key || "").trim(),
+                  label: String(o.label || "").trim(),
+                  votes: Number(voteCount[o.id] || 0)
+                }))
+                .filter(o => Boolean(o.label))
+                .sort((a, b) => b.votes - a.votes);
+            }
+          } catch {
+            // non-critical — continue without meal votes
+          }
+        }
+
         const plannerInputJson = {
           locale: language,
           event: {
@@ -5740,7 +5775,8 @@ function DashboardScreen({
             avoidItems: uniqueValues(effectiveInsights.avoidItems || []).slice(0, 16),
             foodSuggestions: uniqueValues(effectiveInsights.foodSuggestions || []).slice(0, 16),
             drinkSuggestions: uniqueValues(effectiveInsights.drinkSuggestions || []).slice(0, 16),
-            tabooTopics: uniqueValues(effectiveInsights.tabooTopics || []).slice(0, 16)
+            tabooTopics: uniqueValues(effectiveInsights.tabooTopics || []).slice(0, 16),
+            ...(mealVotesForAi.length > 0 && { mealVotes: mealVotesForAi })
           }
         };
         console.log("Regeneración IA: scope enviado:", safeScope);

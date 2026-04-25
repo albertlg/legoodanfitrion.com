@@ -32,7 +32,15 @@
       "Bash(git -C \"/Users/albertlg/Documents/New project\" log --oneline --all)",
       "Bash(git -C \"/Users/albertlg/Documents/New project\" log --diff-filter=A --oneline -- \"frontend/src/components/rsvp/GuestAiAssistant.jsx\")",
       "mcp__plugin_3_3_0_mempalace__mempalace_get_taxonomy",
-      "Bash(node --input-type=module --eval ' *)"
+      "Bash(node --input-type=module --eval ' *)",
+      "Skill(mempalace:status)",
+      "Skill(mempalace:status:*)",
+      "Skill(mempalace)",
+      "Skill(mempalace:*)",
+      "mcp__plugin_3_3_0_mempalace__mempalace_kg_stats",
+      "mcp__plugin_3_3_0_mempalace__mempalace_graph_stats",
+      "mcp__plugin_3_3_0_mempalace__mempalace_list_drawers",
+      "mcp__plugin_3_3_0_mempalace__mempalace_delete_drawer"
     ]
   }
 }
