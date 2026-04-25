@@ -21,7 +21,18 @@
       "Bash(node scripts/prerender.mjs)",
       "Bash(echo \"EXITCODE=$?\")",
       "Bash(npm run *)",
-      "Bash(awk -F: '{print $1}')"
+      "Bash(awk -F: '{print $1}')",
+      "Bash(git -C \"/Users/albertlg/Documents/New project\" diff HEAD)",
+      "Bash(git -C \"/Users/albertlg/Documents/New project\" add frontend/src/screens/dashboard/components/event-detail-view.jsx)",
+      "Bash(git -C '/Users/albertlg/Documents/New project' commit -m ' *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git -C \"/Users/albertlg/Documents/New project\" log --oneline -20)",
+      "Bash(git -C \"/Users/albertlg/Documents/New project\" log --oneline --all)",
+      "Bash(git -C \"/Users/albertlg/Documents/New project\" log --diff-filter=A --oneline -- \"frontend/src/components/rsvp/GuestAiAssistant.jsx\")",
+      "mcp__plugin_3_3_0_mempalace__mempalace_get_taxonomy",
+      "Bash(node --input-type=module --eval ' *)"
     ]
   }
 }

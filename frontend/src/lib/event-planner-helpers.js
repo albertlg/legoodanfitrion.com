@@ -345,7 +345,7 @@ export function buildEventPlannerPromptBundle({ eventDetail, eventContext, event
         hostInstructions: String(eventInsights?.additionalInstructions || "").trim()
     };
 
-    const prompt = [t("event_planner_prompt_intro"), "", "INPUT_JSON", JSON.stringify(payload, null, 2), "", t("event_planner_prompt_output_contract")].join("\n");
+    const prompt = JSON.stringify(payload, null, 2);
     return { payload, prompt };
 }
 

@@ -42,6 +42,45 @@ const ICEBREAKER_RESPONSE_EXAMPLE = {
 const SUPPORTED_LOCALES = new Set(["es", "ca", "en", "fr", "it"]);
 const SUPPORTED_SCOPES = new Set(["all", "menu", "shopping", "ambience", "timings", "communication", "risks"]);
 
+const PROFESSIONAL_EVENT_TYPES = new Set([
+  "networking",
+  "team_building",
+  "corporate_dinner",
+  "all_hands",
+  "business_meeting",
+  "conference"
+]);
+
+const PROFESSIONAL_TEMPLATE_KEYS = new Set([
+  "team_building",
+  "all_hands",
+  "corporate_dinner"
+]);
+
+// Maps a guest question intent to a specific playbook action for the AI
+const INTENT_ACTIONS = {
+  date: "Confirmación de fecha/hora: Añade una entrada en playbook.messages con título 'Fecha y hora del evento' confirmando el día, hora de inicio y hora aproximada de fin.",
+  location: "Instrucciones de llegada: Añade una entrada en playbook.messages con título 'Cómo llegar' con la dirección completa, referencias visuales del lugar, transporte público cercano y opciones de aparcamiento. Añade también el riesgo 'Posible confusión sobre cómo llegar' en playbook.risks.",
+  menu: "Información del menú: Añade una entrada en playbook.messages con título 'Qué vamos a comer y beber' describiendo las opciones de comida y bebida, con mención especial a las alternativas para dietas especiales presentes en el grupo.",
+  dress_code: "Código de vestimenta: Añade una entrada en playbook.messages con título 'Cómo venir vestido/a' aclarando el dress code con ejemplos concretos de qué llevar y qué evitar.",
+  timeline: "Programa del evento: Añade una entrada en playbook.messages con título 'Programa del evento' con el orden del día, actividades principales y horarios orientativos.",
+  ambience: "Atmósfera del evento: Añade una entrada en playbook.messages con título 'Ambiente y temática' describiendo el estilo visual, decoración y ambiente musical previsto.",
+  host_notes: "Indicaciones del anfitrión: Añade una entrada en playbook.messages con título 'Indicaciones importantes' con las instrucciones clave para los asistentes (dónde aparcar, qué traer, qué no traer).",
+  unknown: "Información general: Añade una entrada en playbook.messages con título 'Información del evento' con un resumen de los datos esenciales para resolver las dudas más frecuentes."
+};
+
+function detectProfessionalContext(eventPayload) {
+  const eventType = String(eventPayload?.eventType || eventPayload?.event_type || "").trim().toLowerCase();
+  const templateKey = String(
+    eventPayload?.templateKey ||
+    eventPayload?.template_key ||
+    eventPayload?.templateId ||
+    eventPayload?.template_id ||
+    ""
+  ).trim().toLowerCase();
+  return PROFESSIONAL_EVENT_TYPES.has(eventType) || PROFESSIONAL_TEMPLATE_KEYS.has(templateKey);
+}
+
 function normalizeLocale(value, fallback = "es") {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) {
@@ -126,13 +165,100 @@ function extractEventScheduleContext(eventContext = {}) {
   };
 }
 
-function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {} } = {}) {
+function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, activeModules = {}, insightSignals = {} } = {}) {
   const safeLocale = normalizeLocale(locale, "es");
   const safeScope = normalizeScope(scope, "all");
   const safeEventContext = ensureObject(eventContext);
+  const safeEvent = ensureObject(safeEventContext.event);
+  const safeActiveModules = ensureObject(activeModules);
   const { startAt, endAt, isMultiDay, isTbd, hasEventDate } = extractEventScheduleContext(safeEventContext);
-  const guestCount = safeEventContext.guests?.length || "un número no especificado de"; // Usamos los invitados reales si los pasas
 
+  const confirmedCount = Number(safeEventContext.statusCounts?.yes || 0);
+  const guestCount = safeEventContext.guests?.length || (confirmedCount > 0 ? confirmedCount : "un número no especificado de");
+
+  const isProfessional = detectProfessionalContext(safeEvent);
+
+  // PERSONA: Senior Executive Planner (B2B) vs Head Event Planner & Chef (B2C)
+  const persona = isProfessional
+    ? [
+        "Eres el 'Senior Executive Event Planner' de LeGoodAnfitrión, especializado en eventos corporativos y B2B de alto nivel.",
+        "Tu enfoque prioriza: logística impecable, puntualidad estricta, networking estructurado y la imagen profesional de la organización.",
+        "Tu tono es ejecutivo, sofisticado y directo. Piensas en agenda, productividad del evento y experiencia del asistente. Evita lo frívolo o excesivamente informal."
+      ].join(" ")
+    : [
+        "Eres el 'Head Event Planner' y 'Chef Privado' de élite de LeGoodAnfitrión.",
+        "Tienes 15 años de experiencia organizando desde cenas íntimas de lujo hasta bodas y eventos sociales multitudinarios.",
+        "Tu tono es empático, cercano y sofisticado. Eres el mejor amigo experto del anfitrión."
+      ].join(" ");
+
+  // RSVP SIGNALS: extract friction and desire signals from guest notes
+  const guestRsvpSignals = normalizeArray(safeEventContext.guestRsvpSignals);
+  const rsvpNotes = guestRsvpSignals
+    .map((sig) => normalizeText(ensureObject(sig).note))
+    .filter(Boolean)
+    .slice(0, 10);
+
+  const rsvpSignalsBlock = rsvpNotes.length > 0
+    ? [
+        `VOZ DE LOS INVITADOS (${rsvpNotes.length} notas RSVP confirmadas):`,
+        `"${rsvpNotes.join('" | "')}"`,
+        "INSTRUCCIÓN CRÍTICA: Analiza estas notas y extrae dos tipos de señales:",
+        "• FRICCIONES (llegadas tarde, restricciones, necesidades especiales, problemas logísticos) → Refléjalas en playbook.risks y playbook.timeline con soluciones concretas.",
+        "• DESEOS Y EXPECTATIVAS (ganas de bailar, expectativas de celebración, peticiones especiales) → Refléjalos en playbook.ambience, playbook.conversation y playbook.messages.",
+        "Estas notas son información privilegiada. Personaliza el plan al máximo con ellas."
+      ].join("\n")
+    : "";
+
+  // INSIGHT SIGNALS: recurring guest questions that need specific playbook actions
+  const safeInsightSignals = ensureObject(insightSignals);
+  const signalEntries = Object.entries(safeInsightSignals)
+    .map(([intent, count]) => [intent, Number(count)])
+    .filter(([, count]) => count >= 2)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6);
+
+  const insightSignalsBlock = signalEntries.length > 0
+    ? [
+        "⚠ SEÑALES PRIORITARIAS: DUDAS RECURRENTES DE LOS INVITADOS SIN RESOLVER",
+        "Los invitados han hecho las siguientes preguntas de forma repetida y AÚN NO HAN SIDO RESPONDIDAS en el plan.",
+        "INSTRUCCIÓN CRÍTICA: Para cada señal, DEBES generar una entrada en playbook.messages. Estas acciones son OBLIGATORIAS y tienen PRIORIDAD MÁXIMA sobre cualquier otro mensaje:",
+        signalEntries
+          .map(([intent, count]) => `• ${(INTENT_ACTIONS[intent] || INTENT_ACTIONS.unknown).replace(/^([^:]+):/, `[×${count} preguntas] $1:`)}`)
+          .join("\n")
+      ].join("\n")
+    : "";
+
+  // MODULE-AWARE RULES: adapt advice based on active modules
+  const moduleRules = [];
+  if (safeActiveModules.finance) {
+    moduleRules.push("• FINANZAS ACTIVO: En shoppingList.estimatedCostRange sé preciso con los rangos. En playbook.actionableItems incluye al menos 1 consejo de optimización de costes.");
+  }
+  if (safeActiveModules.spotify) {
+    moduleRules.push("• SPOTIFY ACTIVO: El anfitrión tiene playlist vinculada. En playbook.ambience coordina el estilo musical con el ambiente general y referencia la playlist como parte integral del plan.");
+  }
+  if (safeActiveModules.meals) {
+    moduleRules.push("• MÓDULO DE MENÚS ACTIVO: Los invitados han podido votar preferencias de menú. Trata estas preferencias colectivas como dato prioritario al diseñar el mealPlan.");
+  }
+  if (safeActiveModules.spaces) {
+    moduleRules.push("• MÓDULO DE ESPACIOS ACTIVO: Hay asignación de asientos/zonas en marcha. En playbook.timeline incluye tiempo explícito de configuración y disposición del espacio.");
+  }
+  const modulesBlock = moduleRules.length > 0
+    ? `MÓDULOS ACTIVOS DEL EVENTO:\n${moduleRules.join("\n")}`
+    : "";
+
+  // PROFESSIONAL-SPECIFIC RULES (only for B2B events)
+  const professionalBlock = isProfessional
+    ? [
+        "REGLAS ADICIONALES PARA EVENTO CORPORATIVO/B2B:",
+        "P1) AGENDA EJECUTIVA: El playbook.timeline debe incluir horarios precisos con buffers explícitos entre actividades. Los retrasos en eventos B2B tienen coste real para la organización.",
+        "P2) NETWORKING ESTRUCTURADO: En playbook.conversation, propón dinámicas de networking concretas (speed networking, mesas temáticas, introductions estructuradas), no solo temas de charla.",
+        "P3) CATERING EJECUTIVO: El mealPlan debe ser adecuado para entorno profesional: finger foods, opciones que no requieran cubiertos mientras se hace networking, sin alcohol si es contexto all_hands.",
+        "P4) IMAGEN CORPORATIVA: En playbook.ambience prioriza coherencia visual, señalización clara y branding. Sugiere elementos de imagen de marca cuando sea relevante.",
+        "P5) RIESGOS B2B: En playbook.risks incluye riesgos específicos del entorno profesional: no-shows de ejecutivos, fallos técnicos AV/proyector, gestión de VIPs y protocolos de empresa."
+      ].join("\n")
+    : "";
+
+  // SCHEDULE GUARDRAIL
   const scheduleGuardrail = isTbd
     ? 'ATENCIÓN: La fecha y hora exactas de este evento aún están por decidir (TBD). Genera un plan de acción atemporal utilizando etiquetas genéricas como "Día 1", "Día 2", "Fase de preparación" o "Tarde del evento", sin usar fechas ni horas concretas.'
     : isMultiDay
@@ -150,30 +276,37 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {} } =
       ].join(" ");
 
   return [
-    "Eres el 'Head Event Planner' y 'Chef Privado' de élite de LeGoodAnfitrión.",
-    "Tienes 15 años de experiencia organizando desde cenas íntimas de lujo hasta bodas y eventos corporativos multitudinarios.",
+    persona,
     "Tu tarea es devolver SOLO JSON válido, sin markdown, sin bloques ```.",
     `IMPORTANT: All text fields in the output JSON MUST be written in the language corresponding to the locale code: ${safeLocale}.`,
     "Debes responder EXACTAMENTE con esta estructura y claves:",
     JSON.stringify(PLANNER_RESPONSE_EXAMPLE, null, 2),
+    insightSignalsBlock,
+    rsvpSignalsBlock,
+    modulesBlock,
+    professionalBlock,
     "REGLAS OBLIGATORIAS Y METODOLOGÍA:",
-    "1) LENGUAJE INCLUSIVO Y CÁLIDO: Usa siempre un tono empático, cercano pero sofisticado. Evita el masculino genérico (ej: en vez de 'bienvenidos los invitados', usa 'te damos la bienvenida' o 'quienes asistan'). Escribe como si fueras su mejor amigo y asesor experto.",
+    isProfessional
+      ? "1) TONO EJECUTIVO: Usa un tono profesional, directo y sofisticado. Evita el masculino genérico. Prioriza claridad, eficiencia y relevancia para el entorno de empresa."
+      : "1) LENGUAJE INCLUSIVO Y CÁLIDO: Usa siempre un tono empático, cercano pero sofisticado. Evita el masculino genérico (ej: en vez de 'bienvenidos los invitados', usa 'te damos la bienvenida' o 'quienes asistan'). Escribe como si fueras su mejor amigo y asesor experto.",
     "2) MENÚS CON SENTIDO: Diseña el 'mealPlan' pensando en la armonía de sabores, la temporada y la viabilidad para el anfitrión. No sugieras platos que requieran estar en la cocina mientras la gente disfruta.",
     `3) LISTA DE LA COMPRA REALISTA: Calcula cantidades estimadas basándote en que es un evento para ${guestCount} personas. Agrupa los ingredientes por pasillos del supermercado lógico (ej: Frescos, Carnicería, Despensa, Bebidas).`,
-    "4) TIMELINE PROFESIONAL (T-MINUS): En el 'playbook.timeline', usa el framework de Wedding Planners. Ej: 'T-1 Semana', 'T-24h', 'T-2h (Ice & Chill)', 'H-0 (Llegada)'. Da consejos tácticos (ej: 'Saca la carne de la nevera 1h antes').",
+    isProfessional
+      ? "4) TIMELINE CORPORATIVO: En el 'playbook.timeline', usa formato de hora estricto (HH:MM). Incluye buffers de transición, tiempos de networking estructurado y breaks explícitos."
+      : "4) TIMELINE PROFESIONAL (T-MINUS): En el 'playbook.timeline', usa el framework de Wedding Planners. Ej: 'T-1 Semana', 'T-24h', 'T-2h (Ice & Chill)', 'H-0 (Llegada)'. Da consejos tácticos (ej: 'Saca la carne de la nevera 1h antes').",
     "5) AMBIENTACIÓN MULTISENSORIAL: En 'playbook.ambience', no digas solo 'Pon luces'. Sugiere una atmósfera completa: tipo de iluminación, estilo exacto de playlist musical (ej: 'Bossa nova de fondo a volumen conversacional') y aromas (ej: 'Velas sin olor cerca de la comida').",
     "6) GESTIÓN DE RIESGOS ESTRICTA: Respeta estrictamente alergias, intolerancias y afecciones de INPUT_JSON. NUNCA sugieras un ingrediente prohibido. Si hay alergias críticas, añade advertencias de contaminación cruzada explícitas en 'risks' y 'shoppingList warnings'.",
     scheduleGuardrail || "7) TEMPORALIDAD: Como no hay fecha exacta, sugiere opciones atemporales y versátiles.",
     hasEventDate && !isTbd
       ? `8) FECHA DEL EVENTO: El evento comienza el ${startAt}. Adapta el menú y el plan B a la estación del año correspondiente.`
       : "8) Si no hay fecha cerrada, evita referencias temporales rígidas.",
-    "9) RIESGOS Y PLAN B: En 'playbook.risks', anticipa problemas reales (clima, silencios incómodos, retrasos en la comida) y da soluciones de experto. 'level' debe ser: yes | no | maybe | pending.",
+    "9) RIESGOS Y PLAN B: En 'playbook.risks', anticipa problemas reales y da soluciones de experto. 'level' debe ser: yes | no | maybe | pending.",
     "10) No añadas claves fuera del esquema especificado. Si faltan datos, aplica tu experiencia para proponer la opción más elegante y segura.",
     scopeRule
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
-function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {} } = {}) {
+function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRsvpSignals = [] } = {}) {
   const safeLocale = normalizeLocale(locale, "es");
   const safeEventContext = ensureObject(eventContext);
   const safeEvent = ensureObject(safeEventContext.event);
@@ -181,24 +314,61 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {} } = {}) 
   const title = normalizeText(safeEvent.title || "encuentro social");
   const description = normalizeText(safeEvent.description || "un encuentro para disfrutar");
 
+  const isProfessional = detectProfessionalContext(safeEvent);
+
+  // Build guest profile from RSVP signals
+  const safeSignals = normalizeArray(guestRsvpSignals);
+  const guestNotes = safeSignals
+    .map((sig) => normalizeText(ensureObject(sig).note))
+    .filter(Boolean)
+    .slice(0, 8);
+  const dietaryDiversity = [...new Set(
+    safeSignals
+      .flatMap((sig) => normalizeArray(ensureObject(sig).dietaryNeeds))
+      .map((need) => normalizeText(need))
+      .filter(Boolean)
+  )].slice(0, 6);
+  const hasPlusOnes = safeSignals.some((sig) => Boolean(ensureObject(sig).plusOne));
+
+  const guestContextBlock = guestNotes.length > 0
+    ? [
+        `PERFIL REAL DE LOS INVITADOS (${safeSignals.length} RSVPs recibidos):`,
+        `Notas libres: "${guestNotes.join('" | "')}"`,
+        dietaryDiversity.length > 0 ? `Perfil dietético del grupo: ${dietaryDiversity.join(", ")}` : "",
+        hasPlusOnes ? "Hay invitados que vienen con acompañante (hay parejas en el grupo)." : "",
+        "INSTRUCCIÓN: Usa estos datos para personalizar las dinámicas. Detecta patrones (viajeros, parejas, entusiastas de la música, personas con expectativas altas) y refléjalos en el badJoke, conversationTopics y quickGameIdea."
+      ].filter(Boolean).join("\n")
+    : "";
+
   return [
-    "Eres el 'Maestro de Ceremonias' experto en dinámicas sociales de LeGoodAnfitrión.",
-    "Tu objetivo es crear conexiones genuinas entre las personas de forma natural, elegante y divertida, sin que se sienta forzado.",
+    isProfessional
+      ? "Eres el 'Facilitador de Dinámicas Corporativas' de LeGoodAnfitrión, experto en engagement, team building y conexiones profesionales de alto nivel."
+      : "Eres el 'Maestro de Ceremonias' experto en dinámicas sociales de LeGoodAnfitrión.",
+    isProfessional
+      ? "Tu objetivo es crear conexiones profesionales genuinas entre los asistentes de forma estructurada, elegante y con un punto de humor ejecutivo, sin que se sienta una actividad obligatoria."
+      : "Tu objetivo es crear conexiones genuinas entre las personas de forma natural, elegante y divertida, sin que se sienta forzado.",
     "Devuelve SOLO JSON válido, sin markdown y sin bloques ```.",
     `IMPORTANT: All text fields in the output JSON MUST be written in the language corresponding to the locale code: ${safeLocale}.`,
     "Debes responder EXACTAMENTE con esta estructura y claves:",
     JSON.stringify(ICEBREAKER_RESPONSE_EXAMPLE, null, 2),
+    guestContextBlock,
     "REGLAS OBLIGATORIAS:",
-    `1) CONTEXTO CRÍTICO: Adapta completamente el tono al evento -> Título: "${title}", Descripción: "${description}". Si parece formal, sé elegante e ingenioso. Si parece casual, sé divertido y fresco.`,
+    `1) CONTEXTO CRÍTICO: Adapta completamente el tono al evento -> Título: "${title}", Descripción: "${description}". ${isProfessional ? "Es un evento corporativo/profesional: sé elegante, ingenioso y profesional. Nada demasiado informal." : "Si parece formal, sé elegante e ingenioso. Si parece casual, sé divertido y fresco."}`,
     "2) LENGUAJE INCLUSIVO Y CÁLIDO: Evita el masculino genérico. Usa fórmulas que integren a todo el grupo por igual. Mantén frases cortas, pensadas para leerse rápidamente en un móvil.",
-    "3) ICEBREAKER (badJoke): No tiene que ser un 'chiste malo' literal. Puede ser una anécdota corta, irónica y muy identificable sobre ser anfitrión o asistir a eventos, que sirva para que todos sonrían al llegar.",
-    "4) TEMAS DE CONVERSACIÓN: Propón 2 temas que provoquen debate ameno o historias personales interesantes. Evita temas básicos ('qué tal el clima'). Busca 'thought-starters' creativos.",
-    "5) DINÁMICA RÁPIDA (quickGameIdea): Propón 1 dinámica de máximo 5 minutos. Debe ser 'Low Friction' (baja vergüenza, sin materiales, que se pueda jugar con una copa en la mano).",
+    isProfessional
+      ? "3) ICEBREAKER (badJoke): Usa una anécdota corta e irónica sobre reuniones de empresa, presentaciones que salen mal o la vida de oficina. Que provoque complicidad y sonrisas, no vergüenza ajena."
+      : "3) ICEBREAKER (badJoke): No tiene que ser un 'chiste malo' literal. Puede ser una anécdota corta, irónica y muy identificable sobre ser anfitrión o asistir a eventos, que sirva para que todos sonrían al llegar.",
+    isProfessional
+      ? "4) TEMAS DE CONVERSACIÓN: Propón 2 thought-starters que inviten a compartir experiencias profesionales interesantes o dilemas del trabajo de forma amena, sin convertirse en una entrevista de trabajo."
+      : "4) TEMAS DE CONVERSACIÓN: Propón 2 temas que provoquen debate ameno o historias personales interesantes. Evita temas básicos ('qué tal el clima'). Busca 'thought-starters' creativos.",
+    isProfessional
+      ? "5) DINÁMICA RÁPIDA (quickGameIdea): Propón 1 dinámica de máximo 5 minutos orientada a team building. Sin materiales, inclusiva, que funcione con personas que no se conocen y pueda hacerse de pie."
+      : "5) DINÁMICA RÁPIDA (quickGameIdea): Propón 1 dinámica de máximo 5 minutos. Debe ser 'Low Friction' (baja vergüenza, sin materiales, que se pueda jugar con una copa en la mano).",
     isMultiDay
       ? '6) ATENCIÓN: Al ser una escapada de varios días, en tus sugerencias prioriza incluir al menos un "juego de fondo" o reto continuo que los invitados puedan jugar a lo largo de toda la convivencia (ej: el asesino, roles secretos), además de juegos puntuales.'
       : "6) Evita temas divisorios (política, religión) o juegos invasivos.",
     "7) Evita temas divisorios (política, religión) o juegos invasivos."
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function normalizeText(value, fallback = "") {
@@ -476,6 +646,8 @@ router.post("/planner", async (req, res) => {
   const scope = normalizeScope(requestPayload.scope, "all");
   const locale = normalizeLocale(requestPayload.locale || eventContext.locale || req.headers["accept-language"], "es");
   const currentPlan = ensureObject(requestPayload.currentPlan);
+  const activeModules = ensureObject(requestPayload.activeModules || eventContext.activeModules);
+  const insightSignals = ensureObject(requestPayload.insightSignals || eventContext.insightSignals);
 
   try {
     const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -504,7 +676,7 @@ router.post("/planner", async (req, res) => {
           ],
           config: {
             responseMimeType: "application/json",
-            systemInstruction: buildSystemPrompt({ locale, scope, eventContext }),
+            systemInstruction: buildSystemPrompt({ locale, scope, eventContext, activeModules, insightSignals }),
             temperature: 0.25
           }
         }),
@@ -595,12 +767,14 @@ router.post("/icebreaker", async (req, res) => {
     requestPayload.locale || eventContext.locale || req.headers["accept-language"],
     "es"
   );
+  const guestRsvpSignals = normalizeArray(requestPayload.guestRsvpSignals || eventContext.guestRsvpSignals);
 
   try {
     const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const userPayload = {
       locale,
-      eventContext
+      eventContext,
+      guestRsvpSignals
     };
 
     let response;
@@ -621,7 +795,7 @@ router.post("/icebreaker", async (req, res) => {
           ],
           config: {
             responseMimeType: "application/json",
-            systemInstruction: buildIcebreakerSystemPrompt({ locale, eventContext }),
+            systemInstruction: buildIcebreakerSystemPrompt({ locale, eventContext, guestRsvpSignals }),
             temperature: 0.7
           }
         }),

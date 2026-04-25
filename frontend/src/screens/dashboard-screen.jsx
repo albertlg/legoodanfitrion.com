@@ -465,6 +465,8 @@ function DashboardScreen({
     setEventPlannerMessage
   } = useEventPlannerState();
 
+  const [insightWidgetRefreshKeyByEventId, setInsightWidgetRefreshKeyByEventId] = useState({});
+
   const [eventTitle, setEventTitle] = useState("");
   const [eventType, setEventType] = useState("");
   const [eventStatus, setEventStatus] = useState("draft");
@@ -510,6 +512,7 @@ function DashboardScreen({
   const notificationMenuRef = useRef(null);
   const importWizardAutoloadHandledRef = useRef(false);
   const lastRsvpRefreshMarkerRef = useRef("");
+  const autoTriggeredPlanEventIds = useRef(new Set());
 
   const [guestFirstName, setGuestFirstName] = useState("");
   const [guestLastName, setGuestLastName] = useState("");
@@ -5183,6 +5186,40 @@ function DashboardScreen({
     };
   }, [isNotificationMenuOpen]);
 
+  // Auto-trigger planificador cuando el evento alcanza el umbral mínimo y no tiene plan.
+  // Threshold: título + tipo + ubicación + descripción ≥ 20 chars.
+  useEffect(() => {
+    const eventId = selectedEventDetail?.id;
+    if (!eventId) return;
+    if (autoTriggeredPlanEventIds.current.has(eventId)) return;
+    if (selectedEventPlannerSnapshotState) return;
+    if (selectedEventPlannerGenerationState?.isGenerating) return;
+
+    const title = String(selectedEventDetail.title || "").trim();
+    const eventType = String(selectedEventDetail.event_type || "").trim();
+    const location = String(
+      selectedEventDetail.location_name || selectedEventDetail.location_address || ""
+    ).trim();
+    const description = String(selectedEventDetail.description || "").trim();
+
+    if (!title || !eventType || !location || description.length < 20) return;
+
+    autoTriggeredPlanEventIds.current.add(eventId);
+    handleRegenerateEventPlanner("all");
+  }, [
+    selectedEventDetail?.id,
+    selectedEventDetail?.title,
+    selectedEventDetail?.event_type,
+    selectedEventDetail?.location_name,
+    selectedEventDetail?.location_address,
+    selectedEventDetail?.description,
+    selectedEventPlannerSnapshotState,
+    selectedEventPlannerGenerationState?.isGenerating
+    // handleRegenerateEventPlanner omitida: (1) es un const sin useCallback → TDZ si aparece
+    // en las deps antes de su declaración; (2) el Set autoTriggeredPlanEventIds ya garantiza
+    // disparo único por evento, así que no hay riesgo de closure stale.
+  ]);
+
   const handleApplyEventTemplate = (templateKey) => {
     const templateItem = eventTemplates.find((item) => item.key === templateKey);
     if (!templateItem) {
@@ -5414,7 +5451,7 @@ function DashboardScreen({
     [t]
   );
   const persistEventPlannerSnapshot = useCallback(
-    async ({ eventId, scope = "all", nextSeedAll = 0, nextSeedByTab = {}, nextContextOverrides = {} }) => {
+    async ({ eventId, scope = "all", nextSeedAll = 0, nextSeedByTab = {}, nextContextOverrides = {}, insightSignals = {} }) => {
       if (!supabase || !session?.user?.id || !selectedEventDetail?.id || selectedEventDetail.id !== eventId) {
         return;
       }
@@ -5679,6 +5716,7 @@ function DashboardScreen({
             title: String(selectedEventDetail.title || "").trim(),
             description: String(selectedEventDetail.description || "").trim(),
             eventType: String(selectedEventDetail.event_type || "").trim(),
+            templateKey: String(selectedEventDetail.template_id || selectedEventDetail.template_key || "").trim(),
             startAt: String(selectedEventDetail.start_at || "").trim(),
             endAt: String(selectedEventDetail.end_at || "").trim(),
             scheduleMode: String(selectedEventDetail.schedule_mode || "").trim(),
@@ -5694,6 +5732,8 @@ function DashboardScreen({
           },
           context: snapshotContext,
           guestRsvpSignals: rsvpSignals,
+          activeModules: normalizeEventActiveModules(selectedEventDetail?.active_modules),
+          insightSignals: insightSignals && Object.keys(insightSignals).length > 0 ? insightSignals : undefined,
           insights: {
             timingRecommendation: String(effectiveInsights.timingRecommendation || "").trim(),
             additionalInstructions: String(effectiveInsights.additionalInstructions || "").trim(),
@@ -5860,6 +5900,10 @@ function DashboardScreen({
       options && typeof options.contextOverrides === "object"
         ? options.contextOverrides
         : eventPlannerContextOverridesByEventId[eventId] || {};
+    const insightSignals =
+      options && typeof options.insightSignals === "object" && options.insightSignals !== null
+        ? options.insightSignals
+        : {};
 
     setEventPlannerGenerationByEventId((prev) => ({
       ...prev,
@@ -5892,7 +5936,8 @@ function DashboardScreen({
           scope: "all",
           nextSeedAll: nextRound,
           nextSeedByTab: nextByTab,
-          nextContextOverrides
+          nextContextOverrides,
+          insightSignals
         });
         return;
       }
@@ -5928,7 +5973,8 @@ function DashboardScreen({
           ...currentByTab,
           [safeTab]: nextTabRound
         },
-        nextContextOverrides
+        nextContextOverrides,
+        insightSignals
       });
     } finally {
       setEventPlannerGenerationByEventId((prev) => ({
@@ -5940,6 +5986,25 @@ function DashboardScreen({
       }));
     }
   };
+  const handleUpdatePlanWithInsightSignals = async (signalCounts) => {
+    if (!selectedEventDetail?.id || !signalCounts || Object.keys(signalCounts).length === 0) {
+      return;
+    }
+    const eventId = selectedEventDetail.id;
+    await handleRegenerateEventPlanner("all", { insightSignals: signalCounts });
+    if (supabase) {
+      try {
+        await supabase.rpc("mark_insights_processed", { p_event_id: eventId });
+      } catch (err) {
+        console.warn("[insights] Could not mark insights as processed", err);
+      }
+    }
+    setInsightWidgetRefreshKeyByEventId((prev) => ({
+      ...prev,
+      [eventId]: Number(prev[eventId] || 0) + 1
+    }));
+  };
+
   const handleRestoreEventPlannerSnapshot = useCallback(
     (snapshotVersion) => {
       if (!selectedEventDetail?.id) {
@@ -6228,6 +6293,27 @@ function DashboardScreen({
       }
     }));
     try {
+      const icebreakerGuestSignals = selectedEventDetailGuests
+        .map((row) => {
+          const inv = row?.invitation || {};
+          const note = String(inv.response_note || inv.rsvp_note || inv.note || "").trim();
+          const dietaryNeeds = Array.isArray(inv.rsvp_dietary_needs)
+            ? inv.rsvp_dietary_needs.map((item) => String(item || "").trim()).filter(Boolean)
+            : [];
+          const plusOne = Boolean(inv.rsvp_plus_one);
+          if (!note && dietaryNeeds.length === 0 && !plusOne) {
+            return null;
+          }
+          return {
+            guestName: String(row?.name || "").trim(),
+            status: String(inv.status || "pending").trim().toLowerCase(),
+            note,
+            dietaryNeeds,
+            plusOne
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 24);
       const icebreakerInputJson = {
         locale: language,
         event: {
@@ -6235,16 +6321,23 @@ function DashboardScreen({
           title: String(selectedEventDetail.title || "").trim(),
           description: String(selectedEventDetail.description || "").trim(),
           eventType: String(selectedEventDetail.event_type || "").trim(),
+          templateKey: String(selectedEventDetail.template_id || selectedEventDetail.template_key || "").trim(),
           startAt: String(selectedEventDetail.start_at || "").trim(),
           endAt: String(selectedEventDetail.end_at || "").trim(),
           scheduleMode: String(selectedEventDetail.schedule_mode || "").trim(),
           pollStatus: String(selectedEventDetail.poll_status || "").trim(),
           locationName: String(selectedEventDetail.location_name || "").trim(),
           locationAddress: String(selectedEventDetail.location_address || "").trim()
+        },
+        statusCounts: {
+          yes: Number(selectedEventDetailStatusCounts?.yes || 0),
+          no: Number(selectedEventDetailStatusCounts?.no || 0),
+          maybe: Number(selectedEventDetailStatusCounts?.maybe || 0)
         }
       };
       const aiResult = await requestEventIcebreakerAI({
         eventContext: icebreakerInputJson,
+        guestRsvpSignals: icebreakerGuestSignals,
         locale: language
       });
       const normalizedData = {
@@ -9594,6 +9687,9 @@ function DashboardScreen({
               formatLongDate,
               formatTimeLabel,
               handleOpenEventPlan,
+              handleUpdatePlanWithInsightSignals,
+              insightWidgetRefreshKey: insightWidgetRefreshKeyByEventId[selectedEventDetail?.id] || 0,
+              isPlanUpdatingWithSignals: Boolean(eventPlannerGenerationByEventId[selectedEventDetail?.id]?.isGenerating),
               selectedEventIcebreakerState,
               handleGenerateEventIcebreaker,
               handleCloseEventIcebreakerPanel,

@@ -8,9 +8,11 @@ import { InlineMessage } from "../components/inline-message";
 import { SpotifyGuestWidget } from "../components/spotify/spotify-guest-widget";
 import { PhotoGalleryPreview } from "../components/events/photo-gallery-preview";
 import { GuestVenueVoting } from "../components/venues/guest-venue-voting";
+import { GuestAiAssistant } from "../components/rsvp/GuestAiAssistant";
 import { supabase } from "../lib/supabaseClient";
 import { Helmet } from "react-helmet-async";
 import { formatDate, formatEventDateDisplay } from "../lib/formatters";
+import { EVENT_MODULE_KEYS, isEventModuleEnabled, resolveEventModules } from "../lib/event-modules";
 
 function toNullable(value) {
   const trimmed = value.trim();
@@ -150,6 +152,17 @@ const RSVP_SOUND_BY_STATUS = {
   no: "/sounds/break.mp3"
 };
 
+const RSVP_VIEW_MODES = Object.freeze({
+  loading: "loading",
+  error: "error",
+  empty: "empty",
+  upcomingForm: "upcoming_form",
+  datePoll: "date_poll",
+  savedDashboard: "saved_dashboard",
+  pastGallery: "past_gallery",
+  pastClosed: "past_closed"
+});
+
 function trackPlgEvent(eventName, payload = {}) {
   try {
     const safePayload = payload && typeof payload === "object" ? payload : {};
@@ -227,7 +240,7 @@ function RsvpFormView({
   handleSubmit,
   eventId,
   isDatePollOpen,
-  hasSpotifyPlaylist,
+  showSpotifyWidget,
   allowPlusOne,
   datePollOptions,
   dateVotesByOptionId,
@@ -368,7 +381,7 @@ function RsvpFormView({
       {guestVenueVotingSection}
       {guestMealsVotingSection}
 
-      {eventId && hasSpotifyPlaylist ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
+      {eventId && showSpotifyWidget ? <SpotifyGuestWidget eventId={eventId} t={t} /> : null}
 
       <label className="flex flex-col gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-1.5">
@@ -723,6 +736,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [isSavingMeals, setIsSavingMeals] = useState(false);
   const [mealsMessage, setMealsMessage] = useState("");
   const [mealsMessageType, setMealsMessageType] = useState("info");
+  const [invitationPlan, setInvitationPlan] = useState(null);
   const optionVotes = dateVotesByOptionId;
   const setOptionVotes = setDateVotesByOptionId;
 
@@ -741,7 +755,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     invitation?.host_name || invitation?.host_display_name || invitation?.organizer_name || t("app_name")
   ).trim();
 
-  const isDatePollOpen = useMemo(() => {
+  const rawIsDatePollOpen = useMemo(() => {
     const invitationPollStatus = String(invitation?.poll_status || "").trim().toLowerCase();
     const invitationScheduleMode = String(invitation?.schedule_mode || "").trim().toLowerCase();
     const normalizedPollStatus = String(eventPollStatus || invitationPollStatus).trim().toLowerCase();
@@ -751,6 +765,48 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     }
     return normalizedScheduleMode === "tbd";
   }, [eventPollStatus, eventScheduleMode, invitation?.poll_status, invitation?.schedule_mode]);
+
+  const galleryPreviewUrl = String(finalVenue?.photo_gallery_url || eventPhotoGalleryUrl || "").trim();
+
+  const moduleHints = useMemo(
+    () => ({
+      hasDatePollOptions: rawIsDatePollOpen || datePollOptions.length > 0,
+      hasSpotifyPlaylist,
+      hasVenues: eventVenues.length > 0 || Boolean(finalVenue),
+      hasMeals: eventMealOptions.length > 0,
+      hasPhotoGallery: Boolean(galleryPreviewUrl)
+    }),
+    [
+      rawIsDatePollOpen,
+      datePollOptions.length,
+      hasSpotifyPlaylist,
+      eventVenues.length,
+      finalVenue,
+      eventMealOptions.length,
+      galleryPreviewUrl
+    ]
+  );
+
+  const enabledModuleMap = useMemo(
+    () => resolveEventModules(invitation || {}, moduleHints),
+    [invitation, moduleHints]
+  );
+  const enabledModules = useMemo(
+    () => EVENT_MODULE_KEYS.filter((moduleKey) => isEventModuleEnabled(enabledModuleMap, moduleKey, false)),
+    [enabledModuleMap]
+  );
+  const isModuleEnabled = useCallback(
+    (moduleKey) => enabledModules.includes(moduleKey),
+    [enabledModules]
+  );
+
+  const isDatePollModuleEnabled = isModuleEnabled("date_poll");
+  const isGalleryModuleEnabled = isModuleEnabled("gallery");
+  const isVenuesModuleEnabled = isModuleEnabled("venues");
+  const isMealsModuleEnabled = isModuleEnabled("meals");
+  const isSpotifyModuleEnabled = isModuleEnabled("spotify");
+  const isDatePollOpen = rawIsDatePollOpen && isDatePollModuleEnabled;
+
   const eventDateDisplay = useMemo(
     () =>
       formatEventDateDisplay({
@@ -761,7 +817,6 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       }),
     [eventStartAt, eventEndAt, invitation?.event_start_at, invitation?.event_end_at, language, t]
   );
-  const galleryPreviewUrl = String(finalVenue?.photo_gallery_url || eventPhotoGalleryUrl || "").trim();
 
   const isPastEvent = useMemo(() => {
     if (isDatePollOpen) {
@@ -779,8 +834,30 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     }
     return parsedTimestamp < Date.now();
   }, [eventEndAt, eventStartAt, invitation?.event_end_at, invitation?.event_start_at, isDatePollOpen]);
-  const showPostEventGallery = isPastEvent && Boolean(galleryPreviewUrl);
-  const showPastEventClosedCard = isPastEvent && !showPostEventGallery;
+  const showPostEventGallery = isPastEvent && isGalleryModuleEnabled && Boolean(galleryPreviewUrl);
+  const viewMode = useMemo(() => {
+    if (isLoading) {
+      return RSVP_VIEW_MODES.loading;
+    }
+    if (pageError) {
+      return RSVP_VIEW_MODES.error;
+    }
+    if (!invitation) {
+      return RSVP_VIEW_MODES.empty;
+    }
+    if (isPastEvent) {
+      return showPostEventGallery ? RSVP_VIEW_MODES.pastGallery : RSVP_VIEW_MODES.pastClosed;
+    }
+    if (isRsvpSaved) {
+      return RSVP_VIEW_MODES.savedDashboard;
+    }
+    if (isDatePollOpen) {
+      return RSVP_VIEW_MODES.datePoll;
+    }
+    return RSVP_VIEW_MODES.upcomingForm;
+  }, [isLoading, pageError, invitation, isPastEvent, showPostEventGallery, isRsvpSaved, isDatePollOpen]);
+  const shouldShowRsvpForm =
+    viewMode === RSVP_VIEW_MODES.upcomingForm || viewMode === RSVP_VIEW_MODES.datePoll;
 
   useEffect(() => {
     if (fetchedVotes && Array.isArray(fetchedVotes)) {
@@ -815,6 +892,52 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     [eventMealOptions, t]
   );
   const hasMealCourses = groupedMealCourses.length > 0;
+  const guestAiContext = useMemo(
+    () => ({
+      eventTitle: invitation?.event_title,
+      dateLabel: isDatePollOpen && !(eventStartAt || invitation?.event_start_at)
+        ? t("rsvp_poll_date_pending")
+        : eventDateDisplay.fullLabel,
+      location: invitationLocation,
+      mapsUrl: invitationLocationMapsUrl,
+      hostName: invitationOrganizer,
+      hostNotes:
+        invitation?.host_notes ||
+        invitation?.host_note ||
+        invitation?.event_host_notes ||
+        invitation?.event_description ||
+        invitation?.description ||
+        "",
+      menuCourses: groupedMealCourses,
+      rsvpStatus: status,
+      planDressCode: invitationPlan?.dressCode || "none",
+      planMomentKey: invitationPlan?.momentKey || "",
+      planToneKey: invitationPlan?.toneKey || "",
+      planTimeline: Array.isArray(invitationPlan?.timeline) ? invitationPlan.timeline : [],
+      planAmbienceHints: Array.isArray(invitationPlan?.ambienceHints) ? invitationPlan.ambienceHints : [],
+      planConversationStarters: Array.isArray(invitationPlan?.conversationStarters) ? invitationPlan.conversationStarters : [],
+      planMenuContext: invitationPlan?.menuContext || ""
+    }),
+    [
+      invitation?.event_title,
+      invitation?.event_start_at,
+      invitation?.host_notes,
+      invitation?.host_note,
+      invitation?.event_host_notes,
+      invitation?.event_description,
+      invitation?.description,
+      isDatePollOpen,
+      eventStartAt,
+      eventDateDisplay.fullLabel,
+      invitationLocation,
+      invitationLocationMapsUrl,
+      invitationOrganizer,
+      groupedMealCourses,
+      status,
+      invitationPlan,
+      t
+    ]
+  );
 
   const handleSelectMealOption = useCallback((courseKey, optionId) => {
     const normalizedCourseKey = normalizeMealsCourseKey(courseKey);
@@ -878,6 +1001,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setIsLoading(true);
       setPageError("");
       setFetchedVotes(null);
+      setIsLoadingMeals(false);
       const { data, error } = await supabase.rpc("get_invitation_public", { p_token: token });
 
       if (error) {
@@ -922,8 +1046,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setEventMealOptions([]);
       setMealSelectionsByCourse({});
       setPlusOneMealSelectionsByCourse({});
+      setIsLoadingMeals(false);
       setMealsMessage("");
       setMealsMessageType("info");
+      setInvitationPlan(null);
       setDateVoteMessage("");
       setDateVoteMessageType("success");
       setIsRsvpSaved(false);
@@ -933,61 +1059,18 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
       const eventId = String(first.event_id || "").trim();
       if (eventId) {
-        let shouldLoadPollData = true;
-
-        const spotifyResult = await supabase
-          .from("event_spotify_playlists")
-          .select("id")
-          .eq("event_id", eventId)
-          .maybeSingle();
-        if (spotifyResult.error) {
-          console.error("[rsvp-spotify] Error cargando estado de Spotify", spotifyResult.error);
-          setHasSpotifyPlaylist(false);
-        } else {
-          setHasSpotifyPlaylist(Boolean(spotifyResult.data?.id));
-        }
-
         const mealsPublicUrl = buildMealsEndpoint("public");
-        if (token && mealsPublicUrl) {
-          setIsLoadingMeals(true);
-          try {
-            const mealsUrl = new URL(mealsPublicUrl, window.location.origin);
-            mealsUrl.searchParams.set("token", token);
-            const mealsResponse = await fetch(mealsUrl.toString(), {
-              method: "GET",
-              headers: {
-                Accept: "application/json"
-              }
-            });
-            const mealsPayload = await mealsResponse.json().catch(() => ({}));
-            if (!mealsResponse.ok || mealsPayload?.success === false) {
-              throw new Error(String(mealsPayload?.error || `HTTP ${mealsResponse.status}`));
-            }
+        const venuePublicUrl = buildVenueEndpoint("public");
+        const firstPollStatus = String(first.poll_status || "").trim().toLowerCase();
+        const firstScheduleMode = String(first.schedule_mode || "").trim().toLowerCase();
+        const firstDatePollOpen = firstPollStatus ? firstPollStatus === "open" : firstScheduleMode === "tbd";
+        const firstModuleMap = resolveEventModules(first, {
+          hasDatePollOptions: firstDatePollOpen,
+          hasPhotoGallery: Boolean(first.photo_gallery_url || first.event_photo_gallery_url)
+        });
+        const shouldLoadModule = (moduleKey) => isEventModuleEnabled(firstModuleMap, moduleKey, false);
 
-            const normalizedOptions = (Array.isArray(mealsPayload?.options) ? mealsPayload.options : [])
-              .map((optionItem) => ({
-                ...optionItem,
-                id: String(optionItem?.id || "").trim(),
-                course_key: normalizeMealsCourseKey(optionItem?.course_key),
-                course_label: resolveMealsCourseLabel(optionItem, t),
-                label: String(optionItem?.label || "").trim()
-              }))
-              .filter((optionItem) => optionItem.id && optionItem.label);
-            const normalizedSelections = splitMealSelectionsByScope(mealsPayload?.selections);
-
-            setEventMealOptions(normalizedOptions);
-            setMealSelectionsByCourse(normalizedSelections.self);
-            setPlusOneMealSelectionsByCourse(normalizedSelections.plusOne);
-          } catch (mealsError) {
-            console.error("[rsvp-meals] Error cargando módulo de menús", mealsError);
-            setEventMealOptions([]);
-            setMealSelectionsByCourse({});
-            setPlusOneMealSelectionsByCourse({});
-          } finally {
-            setIsLoadingMeals(false);
-          }
-        }
-
+        let shouldLoadPollData = true;
         const effectiveEventDateRaw = String(
           first.event_end_at ||
             first.end_at ||
@@ -1002,7 +1085,49 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           }
         }
 
-        if (shouldLoadPollData && token) {
+        const loadSpotifyState = async () => {
+          const spotifyResult = await supabase
+            .from("event_spotify_playlists")
+            .select("id")
+            .eq("event_id", eventId)
+            .maybeSingle();
+          if (spotifyResult.error) {
+            throw spotifyResult.error;
+          }
+          return Boolean(spotifyResult.data?.id);
+        };
+
+        const loadMealsState = async () => {
+          const mealsUrl = new URL(mealsPublicUrl, window.location.origin);
+          mealsUrl.searchParams.set("token", token);
+          const mealsResponse = await fetch(mealsUrl.toString(), {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          const mealsPayload = await mealsResponse.json().catch(() => ({}));
+          if (!mealsResponse.ok || mealsPayload?.success === false) {
+            throw new Error(String(mealsPayload?.error || `HTTP ${mealsResponse.status}`));
+          }
+
+          const normalizedOptions = (Array.isArray(mealsPayload?.options) ? mealsPayload.options : [])
+            .map((optionItem) => ({
+              ...optionItem,
+              id: String(optionItem?.id || "").trim(),
+              course_key: normalizeMealsCourseKey(optionItem?.course_key),
+              course_label: resolveMealsCourseLabel(optionItem, t),
+              label: String(optionItem?.label || "").trim()
+            }))
+            .filter((optionItem) => optionItem.id && optionItem.label);
+          const normalizedSelections = splitMealSelectionsByScope(mealsPayload?.selections);
+          return {
+            options: normalizedOptions,
+            selections: normalizedSelections
+          };
+        };
+
+        const loadDatePollState = async () => {
           let rawOptions = [];
           const optionsByTokenResult = await supabase
             .rpc("get_event_date_options_by_token", { p_token: token });
@@ -1015,7 +1140,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               .eq("event_id", eventId)
               .order("starts_at", { ascending: true });
             if (optionsFallbackResult.error) {
-              console.error("[rsvp-poll] Error cargando opciones de encuesta (fallback)", optionsFallbackResult.error);
+              throw optionsFallbackResult.error;
             } else {
               rawOptions = Array.isArray(optionsFallbackResult.data) ? optionsFallbackResult.data : [];
             }
@@ -1038,54 +1163,148 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             })
             .filter(Boolean);
 
-          setDatePollOptions(normalizedOptions);
-
+          let votes = [];
           if (normalizedOptions.length > 0) {
             const { data: myVotes, error: votesError } = await supabase
               .rpc("get_event_date_votes_by_token", { p_token: token });
             if (votesError) {
               console.error("[rsvp-poll] Error cargando votos del invitado", votesError);
             } else {
-              setFetchedVotes(Array.isArray(myVotes) ? myVotes : []);
+              votes = Array.isArray(myVotes) ? myVotes : [];
             }
           }
+          return {
+            options: normalizedOptions,
+            votes
+          };
+        };
+
+        const loadVenueState = async () => {
+          const url = new URL(venuePublicUrl, window.location.origin);
+          url.searchParams.set("token", token);
+          const venueResponse = await fetch(url.toString(), {
+            method: "GET",
+            headers: {
+              Accept: "application/json"
+            }
+          });
+          const venuePayload = await venueResponse.json().catch(() => ({}));
+          if (!venueResponse.ok || venuePayload?.success === false) {
+            throw new Error(String(venuePayload?.error || `HTTP ${venueResponse.status}`));
+          }
+
+          const venues = Array.isArray(venuePayload?.venues) ? venuePayload.venues : [];
+          const finalVenueItem =
+            venuePayload?.finalVenue && typeof venuePayload.finalVenue === "object"
+              ? venuePayload.finalVenue
+              : venues.find((venueItem) => Boolean(venueItem?.is_final_selection)) || null;
+          const votingVenues = venues.filter((venueItem) => !venueItem?.is_final_selection);
+          const votedVenueIds = Array.isArray(venuePayload?.userVotedVenueIds)
+            ? venuePayload.userVotedVenueIds.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+
+          return {
+            finalVenue: finalVenueItem,
+            venues: votingVenues,
+            votedVenueIds
+          };
+        };
+
+        const loadAiPlanState = async () => {
+          const planResult = await supabase.rpc("get_invitation_plan_public", { p_token: token });
+          if (planResult.error) {
+            if (!planResult.error.message?.includes("does not exist")) {
+              console.warn("[rsvp-ai-plan] Error cargando plan IA", planResult.error);
+            }
+            return null;
+          }
+          const row = Array.isArray(planResult.data) ? planResult.data[0] : planResult.data;
+          if (!row) {
+            return null;
+          }
+          return {
+            planVersion: Number(row.plan_version || 1),
+            generatedAt: String(row.generated_at || ""),
+            source: String(row.source || ""),
+            dressCode: String(row.dress_code || "none"),
+            momentKey: String(row.moment_key || "evening"),
+            toneKey: String(row.tone_key || "casual"),
+            timeline: Array.isArray(row.timeline) ? row.timeline : [],
+            ambienceHints: Array.isArray(row.ambience_hints) ? row.ambience_hints : [],
+            conversationStarters: Array.isArray(row.conversation_starters) ? row.conversation_starters : [],
+            menuContext: String(row.menu_context || "")
+          };
+        };
+
+        const moduleJobs = [];
+        if (shouldLoadModule("spotify")) {
+          moduleJobs.push({ key: "spotify", promise: loadSpotifyState() });
+        }
+        if (token && mealsPublicUrl && shouldLoadModule("meals")) {
+          moduleJobs.push({ key: "meals", promise: loadMealsState() });
+        }
+        if (token && shouldLoadPollData && shouldLoadModule("date_poll")) {
+          moduleJobs.push({ key: "date_poll", promise: loadDatePollState() });
+        }
+        if (token && venuePublicUrl && shouldLoadModule("venues")) {
+          moduleJobs.push({ key: "venues", promise: loadVenueState() });
+        }
+        if (token) {
+          moduleJobs.push({ key: "ai_plan", promise: loadAiPlanState() });
         }
 
-        const venuePublicUrl = buildVenueEndpoint("public");
-        if (token && venuePublicUrl) {
-          try {
-            const url = new URL(venuePublicUrl, window.location.origin);
-            url.searchParams.set("token", token);
-            const venueResponse = await fetch(url.toString(), {
-              method: "GET",
-              headers: {
-                Accept: "application/json"
-              }
-            });
-            const venuePayload = await venueResponse.json();
-            if (!venueResponse.ok || venuePayload?.success === false) {
-              throw new Error(String(venuePayload?.error || `HTTP ${venueResponse.status}`));
+        setIsLoadingMeals(moduleJobs.some((job) => job.key === "meals"));
+        const moduleResults = await Promise.allSettled(moduleJobs.map((job) => job.promise));
+        moduleResults.forEach((result, index) => {
+          const moduleKey = moduleJobs[index]?.key;
+          if (result.status === "rejected") {
+            if (moduleKey === "spotify") {
+              console.error("[rsvp-spotify] Error cargando estado de Spotify", result.reason);
+              setHasSpotifyPlaylist(false);
             }
-
-            const venues = Array.isArray(venuePayload?.venues) ? venuePayload.venues : [];
-            const finalVenueItem =
-              venuePayload?.finalVenue && typeof venuePayload.finalVenue === "object"
-                ? venuePayload.finalVenue
-                : venues.find((venueItem) => Boolean(venueItem?.is_final_selection)) || null;
-            const votingVenues = venues.filter((venueItem) => !venueItem?.is_final_selection);
-            const votedVenueIds = Array.isArray(venuePayload?.userVotedVenueIds)
-              ? venuePayload.userVotedVenueIds.map((value) => String(value || "").trim()).filter(Boolean)
-              : [];
-
-            setFinalVenue(finalVenueItem);
-            setEventVenues(votingVenues);
-            setUserVotedVenueIds(votedVenueIds);
-          } catch (venueError) {
-            console.error("[rsvp-venues] Error cargando lugares", venueError);
-            setFinalVenue(null);
-            setEventVenues([]);
-            setUserVotedVenueIds([]);
+            if (moduleKey === "meals") {
+              console.error("[rsvp-meals] Error cargando módulo de menús", result.reason);
+              setEventMealOptions([]);
+              setMealSelectionsByCourse({});
+              setPlusOneMealSelectionsByCourse({});
+            }
+            if (moduleKey === "date_poll") {
+              console.error("[rsvp-poll] Error cargando opciones de encuesta", result.reason);
+              setDatePollOptions([]);
+              setFetchedVotes([]);
+            }
+            if (moduleKey === "venues") {
+              console.error("[rsvp-venues] Error cargando lugares", result.reason);
+              setFinalVenue(null);
+              setEventVenues([]);
+              setUserVotedVenueIds([]);
+            }
+            return;
           }
+
+          if (moduleKey === "spotify") {
+            setHasSpotifyPlaylist(Boolean(result.value));
+          }
+          if (moduleKey === "meals") {
+            setEventMealOptions(result.value.options);
+            setMealSelectionsByCourse(result.value.selections.self);
+            setPlusOneMealSelectionsByCourse(result.value.selections.plusOne);
+          }
+          if (moduleKey === "date_poll") {
+            setDatePollOptions(result.value.options);
+            setFetchedVotes(result.value.votes);
+          }
+          if (moduleKey === "venues") {
+            setFinalVenue(result.value.finalVenue);
+            setEventVenues(result.value.venues);
+            setUserVotedVenueIds(result.value.votedVenueIds);
+          }
+          if (moduleKey === "ai_plan") {
+            setInvitationPlan(result.value);
+          }
+        });
+        if (moduleJobs.some((job) => job.key === "meals")) {
+          setIsLoadingMeals(false);
         }
       }
       setIsLoading(false);
@@ -1139,7 +1358,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     }
 
     const normalizedFinalStatus = String(data?.[0]?.status || status || "").trim().toLowerCase();
-    if (normalizedFinalStatus === "yes" && hasMealCourses) {
+    if (normalizedFinalStatus === "yes" && isMealsModuleEnabled && hasMealCourses) {
       const selfSelectionsPayload = groupedMealCourses.map((courseGroup) => ({
         courseKey: courseGroup.courseKey,
         optionId: String(mealSelectionsByCourse?.[courseGroup.courseKey] || "").trim() || null,
@@ -1312,8 +1531,21 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     pending: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
   };
 
+  const canShowGuestPlanningModules = !isPastEvent && status !== "no";
+  const showSpotifyWidget = isSpotifyModuleEnabled && canShowGuestPlanningModules && hasSpotifyPlaylist;
+  const hasGuestAiPlanData = Boolean(
+    invitation?.event_title &&
+      (eventDateDisplay.fullLabel ||
+        invitationLocation ||
+        guestAiContext.hostNotes ||
+        groupedMealCourses.length > 0)
+  );
+  const showGuestAiAssistant =
+    (viewMode === RSVP_VIEW_MODES.upcomingForm || viewMode === RSVP_VIEW_MODES.savedDashboard) &&
+    hasGuestAiPlanData;
+
   const guestVenueVotingSection =
-    !finalVenue && eventVenues.length > 0 ? (
+    isVenuesModuleEnabled && canShowGuestPlanningModules && !finalVenue && eventVenues.length > 0 ? (
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h3 className="text-base font-black text-gray-900 dark:text-white">
@@ -1333,7 +1565,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     ) : null;
 
   const guestMealsVotingSection =
-    !isDatePollOpen && status === "yes" && hasMealCourses ? (
+    isMealsModuleEnabled && !isDatePollOpen && status === "yes" && hasMealCourses ? (
       <section className="flex flex-col gap-3">
         <RsvpMealsVotingView
           t={t}
@@ -1361,7 +1593,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       </section>
     ) : null;
 
-  const finalVenueSection = finalVenue ? (
+  const finalVenueSection = isVenuesModuleEnabled && finalVenue ? (
     <article className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border border-black/5 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden">
       <div className="p-6 md:p-8 flex flex-col gap-5">
         <div className="flex items-start gap-3">
@@ -1432,7 +1664,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     </article>
   ) : null;
 
-  const memoriesGallerySection = galleryPreviewUrl ? (
+  const memoriesGallerySection = isGalleryModuleEnabled && galleryPreviewUrl ? (
     <Motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -1474,6 +1706,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   ) : null;
 
   return (
+    <>
     <Motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -1513,14 +1746,14 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
           <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} dropdownDirection="down" />
         </header>
 
-        {isLoading ? (
+        {viewMode === RSVP_VIEW_MODES.loading ? (
           <div className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-3xl shadow-sm p-12 flex flex-col items-center justify-center gap-4">
             <Icon name="sparkle" className="w-8 h-8 text-blue-500 animate-pulse" />
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("loading_invitation")}</p>
           </div>
         ) : null}
 
-        {pageError ? (
+        {viewMode === RSVP_VIEW_MODES.error ? (
           <div className="bg-red-50/80 dark:bg-red-900/20 backdrop-blur-xl border border-red-200 dark:border-red-800/30 rounded-3xl shadow-sm p-8 text-center">
             <Icon name="close" className="w-8 h-8 text-red-500 mx-auto mb-3" />
             <p className="text-sm font-bold text-red-800 dark:text-red-300">{pageError}</p>
@@ -1585,7 +1818,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
               </div>
             </article>
 
-            {isRsvpSaved && !isPastEvent ? (
+            {viewMode === RSVP_VIEW_MODES.savedDashboard ? (
               <RsvpSuccessView
                 t={t}
                 onOpenGlobalGuestProfile={handleOpenGlobalGuestProfile}
@@ -1596,8 +1829,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
             ) : (
               <>
                 {finalVenueSection}
-                {memoriesGallerySection}
-                {showPastEventClosedCard ? (
+                {viewMode === RSVP_VIEW_MODES.pastGallery ? memoriesGallerySection : null}
+                {viewMode === RSVP_VIEW_MODES.pastClosed ? (
                   <Motion.article
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1611,7 +1844,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     <p className="text-sm text-gray-600 dark:text-gray-300">{t("rsvp_past_event_closed_hint")}</p>
                   </Motion.article>
                 ) : null}
-                {!isPastEvent ? (
+                {shouldShowRsvpForm ? (
                   <RsvpFormView
                     t={t}
                     language={language}
@@ -1630,7 +1863,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     setNote={setNote}
                     handleSubmit={handleSubmit}
                     eventId={invitation?.event_id}
-                    hasSpotifyPlaylist={hasSpotifyPlaylist}
+                    showSpotifyWidget={showSpotifyWidget}
                     isDatePollOpen={isDatePollOpen}
                     allowPlusOne={eventAllowPlusOne}
                     datePollOptions={datePollOptions}
@@ -1661,6 +1894,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       </div>
       </main>
     </Motion.div>
+    {/* GuestAiAssistant fuera del Motion.div: el transform/opacity de Framer Motion
+        crea un stacking context que mata backdrop-filter en hijos fixed. */}
+    {showGuestAiAssistant ? <GuestAiAssistant t={t} context={guestAiContext} token={token} /> : null}
+  </>
   );
 }
 

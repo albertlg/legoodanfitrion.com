@@ -171,13 +171,17 @@ export function HostPlanView({
       <div className={`flex flex-col gap-4 ${standalone ? "border-b border-black/5 dark:border-white/10 pb-6" : ""}`}>
 
         {/* Título y Acciones Globales */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-          <div className="flex flex-col gap-2 min-w-0">
+        <div className="rounded-2xl bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-purple-50/90 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-purple-950/30 border border-blue-100/70 dark:border-blue-800/25 p-4 md:p-5 flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex flex-col gap-2.5 min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-xl md:text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
-                <Icon name="sparkle" className="w-5 h-5 text-blue-500" />
-                {t("event_planner_title")}
-              </p>
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md shadow-blue-200/60 dark:shadow-blue-900/50 shrink-0">
+                  <Icon name="sparkle" className="w-4 h-4 text-white" />
+                </span>
+                <p className="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent leading-tight">
+                  {t("event_planner_title")}
+                </p>
+              </div>
               <span className="px-2.5 py-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm">
                 {t("event_planner_ai_badge")}
               </span>
@@ -189,25 +193,29 @@ export function HostPlanView({
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_planner_hint")}</p>
             )}
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-1">
+            <div className="flex flex-wrap gap-1.5">
+              {plannerTabs.map((tab) => (
+                <span key={tab.key} className="px-2 py-0.5 bg-white/80 dark:bg-white/10 text-indigo-700 dark:text-indigo-300 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-700/30 shadow-sm">
+                  {tab.label}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
               <span className="flex items-center gap-1.5"><Icon name="calendar" className="w-3.5 h-3.5" />{selectedEventDateLabel}</span>
               <span className="flex items-center gap-1.5"><Icon name="clock" className="w-3.5 h-3.5" />{selectedEventTimeLabel}</span>
               <span className="flex items-center gap-1.5"><Icon name="location" className="w-3.5 h-3.5" /><span className="truncate max-w-[200px]">{selectedEventPlaceLabel}</span></span>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
-            <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 sm:py-2.5 px-1 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 disabled:opacity-50 text-center leading-tight" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
-              <Icon name="edit" className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
+            <button className="flex-1 sm:flex-none bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
+              <Icon name="edit" className="w-3.5 h-3.5" />
               <span>{t("event_planner_action_context")}</span>
             </button>
-            <button className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/30 font-bold py-2 sm:py-2.5 px-1 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 disabled:opacity-50 text-center leading-tight" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
-              <Icon name="sparkle" className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <button className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 font-bold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-md shadow-blue-200/50 dark:shadow-blue-900/40 flex items-center justify-center gap-1.5 disabled:opacity-50" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
+              <Icon name="sparkle" className="w-3.5 h-3.5" />
               <span>{isGeneratingAll ? t("event_planner_generating_all") : t("event_planner_action_regenerate")}</span>
-            </button>
-            <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 sm:py-2.5 px-1 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 disabled:opacity-50 text-center leading-tight" type="button" onClick={handleExportEventPlannerShoppingList} disabled={isGenerating}>
-              <Icon name="download" className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-              <span>{t("event_planner_action_export")}</span>
             </button>
           </div>
         </div>
@@ -462,6 +470,10 @@ export function HostPlanView({
                 <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-black/10 dark:border-white/10 font-bold py-1.5 px-3 rounded-lg transition-all text-[10px] uppercase tracking-wider shadow-sm" type="button" onClick={handleClearEventPlannerShoppingCheckedItems}>
                   {t("event_planner_shopping_clear_done")}
                 </button>
+                <button className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-black/10 dark:border-white/10 font-bold py-1.5 px-3 rounded-lg transition-all text-[10px] uppercase tracking-wider shadow-sm flex items-center gap-1.5" type="button" onClick={handleExportEventPlannerShoppingList}>
+                  <Icon name="download" className="w-3 h-3" />
+                  {t("event_planner_action_export")}
+                </button>
               </div>
             </div>
 
@@ -668,19 +680,25 @@ export function HostPlanView({
             <p className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-wide border-b border-black/5 dark:border-white/10 pb-3">{t("event_planner_host_risks_title")}</p>
             <ul className="flex flex-col gap-3">
               {selectedEventHostPlaybook.risks.map((riskItem) => {
-                const isSuccess = riskItem.level.includes("yes");
-                const isWarning = riskItem.level.includes("maybe");
-                const isError = riskItem.level.includes("no");
+                // level semántica para riesgos:
+                // "yes"     → riesgo confirmado, atención requerida  → ámbar
+                // "maybe"   → riesgo posible, vigilar                → azul
+                // "no"      → riesgo descartado, sin problema        → verde
+                // "pending" → por evaluar                            → gris
+                const level = String(riskItem.level || "").toLowerCase();
+                const isConfirmed = level.includes("yes");
+                const isPossible  = level.includes("maybe");
+                const isDismissed = level.includes("no");
 
-                const colorClasses = isSuccess
-                  ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-300"
-                  : isError
-                    ? "bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30 text-red-800 dark:text-red-300"
-                    : isWarning
-                      ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-900/30 text-orange-800 dark:text-orange-300"
-                      : "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30 text-blue-800 dark:text-blue-300";
+                const colorClasses = isConfirmed
+                  ? "bg-amber-50/70 dark:bg-amber-900/15 border-amber-300 dark:border-amber-700/40 text-amber-900 dark:text-amber-300"
+                  : isDismissed
+                    ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30 text-green-800 dark:text-green-300"
+                    : isPossible
+                      ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30 text-blue-800 dark:text-blue-300"
+                      : "bg-gray-50/70 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300";
 
-                const iconName = isSuccess ? "check" : isError ? "close" : "shield";
+                const iconName = isDismissed ? "check" : isConfirmed ? "shield" : "shield";
 
                 return (
                   <li key={riskItem.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border shadow-sm ${colorClasses}`}>

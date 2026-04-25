@@ -6,6 +6,7 @@ import { InlineMessage } from "../../../components/inline-message";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { EventKpiTile } from "../../../components/dashboard/presentational/EventKpiTile";
 import { PlannerIACard } from "../../../components/dashboard/presentational/PlannerIACard";
+import { GuestAiInsightsWidget } from "../../../components/dashboard/presentational/GuestAiInsightsWidget";
 import { HostPlanView } from "./host-plan-view";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
@@ -409,6 +410,9 @@ export function EventDetailView({
   language,
   formatTimeLabel,
   handleOpenEventPlan,
+  handleUpdatePlanWithInsightSignals,
+  insightWidgetRefreshKey,
+  isPlanUpdatingWithSignals,
   selectedEventIcebreakerState,
   handleGenerateEventIcebreaker,
   handleCloseEventIcebreakerPanel,
@@ -2922,6 +2926,20 @@ export function EventDetailView({
                 <div className="order-1">
                   <PlannerIACard t={t} onOpen={() => handleOpenEventPlan("ambience")} />
                 </div>
+
+                {/* Lo que tus invitados preguntan */}
+                {selectedEventDetail?.id ? (
+                  <div className="order-2">
+                    <GuestAiInsightsWidget
+                      eventId={selectedEventDetail.id}
+                      t={t}
+                      onGoToPlan={handleOpenEventPlan}
+                      onUpdatePlanWithSignals={handleUpdatePlanWithInsightSignals}
+                      isPlanUpdating={isPlanUpdatingWithSignals}
+                      refreshTrigger={insightWidgetRefreshKey}
+                    />
+                  </div>
+                ) : null}
 
                 {activeSidebarModules.map((moduleItem) => (
                   <React.Fragment key={moduleItem.key}>

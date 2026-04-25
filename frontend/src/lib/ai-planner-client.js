@@ -84,6 +84,7 @@ export async function requestEventPlannerAI({ eventContext, currentPlan = {}, sc
 
 export async function requestEventIcebreakerAI({
   eventContext,
+  guestRsvpSignals = [],
   locale = "es"
 }) {
   const fullUrl = buildIcebreakerEndpoint(API_BASE_URL);
@@ -102,6 +103,7 @@ export async function requestEventIcebreakerAI({
     },
     body: JSON.stringify({
       eventContext: eventContext && typeof eventContext === "object" ? eventContext : {},
+      guestRsvpSignals: Array.isArray(guestRsvpSignals) ? guestRsvpSignals : [],
       locale: String(locale || "es").trim().toLowerCase()
     })
   });

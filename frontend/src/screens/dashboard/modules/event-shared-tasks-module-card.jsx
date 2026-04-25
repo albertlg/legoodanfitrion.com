@@ -405,7 +405,7 @@ export function EventSharedTasksModuleCard({
   };
 
   return (
-    <article className="order-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+    <article className={`order-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-visible p-5 flex flex-col gap-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md${assignmentMenuTaskId ? " relative z-[60]" : ""}`}>
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -582,7 +582,7 @@ export function EventSharedTasksModuleCard({
                       </button>
 
                       {isAssignmentMenuOpen ? (
-                        <div className="absolute right-0 top-full mt-2 min-w-[210px] max-w-[260px] z-20 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-1.5">
+                        <div className="absolute right-0 bottom-full mb-2 min-w-[210px] max-w-[260px] z-50 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1.5">
                           <button
                             type="button"
                             className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

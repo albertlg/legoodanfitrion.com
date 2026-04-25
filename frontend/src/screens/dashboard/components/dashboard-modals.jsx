@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import { createPortal } from "react-dom";
 import { AILoader } from "../../../components/ai-loader";
 
 const EventPlannerContextModal = lazy(() =>
@@ -145,7 +146,7 @@ function DashboardModals(props) {
     handleConfirmDelete
   } = props;
 
-  return (
+  return createPortal(
     <>
       <AILoader t={t} isVisible={Boolean(selectedEventPlannerGenerationState?.isGenerating)} />
 
@@ -307,7 +308,8 @@ function DashboardModals(props) {
           />
         </Suspense>
       ) : null}
-    </>
+    </>,
+    document.body
   );
 }
 
