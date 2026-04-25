@@ -2519,7 +2519,8 @@ export function EventDetailView({
           <div className="absolute inset-0 rounded-2xl overflow-hidden">
             {eventSatelliteCoverEmbedUrl ? (
               <iframe
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                className="absolute w-full pointer-events-none"
+                style={{ top: "-48px", height: "calc(100% + 96px)" }}
                 title={interpolateText(t("event_detail_cover_alt"), { event: selectedEventDetail.title || t("field_event") })}
                 src={eventSatelliteCoverEmbedUrl}
                 loading="lazy"
@@ -2533,13 +2534,7 @@ export function EventDetailView({
                 loading="lazy"
               />
             )}
-            {/* Máscara esquina superior izquierda: tapa el botón "Abrir en Maps"
-                que Google inyecta en iframes embed. Gradient diagonal para que
-                no quede un rectángulo feo sobre el mapa. */}
-            <div className="absolute top-0 left-0 w-[240px] h-[68px] bg-gradient-to-br from-white via-white/90 to-transparent dark:from-gray-900 dark:via-gray-900/90 pointer-events-none" aria-hidden="true" />
-            {/* Strip sólido inferior: tapa Google logo + attribution + "Reportar un problema". */}
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-white dark:bg-gray-900 pointer-events-none" aria-hidden="true" />
-            {/* Fade estético sobre el contenido. */}
+            {/* Fade estético para legibilidad del título y acciones. */}
             <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-transparent dark:from-gray-900 dark:via-gray-900/85 dark:to-transparent pointer-events-none" />
           </div>
           <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6 md:p-8">
