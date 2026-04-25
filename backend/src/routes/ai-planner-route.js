@@ -174,7 +174,9 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
   const { startAt, endAt, isMultiDay, isTbd, hasEventDate } = extractEventScheduleContext(safeEventContext);
 
   const confirmedCount = Number(safeEventContext.statusCounts?.yes || 0);
-  const guestCount = safeEventContext.guests?.length || (confirmedCount > 0 ? confirmedCount : "un número no especificado de");
+  const plusOnesCount = Number(safeEventContext.statusCounts?.plusOnes || 0);
+  const totalAttendees = Number(safeEventContext.statusCounts?.totalAttendees || confirmedCount);
+  const guestCount = safeEventContext.guests?.length || (totalAttendees > 0 ? totalAttendees : "un número no especificado de");
 
   const isProfessional = detectProfessionalContext(safeEvent);
 
@@ -199,6 +201,11 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
         "Tienes 15 años de experiencia organizando desde cenas íntimas de lujo hasta bodas y eventos sociales multitudinarios.",
         "Tu tono es empático, cercano y sofisticado. Eres el mejor amigo experto del anfitrión."
       ].join(" ");
+
+  // ATTENDEE COUNT: include plus-ones in headcount context
+  const plusOnesBlock = plusOnesCount > 0
+    ? `ℹ ASISTENTES REALES: ${confirmedCount} invitados confirmados + ${plusOnesCount} acompañante(s) (+1) = ${totalAttendees} personas en total. Usa ${totalAttendees} como número de comensales para calcular cantidades, espacios y timings.`
+    : "";
 
   // RSVP SIGNALS: extract friction and desire signals from guest notes
   const guestRsvpSignals = normalizeArray(safeEventContext.guestRsvpSignals);
@@ -317,6 +324,7 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
     JSON.stringify(PLANNER_RESPONSE_EXAMPLE, null, 2),
     insightSignalsBlock,
     rsvpSignalsBlock,
+    plusOnesBlock,
     modulesBlock,
     venueBlock,
     professionalBlock,

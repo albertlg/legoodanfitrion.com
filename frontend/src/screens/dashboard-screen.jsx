@@ -5717,7 +5717,7 @@ function DashboardScreen({
             const [optionsResult, votesResult] = await Promise.all([
               supabase
                 .from("event_meal_options")
-                .select("id, course_key, course_label, label")
+                .select("id, course_key, course_label, label, description")
                 .eq("event_id", eventId),
               supabase
                 .from("event_meal_selections")
@@ -5730,12 +5730,17 @@ function DashboardScreen({
                 if (row.option_id) voteCount[row.option_id] = (voteCount[row.option_id] || 0) + 1;
               }
               mealVotesForAi = (Array.isArray(optionsResult.data) ? optionsResult.data : [])
-                .map(o => ({
-                  courseKey: String(o.course_key || "").trim(),
-                  courseLabel: String(o.course_label || o.course_key || "").trim(),
-                  label: String(o.label || "").trim(),
-                  votes: Number(voteCount[o.id] || 0)
-                }))
+                .map(o => {
+                  const item = {
+                    courseKey: String(o.course_key || "").trim(),
+                    courseLabel: String(o.course_label || o.course_key || "").trim(),
+                    label: String(o.label || "").trim(),
+                    votes: Number(voteCount[o.id] || 0)
+                  };
+                  const desc = String(o.description || "").trim();
+                  if (desc) item.description = desc;
+                  return item;
+                })
                 .filter(o => Boolean(o.label))
                 .sort((a, b) => b.votes - a.votes);
             }
@@ -5743,6 +5748,15 @@ function DashboardScreen({
             // non-critical — continue without meal votes
           }
         }
+
+        // Count confirmed plus-ones as additional attendees
+        const confirmedPlusOneCount = selectedEventDetailGuests
+          .filter(row => {
+            const inv = row?.invitation || {};
+            return String(inv.status || "").toLowerCase() === "yes" && Boolean(inv.rsvp_plus_one);
+          })
+          .length;
+        const confirmedYes = Number(selectedEventDetailStatusCounts.yes || 0);
 
         const plannerInputJson = {
           locale: language,
@@ -5760,10 +5774,12 @@ function DashboardScreen({
             locationAddress: String(selectedEventDetail.location_address || "").trim()
           },
           statusCounts: {
-            yes: Number(selectedEventDetailStatusCounts.yes || 0),
+            yes: confirmedYes,
             no: Number(selectedEventDetailStatusCounts.no || 0),
             maybe: Number(selectedEventDetailStatusCounts.maybe || 0),
-            pending: Number(selectedEventDetailStatusCounts.pending || 0)
+            pending: Number(selectedEventDetailStatusCounts.pending || 0),
+            plusOnes: confirmedPlusOneCount,
+            totalAttendees: confirmedYes + confirmedPlusOneCount
           },
           context: snapshotContext,
           guestRsvpSignals: rsvpSignals,
