@@ -416,7 +416,9 @@ async function insertCommunicationLog({
   mode,
   status,
   errorDetails = "",
-  metadata = {}
+  metadata = {},
+  emailType = null,
+  messageId = null
 }) {
   try {
     const supabase = getSupabaseAdminClient();
@@ -426,7 +428,9 @@ async function insertCommunicationLog({
       mode: normalizeCommunicationMode(mode, "auth"),
       status: toLowerSafeString(status) === "failed" ? "failed" : "sent",
       error_details: toSafeString(errorDetails) || null,
-      metadata: sanitizeCommunicationMetadata(metadata)
+      metadata: sanitizeCommunicationMetadata(metadata),
+      email_type: emailType || null,
+      message_id: toSafeString(messageId) || null
     };
     const { error } = await supabase.from("communication_logs").insert(payload);
     if (error) {
@@ -841,6 +845,8 @@ export async function sendCoHostInvitation(targetEmail, hostName, eventName, opt
         subject,
         mode: "auth",
         status: "sent",
+        emailType: "COHOST_INVITE",
+        messageId: mockResult.messageId,
         metadata: { ...metadata, mock: true, signupUrl }
       });
       return mockResult;
@@ -878,6 +884,8 @@ export async function sendCoHostInvitation(targetEmail, hostName, eventName, opt
       subject,
       mode: "auth",
       status: "sent",
+      emailType: "COHOST_INVITE",
+      messageId: result.messageId,
       metadata: { ...metadata, messageId: result.messageId }
     });
 
@@ -888,6 +896,7 @@ export async function sendCoHostInvitation(targetEmail, hostName, eventName, opt
       subject,
       mode: "auth",
       status: "failed",
+      emailType: "COHOST_INVITE",
       errorDetails: toSerializableErrorDetails(error),
       metadata
     });
@@ -944,6 +953,8 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
         subject,
         mode,
         status: "sent",
+        emailType: "RSVP_TICKET",
+        messageId: mockResult.messageId,
         metadata: { ...metadata, mock: true, hasIcsAttachment: false }
       });
       return mockResult;
@@ -991,6 +1002,8 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
       subject,
       mode,
       status: "sent",
+      emailType: "RSVP_TICKET",
+      messageId: result.messageId,
       metadata: { ...metadata, messageId: result.messageId, hasIcsAttachment: false }
     });
 
@@ -1001,6 +1014,7 @@ export async function sendRsvpTicketEmail(guestEmail, guestName, eventDetails, l
       subject,
       mode,
       status: "failed",
+      emailType: "RSVP_TICKET",
       errorDetails: toSerializableErrorDetails(error),
       metadata
     });
@@ -1086,6 +1100,8 @@ export async function sendEventInvitationEmail({
         subject,
         mode,
         status: "sent",
+        emailType: "INVITATION",
+        messageId: mockResult.messageId,
         metadata: { ...metadata, mock: true, hasIcsAttachment, calendarUrl, messageId: mockResult.messageId }
       });
       return mockResult;
@@ -1146,6 +1162,8 @@ export async function sendEventInvitationEmail({
       subject,
       mode,
       status: "sent",
+      emailType: "INVITATION",
+      messageId: result.messageId,
       metadata: { ...metadata, messageId: result.messageId, calendarUrl, hasIcsAttachment }
     });
 
@@ -1156,6 +1174,7 @@ export async function sendEventInvitationEmail({
       subject,
       mode,
       status: "failed",
+      emailType: "INVITATION",
       errorDetails: toSerializableErrorDetails(error),
       metadata: { ...metadata, hasIcsAttachment }
     });
@@ -1277,6 +1296,8 @@ export async function sendBroadcastEmail(
         subject,
         mode,
         status: "sent",
+        emailType: "BROADCAST",
+        messageId: mockResult.messageId,
         metadata: { ...metadata, mock: true, hasIcsAttachment: false }
       });
       return mockResult;
@@ -1321,6 +1342,8 @@ export async function sendBroadcastEmail(
       subject,
       mode,
       status: "sent",
+      emailType: "BROADCAST",
+      messageId: result.messageId,
       metadata: { ...metadata, messageId: result.messageId, hasIcsAttachment: false }
     });
 
@@ -1331,6 +1354,7 @@ export async function sendBroadcastEmail(
       subject,
       mode,
       status: "failed",
+      emailType: "BROADCAST",
       errorDetails: toSerializableErrorDetails(error),
       metadata
     });
@@ -1387,6 +1411,8 @@ export async function sendGalleryNotificationEmail(
         subject,
         mode,
         status: "sent",
+        emailType: "GALLERY_NOTIFICATION",
+        messageId: mockResult.messageId,
         metadata: { ...metadata, mock: true, hasIcsAttachment: false }
       });
       return mockResult;
@@ -1428,6 +1454,8 @@ export async function sendGalleryNotificationEmail(
       subject,
       mode,
       status: "sent",
+      emailType: "GALLERY_NOTIFICATION",
+      messageId: result.messageId,
       metadata: { ...metadata, messageId: result.messageId, hasIcsAttachment: false }
     });
 
@@ -1438,6 +1466,7 @@ export async function sendGalleryNotificationEmail(
       subject,
       mode,
       status: "failed",
+      emailType: "GALLERY_NOTIFICATION",
       errorDetails: toSerializableErrorDetails(error),
       metadata
     });

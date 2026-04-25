@@ -14,6 +14,7 @@ import { eventsRoute } from "./routes/events-routes.js";
 import { guestsRoute } from "./routes/guests-routes.js";
 import { invitationsRoute } from "./routes/invitations-routes.js";
 import { securityRoute } from "./routes/security-routes.js";
+import { webhooksRoute } from "./routes/webhooks-routes.js";
 
 dotenv.config();
 
@@ -56,6 +57,12 @@ app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] Petición recibida: ${req.method} ${req.url}`);
   next();
 });
+
+// Webhook de Resend: debe montarse ANTES de express.json() global para que
+// express.raw() en la ruta pueda leer el body crudo (necesario para la
+// verificación de firma Svix).
+app.use("/api/webhooks", webhooksRoute);
+
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", (_req, res) => {

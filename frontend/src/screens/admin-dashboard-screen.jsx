@@ -185,6 +185,50 @@ function EventContextBadge({ event }) {
   );
 }
 
+const EMAIL_TYPE_LABELS = {
+  RSVP_TICKET: "RSVP Ticket",
+  INVITATION: "Invitación",
+  COHOST_INVITE: "Co-host",
+  BROADCAST: "Broadcast",
+  GALLERY_NOTIFICATION: "Galería",
+  SYSTEM: "Sistema",
+};
+
+function EmailTypeBadge({ type }) {
+  const label = EMAIL_TYPE_LABELS[type] || (type || "—");
+  const colorMap = {
+    RSVP_TICKET: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+    INVITATION: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    COHOST_INVITE: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+    BROADCAST: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+    GALLERY_NOTIFICATION: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+    SYSTEM: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+  };
+  const cls = colorMap[type] || "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  return (
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function ResendStatusBadge({ status }) {
+  if (!status) return <span className="text-gray-600 text-xs">—</span>;
+  const map = {
+    delivered: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+    bounced: "bg-red-500/20 text-red-300 border-red-500/30",
+    complained: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+    clicked: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    opened: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  };
+  const cls = map[status] || "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  return (
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${cls}`}>
+      {status}
+    </span>
+  );
+}
+
 function CommunicationModeBadge({ mode }) {
   const normalized = String(mode || "").trim().toLowerCase();
   if (normalized === "professional") {
@@ -373,6 +417,9 @@ export function AdminDashboardScreen({ session, onNavigate }) {
   const [communicationsError, setCommunicationsError] = useState("");
   const [commRecipientFilter, setCommRecipientFilter] = useState("");
   const [commModeFilter, setCommModeFilter] = useState("all");
+  const [commEmailTypeFilter, setCommEmailTypeFilter] = useState("all");
+  const [commMetrics, setCommMetrics] = useState(null);
+  const [commMetricsLoading, setCommMetricsLoading] = useState(false);
   const [blockedSuspiciousRegistrations, setBlockedSuspiciousRegistrations] = useState(0);
 
   const fetchStats = useCallback(async () => {
@@ -468,11 +515,32 @@ export function AdminDashboardScreen({ session, onNavigate }) {
     }
   }, []);
 
+  const fetchCommMetrics = useCallback(async () => {
+    const endpoint = buildAdminAnalyticsEndpoint(API_BASE_URL, "communications/metrics");
+    if (!endpoint) return;
+    setCommMetricsLoading(true);
+    try {
+      const { data: sessionPayload, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionPayload?.session?.access_token) return;
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: `Bearer ${sessionPayload.session.access_token}` }
+      });
+      const payload = await response.json().catch(() => null);
+      if (response.ok) setCommMetrics(payload?.data || null);
+    } catch {
+      // Non-blocking — widget still functional without metrics
+    } finally {
+      setCommMetricsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (hqTab === "communications") {
       fetchCommunicationLogs();
+      fetchCommMetrics();
     }
-  }, [fetchCommunicationLogs, hqTab]);
+  }, [fetchCommunicationLogs, fetchCommMetrics, hqTab]);
 
   const fmtDate = (d) => {
     if (!d) return "—";
@@ -534,11 +602,13 @@ export function AdminDashboardScreen({ session, onNavigate }) {
     return communicationLogs.filter((logRow) => {
       const recipient = String(logRow?.recipient || "").toLowerCase();
       const mode = String(logRow?.mode || "").toLowerCase();
+      const emailType = String(logRow?.email_type || "").toUpperCase();
       const recipientMatches = !commRecipientFilter.trim() || recipient.includes(commRecipientFilter.trim().toLowerCase());
       const modeMatches = commModeFilter === "all" || mode === commModeFilter;
-      return recipientMatches && modeMatches;
+      const typeMatches = commEmailTypeFilter === "all" || emailType === commEmailTypeFilter;
+      return recipientMatches && modeMatches && typeMatches;
     });
-  }, [communicationLogs, commRecipientFilter, commModeFilter]);
+  }, [communicationLogs, commRecipientFilter, commModeFilter, commEmailTypeFilter]);
 
   const [copyFeedback, setCopyFeedback] = useState("");
 
@@ -971,14 +1041,50 @@ export function AdminDashboardScreen({ session, onNavigate }) {
 
         {hqTab === "communications" && (
           <div className="flex flex-col gap-4">
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <KpiCard
+                label="Enviados (30d)"
+                value={commMetricsLoading ? "…" : (commMetrics?.sent30d ?? "—")}
+                icon="📨"
+                accent="bg-blue-500"
+                tooltip="Emails enviados con éxito en los últimos 30 días."
+              />
+              <KpiCard
+                label="Entregados (real)"
+                value={commMetricsLoading ? "…" : (commMetrics?.totalDelivered ?? "—")}
+                icon="✅"
+                accent="bg-emerald-500"
+                tooltip="Confirmados como entregados por Resend vía webhook."
+              />
+              <KpiCard
+                label="Bounces"
+                value={commMetricsLoading ? "…" : (commMetrics?.totalBounced ?? "—")}
+                subtitle={commMetrics?.bounced30d != null ? `${commMetrics.bounced30d} en 30d` : undefined}
+                icon="↩️"
+                accent="bg-red-500"
+                tooltip="Emails rebotados (dirección inválida o buzón lleno)."
+              />
+              <KpiCard
+                label="Tasa entrega"
+                value={commMetricsLoading ? "…" : (commMetrics?.deliveryRate != null ? `${commMetrics.deliveryRate}%` : "—")}
+                subtitle="sobre enviados confirmados"
+                icon="📊"
+                accent="bg-purple-500"
+                tooltip="Porcentaje de emails enviados que Resend confirmó como entregados."
+              />
+            </div>
+
+            {/* Filters */}
             <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl p-4 shadow-lg flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <div className="flex flex-wrap gap-2 items-center">
                 <input
                   type="text"
                   value={commRecipientFilter}
                   onChange={(event) => setCommRecipientFilter(event.target.value)}
                   placeholder="Filtrar por destinatario..."
-                  className="w-full sm:w-72 rounded-lg border border-white/10 bg-gray-900/60 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:border-blue-400/60 focus:outline-none"
+                  className="w-full sm:w-60 rounded-lg border border-white/10 bg-gray-900/60 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:border-blue-400/60 focus:outline-none"
                 />
                 <select
                   value={commModeFilter}
@@ -990,14 +1096,26 @@ export function AdminDashboardScreen({ session, onNavigate }) {
                   <option value="personal">Personal</option>
                   <option value="auth">Auth</option>
                 </select>
+                <select
+                  value={commEmailTypeFilter}
+                  onChange={(event) => setCommEmailTypeFilter(event.target.value)}
+                  className="rounded-lg border border-white/10 bg-gray-900/60 px-3 py-2 text-sm text-gray-200 focus:border-blue-400/60 focus:outline-none"
+                >
+                  <option value="all">Todos los tipos</option>
+                  <option value="RSVP_TICKET">RSVP Ticket</option>
+                  <option value="INVITATION">Invitación</option>
+                  <option value="COHOST_INVITE">Co-host</option>
+                  <option value="BROADCAST">Broadcast</option>
+                  <option value="GALLERY_NOTIFICATION">Galería</option>
+                </select>
               </div>
               <button
                 type="button"
-                onClick={fetchCommunicationLogs}
+                onClick={() => { fetchCommunicationLogs(); fetchCommMetrics(); }}
                 disabled={communicationsLoading}
                 className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
               >
-                {communicationsLoading ? "Cargando..." : "Refrescar logs"}
+                {communicationsLoading ? "Cargando..." : "Refrescar"}
               </button>
             </div>
 
@@ -1009,23 +1127,22 @@ export function AdminDashboardScreen({ session, onNavigate }) {
 
             <PaginatedTable
               title="Comunicaciones Email"
-              headers={["Fecha", "Destinatario", "Asunto", "Modo", "Estado", ".ics", "Error"]}
+              headers={["Fecha", "Destinatario", "Tipo", "Modo", "Envío", "Entrega", "Error"]}
               allRows={filteredCommunicationLogs}
               emptyMsg={communicationsLoading ? "Cargando logs..." : "No hay comunicaciones para estos filtros"}
-              renderRow={(logRow) => {
-                const hasIcs = Boolean(logRow?.metadata?.hasIcsAttachment);
-                return [
-                  logRow?.created_at ? new Date(logRow.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—",
-                  <span className="font-mono text-xs">{String(logRow?.recipient || "—")}</span>,
-                  <span className="max-w-[260px] truncate block" title={String(logRow?.subject || "")}>{String(logRow?.subject || "—")}</span>,
-                  <CommunicationModeBadge mode={logRow?.mode} />,
-                  <CommunicationStatusBadge status={logRow?.status} />,
-                  hasIcs ? <span className="text-emerald-400 text-xs font-semibold">Sí</span> : <span className="text-gray-500 text-xs">No</span>,
-                  logRow?.error_details
-                    ? <span className="max-w-[260px] truncate block text-xs text-red-300" title={String(logRow.error_details)}>{String(logRow.error_details)}</span>
-                    : <span className="text-gray-600">—</span>
-                ];
-              }}
+              renderRow={(logRow) => [
+                logRow?.created_at
+                  ? new Date(logRow.created_at).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+                  : "—",
+                <span className="font-mono text-xs">{String(logRow?.recipient || "—")}</span>,
+                <EmailTypeBadge type={logRow?.email_type} />,
+                <CommunicationModeBadge mode={logRow?.mode} />,
+                <CommunicationStatusBadge status={logRow?.status} />,
+                <ResendStatusBadge status={logRow?.resend_status} />,
+                logRow?.error_details
+                  ? <span className="max-w-[220px] truncate block text-xs text-red-300" title={String(logRow.error_details)}>{String(logRow.error_details)}</span>
+                  : <span className="text-gray-600">—</span>
+              ]}
             />
           </div>
         )}
