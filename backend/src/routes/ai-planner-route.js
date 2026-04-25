@@ -247,10 +247,21 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
   // MODULE-AWARE RULES: adapt advice based on active modules
   const moduleRules = [];
   if (safeActiveModules.finance) {
-    moduleRules.push("• FINANZAS ACTIVO: En shoppingList.estimatedCostRange sé preciso con los rangos. En playbook.actionableItems incluye al menos 1 consejo de optimización de costes.");
+    const realBudget = safeEventContext.context?.financeTotalBudget;
+    moduleRules.push(
+      realBudget != null && Number(realBudget) > 0
+        ? `• FINANZAS ACTIVO: El presupuesto total real del evento es ${Number(realBudget).toFixed(2)} €. Usa este dato para dimensionar la shoppingList.estimatedCostRange y los consejos de optimización de costes en playbook.actionableItems. Si el coste estimado supera el presupuesto, inclúyelo como riesgo con nivel "no".`
+        : "• FINANZAS ACTIVO: En shoppingList.estimatedCostRange sé preciso con los rangos. En playbook.actionableItems incluye al menos 1 consejo de optimización de costes."
+    );
   }
   if (safeActiveModules.spotify) {
-    moduleRules.push("• SPOTIFY ACTIVO: El anfitrión tiene playlist vinculada. En playbook.ambience coordina el estilo musical con el ambiente general y referencia la playlist como parte integral del plan.");
+    const spotifyPlaylist = ensureObject(safeEventContext.spotifyPlaylist);
+    const playlistName = normalizeText(spotifyPlaylist.name || "");
+    moduleRules.push(
+      playlistName
+        ? `• SPOTIFY ACTIVO: El anfitrión tiene vinculada la playlist "${playlistName}". En playbook.ambience coordina el estilo musical con el ambiente general, referenciando esta playlist por nombre como parte integral del plan.`
+        : "• SPOTIFY ACTIVO: El anfitrión tiene playlist vinculada. En playbook.ambience coordina el estilo musical con el ambiente general y referencia la playlist como parte integral del plan."
+    );
   }
   if (safeActiveModules.meals) {
     const mealVotes = normalizeArray(safeEventContext.insights?.mealVotes);
@@ -353,7 +364,7 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
   ].filter(Boolean).join("\n");
 }
 
-function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRsvpSignals = [] } = {}) {
+function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRsvpSignals = [], insightSignals = {} } = {}) {
   const safeLocale = normalizeLocale(locale, "es");
   const safeEventContext = ensureObject(eventContext);
   const safeEvent = ensureObject(safeEventContext.event);
@@ -387,6 +398,21 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRs
       ].filter(Boolean).join("\n")
     : "";
 
+  const safeInsightSignals = ensureObject(insightSignals);
+  const topSignals = Object.entries(safeInsightSignals)
+    .map(([intent, count]) => [intent, Number(count)])
+    .filter(([, count]) => count >= 2)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4);
+
+  const insightSignalsBlock = topSignals.length > 0
+    ? [
+        `DUDAS RECURRENTES DE LOS INVITADOS (aún sin resolver):`,
+        topSignals.map(([intent, count]) => `• ${count} invitados preguntan sobre: "${intent}"`).join("\n"),
+        "INSTRUCCIÓN: Estos temas generan ansiedad o curiosidad antes de llegar. Convierte la incertidumbre en dinámicas positivas: si preguntan sobre música → propón un tema de conversación musical; si preguntan sobre menú → incluye una dinámica de adivinar preferencias; si preguntan sobre horarios → rompe el hielo con humor sobre impuntualidad."
+      ].join("\n")
+    : "";
+
   return [
     isProfessional
       ? "Eres el 'Facilitador de Dinámicas Corporativas' de LeGoodAnfitrión, experto en engagement, team building y conexiones profesionales de alto nivel."
@@ -399,6 +425,7 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRs
     "Debes responder EXACTAMENTE con esta estructura y claves:",
     JSON.stringify(ICEBREAKER_RESPONSE_EXAMPLE, null, 2),
     guestContextBlock,
+    insightSignalsBlock,
     "REGLAS OBLIGATORIAS:",
     `1) CONTEXTO CRÍTICO: Adapta completamente el tono al evento -> Título: "${title}", Descripción: "${description}". ${isProfessional ? "Es un evento corporativo/profesional: sé elegante, ingenioso y profesional. Nada demasiado informal." : "Si parece formal, sé elegante e ingenioso. Si parece casual, sé divertido y fresco."}`,
     "2) LENGUAJE INCLUSIVO Y CÁLIDO: Evita el masculino genérico. Usa fórmulas que integren a todo el grupo por igual. Mantén frases cortas, pensadas para leerse rápidamente en un móvil.",
@@ -815,6 +842,7 @@ router.post("/icebreaker", async (req, res) => {
     "es"
   );
   const guestRsvpSignals = normalizeArray(requestPayload.guestRsvpSignals || eventContext.guestRsvpSignals);
+  const insightSignals = ensureObject(requestPayload.insightSignals || {});
 
   try {
     const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -842,7 +870,7 @@ router.post("/icebreaker", async (req, res) => {
           ],
           config: {
             responseMimeType: "application/json",
-            systemInstruction: buildIcebreakerSystemPrompt({ locale, eventContext, guestRsvpSignals }),
+            systemInstruction: buildIcebreakerSystemPrompt({ locale, eventContext, guestRsvpSignals, insightSignals }),
             temperature: 0.7
           }
         }),

@@ -1415,6 +1415,8 @@
   "insights_widget_update_plan": "Actualizar Plan",
   "insights_widget_show_more": "Ver más preguntas",
   "insights_widget_show_less": "Ver menos",
+  "insights_widget_plan_updated": "Plan actualizado con tus señales.",
+  "insights_widget_view_messages": "Ver mensajes generados",
   "insights_intent_date": "Fecha",
   "insights_intent_location": "Lugar",
   "insights_intent_menu": "Menú",

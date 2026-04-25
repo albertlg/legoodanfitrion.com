@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { Icon } from "../../icons";
 
@@ -45,6 +45,15 @@ export function GuestAiInsightsWidget({ eventId, t, onGoToPlan, onUpdatePlanWith
   const [insights, setInsights] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [wasJustUpdated, setWasJustUpdated] = useState(false);
+  const prevIsUpdatingRef = useRef(false);
+
+  useEffect(() => {
+    if (prevIsUpdatingRef.current && !isPlanUpdating) {
+      setWasJustUpdated(true);
+    }
+    prevIsUpdatingRef.current = isPlanUpdating;
+  }, [isPlanUpdating]);
 
   useEffect(() => {
     if (!supabase || !eventId) {
@@ -160,12 +169,27 @@ export function GuestAiInsightsWidget({ eventId, t, onGoToPlan, onUpdatePlanWith
       {recurringIntents.length > 0 ? (
         <div className="px-5 py-3 border-b border-black/5 dark:border-white/10 flex flex-col gap-2.5">
           <div className="flex flex-col items-start gap-2">
-            {onUpdatePlanWithSignals ? (
+            {wasJustUpdated && onGoToPlan ? (
+              <div className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40">
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  <Icon name="check" className="w-3 h-3" />
+                  {t("insights_widget_plan_updated")}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 underline transition-colors"
+                  onClick={() => { setWasJustUpdated(false); onGoToPlan("communication"); }}
+                >
+                  {t("insights_widget_view_messages")} →
+                </button>
+              </div>
+            ) : onUpdatePlanWithSignals ? (
               <button
                 type="button"
                 disabled={isPlanUpdating}
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 dark:bg-violet-700 dark:hover:bg-violet-600 dark:disabled:bg-violet-800 text-white transition-colors shadow-sm disabled:cursor-not-allowed"
                 onClick={() => {
+                  setWasJustUpdated(false);
                   const signals = recurringIntents.reduce((acc, { intent, count }) => {
                     acc[intent] = count;
                     return acc;

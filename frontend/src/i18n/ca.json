@@ -1415,6 +1415,8 @@
   "insights_widget_update_plan": "Actualitzar Pla",
   "insights_widget_show_more": "Veure més preguntes",
   "insights_widget_show_less": "Veure menys",
+  "insights_widget_plan_updated": "Pla actualitzat amb els teus senyals.",
+  "insights_widget_view_messages": "Veure missatges generats",
   "insights_intent_date": "Data",
   "insights_intent_location": "Lloc",
   "insights_intent_menu": "Menú",

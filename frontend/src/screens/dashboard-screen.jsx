@@ -5531,12 +5531,17 @@ function DashboardScreen({
         ? `RSVP notes: ${rsvpNotesSummary.join(" | ")}`
         : "";
 
+      const financeRealBudget = selectedEventDetail.finance_total_budget != null
+        ? Number(selectedEventDetail.finance_total_budget)
+        : null;
+
       const snapshotContext = {
         eventId,
         preset: effectiveContext.preset || "social",
         momentKey: effectiveContext.momentKey || "evening",
         toneKey: effectiveContext.toneKey || "casual",
         budgetKey: effectiveContext.budgetKey || "medium",
+        ...(financeRealBudget != null && { financeTotalBudget: financeRealBudget }),
         durationHours: Number(effectiveContext.durationHours || 4),
         allowPlusOne: Boolean(effectiveContext.allowPlusOne),
         autoReminders: Boolean(effectiveContext.autoReminders),
@@ -5749,6 +5754,21 @@ function DashboardScreen({
           }
         }
 
+        // Fetch Spotify playlist data when module is active
+        let spotifyPlaylistData = null;
+        if (activeMods.spotify) {
+          try {
+            const { data: spRow } = await supabase
+              .from("event_spotify_playlists")
+              .select("spotify_playlist_id, spotify_playlist_url, playlist_name")
+              .eq("event_id", eventId)
+              .maybeSingle();
+            if (spRow) spotifyPlaylistData = spRow;
+          } catch {
+            // non-critical — continue without playlist data
+          }
+        }
+
         // Count confirmed plus-ones as additional attendees
         const confirmedPlusOneCount = selectedEventDetailGuests
           .filter(row => {
@@ -5785,6 +5805,13 @@ function DashboardScreen({
           guestRsvpSignals: rsvpSignals,
           activeModules: normalizeEventActiveModules(selectedEventDetail?.active_modules),
           insightSignals: insightSignals && Object.keys(insightSignals).length > 0 ? insightSignals : undefined,
+          ...(spotifyPlaylistData && {
+            spotifyPlaylist: {
+              id: spotifyPlaylistData.spotify_playlist_id,
+              url: spotifyPlaylistData.spotify_playlist_url,
+              ...(spotifyPlaylistData.playlist_name && { name: spotifyPlaylistData.playlist_name })
+            }
+          }),
           insights: {
             timingRecommendation: String(effectiveInsights.timingRecommendation || "").trim(),
             additionalInstructions: String(effectiveInsights.additionalInstructions || "").trim(),
@@ -6345,6 +6372,18 @@ function DashboardScreen({
       }
     }));
     try {
+      let icebreakerInsightSignals = {};
+      if (supabase && eventId) {
+        try {
+          const { data: sigData } = await supabase.rpc("compute_insight_signals", { p_event_id: eventId });
+          if (sigData && typeof sigData === "object") {
+            icebreakerInsightSignals = sigData;
+          }
+        } catch (_err) {
+          // non-critical — proceed without signals
+        }
+      }
+
       const icebreakerGuestSignals = selectedEventDetailGuests
         .map((row) => {
           const inv = row?.invitation || {};
@@ -6390,6 +6429,7 @@ function DashboardScreen({
       const aiResult = await requestEventIcebreakerAI({
         eventContext: icebreakerInputJson,
         guestRsvpSignals: icebreakerGuestSignals,
+        insightSignals: Object.keys(icebreakerInsightSignals).length > 0 ? icebreakerInsightSignals : undefined,
         locale: language
       });
       const normalizedData = {

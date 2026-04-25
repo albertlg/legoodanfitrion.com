@@ -1364,6 +1364,8 @@
   "insights_widget_update_plan": "Aggiorna il Piano",
   "insights_widget_show_more": "Mostra più domande",
   "insights_widget_show_less": "Mostra meno",
+  "insights_widget_plan_updated": "Piano aggiornato con i tuoi segnali.",
+  "insights_widget_view_messages": "Vedi messaggi generati",
   "insights_intent_date": "Data",
   "insights_intent_location": "Luogo",
   "insights_intent_menu": "Menu",
