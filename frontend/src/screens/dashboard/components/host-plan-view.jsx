@@ -195,14 +195,14 @@ export function HostPlanView({
             </div>
 
             {standalone ? (
-              <p className="text-lg font-bold text-gray-700 dark:text-gray-300 truncate">{selectedEventTitle}</p>
+              <p className="text-xl font-black text-gray-900 dark:text-white truncate">{selectedEventTitle}</p>
             ) : (
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_planner_hint")}</p>
             )}
 
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {plannerTabs.map((tab) => (
-                <span key={tab.key} className="px-2 py-0.5 bg-white/80 dark:bg-white/10 text-indigo-700 dark:text-indigo-300 rounded-full text-[10px] font-bold border border-indigo-100 dark:border-indigo-700/30 shadow-sm">
+                <span key={tab.key} className="px-1.5 py-0.5 bg-white/80 dark:bg-white/10 text-indigo-700 dark:text-indigo-300 rounded-full text-[9px] font-bold border border-indigo-100 dark:border-indigo-700/30 shadow-sm">
                   {tab.label}
                 </span>
               ))}
@@ -424,10 +424,10 @@ export function HostPlanView({
                 <div className="flex items-start justify-between border-b border-black/5 dark:border-white/10 pb-2">
                   <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wide">{sectionItem.title}</p>
                 </div>
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-2.5">
                   {(sectionItem.items || []).map((item) => (
-                    <li key={`${sectionItem.id}-${item}`} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-1.5">
-                      <span className="text-orange-500 mt-0.5">•</span>
+                    <li key={`${sectionItem.id}-${item}`} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                      <span className="text-orange-400 mt-0.5 shrink-0">•</span>
                       <span className="leading-snug">{item}</span>
                     </li>
                   ))}
@@ -548,7 +548,7 @@ export function HostPlanView({
                         })}
                       </ul>
                     ) : (
-                      <p className="text-xs text-gray-400 italic p-2">{t("event_planner_shopping_empty")}</p>
+                      <p className="text-sm text-gray-400 italic p-2">{t("event_planner_shopping_empty")}</p>
                     )}
                   </div>
                 ))}
@@ -572,9 +572,9 @@ export function HostPlanView({
               </div>
               <ul className="flex flex-col gap-2.5 mt-1">
                 {selectedEventHostPlaybook.actionableItems.map((item) => (
-                  <li key={`host-action-${item}`} className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-start gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-2.5 rounded-lg border border-blue-100/50 dark:border-blue-900/30">
-                    <span className="text-blue-500 mt-0.5"><Icon name="check" className="w-3.5 h-3.5" /></span>
-                    <span>{item}</span>
+                  <li key={`host-action-${item}`} className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-start gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-lg border border-blue-100/50 dark:border-blue-900/30">
+                    <span className="text-blue-500 mt-0.5 shrink-0"><Icon name="check" className="w-3.5 h-3.5" /></span>
+                    <span className="leading-snug">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -582,11 +582,11 @@ export function HostPlanView({
 
             <article className="bg-white/60 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-xl p-5 shadow-sm flex flex-col gap-3">
               <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wide border-b border-black/5 dark:border-white/10 pb-2">{t("event_planner_host_ambience_title")}</p>
-              <ul className="flex flex-col gap-2 mt-1">
+              <ul className="flex flex-col gap-2.5 mt-1">
                 {selectedEventHostPlaybook.ambience.map((item) => (
-                  <li key={`ambience-${item}`} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2">
-                    <span className="text-yellow-500 mt-0.5">•</span>
-                    <span>{item}</span>
+                  <li key={`ambience-${item}`} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                    <span className="text-yellow-500 mt-0.5 shrink-0">•</span>
+                    <span className="leading-snug">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -594,11 +594,11 @@ export function HostPlanView({
 
             <article className="bg-white/60 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-xl p-5 shadow-sm flex flex-col gap-3">
               <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wide border-b border-black/5 dark:border-white/10 pb-2">{t("event_planner_host_conversation_title")}</p>
-              <ul className="flex flex-col gap-2 mt-1">
+              <ul className="flex flex-col gap-2.5 mt-1">
                 {selectedEventHostPlaybook.conversation.map((item) => (
-                  <li key={`conversation-${item}`} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">•</span>
-                    <span>{item}</span>
+                  <li key={`conversation-${item}`} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">•</span>
+                    <span className="leading-snug">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -612,7 +612,7 @@ export function HostPlanView({
                   {ambienceTimelineHighlights.map((item) => (
                     <li key={`ambience-timeline-${item.id}`} className="flex gap-3 items-start">
                       <span className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 ring-4 ring-white dark:ring-gray-800 shrink-0" />
-                      <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
                         <strong className="text-gray-900 dark:text-white mr-1">{item.title}:</strong>
                         {item.detail}
                       </p>
