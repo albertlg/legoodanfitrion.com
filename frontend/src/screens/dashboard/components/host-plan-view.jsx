@@ -291,85 +291,47 @@ export function HostPlanView({
         </div>
       </div>
 
-      {/* ALERTA CRÍTICA DE RESTRICCIONES */}
-      {selectedEventHealthRestrictionHighlights.length > 0 ? (
-        <div className="bg-red-50/80 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800/30 p-5 shadow-sm">
-          <p className="text-sm font-bold text-red-800 dark:text-red-300 flex items-center gap-2 mb-2">
-            <Icon name="shield" className="w-4 h-4" />
-            {t("event_planner_alert_title")}
-          </p>
-          <p className="text-xs text-red-700/90 dark:text-red-300/80 mb-3">
-            {interpolateText(t("event_planner_alert_hint"), {
-              count: selectedEventRestrictionsCount,
-              items: selectedEventHealthRestrictionHighlights.join(", ")
-            })}
-          </p>
-          <div className="flex flex-col gap-1 mb-3">
-            {selectedEventIntolerancesCount > 0 ? <p className="text-[11px] text-red-700/80 dark:text-red-400/80">• {interpolateText(t("event_planner_alert_intolerances"), { count: selectedEventIntolerancesCount })}</p> : null}
-            {selectedEventMedicalConditionsCount > 0 ? <p className="text-[11px] text-red-700/80 dark:text-red-400/80">• {interpolateText(t("event_planner_alert_medical_conditions"), { count: selectedEventMedicalConditionsCount })}</p> : null}
-            {selectedEventDietaryMedicalRestrictionsCount > 0 ? <p className="text-[11px] text-red-700/80 dark:text-red-400/80">• {interpolateText(t("event_planner_alert_dietary_medical_restrictions"), { count: selectedEventDietaryMedicalRestrictionsCount })}</p> : null}
-          </div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400 mb-2">
-            {interpolateText(t("event_planner_alert_scope_breakdown"), {
-              confirmed: selectedEventHealthAlertsConfirmedCount,
-              pending: selectedEventHealthAlertsPendingCount
-            })}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <span className="px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 rounded-md text-[10px] font-bold">
-              {t("event_planner_stat_allergies")}: {selectedEventAllergiesCount}
-            </span>
-            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 rounded-md text-[10px] font-bold">
-              {t("field_intolerances")}: {selectedEventIntolerancesCount}
-            </span>
-            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 rounded-md text-[10px] font-bold">
-              {t("field_medical_conditions")}: {selectedEventMedicalConditionsCount}
-            </span>
-            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded-md text-[10px] font-bold">
-              {t("field_dietary_medical_restrictions")}: {selectedEventDietaryMedicalRestrictionsCount}
-            </span>
-          </div>
-        </div>
-      ) : null}
-
       {/* PESTAÑAS PRINCIPALES DEL PLANNER (STICKY) */}
-      <div className="sticky top-[70px] lg:top-[80px] z-30 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-sm p-3 sm:p-4 flex flex-col gap-3 mb-4 mt-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto" role="tablist" aria-label={t("event_planner_title")}>
-            {plannerTabs.map((tabItem) => {
-              const isActive = eventDetailPlannerTab === tabItem.key;
-              const hasVersion = Number(tabRounds[tabItem.key] || 0) > 0;
-              const isTabGenerating = isGeneratingCurrentTab && isActive;
-              return (
-                <button
-                  key={tabItem.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`relative px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"} ${isTabGenerating ? "opacity-50 animate-pulse" : ""}`}
-                  onClick={() => handleEventPlannerTabChange(tabItem.key)}
-                >
-                  <span className="flex items-center gap-1.5">
-                    {tabItem.label}
-                    {hasVersion ? <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${isActive ? "bg-white/20 dark:bg-black/20" : "bg-black/5 dark:bg-white/10"}`}>v{tabRounds[tabItem.key]}</span> : null}
-                  </span>
-                </button>
-              );
-            })}
+      <div className="sticky top-[70px] lg:top-[80px] z-30 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-sm p-3 sm:p-4 flex flex-col gap-2.5 mb-4 mt-2">
+        {eventDetailPlannerTab !== "overview" ? (
+          <div className="flex justify-end">
+            <button
+              className="flex bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-1.5 px-3 rounded-xl transition-all text-[10px] shadow-sm items-center gap-1.5 disabled:opacity-50"
+              type="button"
+              onClick={handleRegenerateCurrentTabClick}
+              disabled={isGenerating}
+            >
+              <Icon name="sparkle" className="w-3 h-3" />
+              {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
+            </button>
           </div>
-          <button
-            className="hidden sm:flex bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-2 px-4 rounded-xl transition-all text-xs shadow-sm items-center justify-center gap-1.5 shrink-0"
-            type="button"
-            onClick={handleRegenerateCurrentTabClick}
-            disabled={isGenerating}
-          >
-            <Icon name="sparkle" className="w-3.5 h-3.5" />
-            {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
-          </button>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("event_planner_title")}>
+          {plannerTabs.map((tabItem) => {
+            const isActive = eventDetailPlannerTab === tabItem.key;
+            const hasVersion = Number(tabRounds[tabItem.key] || 0) > 0;
+            const isTabGenerating = isGeneratingCurrentTab && isActive;
+            return (
+              <button
+                key={tabItem.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`relative px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"} ${isTabGenerating ? "opacity-50 animate-pulse" : ""}`}
+                onClick={() => handleEventPlannerTabChange(tabItem.key)}
+              >
+                <span className="flex items-center gap-1.5">
+                  {tabItem.label}
+                  {hasVersion ? <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${isActive ? "bg-white/20 dark:bg-black/20" : "bg-black/5 dark:bg-white/10"}`}>v{tabRounds[tabItem.key]}</span> : null}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {activeTabVersionLabel || activeTabGeneratedAtLabel ? (
-          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5 ml-1 pt-2 border-t border-black/5 dark:border-white/10">
+          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5 ml-1 pt-1.5 border-t border-black/5 dark:border-white/10">
             <Icon name="clock" className="w-3 h-3" />
             {t("event_planner_versions_label")}: {[activeTabVersionLabel, activeTabGeneratedAtLabel].filter(Boolean).join(" · ")}
           </p>
@@ -394,6 +356,47 @@ export function HostPlanView({
               selectedEventMealPlan={selectedEventMealPlan}
               selectedEventHostPlaybook={selectedEventHostPlaybook}
             />
+
+            {selectedEventHealthRestrictionHighlights.length > 0 ? (
+              <div className="bg-red-50/80 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800/30 p-5 shadow-sm">
+                <p className="text-sm font-bold text-red-800 dark:text-red-300 flex items-center gap-2 mb-2">
+                  <Icon name="shield" className="w-4 h-4" />
+                  {t("event_planner_alert_title")}
+                </p>
+                <p className="text-xs text-red-700/90 dark:text-red-300/80 mb-3">
+                  {interpolateText(t("event_planner_alert_hint"), {
+                    count: selectedEventRestrictionsCount,
+                    items: selectedEventHealthRestrictionHighlights.join(", ")
+                  })}
+                </p>
+                <div className="flex flex-col gap-1 mb-3">
+                  {selectedEventIntolerancesCount > 0 ? <p className="text-[11px] text-red-700/80 dark:text-red-400/80">• {interpolateText(t("event_planner_alert_intolerances"), { count: selectedEventIntolerancesCount })}</p> : null}
+                  {selectedEventMedicalConditionsCount > 0 ? <p className="text-[11px] text-red-700/80 dark:text-red-400/80">• {interpolateText(t("event_planner_alert_medical_conditions"), { count: selectedEventMedicalConditionsCount })}</p> : null}
+                  {selectedEventDietaryMedicalRestrictionsCount > 0 ? <p className="text-[11px] text-red-700/80 dark:text-red-400/80">• {interpolateText(t("event_planner_alert_dietary_medical_restrictions"), { count: selectedEventDietaryMedicalRestrictionsCount })}</p> : null}
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400 mb-2">
+                  {interpolateText(t("event_planner_alert_scope_breakdown"), {
+                    confirmed: selectedEventHealthAlertsConfirmedCount,
+                    pending: selectedEventHealthAlertsPendingCount
+                  })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 rounded-md text-[10px] font-bold">
+                    {t("event_planner_stat_allergies")}: {selectedEventAllergiesCount}
+                  </span>
+                  <span className="px-2 py-0.5 bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 rounded-md text-[10px] font-bold">
+                    {t("field_intolerances")}: {selectedEventIntolerancesCount}
+                  </span>
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 rounded-md text-[10px] font-bold">
+                    {t("field_medical_conditions")}: {selectedEventMedicalConditionsCount}
+                  </span>
+                  <span className="px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 rounded-md text-[10px] font-bold">
+                    {t("field_dietary_medical_restrictions")}: {selectedEventDietaryMedicalRestrictionsCount}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
             <PlanGuestSignalsBlock
               t={t}
               interpolateText={interpolateText}
