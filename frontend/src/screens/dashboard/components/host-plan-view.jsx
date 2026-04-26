@@ -195,18 +195,10 @@ export function HostPlanView({
             </div>
 
             {standalone ? (
-              <p className="text-xl font-black text-gray-900 dark:text-white truncate">{selectedEventTitle}</p>
+              <h2 className="[font-family:var(--font-display)] text-2xl font-black text-gray-900 dark:text-white truncate">{selectedEventTitle}</h2>
             ) : (
               <p className="text-xs text-gray-500 dark:text-gray-400">{t("event_planner_hint")}</p>
             )}
-
-            <div className="flex flex-wrap gap-1">
-              {plannerTabs.map((tab) => (
-                <span key={tab.key} className="px-1.5 py-0.5 bg-white/80 dark:bg-white/10 text-indigo-700 dark:text-indigo-300 rounded-full text-[9px] font-bold border border-indigo-100 dark:border-indigo-700/30 shadow-sm">
-                  {tab.label}
-                </span>
-              ))}
-            </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
               <span className="flex items-center gap-1.5"><Icon name="calendar" className="w-3.5 h-3.5" />{selectedEventDateLabel}</span>
@@ -293,20 +285,6 @@ export function HostPlanView({
 
       {/* PESTAÑAS PRINCIPALES DEL PLANNER (STICKY) */}
       <div className="sticky top-[70px] lg:top-[80px] z-30 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-sm p-3 sm:p-4 flex flex-col gap-2.5 mb-4 mt-2">
-        {eventDetailPlannerTab !== "overview" ? (
-          <div className="flex justify-end">
-            <button
-              className="flex bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-1.5 px-3 rounded-xl transition-all text-[10px] shadow-sm items-center gap-1.5 disabled:opacity-50"
-              type="button"
-              onClick={handleRegenerateCurrentTabClick}
-              disabled={isGenerating}
-            >
-              <Icon name="sparkle" className="w-3 h-3" />
-              {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
-            </button>
-          </div>
-        ) : null}
-
         <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("event_planner_title")}>
           {plannerTabs.map((tabItem) => {
             const isActive = eventDetailPlannerTab === tabItem.key;
@@ -330,11 +308,28 @@ export function HostPlanView({
           })}
         </div>
 
-        {activeTabVersionLabel || activeTabGeneratedAtLabel ? (
-          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5 ml-1 pt-1.5 border-t border-black/5 dark:border-white/10">
-            <Icon name="clock" className="w-3 h-3" />
-            {t("event_planner_versions_label")}: {[activeTabVersionLabel, activeTabGeneratedAtLabel].filter(Boolean).join(" · ")}
-          </p>
+        {(activeTabVersionLabel || activeTabGeneratedAtLabel || eventDetailPlannerTab !== "overview") ? (
+          <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-black/5 dark:border-white/10">
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+              {(activeTabVersionLabel || activeTabGeneratedAtLabel) ? (
+                <>
+                  <Icon name="clock" className="w-3 h-3" />
+                  {t("event_planner_versions_label")}: {[activeTabVersionLabel, activeTabGeneratedAtLabel].filter(Boolean).join(" · ")}
+                </>
+              ) : null}
+            </p>
+            {eventDetailPlannerTab !== "overview" ? (
+              <button
+                className="flex shrink-0 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-1.5 px-3 rounded-xl transition-all text-[10px] shadow-sm items-center gap-1.5 disabled:opacity-50"
+                type="button"
+                onClick={handleRegenerateCurrentTabClick}
+                disabled={isGenerating}
+              >
+                <Icon name="sparkle" className="w-3 h-3" />
+                {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
