@@ -47,6 +47,10 @@ const INTEREST_VALUES = [
   "art", "nature", "tech", "reading", "wine", "photography", "dancing"
 ];
 
+const TRANSPORT_MODE_VALUES = [
+  "own_car", "shared_car", "public_transport", "flight", "other"
+];
+
 const EVENT_DATE_OPTION_DATETIME_KEYS = ["starts_at", "start_at", "proposed_at", "option_at", "datetime_at"];
 const DATE_VOTE_STATUS_KEYS = ["status", "vote", "availability", "response", "answer"];
 const DEFAULT_MEALS_COURSE_KEY = "general";
@@ -244,6 +248,16 @@ function RsvpFormView({
   toggleInterest,
   rsvpGroupTag,
   setRsvpGroupTag,
+  isAccommodationModuleEnabled,
+  rsvpNeedsAccommodation,
+  setRsvpNeedsAccommodation,
+  rsvpAccommodationNote,
+  setRsvpAccommodationNote,
+  isTransportModuleEnabled,
+  rsvpTransportMode,
+  setRsvpTransportMode,
+  rsvpArrivalAt,
+  setRsvpArrivalAt,
   note,
   setNote,
   handleSubmit,
@@ -425,6 +439,75 @@ function RsvpFormView({
           maxLength={80}
         />
       </label>
+
+      {isAccommodationModuleEnabled ? (
+        <div className="flex flex-col gap-2">
+          <div className="ml-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("rsvp_accommodation_label")}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{t("rsvp_accommodation_hint")}</p>
+          </div>
+          <div className="flex gap-2">
+            {[true, false].map((val) => {
+              const isActive = rsvpNeedsAccommodation === val;
+              return (
+                <button
+                  key={String(val)}
+                  type="button"
+                  className={`flex-1 px-4 py-3 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-teal-600 text-white border-teal-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
+                  onClick={() => setRsvpNeedsAccommodation(isActive ? null : val)}
+                  aria-pressed={isActive}
+                >
+                  {val ? t("rsvp_accommodation_yes") : t("rsvp_accommodation_no")}
+                </button>
+              );
+            })}
+          </div>
+          {rsvpNeedsAccommodation === true ? (
+            <textarea
+              className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none resize-none"
+              rows="2"
+              value={rsvpAccommodationNote}
+              onChange={(e) => setRsvpAccommodationNote(e.target.value)}
+              placeholder={t("rsvp_accommodation_note_placeholder")}
+              maxLength={300}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {isTransportModuleEnabled ? (
+        <div className="flex flex-col gap-2">
+          <div className="ml-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("rsvp_transport_label")}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{t("rsvp_transport_hint")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {TRANSPORT_MODE_VALUES.map((mode) => {
+              const isActive = rsvpTransportMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`px-4 py-3 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
+                  onClick={() => setRsvpTransportMode(isActive ? "" : mode)}
+                  aria-pressed={isActive}
+                >
+                  {t(`rsvp_transport_mode_${mode}`)}
+                </button>
+              );
+            })}
+          </div>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">{t("rsvp_arrival_at_label")}</span>
+            <input
+              type="date"
+              className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
+              value={rsvpArrivalAt}
+              onChange={(e) => setRsvpArrivalAt(e.target.value)}
+            />
+          </label>
+        </div>
+      ) : null}
 
       {guestVenueVotingSection}
       {guestMealsVotingSection}
@@ -760,6 +843,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [dietaryNeeds, setDietaryNeeds] = useState([]);
   const [rsvpInterests, setRsvpInterests] = useState([]);
   const [rsvpGroupTag, setRsvpGroupTag] = useState("");
+  const [rsvpNeedsAccommodation, setRsvpNeedsAccommodation] = useState(null);
+  const [rsvpAccommodationNote, setRsvpAccommodationNote] = useState("");
+  const [rsvpTransportMode, setRsvpTransportMode] = useState("");
+  const [rsvpArrivalAt, setRsvpArrivalAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittingDateVoteOptionId, setIsSubmittingDateVoteOptionId] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
@@ -855,6 +942,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const isVenuesModuleEnabled = isModuleEnabled("venues");
   const isMealsModuleEnabled = isModuleEnabled("meals");
   const isSpotifyModuleEnabled = isModuleEnabled("spotify");
+  const isAccommodationModuleEnabled = isModuleEnabled("accommodation");
+  const isTransportModuleEnabled = isModuleEnabled("transport");
   const isDatePollOpen = rawIsDatePollOpen && isDatePollModuleEnabled;
 
   const eventDateDisplay = useMemo(
@@ -1083,6 +1172,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setDietaryNeeds(parseDietaryNeeds(first.rsvp_dietary_needs));
       setRsvpInterests(parseDietaryNeeds(first.rsvp_interests));
       setRsvpGroupTag(typeof first.rsvp_group_tag === "string" ? first.rsvp_group_tag : "");
+      setRsvpNeedsAccommodation(typeof first.rsvp_needs_accommodation === "boolean" ? first.rsvp_needs_accommodation : null);
+      setRsvpAccommodationNote(typeof first.rsvp_accommodation_note === "string" ? first.rsvp_accommodation_note : "");
+      setRsvpTransportMode(typeof first.rsvp_transport_mode === "string" ? first.rsvp_transport_mode : "");
+      setRsvpArrivalAt(first.rsvp_arrival_at ? String(first.rsvp_arrival_at).slice(0, 10) : "");
       setEventScheduleMode(String(first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
       setEventPollStatus(String(first.poll_status || "closed").trim().toLowerCase() || "closed");
       setEventAllowPlusOne(Boolean(first.allow_plus_one ?? first.event_allow_plus_one ?? false));
@@ -1382,7 +1475,11 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       p_rsvp_plus_one: plusOne,
       p_rsvp_dietary_needs: dietaryNeeds,
       p_rsvp_interests: rsvpInterests,
-      p_rsvp_group_tag: rsvpGroupTag.trim() || null
+      p_rsvp_group_tag: rsvpGroupTag.trim() || null,
+      p_rsvp_needs_accommodation: rsvpNeedsAccommodation,
+      p_rsvp_accommodation_note: rsvpAccommodationNote.trim() || null,
+      p_rsvp_transport_mode: rsvpTransportMode.trim() || null,
+      p_rsvp_arrival_at: rsvpArrivalAt ? rsvpArrivalAt : null
     };
 
     let { data, error } = await supabase.rpc("submit_rsvp_by_token", payload);
@@ -1921,6 +2018,16 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     toggleInterest={toggleInterest}
                     rsvpGroupTag={rsvpGroupTag}
                     setRsvpGroupTag={setRsvpGroupTag}
+                    isAccommodationModuleEnabled={isAccommodationModuleEnabled}
+                    rsvpNeedsAccommodation={rsvpNeedsAccommodation}
+                    setRsvpNeedsAccommodation={setRsvpNeedsAccommodation}
+                    rsvpAccommodationNote={rsvpAccommodationNote}
+                    setRsvpAccommodationNote={setRsvpAccommodationNote}
+                    isTransportModuleEnabled={isTransportModuleEnabled}
+                    rsvpTransportMode={rsvpTransportMode}
+                    setRsvpTransportMode={setRsvpTransportMode}
+                    rsvpArrivalAt={rsvpArrivalAt}
+                    setRsvpArrivalAt={setRsvpArrivalAt}
                     note={note}
                     setNote={setNote}
                     handleSubmit={handleSubmit}

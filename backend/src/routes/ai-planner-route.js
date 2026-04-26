@@ -309,6 +309,42 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
   if (safeActiveModules.spaces) {
     moduleRules.push("• MÓDULO DE ESPACIOS ACTIVO: Hay asignación de asientos/zonas en marcha. En playbook.timeline incluye tiempo explícito de configuración y disposición del espacio.");
   }
+  if (safeActiveModules.accommodation) {
+    const accommodationSignals = guestRsvpSignals.filter((sig) => ensureObject(sig).needsAccommodation === true);
+    const accommodationNotes = accommodationSignals
+      .map((sig) => normalizeText(ensureObject(sig).accommodationNote))
+      .filter(Boolean)
+      .slice(0, 6);
+    moduleRules.push(
+      accommodationSignals.length > 0
+        ? [
+            `• MÓDULO DE ALOJAMIENTO ACTIVO: ${accommodationSignals.length} de ${guestRsvpSignals.length} invitados confirmados necesitan alojamiento.`,
+            accommodationNotes.length > 0 ? `  Notas de alojamiento: "${accommodationNotes.join('" | "')}"` : "",
+            "  INSTRUCCIÓN: En playbook.actionableItems incluye una tarea 'Organizar alojamiento' con el número de personas y las necesidades específicas. En playbook.risks añade 'Confirmar disponibilidad de camas' con nivel 'no' si no está resuelto."
+          ].filter(Boolean).join("\n")
+        : "• MÓDULO DE ALOJAMIENTO ACTIVO: Ningún invitado ha indicado necesitar alojamiento de momento. Mantén la opción en el radar por si cambia el headcount."
+    );
+  }
+  if (safeActiveModules.transport) {
+    const transportCounts = {};
+    const arrivalDates = [];
+    guestRsvpSignals.forEach((sig) => {
+      const mode = normalizeText(ensureObject(sig).transportMode);
+      if (mode) transportCounts[mode] = (transportCounts[mode] || 0) + 1;
+      const arrival = normalizeText(ensureObject(sig).arrivalAt);
+      if (arrival) arrivalDates.push(arrival);
+    });
+    const transportEntries = Object.entries(transportCounts).sort(([, a], [, b]) => b - a);
+    moduleRules.push(
+      transportEntries.length > 0
+        ? [
+            `• MÓDULO DE TRANSPORTE ACTIVO: Distribución de llegadas del grupo: ${transportEntries.map(([mode, count]) => `${mode.replace(/_/g, " ")} ×${count}`).join(", ")}.`,
+            arrivalDates.length > 0 ? `  Fechas de llegada indicadas: ${[...new Set(arrivalDates)].slice(0, 4).join(", ")}.` : "",
+            "  INSTRUCCIÓN: En playbook.timeline incluye un bloque de 'Bienvenida escalonada' si hay distintos modos o fechas de llegada. Si hay invitados en coche propio y otros sin coche, sugiere coordinación de carpooling en playbook.messages."
+          ].filter(Boolean).join("\n")
+        : "• MÓDULO DE TRANSPORTE ACTIVO: Los invitados aún no han indicado cómo llegan. Añade una tarea de 'Confirmar logística de llegadas' en playbook.actionableItems."
+    );
+  }
   const modulesBlock = moduleRules.length > 0
     ? `MÓDULOS ACTIVOS DEL EVENTO:\n${moduleRules.join("\n")}`
     : "";
@@ -437,7 +473,20 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRs
       .filter(Boolean)
   )].slice(0, 6);
 
-  const guestContextBlock = (guestNotes.length > 0 || topInterests.length > 0 || groupTags.length > 0)
+  // Accommodation & transport signals
+  const accommodationCount = safeSignals.filter((sig) => ensureObject(sig).needsAccommodation === true).length;
+  const transportBreakdown = {};
+  const icebreakerArrivalDates = [];
+  safeSignals.forEach((sig) => {
+    const mode = normalizeText(ensureObject(sig).transportMode);
+    if (mode) transportBreakdown[mode] = (transportBreakdown[mode] || 0) + 1;
+    const arrival = normalizeText(ensureObject(sig).arrivalAt);
+    if (arrival) icebreakerArrivalDates.push(arrival);
+  });
+  const transportEntries = Object.entries(transportBreakdown).sort(([, a], [, b]) => b - a);
+  const hasLogisticsData = accommodationCount > 0 || transportEntries.length > 0;
+
+  const guestContextBlock = (guestNotes.length > 0 || topInterests.length > 0 || groupTags.length > 0 || hasLogisticsData)
     ? [
         `PERFIL REAL DE LOS INVITADOS (${safeSignals.length} RSVPs recibidos):`,
         guestNotes.length > 0 ? `Notas libres: "${guestNotes.join('" | "')}"` : "",
@@ -449,9 +498,18 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRs
         groupTags.length > 0
           ? `Grupos del evento: ${groupTags.join(" | ")}`
           : "",
+        accommodationCount > 0
+          ? `Alojamiento: ${accommodationCount} persona(s) necesitan que el anfitrión les organice alojamiento.`
+          : "",
+        transportEntries.length > 0
+          ? `Cómo llega el grupo: ${transportEntries.map(([mode, count]) => `${mode.replace(/_/g, " ")} ×${count}`).join(", ")}.${[...new Set(icebreakerArrivalDates)].length > 0 ? ` Fechas de llegada: ${[...new Set(icebreakerArrivalDates)].slice(0, 3).join(", ")}` : ""}`
+          : "",
         "INSTRUCCIÓN: Usa estos datos para personalizar las dinámicas. Detecta patrones (viajeros, parejas, entusiastas de la música, personas con expectativas altas) y refléjalos en el badJoke, conversationTopics y quickGameIdea.",
         topInterests.length > 0 || groupTags.length > 0
           ? "PUNTOS DE UNIÓN: Si hay intereses o grupos con más de 2 personas, genera dinámicas que los mezclen. Ejemplo: si 5 personas son del grupo 'Amigos del pádel' y 8 les gusta la música → propón una dinámica que conecte a los dos grupos de forma natural."
+          : "",
+        transportEntries.length > 1
+          ? "LLEGADAS MÚLTIPLES: Hay invitados que llegan en distintos momentos o medios. Si algunos llegan antes, sugiere una dinámica de 'bienvenida escalonada' para que quien llega antes no se quede esperando sin actividad."
           : ""
       ].filter(Boolean).join("\n")
     : "";

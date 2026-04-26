@@ -2833,7 +2833,7 @@ export function EventDetailView({
                                       >
                                         {rowGuestLabel}
                                       </button>
-                                      {(row.invitation.rsvp_group_tag || (Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 0)) ? (
+                                      {(row.invitation.rsvp_group_tag || (Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 0) || row.invitation.rsvp_needs_accommodation === true || row.invitation.rsvp_transport_mode) ? (
                                         <div className="flex flex-wrap items-center gap-1 mt-1">
                                           {row.invitation.rsvp_group_tag ? (
                                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border border-violet-200/60 dark:border-violet-700/40 truncate max-w-[120px]" title={row.invitation.rsvp_group_tag}>
@@ -2847,6 +2847,16 @@ export function EventDetailView({
                                           ))}
                                           {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 3 ? (
                                             <span className="text-[10px] text-gray-400 dark:text-gray-500">+{row.invitation.rsvp_interests.length - 3}</span>
+                                          ) : null}
+                                          {row.invitation.rsvp_needs_accommodation === true ? (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-700/40">
+                                              🏠
+                                            </span>
+                                          ) : null}
+                                          {row.invitation.rsvp_transport_mode ? (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-700/40">
+                                              {t(`rsvp_transport_mode_${row.invitation.rsvp_transport_mode}`) || row.invitation.rsvp_transport_mode}
+                                            </span>
                                           ) : null}
                                         </div>
                                       ) : null}

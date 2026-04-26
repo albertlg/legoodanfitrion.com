@@ -10,7 +10,9 @@ const MODULE_KEYS = [
   "shared_tasks",
   "meals",
   "ai_planner",
-  "icebreaker"
+  "icebreaker",
+  "accommodation",
+  "transport"
 ];
 
 export const EVENT_MODULE_KEYS = MODULE_KEYS;
@@ -27,7 +29,9 @@ export const EVENT_MODULE_DEFAULTS = Object.freeze({
   shared_tasks: false,
   meals: false,
   ai_planner: true,
-  icebreaker: true
+  icebreaker: true,
+  accommodation: false,
+  transport: false
 });
 
 const EVENT_MODULES_ALL_OFF = Object.freeze(

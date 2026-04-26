@@ -5513,7 +5513,11 @@ function DashboardScreen({
             ? invitationItem.rsvp_interests.map((item) => String(item || "").trim()).filter(Boolean)
             : [];
           const groupTag = String(invitationItem.rsvp_group_tag || "").trim();
-          if (!note && dietaryNeeds.length === 0 && !plusOne && interests.length === 0 && !groupTag) {
+          const needsAccommodation = invitationItem.rsvp_needs_accommodation === true;
+          const accommodationNote = String(invitationItem.rsvp_accommodation_note || "").trim();
+          const transportMode = String(invitationItem.rsvp_transport_mode || "").trim();
+          const arrivalAt = String(invitationItem.rsvp_arrival_at || "").trim();
+          if (!note && dietaryNeeds.length === 0 && !plusOne && interests.length === 0 && !groupTag && !needsAccommodation && !transportMode) {
             return null;
           }
           return {
@@ -5524,7 +5528,11 @@ function DashboardScreen({
             dietaryNeeds,
             plusOne,
             interests,
-            groupTag
+            groupTag,
+            needsAccommodation,
+            accommodationNote,
+            transportMode,
+            arrivalAt
           };
         })
         .filter(Boolean)
@@ -6402,7 +6410,11 @@ function DashboardScreen({
             ? inv.rsvp_interests.map((item) => String(item || "").trim()).filter(Boolean)
             : [];
           const groupTag = String(inv.rsvp_group_tag || "").trim();
-          if (!note && dietaryNeeds.length === 0 && !plusOne && interests.length === 0 && !groupTag) {
+          const needsAccommodation = inv.rsvp_needs_accommodation === true;
+          const accommodationNote = String(inv.rsvp_accommodation_note || "").trim();
+          const transportMode = String(inv.rsvp_transport_mode || "").trim();
+          const arrivalAt = String(inv.rsvp_arrival_at || "").trim();
+          if (!note && dietaryNeeds.length === 0 && !plusOne && interests.length === 0 && !groupTag && !needsAccommodation && !transportMode) {
             return null;
           }
           return {
@@ -6412,7 +6424,11 @@ function DashboardScreen({
             dietaryNeeds,
             plusOne,
             interests,
-            groupTag
+            groupTag,
+            needsAccommodation,
+            accommodationNote,
+            transportMode,
+            arrivalAt
           };
         })
         .filter(Boolean)
