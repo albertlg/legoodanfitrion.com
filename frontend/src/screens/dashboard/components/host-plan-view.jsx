@@ -1,6 +1,10 @@
 import React from "react";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
+import { PlanContextHeader } from "./plan-context-header";
+import { PlanGuestSignalsBlock } from "./plan-guest-signals-block";
+import { PlanTimelineHighlights } from "./plan-timeline-highlights";
+import { PlanActionableCards } from "./plan-actionable-cards";
 
 export function HostPlanView({
   standalone = false,
@@ -53,9 +57,13 @@ export function HostPlanView({
   selectedEventHostPlaybook,
   handleCopyEventPlannerMessages,
   handleCopyEventPlannerPrompt,
-  eventPlannerMessage
+  eventPlannerMessage,
+  isProfessional = false,
+  selectedEventDetailGuests = [],
+  activeMods = {}
 }) {
   const plannerTabs = [
+    { key: "overview", label: t("event_planner_tab_overview") },
     { key: "menu", label: t("event_planner_tab_menu") },
     { key: "shopping", label: t("event_planner_tab_shopping") },
     { key: "ambience", label: t("event_planner_tab_ambience") },
@@ -67,9 +75,8 @@ export function HostPlanView({
   const generatingScope = String(selectedEventPlannerGenerationState?.scope || "");
   const isGeneratingAll = isGenerating && generatingScope === "all";
   const isGeneratingCurrentTab = isGenerating && generatingScope === eventDetailPlannerTab;
-  const regenerationTabScope = plannerTabs.some((tabItem) => tabItem.key === eventDetailPlannerTab)
-    ? eventDetailPlannerTab
-    : "menu";
+  const REGENERATABLE_SCOPES = new Set(["menu", "shopping", "ambience", "timings", "communication", "risks"]);
+  const regenerationTabScope = REGENERATABLE_SCOPES.has(eventDetailPlannerTab) ? eventDetailPlannerTab : "menu";
   const handleRegenerateCurrentTabClick = () => {
     console.log("Botón regenerar pulsado. Scope enviado:", regenerationTabScope);
     handleRegenerateEventPlanner(regenerationTabScope);
@@ -284,44 +291,6 @@ export function HostPlanView({
         </div>
       </div>
 
-      {/* TARJETAS DE KPIs (Health & Restrictions) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <article className="bg-green-50/50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/30 p-4 shadow-sm flex flex-col justify-center items-center text-center">
-          <div className="flex items-center gap-1.5 mb-1 text-green-700 dark:text-green-400">
-            <Icon name="check" className="w-3.5 h-3.5" />
-            <p className="text-[10px] font-bold uppercase tracking-wider">{t("event_planner_stat_confirmed")}</p>
-          </div>
-          <p className="text-3xl font-black text-green-800 dark:text-green-300 leading-none mb-1">{selectedEventDetailStatusCounts.yes}</p>
-          <p className="text-[10px] text-green-600/80 dark:text-green-400/80 font-medium">
-            {interpolateText(t("event_planner_stat_hint_confirmed"), { count: selectedEventDetailStatusCounts.pending })}
-          </p>
-        </article>
-
-        <article className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 p-4 shadow-sm flex flex-col justify-center items-center text-center">
-          <div className="flex items-center gap-1.5 mb-1 text-blue-700 dark:text-blue-400">
-            <Icon name="user" className="w-3.5 h-3.5" />
-            <p className="text-[10px] font-bold uppercase tracking-wider">{t("event_planner_stat_diets")}</p>
-          </div>
-          <p className="text-3xl font-black text-blue-800 dark:text-blue-300 leading-none mb-1">{selectedEventDietTypesCount}</p>
-          <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 font-medium">
-            {interpolateText(t("event_planner_stat_hint_diets"), { count: selectedEventDietTypesCount })}
-          </p>
-        </article>
-
-        <article className={`rounded-2xl border p-4 shadow-sm flex flex-col justify-center items-center text-center ${selectedEventRestrictionsCount > 0 ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30" : "bg-gray-50/50 dark:bg-white/5 border-black/5 dark:border-white/10"}`}>
-          <div className={`flex items-center gap-1.5 mb-1 ${selectedEventRestrictionsCount > 0 ? "text-red-700 dark:text-red-400" : "text-gray-500"}`}>
-            <Icon name="shield" className="w-3.5 h-3.5" />
-            <p className="text-[10px] font-bold uppercase tracking-wider">{t("event_planner_stat_restrictions")}</p>
-          </div>
-          <p className={`text-3xl font-black leading-none mb-1 ${selectedEventRestrictionsCount > 0 ? "text-red-800 dark:text-red-300" : "text-gray-900 dark:text-white"}`}>
-            {selectedEventRestrictionsCount}
-          </p>
-          <p className={`text-[10px] font-medium ${selectedEventRestrictionsCount > 0 ? "text-red-600/80 dark:text-red-400/80" : "text-gray-500"}`}>
-            {interpolateText(t("event_planner_stat_hint_restrictions"), { count: selectedEventRestrictionsCount })}
-          </p>
-        </article>
-      </div>
-
       {/* ALERTA CRÍTICA DE RESTRICCIONES */}
       {selectedEventHealthRestrictionHighlights.length > 0 ? (
         <div className="bg-red-50/80 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800/30 p-5 shadow-sm">
@@ -412,8 +381,40 @@ export function HostPlanView({
       {/* CONTENIDO DE LAS PESTAÑAS */}
       <div className="bg-white/40 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5 p-4 md:p-6 shadow-inner min-h-[300px]">
 
-        {/* --- TAB: MENU --- */}
-        {eventDetailPlannerTab === "menu" ? (
+        {/* --- TAB: OVERVIEW --- */}
+        {eventDetailPlannerTab === "overview" ? (
+          <div className="flex flex-col gap-5">
+            <PlanContextHeader
+              t={t}
+              interpolateText={interpolateText}
+              isProfessional={isProfessional}
+              selectedEventDetailStatusCounts={selectedEventDetailStatusCounts}
+              selectedEventDietTypesCount={selectedEventDietTypesCount}
+              selectedEventRestrictionsCount={selectedEventRestrictionsCount}
+              selectedEventMealPlan={selectedEventMealPlan}
+              selectedEventHostPlaybook={selectedEventHostPlaybook}
+            />
+            <PlanGuestSignalsBlock
+              t={t}
+              interpolateText={interpolateText}
+              selectedEventDetailGuests={selectedEventDetailGuests}
+              activeMods={activeMods}
+            />
+            <PlanTimelineHighlights
+              t={t}
+              timeline={selectedEventHostPlaybook?.timeline ?? []}
+              handleEventPlannerTabChange={handleEventPlannerTabChange}
+            />
+            <PlanActionableCards
+              t={t}
+              interpolateText={interpolateText}
+              ctas={selectedEventHostPlaybook?.ctas ?? []}
+              handleEventPlannerTabChange={handleEventPlannerTabChange}
+            />
+          </div>
+
+        /* --- TAB: MENU --- */
+        ) : eventDetailPlannerTab === "menu" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {selectedEventMealPlan.menuSections.map((sectionItem) => (
               <article key={sectionItem.id} className="bg-white/60 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-xl p-4 shadow-sm flex flex-col gap-3">

@@ -7,7 +7,7 @@ export function useDashboardNavigationState(initialRouteState) {
   const [invitationsWorkspace, setInvitationsWorkspace] = useState(initialRouteState.invitationsWorkspace);
   const [selectedEventDetailId, setSelectedEventDetailId] = useState(initialRouteState.selectedEventDetailId);
   const [selectedGuestDetailId, setSelectedGuestDetailId] = useState(initialRouteState.selectedGuestDetailId);
-  const [eventDetailPlannerTab, setEventDetailPlannerTab] = useState(initialRouteState.eventPlannerTab || "menu");
+  const [eventDetailPlannerTab, setEventDetailPlannerTab] = useState(initialRouteState.eventPlannerTab || "overview");
   const [eventPlannerShoppingFilter, setEventPlannerShoppingFilter] = useState("all");
   const [guestProfileViewTab, setGuestProfileViewTab] = useState(initialRouteState.guestProfileViewTab || "general");
   const [openGuestAdvancedOnCreate, setOpenGuestAdvancedOnCreate] = useState(false);

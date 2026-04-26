@@ -15,7 +15,8 @@ import { createGoogleCalendarUrl, downloadEventAsIcs } from "../../../utils/cale
 import {
   EVENT_MODULE_DEFAULTS,
   isProfessionalEventContext,
-  normalizeEventActiveModules
+  normalizeEventActiveModules,
+  resolveEventModules
 } from "../../../lib/event-modules";
 import {
   EVENT_MODULE_ZONES,
@@ -748,6 +749,8 @@ export function EventDetailView({
     }
     return isProfessionalEventContext(selectedEventDetail);
   }, [selectedEventDetail]);
+
+  const activeMods = useMemo(() => resolveEventModules(selectedEventDetail), [selectedEventDetail]);
 
   useEffect(() => {
     const sourceExpenses = Array.isArray(selectedEventDetail?.expenses) ? selectedEventDetail.expenses : [];
@@ -3103,6 +3106,9 @@ export function EventDetailView({
                 handleCopyEventPlannerMessages={handleCopyEventPlannerMessages}
                 handleCopyEventPlannerPrompt={handleCopyEventPlannerPrompt}
                 eventPlannerMessage={eventPlannerMessage}
+                isProfessional={isProfessionalEvent}
+                selectedEventDetailGuests={selectedEventDetailGuests}
+                activeMods={activeMods}
               />
             </div>
           ) : null}
