@@ -16,7 +16,7 @@ const ROUTES_DICT = {
 const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/about", "/privacy", "/terms"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
-const EVENT_PLANNER_TABS = new Set(["menu", "shopping", "ambience", "timings", "communication", "risks"]);
+const EVENT_PLANNER_TABS = new Set(["overview", "menu", "shopping", "ambience", "timings", "communication", "risks"]);
 
 export function normalizePathname(pathname) {
     const normalized = String(pathname || "/").trim() || "/";
