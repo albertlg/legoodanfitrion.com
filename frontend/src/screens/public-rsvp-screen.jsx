@@ -42,6 +42,11 @@ function isLegacyRsvpFunctionError(error) {
   );
 }
 
+const INTEREST_VALUES = [
+  "music", "cooking", "travel", "sport", "cinema",
+  "art", "nature", "tech", "reading", "wine", "photography", "dancing"
+];
+
 const EVENT_DATE_OPTION_DATETIME_KEYS = ["starts_at", "start_at", "proposed_at", "option_at", "datetime_at"];
 const DATE_VOTE_STATUS_KEYS = ["status", "vote", "availability", "response", "answer"];
 const DEFAULT_MEALS_COURSE_KEY = "general";
@@ -235,6 +240,10 @@ function RsvpFormView({
   dietaryNeeds,
   dietaryOptions,
   toggleDietaryNeed,
+  rsvpInterests,
+  toggleInterest,
+  rsvpGroupTag,
+  setRsvpGroupTag,
   note,
   setNote,
   handleSubmit,
@@ -377,6 +386,45 @@ function RsvpFormView({
           })}
         </div>
       </div>
+
+      {/* Intereses */}
+      <div className="flex flex-col gap-2">
+        <div className="ml-1">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("rsvp_interests_label")}</p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{t("rsvp_interests_hint")}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {INTEREST_VALUES.map((value) => {
+            const isActive = rsvpInterests.includes(value);
+            return (
+              <button
+                key={value}
+                type="button"
+                className={`px-4 py-3 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-violet-600 text-white border-violet-700" : "bg-white dark:bg-black/40 text-gray-700 dark:text-gray-300 border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"}`}
+                onClick={() => toggleInterest(value)}
+                aria-pressed={isActive}
+              >
+                {t(`rsvp_interest_${value}`)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grupo */}
+      <label className="flex flex-col gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">
+          {t("rsvp_group_tag_label")}
+        </span>
+        <input
+          type="text"
+          className="w-full px-4 py-3 bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white transition-all shadow-sm outline-none"
+          value={rsvpGroupTag}
+          onChange={(e) => setRsvpGroupTag(e.target.value)}
+          placeholder={t("rsvp_group_tag_placeholder")}
+          maxLength={80}
+        />
+      </label>
 
       {guestVenueVotingSection}
       {guestMealsVotingSection}
@@ -710,6 +758,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
   const [note, setNote] = useState("");
   const [plusOne, setPlusOne] = useState(false);
   const [dietaryNeeds, setDietaryNeeds] = useState([]);
+  const [rsvpInterests, setRsvpInterests] = useState([]);
+  const [rsvpGroupTag, setRsvpGroupTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittingDateVoteOptionId, setIsSubmittingDateVoteOptionId] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
@@ -1031,6 +1081,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       setNote(typeof first.response_note === "string" ? first.response_note : "");
       setPlusOne(Boolean(first.rsvp_plus_one));
       setDietaryNeeds(parseDietaryNeeds(first.rsvp_dietary_needs));
+      setRsvpInterests(parseDietaryNeeds(first.rsvp_interests));
+      setRsvpGroupTag(typeof first.rsvp_group_tag === "string" ? first.rsvp_group_tag : "");
       setEventScheduleMode(String(first.schedule_mode || "fixed").trim().toLowerCase() || "fixed");
       setEventPollStatus(String(first.poll_status || "closed").trim().toLowerCase() || "closed");
       setEventAllowPlusOne(Boolean(first.allow_plus_one ?? first.event_allow_plus_one ?? false));
@@ -1328,7 +1380,9 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       p_response_note: toNullable(note),
       p_guest_display_name: toNullable(guestName),
       p_rsvp_plus_one: plusOne,
-      p_rsvp_dietary_needs: dietaryNeeds
+      p_rsvp_dietary_needs: dietaryNeeds,
+      p_rsvp_interests: rsvpInterests,
+      p_rsvp_group_tag: rsvpGroupTag.trim() || null
     };
 
     let { data, error } = await supabase.rpc("submit_rsvp_by_token", payload);
@@ -1487,6 +1541,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
 
   const toggleDietaryNeed = (value) => {
     setDietaryNeeds((previous) => (previous.includes(value) ? previous.filter((item) => item !== value) : [...previous, value]));
+  };
+
+  const toggleInterest = (value) => {
+    setRsvpInterests((previous) => (previous.includes(value) ? previous.filter((item) => item !== value) : [...previous, value]));
   };
 
   const handleOpenGlobalGuestProfile = () => {
@@ -1859,6 +1917,10 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
                     dietaryNeeds={dietaryNeeds}
                     dietaryOptions={dietaryOptions}
                     toggleDietaryNeed={toggleDietaryNeed}
+                    rsvpInterests={rsvpInterests}
+                    toggleInterest={toggleInterest}
+                    rsvpGroupTag={rsvpGroupTag}
+                    setRsvpGroupTag={setRsvpGroupTag}
                     note={note}
                     setNote={setNote}
                     handleSubmit={handleSubmit}

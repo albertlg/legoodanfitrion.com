@@ -5509,7 +5509,11 @@ function DashboardScreen({
             ? invitationItem.rsvp_dietary_needs.map((item) => String(item || "").trim()).filter(Boolean)
             : [];
           const plusOne = Boolean(invitationItem.rsvp_plus_one);
-          if (!note && dietaryNeeds.length === 0 && !plusOne) {
+          const interests = Array.isArray(invitationItem.rsvp_interests)
+            ? invitationItem.rsvp_interests.map((item) => String(item || "").trim()).filter(Boolean)
+            : [];
+          const groupTag = String(invitationItem.rsvp_group_tag || "").trim();
+          if (!note && dietaryNeeds.length === 0 && !plusOne && interests.length === 0 && !groupTag) {
             return null;
           }
           return {
@@ -5518,7 +5522,9 @@ function DashboardScreen({
             status: rsvpStatus || "pending",
             note,
             dietaryNeeds,
-            plusOne
+            plusOne,
+            interests,
+            groupTag
           };
         })
         .filter(Boolean)
@@ -6392,7 +6398,11 @@ function DashboardScreen({
             ? inv.rsvp_dietary_needs.map((item) => String(item || "").trim()).filter(Boolean)
             : [];
           const plusOne = Boolean(inv.rsvp_plus_one);
-          if (!note && dietaryNeeds.length === 0 && !plusOne) {
+          const interests = Array.isArray(inv.rsvp_interests)
+            ? inv.rsvp_interests.map((item) => String(item || "").trim()).filter(Boolean)
+            : [];
+          const groupTag = String(inv.rsvp_group_tag || "").trim();
+          if (!note && dietaryNeeds.length === 0 && !plusOne && interests.length === 0 && !groupTag) {
             return null;
           }
           return {
@@ -6400,7 +6410,9 @@ function DashboardScreen({
             status: String(inv.status || "pending").trim().toLowerCase(),
             note,
             dietaryNeeds,
-            plusOne
+            plusOne,
+            interests,
+            groupTag
           };
         })
         .filter(Boolean)

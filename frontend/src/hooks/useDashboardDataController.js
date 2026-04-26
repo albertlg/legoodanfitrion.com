@@ -86,7 +86,7 @@ export function useDashboardDataController({
     const invitationsPromise = supabase
       .from("invitations")
       .select(
-        "id, event_id, guest_id, status, invitee_email, public_token, created_at, responded_at, updated_at, response_note, rsvp_plus_one, rsvp_dietary_needs"
+        "id, event_id, guest_id, status, invitee_email, public_token, created_at, responded_at, updated_at, response_note, rsvp_plus_one, rsvp_dietary_needs, rsvp_interests, rsvp_group_tag"
       )
       .eq("host_user_id", sessionUserId)
       .order("created_at", { ascending: false })

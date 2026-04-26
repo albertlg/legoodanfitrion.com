@@ -2824,14 +2824,33 @@ export function EventDetailView({
                                       imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
                                       size={32}
                                     />
-                                    <button
-                                      className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left min-w-0 w-full whitespace-normal break-words sm:whitespace-nowrap sm:truncate"
-                                      type="button"
-                                      title={rowGuestLabel}
-                                      onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
-                                    >
-                                      {rowGuestLabel}
-                                    </button>
+                                    <div className="min-w-0 w-full">
+                                      <button
+                                        className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left w-full whitespace-normal break-words sm:whitespace-nowrap sm:truncate"
+                                        type="button"
+                                        title={rowGuestLabel}
+                                        onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
+                                      >
+                                        {rowGuestLabel}
+                                      </button>
+                                      {(row.invitation.rsvp_group_tag || (Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 0)) ? (
+                                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                                          {row.invitation.rsvp_group_tag ? (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border border-violet-200/60 dark:border-violet-700/40 truncate max-w-[120px]" title={row.invitation.rsvp_group_tag}>
+                                              {row.invitation.rsvp_group_tag}
+                                            </span>
+                                          ) : null}
+                                          {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.slice(0, 3).map((interest) => (
+                                            <span key={interest} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40">
+                                              {t(`rsvp_interest_${interest}`) || interest}
+                                            </span>
+                                          ))}
+                                          {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 3 ? (
+                                            <span className="text-[10px] text-gray-400 dark:text-gray-500">+{row.invitation.rsvp_interests.length - 3}</span>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
+                                    </div>
                                   </div>
                                 </td>
                                 <td className="block sm:table-cell py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0">

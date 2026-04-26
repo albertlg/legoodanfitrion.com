@@ -207,22 +207,52 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
     ? `ℹ ASISTENTES REALES: ${confirmedCount} invitados confirmados + ${plusOnesCount} acompañante(s) (+1) = ${totalAttendees} personas en total. Usa ${totalAttendees} como número de comensales para calcular cantidades, espacios y timings.`
     : "";
 
-  // RSVP SIGNALS: extract friction and desire signals from guest notes
+  // RSVP SIGNALS: extract friction, desire, interests and group signals
   const guestRsvpSignals = normalizeArray(safeEventContext.guestRsvpSignals);
   const rsvpNotes = guestRsvpSignals
     .map((sig) => normalizeText(ensureObject(sig).note))
     .filter(Boolean)
     .slice(0, 10);
 
-  const rsvpSignalsBlock = rsvpNotes.length > 0
+  // Aggregate interests across confirmed guests
+  const plannerInterestCounts = {};
+  guestRsvpSignals.forEach((sig) => {
+    normalizeArray(ensureObject(sig).interests).forEach((interest) => {
+      const key = normalizeText(interest);
+      if (key) plannerInterestCounts[key] = (plannerInterestCounts[key] || 0) + 1;
+    });
+  });
+  const plannerTopInterests = Object.entries(plannerInterestCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6);
+
+  const plannerGroupTags = [...new Set(
+    guestRsvpSignals
+      .map((sig) => normalizeText(ensureObject(sig).groupTag))
+      .filter(Boolean)
+  )].slice(0, 6);
+
+  const rsvpSignalsBlock = (rsvpNotes.length > 0 || plannerTopInterests.length > 0 || plannerGroupTags.length > 0)
     ? [
-        `VOZ DE LOS INVITADOS (${rsvpNotes.length} notas RSVP confirmadas):`,
-        `"${rsvpNotes.join('" | "')}"`,
-        "INSTRUCCIÓN CRÍTICA: Analiza estas notas y extrae dos tipos de señales:",
-        "• FRICCIONES (llegadas tarde, restricciones, necesidades especiales, problemas logísticos) → Refléjalas en playbook.risks y playbook.timeline con soluciones concretas.",
-        "• DESEOS Y EXPECTATIVAS (ganas de bailar, expectativas de celebración, peticiones especiales) → Refléjalos en playbook.ambience, playbook.conversation y playbook.messages.",
-        "Estas notas son información privilegiada. Personaliza el plan al máximo con ellas."
-      ].join("\n")
+        `VOZ DE LOS INVITADOS (${guestRsvpSignals.length} RSVPs recibidos):`,
+        rsvpNotes.length > 0 ? `Notas libres: "${rsvpNotes.join('" | "')}"` : "",
+        plannerTopInterests.length > 0
+          ? `Intereses del grupo: ${plannerTopInterests.map(([i, c]) => `${i} ×${c}`).join(", ")}`
+          : "",
+        plannerGroupTags.length > 0
+          ? `Grupos presentes: ${plannerGroupTags.join(" | ")}`
+          : "",
+        "INSTRUCCIÓN CRÍTICA: Analiza esta información y extrae señales:",
+        "• FRICCIONES (llegadas tarde, restricciones, problemas logísticos) → Refléjalas en playbook.risks y playbook.timeline.",
+        "• DESEOS Y EXPECTATIVAS (ganas de bailar, peticiones especiales) → Refléjalos en playbook.ambience, playbook.conversation y playbook.messages.",
+        plannerTopInterests.length > 0
+          ? "• INTERESES COMPARTIDOS: Si hay intereses con ≥3 personas, genera al menos 1 dinámica de conversación o actividad basada en esa afinidad en playbook.conversation."
+          : "",
+        plannerGroupTags.length > 1
+          ? "• MEZCLA DE GRUPOS: Hay personas de distintos grupos. Genera al menos 1 mensaje o dinámica que ayude a romper el hielo entre ellos."
+          : "",
+        "Estas señales son información privilegiada. Personaliza el plan al máximo con ellas."
+      ].filter(Boolean).join("\n")
     : "";
 
   // INSIGHT SIGNALS: recurring guest questions that need specific playbook actions
@@ -388,13 +418,41 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRs
   )].slice(0, 6);
   const hasPlusOnes = safeSignals.some((sig) => Boolean(ensureObject(sig).plusOne));
 
-  const guestContextBlock = guestNotes.length > 0
+  // Aggregated interests: count occurrences across all guests
+  const interestCounts = {};
+  safeSignals.forEach((sig) => {
+    normalizeArray(ensureObject(sig).interests).forEach((interest) => {
+      const key = normalizeText(interest);
+      if (key) interestCounts[key] = (interestCounts[key] || 0) + 1;
+    });
+  });
+  const topInterests = Object.entries(interestCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6);
+
+  // Group tags: collect unique non-empty values
+  const groupTags = [...new Set(
+    safeSignals
+      .map((sig) => normalizeText(ensureObject(sig).groupTag))
+      .filter(Boolean)
+  )].slice(0, 6);
+
+  const guestContextBlock = (guestNotes.length > 0 || topInterests.length > 0 || groupTags.length > 0)
     ? [
         `PERFIL REAL DE LOS INVITADOS (${safeSignals.length} RSVPs recibidos):`,
-        `Notas libres: "${guestNotes.join('" | "')}"`,
+        guestNotes.length > 0 ? `Notas libres: "${guestNotes.join('" | "')}"` : "",
         dietaryDiversity.length > 0 ? `Perfil dietético del grupo: ${dietaryDiversity.join(", ")}` : "",
         hasPlusOnes ? "Hay invitados que vienen con acompañante (hay parejas en el grupo)." : "",
-        "INSTRUCCIÓN: Usa estos datos para personalizar las dinámicas. Detecta patrones (viajeros, parejas, entusiastas de la música, personas con expectativas altas) y refléjalos en el badJoke, conversationTopics y quickGameIdea."
+        topInterests.length > 0
+          ? `Intereses declarados (top): ${topInterests.map(([i, c]) => `${i} ×${c}`).join(", ")}`
+          : "",
+        groupTags.length > 0
+          ? `Grupos del evento: ${groupTags.join(" | ")}`
+          : "",
+        "INSTRUCCIÓN: Usa estos datos para personalizar las dinámicas. Detecta patrones (viajeros, parejas, entusiastas de la música, personas con expectativas altas) y refléjalos en el badJoke, conversationTopics y quickGameIdea.",
+        topInterests.length > 0 || groupTags.length > 0
+          ? "PUNTOS DE UNIÓN: Si hay intereses o grupos con más de 2 personas, genera dinámicas que los mezclen. Ejemplo: si 5 personas son del grupo 'Amigos del pádel' y 8 les gusta la música → propón una dinámica que conecte a los dos grupos de forma natural."
+          : ""
       ].filter(Boolean).join("\n")
     : "";
 
