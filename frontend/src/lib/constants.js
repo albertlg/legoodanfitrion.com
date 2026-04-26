@@ -22,7 +22,7 @@ export const INVITATION_BULK_SEGMENTS = ["all", "high_potential", "health_sensit
 
 export const GUEST_PROFILE_VIEW_TABS = ["general", "food", "lifestyle", "conversation", "health", "history"];
 export const GUEST_ADVANCED_EDIT_TABS = ["identity", "food", "lifestyle", "conversation", "health"];
-export const EVENT_PLANNER_VIEW_TABS = ["menu", "shopping", "ambience", "timings", "communication", "risks"];
+export const EVENT_PLANNER_VIEW_TABS = ["overview", "menu", "shopping", "ambience", "timings", "communication", "risks"];
 export const EVENT_PLANNER_SHOPPING_FILTERS = ["all", "pending", "done"];
 
 export const GUEST_ADVANCED_PRIORITY_SECTION_MAP = {
