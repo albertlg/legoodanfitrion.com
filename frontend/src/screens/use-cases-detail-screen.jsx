@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Icon } from "../components/icons";
 import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
 import { PublicPageHeader } from "../components/public-page-header";
+import { sanityClient, urlFor } from "../sanityClient";
 
 const UC_META = {
     personal:  { icon: "home",     bgLight: "bg-blue-50",    bgDark: "dark:bg-blue-950/20",    iconBg: "bg-blue-100 dark:bg-blue-900/30",      iconColor: "text-blue-600 dark:text-blue-400",     border: "border-blue-100 dark:border-blue-900/30" },
@@ -15,11 +17,62 @@ const UC_META = {
     expat:      { icon: "globe",    bgLight: "bg-violet-50",  bgDark: "dark:bg-violet-950/20",  iconBg: "bg-violet-100 dark:bg-violet-900/30",   iconColor: "text-violet-600 dark:text-violet-400",   border: "border-violet-100 dark:border-violet-900/30" }
 };
 
+// Maps each hub to the Sanity category titles per language
+const HUB_CATEGORIES = {
+    personal:   { es: ["Celebraciones", "Planificación"], ca: ["Celebracions", "Planificació"], en: ["Celebrations", "Planning"], fr: ["Fêtes & Célébrations", "Planification"], it: ["Celebrazioni", "Pianificazione"] },
+    gastro:     { es: ["Menús y Dietas", "Inspiración"], ca: ["Menús i Dietes", "Inspiració"], en: ["Menus & Diets", "Inspiration"], fr: ["Menús et Régimes", "Inspiration"], it: ["Menù e Diete", "Ispirazione"] },
+    penas:      { es: ["Social", "Planificación"], ca: ["Social", "Planificació"], en: ["Social", "Planning"], fr: ["Social", "Planification"], it: ["Socialità", "Pianificazione"] },
+    wellness:   { es: ["Retiros y bienestar"], ca: ["Retirs i benestar"], en: ["Wellness & Retreats"], fr: ["Retraites & Bien-être"], it: ["Ritiri e benessere"] },
+    corporate:  { es: ["Eventos de empresa", "Planificación"], ca: ["Esdeveniments d'empresa", "Planificació"], en: ["Corporate Events", "Planning"], fr: ["Événements d'entreprise", "Planification"], it: ["Eventi aziendali", "Pianificazione"] },
+    life:       { es: ["Celebraciones", "Inspiración"], ca: ["Celebracions", "Inspiració"], en: ["Celebrations", "Inspiration"], fr: ["Fêtes & Célébrations", "Inspiration"], it: ["Celebrazioni", "Ispirazione"] },
+    despedidas: { es: ["Despedidas", "Social"], ca: ["Comiats", "Social"], en: ["Hen & Stag Parties", "Social"], fr: ["EVJF & EVG", "Social"], it: ["Addio al nubilato", "Socialità"] },
+    expat:      { es: ["Cenas internacionales", "Menús y Dietas"], ca: ["Sopars internacionals", "Menús i Dietes"], en: ["International Dinners", "Menus & Diets"], fr: ["Dîners internationaux", "Menús et Régimes"], it: ["Cene internazionali", "Menù e Diete"] },
+};
+
 const PERSONA_ICONS = ["user", "users", "star"];
 const FEAT_ICONS = ["check", "sparkle", "user", "calendar", "activity"];
 
 export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
     const meta = UC_META[ucKey] || UC_META.personal;
+    const [openFaq, setOpenFaq] = useState(null);
+    const [relatedPosts, setRelatedPosts] = useState([]);
+    const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+
+    useEffect(() => {
+        const catTitles = HUB_CATEGORIES[ucKey]?.[language] || [];
+        if (catTitles.length === 0) {
+            setRelatedPosts([]);
+            setIsLoadingPosts(false);
+            return;
+        }
+        setIsLoadingPosts(true);
+        setRelatedPosts([]);
+        sanityClient
+            .fetch(
+                `*[_type == "post" && language == $lang && count(categories[@->title in $catTitles]) > 0] | order(publishedAt desc)[0...3] {
+                    _id, title, slug, publishedAt, mainImage, excerpt,
+                    "categories": coalesce(categories[]->title, [])
+                }`,
+                { lang: language, catTitles }
+            )
+            .then((data) => { setRelatedPosts(data); setIsLoadingPosts(false); })
+            .catch(() => setIsLoadingPosts(false));
+    }, [ucKey, language]);
+
+    const faqs = [1, 2, 3].map((n) => ({
+        q: t(`uc_${ucKey}_page_faq_${n}_q`),
+        a: t(`uc_${ucKey}_page_faq_${n}_a`),
+    }));
+
+    const faqSchema = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": faqs.map(({ q, a }) => ({
+            "@type": "Question",
+            "name": q,
+            "acceptedAnswer": { "@type": "Answer", "text": a }
+        }))
+    };
 
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
@@ -29,6 +82,9 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
                 title={`${t(`uc_${ucKey}_page_seo_title`)} | ${t("app_name")}`}
                 description={t(`uc_${ucKey}_page_seo_desc`)}
             />
+            <Helmet>
+                <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
+            </Helmet>
 
             <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-purple-500/10 dark:bg-purple-600/10 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 pointer-events-none z-0" />
             <div className="fixed bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 pointer-events-none z-0" />
@@ -141,6 +197,89 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
                         ))}
                     </div>
                 </section>
+
+                {/* ── FAQs ── */}
+                <section className="py-12 px-6 w-full max-w-3xl mx-auto">
+                    <h2 className="text-2xl md:text-3xl font-black text-center text-gray-900 dark:text-white mb-8">
+                        {t("uc_faq_section_title")}
+                    </h2>
+                    <div className="flex flex-col gap-3">
+                        {faqs.map(({ q, a }, i) => (
+                            <div key={i} className="bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm rounded-2xl border border-black/10 dark:border-white/10 overflow-hidden">
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left"
+                                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                                    aria-expanded={openFaq === i}
+                                >
+                                    <span className="font-bold text-gray-900 dark:text-white text-sm sm:text-base leading-snug">{q}</span>
+                                    <Icon
+                                        name="chevron_down"
+                                        className={`w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200 ${openFaq === i ? "rotate-180" : ""}`}
+                                    />
+                                </button>
+                                {openFaq === i && (
+                                    <div className="px-6 pb-5">
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{a}</p>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* ── Posts relacionados del blog ── */}
+                {(isLoadingPosts || relatedPosts.length > 0) && (
+                    <section className="py-12 px-6 w-full max-w-5xl mx-auto">
+                        <h2 className="text-xl font-black text-gray-900 dark:text-white mb-6">
+                            {t("uc_related_posts_section_title")}
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {isLoadingPosts
+                                ? [1, 2, 3].map((i) => (
+                                    <div key={i} className="h-52 bg-black/5 dark:bg-white/5 animate-pulse rounded-2xl" />
+                                ))
+                                : relatedPosts.map((post) => {
+                                    const postUrl = language === "es"
+                                        ? `/blog/${post.slug?.current}`
+                                        : `/${language}/blog/${post.slug?.current}`;
+                                    return (
+                                        <article key={post._id}>
+                                            <a
+                                                href={postUrl}
+                                                onClick={(e) => { e.preventDefault(); onNavigate(postUrl); }}
+                                                className="group flex flex-col bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm border border-black/10 dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full"
+                                            >
+                                                {post.mainImage ? (
+                                                    <div className="w-full h-36 bg-gray-200 dark:bg-gray-800 overflow-hidden shrink-0">
+                                                        <img
+                                                            src={urlFor(post.mainImage).width(600).height(300).url()}
+                                                            alt={post.title}
+                                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className={`w-full h-36 ${meta.bgLight} ${meta.bgDark} shrink-0`} />
+                                                )}
+                                                <div className="p-5 flex flex-col gap-2 flex-1">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                                                        {new Date(post.publishedAt).toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric" })}
+                                                    </p>
+                                                    <h3 className="font-black text-sm text-gray-900 dark:text-white leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
+                                                        {post.title}
+                                                    </h3>
+                                                    {post.excerpt && (
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2 mt-auto">{post.excerpt}</p>
+                                                    )}
+                                                </div>
+                                            </a>
+                                        </article>
+                                    );
+                                })
+                            }
+                        </div>
+                    </section>
+                )}
 
                 {/* ── CTA final ── */}
                 <section className="py-16 px-6 w-full max-w-3xl mx-auto flex flex-col items-center text-center gap-5">
