@@ -14,7 +14,8 @@ const NAV_ITEMS = [
   { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
   { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
   { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
-  { key: "about", path: "/about", labelKey: "landing_nav_about" }
+  { key: "about", path: "/about", labelKey: "landing_nav_about" },
+  { key: "explore", path: "/explore", labelKey: "landing_nav_explore" }
 ];
 
 const FAQ_ITEMS = [
@@ -957,6 +958,22 @@ function LandingScreen({
                 ) : (
                   <DemoSkeleton />
                 )}
+              </div>
+
+              <div className="mt-10 flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { trackEvent("cta_explore_demo_click", { location: "demo_section" }); onNavigate("/explore"); }}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm
+                    bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10
+                    text-gray-900 dark:text-white shadow-sm
+                    hover:bg-white/80 dark:hover:bg-white/5 hover:shadow-md transition-all cursor-pointer"
+                >
+                  <Icon name="sparkle" className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  {t("landing_explore_cta")}
+                  <Icon name="arrow-right" className="w-4 h-4 opacity-60" />
+                </button>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{t("landing_explore_cta_hint")}</p>
               </div>
             </section>
 

@@ -33,6 +33,7 @@ const BlogIndexScreen = lazy(() => import("./screens/blog-index-screen").then((m
 const BlogPostScreen = lazy(() => import("./screens/blog-post-screen").then((m) => ({ default: m.BlogPostScreen })));
 const AboutScreen = lazy(() => import("./screens/about-screen").then((m) => ({ default: m.AboutScreen })));
 const AdminDashboardScreen = lazy(() => import("./screens/admin-dashboard-screen").then((m) => ({ default: m.AdminDashboardScreen })));
+const ExploreScreen = lazy(() => import("./screens/explore-screen").then((m) => ({ default: m.ExploreScreen })));
 
 function ScreenFallback() {
   return (
@@ -751,6 +752,21 @@ function App() {
     return (
       <Suspense fallback={<ScreenFallback />}>
         <AdminDashboardScreen session={session} t={t} onNavigate={navigate} />
+      </Suspense>
+    );
+  }
+
+  if (route.kind === "landing" && route.path === "/explore") {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <ExploreScreen
+          t={t}
+          language={language}
+          setLanguage={handleLanguageChange}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          onNavigate={navigate}
+        />
       </Suspense>
     );
   }

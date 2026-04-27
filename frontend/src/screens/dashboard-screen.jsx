@@ -433,7 +433,7 @@ function DashboardScreen({
   const routeEventsWorkspace = initialRouteState.eventsWorkspace;
   const routeGuestsWorkspace = initialRouteState.guestsWorkspace;
   const routeInvitationsWorkspace = initialRouteState.invitationsWorkspace;
-  const routeEventPlannerTab = initialRouteState.eventPlannerTab || "menu";
+  const routeEventPlannerTab = initialRouteState.eventPlannerTab || "overview";
   const routeGuestProfileTab = initialRouteState.guestProfileViewTab || "general";
   const routeGuestAdvancedTab = initialRouteState.guestAdvancedEditTab || "identity";
   const routeSelectedEventDetailId = initialRouteState.selectedEventDetailId || "";
@@ -1600,7 +1600,7 @@ function DashboardScreen({
         auto: true,
         label: t("host_checklist_item_define_menu"),
         targetPath: targetEventId
-          ? `/app/events/${encodeURIComponent(targetEventId)}/plan/menu`
+          ? `/app/events/${encodeURIComponent(targetEventId)}/plan/overview`
           : "/app/events/new"
       }
     ];
@@ -5060,7 +5060,7 @@ function DashboardScreen({
     closeMobileMenu();
   };
 
-  const openEventPlanById = (eventId, targetTab = "ambience") => {
+  const openEventPlanById = (eventId, targetTab = "overview") => {
     markUserNavigationIntent();
     const fallbackEventId = eventId || events[0]?.id || "";
     if (!fallbackEventId) {
@@ -6307,7 +6307,7 @@ function DashboardScreen({
     }
     navigateAppPath(`/app/guests/${encodeURIComponent(selectedGuestDetail.id)}/${encodeURIComponent(normalizedTab)}`);
   };
-  const handleOpenEventPlan = (targetTab = "ambience") => {
+  const handleOpenEventPlan = (targetTab = "overview") => {
     openEventPlanById(selectedEventDetail?.id || "", targetTab);
   };
   const handleCloseEventDatePoll = async (optionId) => {
@@ -9491,6 +9491,7 @@ function DashboardScreen({
     >
       <DashboardLayout
       hideHeader={hideDashboardHeader}
+      isDemoMode={isDemoMode}
       t={t}
       themeMode={themeMode}
       setThemeMode={setThemeMode}
@@ -9533,7 +9534,6 @@ function DashboardScreen({
         <meta name="twitter:title" content={t("seo_title")} />
         <meta name="twitter:description" content={t("seo_desc")} />
       </Helmet>
-      {isDemoMode && <DemoModeBanner t={t} />}
       {/* Decorative blobs for glassmorphism layout background */}
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
       <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/10 dark:bg-purple-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
@@ -9700,6 +9700,7 @@ function DashboardScreen({
             setGuestPageSize={setGuestPageSize}
             setInvitationPageSize={setInvitationPageSize}
             openWorkspace={openWorkspace}
+            isDemoMode={isDemoMode}
           />
         </Suspense>
       ) : null}
@@ -10342,6 +10343,15 @@ function DashboardScreen({
         handleConfirmDelete={handleConfirmDelete}
       />
       </DashboardLayout>
+      {isDemoMode && (
+        <DemoModeBanner
+          t={t}
+          onCtaClick={async () => {
+            if (supabase) await supabase.auth.signOut();
+            navigate("/login");
+          }}
+        />
+      )}
     </Motion.div>
   );
 }

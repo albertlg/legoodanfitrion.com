@@ -31,7 +31,8 @@ export function DashboardLayout({
     notificationMenuRef,
     statusClass,
     sectionHeader,
-    interpolateText
+    interpolateText,
+    isDemoMode
 }) {
 
     // ==========================================
@@ -142,7 +143,7 @@ export function DashboardLayout({
                     {renderNavLinks()}
                 </div>
 
-                <div className="p-4 border-t border-black/5 dark:border-white/5">
+                <div className={`p-4 border-t border-black/5 dark:border-white/5${isDemoMode ? " pb-16" : ""}`}>
                     {renderNavFooter()}
                 </div>
             </aside>

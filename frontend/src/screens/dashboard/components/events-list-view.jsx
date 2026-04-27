@@ -369,7 +369,7 @@ export function EventsListView({
                                       <button
                                         className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white text-left transition-colors"
                                         type="button"
-                                        onClick={() => openEventPlanById(eventItem.id, "ambience")}
+                                        onClick={() => openEventPlanById(eventItem.id, "overview")}
                                       >
                                         <Icon name="sparkle" className="w-4 h-4" />
                                         <span>{t("event_plan_cta_action")}</span>

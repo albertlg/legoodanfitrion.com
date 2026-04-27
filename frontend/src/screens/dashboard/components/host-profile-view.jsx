@@ -215,7 +215,8 @@ export function HostProfileView({
   invitationPageSize,
   setEventPageSize,
   setGuestPageSize,
-  setInvitationPageSize
+  setInvitationPageSize,
+  isDemoMode
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTabFromUrl = useMemo(() => normalizeProfileTab(searchParams.get("tab")), [searchParams]);
@@ -328,7 +329,7 @@ export function HostProfileView({
 
   const handleUpdatePassword = async (event) => {
     event.preventDefault();
-    if (!supabase || !session?.user?.id) {
+    if (!supabase || !session?.user?.id || isDemoMode) {
       return;
     }
     setAccountMessage("");
@@ -354,7 +355,7 @@ export function HostProfileView({
   };
 
   const handleDangerAction = async () => {
-    if (!supabase || !session?.user?.id || isDeletingAccount) {
+    if (!supabase || !session?.user?.id || isDeletingAccount || isDemoMode) {
       return;
     }
     setDangerMessage("");
@@ -530,7 +531,7 @@ export function HostProfileView({
               </form>
             </ProfileCard>
 
-            <ProfileCard title={t("profile_account_security_block_title")} hint={t("profile_account_security_block_hint")} icon="lock">
+            {!isDemoMode && <ProfileCard title={t("profile_account_security_block_title")} hint={t("profile_account_security_block_hint")} icon="lock">
               <form className="flex flex-col gap-4" onSubmit={handleUpdatePassword}>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <label className="flex flex-col gap-1.5">
@@ -576,23 +577,25 @@ export function HostProfileView({
                 </div>
               </form>
 
-              <div className="mt-4 border-t border-black/10 pt-4 dark:border-white/10">
-                <h4 className="text-sm font-bold text-red-600 dark:text-red-300">
-                  {t("profile_account_danger_zone_title")}
-                </h4>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("profile_account_danger_zone_hint")}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border border-red-400 bg-red-500 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-600"
-                    onClick={() => setIsDangerModalOpen(true)}
-                  >
-                    {t("profile_account_delete_cta")}
-                  </button>
-                  <InlineMessage text={dangerMessage} />
+              {!isDemoMode && (
+                <div className="mt-4 border-t border-black/10 pt-4 dark:border-white/10">
+                  <h4 className="text-sm font-bold text-red-600 dark:text-red-300">
+                    {t("profile_account_danger_zone_title")}
+                  </h4>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("profile_account_danger_zone_hint")}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-xl border border-red-400 bg-red-500 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-600"
+                      onClick={() => setIsDangerModalOpen(true)}
+                    >
+                      {t("profile_account_delete_cta")}
+                    </button>
+                    <InlineMessage text={dangerMessage} />
+                  </div>
                 </div>
-              </div>
-            </ProfileCard>
+              )}
+            </ProfileCard>}
           </div>
 
           <ProfileCard

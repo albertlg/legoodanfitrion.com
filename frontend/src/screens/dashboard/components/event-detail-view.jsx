@@ -2963,7 +2963,7 @@ export function EventDetailView({
 
                 {/* AI Planner — backport del visual de la landing (MagicCard gradiente púrpura) */}
                 <div className="order-1">
-                  <PlannerIACard t={t} onOpen={() => handleOpenEventPlan("ambience")} />
+                  <PlannerIACard t={t} onOpen={() => handleOpenEventPlan("overview")} />
                 </div>
 
                 {/* Lo que tus invitados preguntan */}

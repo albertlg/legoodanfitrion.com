@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../../../components/icons";
 
-export function DemoModeBanner({ t }) {
+export function DemoModeBanner({ t, onCtaClick }) {
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
@@ -10,7 +10,7 @@ export function DemoModeBanner({ t }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-4 py-2.5
+      className="fixed bottom-0 left-0 right-0 z-[9995] flex items-center justify-between gap-3 px-4 py-2.5
         bg-gradient-to-r from-indigo-600/95 to-purple-600/95 backdrop-blur-md
         border-t border-white/10 shadow-xl shadow-black/20"
     >
@@ -24,15 +24,16 @@ export function DemoModeBanner({ t }) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <a
-          href="/register"
+        <button
+          type="button"
+          onClick={onCtaClick}
           className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold
             text-white bg-white/20 hover:bg-white/30 active:bg-white/40
             px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
         >
           {t("demo_mode_banner_cta")}
           <Icon name="arrow-right" className="w-3.5 h-3.5" />
-        </a>
+        </button>
         <button
           type="button"
           aria-label="Cerrar"
