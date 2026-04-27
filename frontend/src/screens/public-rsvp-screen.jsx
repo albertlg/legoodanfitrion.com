@@ -1479,7 +1479,8 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
       p_rsvp_needs_accommodation: rsvpNeedsAccommodation,
       p_rsvp_accommodation_note: rsvpAccommodationNote.trim() || null,
       p_rsvp_transport_mode: rsvpTransportMode.trim() || null,
-      p_rsvp_arrival_at: rsvpArrivalAt ? rsvpArrivalAt : null
+      p_rsvp_arrival_at: rsvpArrivalAt ? rsvpArrivalAt : null,
+      p_response_note_language: language || null
     };
 
     let { data, error } = await supabase.rpc("submit_rsvp_by_token", payload);
@@ -2065,7 +2066,7 @@ function PublicRsvpScreen({ token, language, setLanguage, themeMode, setThemeMod
     </Motion.div>
     {/* GuestAiAssistant fuera del Motion.div: el transform/opacity de Framer Motion
         crea un stacking context que mata backdrop-filter en hijos fixed. */}
-    {showGuestAiAssistant ? <GuestAiAssistant t={t} context={guestAiContext} token={token} /> : null}
+    {showGuestAiAssistant ? <GuestAiAssistant t={t} context={guestAiContext} token={token} language={language} /> : null}
   </>
   );
 }

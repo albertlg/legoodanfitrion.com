@@ -3330,59 +3330,76 @@ function DashboardScreen({
     selectedEventEstimatedCostRange,
     selectedEventShoppingCheckedSet
   ]);
-  // Tracks in-flight demo translations to avoid duplicate calls across re-renders.
-  const pendingDemoTranslationsRef = useRef(new Set());
+  // Tracks in-flight translations to avoid duplicate calls across re-renders.
+  const pendingTranslationsRef = useRef(new Set());
   // Counter of pending translations — drives the loading pill.
   const [translatingPlanCount, setTranslatingPlanCount] = useState(0);
 
-  // Demo: when the user switches language, translate ALL events that have a Spanish
-  // plan but no plan yet in the target language — in parallel, fire-and-forget.
+  // When the user switches language, translate ALL events that have a plan in another
+  // language but no plan yet in the target language — in parallel, fire-and-forget.
+  // For real users, the translated plan is also persisted to DB.
   useEffect(() => {
-    if (!isDemoMode) return;
     if (language === "es") return;
 
     for (const [eventId, langMap] of Object.entries(eventPlannerSnapshotsByEventId)) {
       if (!langMap || typeof langMap !== "object") continue;
-      const spanishPlan = langMap["es"];
-      if (!spanishPlan) continue;
       if (langMap[language]) continue;
 
+      // Prefer the Spanish source; fall back to whichever language is available.
+      const sourceLang = Object.prototype.hasOwnProperty.call(langMap, "es") ? "es" : Object.keys(langMap)[0];
+      const sourcePlan = langMap[sourceLang];
+      if (!sourcePlan) continue;
+
       const key = `${eventId}:${language}`;
-      if (pendingDemoTranslationsRef.current.has(key)) continue;
-      pendingDemoTranslationsRef.current.add(key);
+      if (pendingTranslationsRef.current.has(key)) continue;
+      pendingTranslationsRef.current.add(key);
 
       const rawSnapshot = {
         schema_version: 1,
         event_id: eventId,
-        version: spanishPlan.version,
-        generated_at: spanishPlan.generatedAt,
-        source: spanishPlan.source,
+        version: sourcePlan.version,
+        generated_at: sourcePlan.generatedAt,
+        source: sourcePlan.source,
         context: {},
-        context_overrides: spanishPlan.contextOverrides || {},
-        seeds: { all: spanishPlan.seedAll || 0, tabs: spanishPlan.seedByTab || {} },
-        sections: spanishPlan.sections || {},
-        alerts: spanishPlan.alerts || { critical: [], warning: [] },
-        model_meta: spanishPlan.modelMeta || {}
+        context_overrides: sourcePlan.contextOverrides || {},
+        seeds: { all: sourcePlan.seedAll || 0, tabs: sourcePlan.seedByTab || {} },
+        sections: sourcePlan.sections || {},
+        alerts: sourcePlan.alerts || { critical: [], warning: [] },
+        model_meta: sourcePlan.modelMeta || {}
       };
 
       setTranslatingPlanCount((c) => c + 1);
-      requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: "es", toLanguage: language })
+      requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: sourceLang, toLanguage: language })
         .then(({ data: translatedSnapshot }) => {
           setTranslatingPlanCount((c) => Math.max(0, c - 1));
           if (!translatedSnapshot) return;
           const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
           if (!translatedState) return;
-          setEventPlannerSnapshotsByEventId((prev) => ({
-            ...prev,
-            [eventId]: { ...(prev[eventId] || {}), [language]: translatedState }
-          }));
+          const applyState = () => {
+            setEventPlannerSnapshotsByEventId((prev) => ({
+              ...prev,
+              [eventId]: { ...(prev[eventId] || {}), [language]: translatedState }
+            }));
+          };
+          if (isDemoMode) {
+            applyState();
+          } else {
+            supabase.rpc("upsert_event_host_plan", {
+              p_event_id: eventId,
+              p_plan_json: translatedSnapshot,
+              p_context_json: translatedSnapshot.context || rawSnapshot.context,
+              p_scope: "all",
+              p_model_meta: translatedSnapshot.model_meta || rawSnapshot.model_meta,
+              p_plan_language: language
+            }).then(applyState).catch(applyState);
+          }
         })
         .catch(() => {
           setTranslatingPlanCount((c) => Math.max(0, c - 1));
-          pendingDemoTranslationsRef.current.delete(key);
+          pendingTranslationsRef.current.delete(key);
         });
     }
-  }, [isDemoMode, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId]);
+  }, [isDemoMode, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId, supabase]);
 
   // Clear all local plan state when the session user changes (logout / account switch).
   // Prevents stale or mixed-language plan data from bleeding between sessions.
@@ -3393,7 +3410,7 @@ function DashboardScreen({
     if (prevId !== null && prevId !== currId) {
       setEventPlannerSnapshotsByEventId({});
       setEventPlannerSnapshotHistoryByEventId({});
-      pendingDemoTranslationsRef.current.clear();
+      pendingTranslationsRef.current.clear();
       setTranslatingPlanCount(0);
     }
     prevSessionUserIdRef.current = currId;

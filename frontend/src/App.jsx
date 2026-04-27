@@ -133,7 +133,13 @@ function App() {
   }, [route.originalPath]);
 
   // 🚀 SEO 1: Inicializamos el idioma pasándole lo que ha detectado el router
-  const [language, setLanguage] = useState(() => detectLanguage(route.urlLang, route.originalPath));
+  const [language, setLanguage] = useState(() => {
+    if (route.kind === "rsvp") {
+      const nav = (window.navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
+      return SUPPORTED_LANGUAGES.includes(nav) ? nav : DEFAULT_LANGUAGE;
+    }
+    return detectLanguage(route.urlLang, route.originalPath);
+  });
 
   const [loadedLocales, setLoadedLocales] = useState(() => ({ [DEFAULT_LANGUAGE]: es }));
   const [themeMode, setThemeMode] = useState(getThemeModeInitial);

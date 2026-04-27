@@ -142,20 +142,21 @@ function buildAssistantReply(question, context, t) {
   return t("rsvp_ai_answer_unknown");
 }
 
-async function logGuestInsight(token, question, intent) {
+async function logGuestInsight(token, question, intent, language) {
   if (!supabase || !token || !question) return;
   try {
     await supabase.rpc("log_guest_ai_insight", {
       p_token: token,
       p_question: question,
-      p_intent: intent || "unknown"
+      p_intent: intent || "unknown",
+      p_detected_language: language || null
     });
   } catch {
     // Non-critical — never surface to guest
   }
 }
 
-function GuestAiAssistant({ t, context, token }) {
+function GuestAiAssistant({ t, context, token, language }) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const messagesEndRef = useRef(null);
@@ -219,7 +220,7 @@ function GuestAiAssistant({ t, context, token }) {
       ]);
       setDraft("");
       setIsOpen(true);
-      logGuestInsight(token, question, intent);
+      logGuestInsight(token, question, intent, language);
     },
     [context, t, token]
   );
