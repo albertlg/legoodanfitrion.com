@@ -1,42 +1,68 @@
 # LeGoodAnfitrion
 
-> AI-powered event hosting platform for managing guests, sending RSVP invitations, and planning menus — all from one place.
+> The Host Operating System — an AI-powered platform for organizing private and professional events: guest management, RSVP, AI menu planning, expense splitting, and icebreakers. Available in 5 languages: Spanish, Catalan, English, French, and Italian.
 
-LeGoodAnfitrion is a SaaS web application that helps hosts organize private events (dinners, parties, celebrations) with smart guest management and AI-assisted planning. Available in 5 languages: Spanish, English, Catalan, French, and Italian.
+LeGoodAnfitrion (LGA) is a SaaS web application built for anyone who hosts events — from intimate home dinners to corporate team lunches and community gatherings. It solves the fragmented, error-prone experience of managing guests, dietary needs, and logistics across scattered WhatsApp messages and spreadsheets.
+
+## The Core Differentiator: Global Guest Profile
+
+LeGoodAnfitrion's key competitive advantage is the **Global Guest Profile**. Unlike competing tools that ask guests for their preferences on every event, LGA learns. When a guest confirms their dietary restrictions, allergies, or preferences once, that data travels with them across all future events — regardless of the host. The profile accumulates over time, becoming richer with each RSVP.
+
+This creates a network effect: the more hosts use LGA, the more complete the guest profiles become, and the more useful the AI planning features get. No competing platform (Luma, Partiful, Google Forms, Eventbrite) offers this cross-event guest intelligence.
+
+## Who Uses LeGoodAnfitrion
+
+### B2C — Personal Hosts (Families, Friends, Social Circles)
+People who organize home dinners, birthday parties, anniversary celebrations, and social gatherings. The primary growth driver through word-of-mouth. Free to use. Monetization via affiliate commerce integrations (shopping list items linked to Amazon and grocery delivery services).
+
+### B2B — Corporate & Office (Office Managers, HR Teams, Startups)
+Companies that organize team lunches, welcome dinners, offsite events, and client gatherings. Needs: professional event management, dietary tracking for teams, expense splitting, and reliable notifications. This segment values predictability and often requires invoicing. Potential integration with HR tooling.
+
+### Communities & Cultural Organizers (Luma Alternative)
+Yoga retreat coordinators, underground dinner clubs, book clubs, hackathon organizers, co-working communities, art gallery openings, and cultural associations. These hosts need public or semi-public events, optional ticketing, and social shareability. LGA competes directly with Luma and Meetup for this segment, with a stronger focus on the hosting and guest experience layer.
 
 ## Core Features
 
 - **Event Management:** Create events with date, time, location, checklists, and custom settings. Track event phases from planning to completion.
-- **Smart Guest Profiles:** Store guest preferences, dietary restrictions (vegan, vegetarian, gluten-free, lactose-free), allergies, and contact details. A Global Guest Profile follows the guest across events so they never repeat their info.
+- **Global Guest Profile:** Persistent guest preferences, dietary restrictions (vegan, vegetarian, gluten-free, lactose-free), allergies, and contact details that follow the guest across all events on the platform.
 - **RSVP Invitations:** Generate personalized invitation links. Share via WhatsApp or email. Track responses (attending / maybe / not attending) in real time.
 - **Share Cards:** Auto-generate beautiful invitation images optimized for sharing on WhatsApp and social media.
-- **AI Menu Planner:** Based on confirmed guests and their dietary needs, AI suggests a full menu, shopping list, ambience ideas, and timing schedule — adapted to restrictions automatically.
+- **AI Menu Planner:** Based on confirmed guests and their dietary needs, AI suggests a full menu, shopping list with categorized ingredients, ambience ideas, and a timing schedule — adapted to all restrictions automatically.
 - **Expense Splitter:** Calculate per-person costs and generate ready-to-send Bizum/WhatsApp payment messages.
 - **Icebreaker Mode:** AI generates conversation starters, a bad joke, and a 5-minute party game to rescue awkward silences.
 - **Smart Hosting Suggestions:** AI analyzes guest data and event context to recommend seating, music, and activity ideas.
 
+## Cultural Positioning: The Mediterranean Angle
+
+LGA is built around the hosting culture of Southern Europe — long dinners with multiple courses, high importance of dietary accommodations, multi-generational gatherings, and the social ritual of shared meals. This stands in contrast to the Anglo-Saxon event tools (Luma, Partiful) which optimize for quick RSVPs and simple check-ins. LGA goes deeper: it cares about what's on the table, who's sitting where, and whether the evening flows well.
+
+Primary markets: Spain (ES/CA), France (FR), Italy (IT). Also available in English (EN).
+
+## Competitive Landscape
+
+| Tool | Focus | What LGA does better |
+|---|---|---|
+| Luma | Public events & RSVPs | Guest profiles, AI menu planning, expense splitting, deeper hosting tools |
+| Partiful | Social party invites | Dietary tracking, AI planning, multilingual, no US-only limitation |
+| Google Forms / Sheets | Manual data collection | Automation, AI, real-time tracking, no copy-paste required |
+| WhatsApp group chats | Informal coordination | Structured confirmations, dietary memory, no lost messages |
+| Eventbrite | Ticketed public events | Private/personal events, guest care, AI planning layer |
+
 ## How It Works
 
-1. Host creates an event and adds guests.
-2. RSVP invitations are sent via personalized links.
-3. Guests confirm attendance and optionally share dietary needs.
-4. AI generates a tailored menu and shopping list based on confirmed guests.
-5. Host manages everything from a single dashboard.
-
-## Target Audience
-
-- People who host dinners, birthday parties, and social gatherings.
-- Hosts who want to avoid the hassle of collecting RSVPs via scattered WhatsApp messages.
-- Anyone who needs to plan menus around dietary restrictions and allergies.
-- Event organizers looking for a simple, elegant all-in-one tool.
+1. Host creates an event and adds guests (or invites them by link).
+2. RSVP invitations are sent via personalized links — WhatsApp, email, or QR code.
+3. Guests confirm attendance and optionally share dietary needs (stored in their Global Profile).
+4. AI generates a tailored menu, shopping list, and event timeline based on confirmed guests.
+5. Host manages everything from a single dashboard: confirmations, plan, expenses, icebreakers.
 
 ## Pricing
 
-Currently free during open beta. All features (events, guests, RSVP, AI planning) are included at no cost.
+Currently free during open beta. All features (events, guests, RSVP, AI planning, icebreakers, expense splitting) are included at no cost. Future pricing will introduce tiers for B2B use cases (team workspaces, invoicing, WhatsApp Business API notifications) and community organizers (ticketing, public event pages).
 
 ## Technology
 
-Built with React, TailwindCSS, and Supabase. AI features powered by large language models. Multilingual support (ES, EN, CA, FR, IT) with full i18n.
+Built with React, TailwindCSS, and Supabase. AI features (menu planning, icebreakers, smart suggestions) powered by Google Gemini. Multilingual support (ES, EN, CA, FR, IT) with full i18n and localized URLs per language. Deployed on Vercel with Prerender.io for crawler compatibility.
 
 ## Key URLs
 
@@ -45,8 +71,9 @@ Built with React, TailwindCSS, and Supabase. AI features powered by large langua
 - Pricing: https://legoodanfitrion.com/pricing
 - Blog: https://legoodanfitrion.com/blog
 - Contact: https://legoodanfitrion.com/contact
+- About the founders: https://legoodanfitrion.com/about
 
-## Optional
+## Legal
 
 - Privacy Policy: https://legoodanfitrion.com/privacy
 - Terms of Service: https://legoodanfitrion.com/terms

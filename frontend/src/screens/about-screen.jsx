@@ -1,6 +1,6 @@
 import React from "react";
 import { Icon } from "../components/icons";
-import { Helmet } from "react-helmet-async";
+import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
 import { PublicPageHeader } from "../components/public-page-header";
 
@@ -26,10 +26,12 @@ const PRINCIPLES_KEYS = [
 export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
-            <Helmet htmlAttributes={{ lang: language }}>
-                <title>{t("about_seo_title")} | {t("app_name")}</title>
-                <meta name="description" content={t("about_seo_description")} />
-            </Helmet>
+            <SEO
+                language={language}
+                slug="about"
+                title={`${t("about_seo_title")} | ${t("app_name")}`}
+                description={t("about_seo_description")}
+            />
 
             {/* Decorative Blobs */}
             <div className="fixed top-[-10%] right-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-blue-500/20 dark:bg-blue-600/10 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[120px] opacity-70 pointer-events-none z-0"></div>

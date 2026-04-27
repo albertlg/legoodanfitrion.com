@@ -363,6 +363,554 @@
   </url>
 
   <url>
+    <loc>https://legoodanfitrion.com/momentos</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: personal ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/cenas-y-reuniones</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-i-reunions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/dinners-and-gatherings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/diners-et-reunions" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/cene-e-riunioni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/sopars-i-reunions</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-i-reunions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/dinners-and-gatherings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/diners-et-reunions" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/cene-e-riunioni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/dinners-and-gatherings</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-i-reunions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/dinners-and-gatherings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/diners-et-reunions" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/cene-e-riunioni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/diners-et-reunions</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-i-reunions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/dinners-and-gatherings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/diners-et-reunions" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/cene-e-riunioni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/cene-e-riunioni</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-i-reunions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/dinners-and-gatherings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/diners-et-reunions" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/cene-e-riunioni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-y-reuniones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: gastro ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/supper-clubs-i-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/supper-clubs-et-gastronomie" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/supper-club-e-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/supper-clubs-i-gastronomia</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/supper-clubs-i-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/supper-clubs-et-gastronomie" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/supper-club-e-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/supper-clubs-i-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/supper-clubs-et-gastronomie" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/supper-club-e-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/supper-clubs-et-gastronomie</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/supper-clubs-i-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/supper-clubs-et-gastronomie" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/supper-club-e-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/supper-club-e-gastronomia</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/supper-clubs-i-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/supper-clubs-et-gastronomie" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/supper-club-e-gastronomia" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/supper-clubs-y-gastronomia" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: penas ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/penas-y-asociaciones</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/penyes-i-associacions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/clubs-associations-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/associations-et-culture-locale" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/associazioni-e-cultura-locale" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/penyes-i-associacions</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/penyes-i-associacions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/clubs-associations-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/associations-et-culture-locale" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/associazioni-e-cultura-locale" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/clubs-associations-and-communities</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/penyes-i-associacions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/clubs-associations-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/associations-et-culture-locale" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/associazioni-e-cultura-locale" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/associations-et-culture-locale</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/penyes-i-associacions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/clubs-associations-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/associations-et-culture-locale" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/associazioni-e-cultura-locale" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/associazioni-e-cultura-locale</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/penyes-i-associacions" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/clubs-associations-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/associations-et-culture-locale" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/associazioni-e-cultura-locale" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/penas-y-asociaciones" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: wellness ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/retiros-y-bienestar</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/retirs-i-benestar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/retraites-bien-etre-et-communaute" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/ritiri-benessere-e-comunita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/retirs-i-benestar</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/retirs-i-benestar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/retraites-bien-etre-et-communaute" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/ritiri-benessere-e-comunita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/retirs-i-benestar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/retraites-bien-etre-et-communaute" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/ritiri-benessere-e-comunita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/retraites-bien-etre-et-communaute</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/retirs-i-benestar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/retraites-bien-etre-et-communaute" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/ritiri-benessere-e-comunita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/ritiri-benessere-e-comunita</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/retirs-i-benestar" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/retraites-bien-etre-et-communaute" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/ritiri-benessere-e-comunita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/retiros-y-bienestar" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: corporate ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/eventos-de-empresa</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/esdeveniments-d-empresa" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/corporate-events-and-team-building" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evenements-dentreprise" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/eventi-aziendali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/esdeveniments-d-empresa</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/esdeveniments-d-empresa" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/corporate-events-and-team-building" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evenements-dentreprise" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/eventi-aziendali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/corporate-events-and-team-building</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/esdeveniments-d-empresa" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/corporate-events-and-team-building" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evenements-dentreprise" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/eventi-aziendali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/evenements-dentreprise</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/esdeveniments-d-empresa" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/corporate-events-and-team-building" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evenements-dentreprise" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/eventi-aziendali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/eventi-aziendali</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/esdeveniments-d-empresa" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/corporate-events-and-team-building" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evenements-dentreprise" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/eventi-aziendali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/eventos-de-empresa" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: life ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/celebraciones-y-bodas</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/celebracions-i-casaments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/celebrations-et-mariages" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/celebrazioni-e-matrimoni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/celebracions-i-casaments</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/celebracions-i-casaments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/celebrations-et-mariages" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/celebrazioni-e-matrimoni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/celebracions-i-casaments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/celebrations-et-mariages" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/celebrazioni-e-matrimoni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/celebrations-et-mariages</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/celebracions-i-casaments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/celebrations-et-mariages" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/celebrazioni-e-matrimoni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/celebrazioni-e-matrimoni</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/celebracions-i-casaments" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/celebrations-et-mariages" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/celebrazioni-e-matrimoni" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/celebraciones-y-bodas" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: despedidas ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/comiat-de-soltera-i-solter" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/hen-and-stag-parties" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evjf-et-evg" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/addio-al-celibato-e-nubilato" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/comiat-de-soltera-i-solter</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/comiat-de-soltera-i-solter" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/hen-and-stag-parties" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evjf-et-evg" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/addio-al-celibato-e-nubilato" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/hen-and-stag-parties</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/comiat-de-soltera-i-solter" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/hen-and-stag-parties" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evjf-et-evg" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/addio-al-celibato-e-nubilato" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/evjf-et-evg</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/comiat-de-soltera-i-solter" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/hen-and-stag-parties" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evjf-et-evg" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/addio-al-celibato-e-nubilato" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/addio-al-celibato-e-nubilato</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/comiat-de-soltera-i-solter" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/hen-and-stag-parties" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/evjf-et-evg" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/addio-al-celibato-e-nubilato" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/despedidas-de-soltera-y-soltero" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- ══ Sub-landings Momentos: expat ══ -->
+  <url>
+    <loc>https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-internacionals-i-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/friendsgiving-et-diners-internationaux" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/friendsgiving-e-cene-internazionali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/ca/moments/sopars-internacionals-i-friendsgiving</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-internacionals-i-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/friendsgiving-et-diners-internationaux" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/friendsgiving-e-cene-internazionali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-internacionals-i-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/friendsgiving-et-diners-internationaux" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/friendsgiving-e-cene-internazionali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/fr/moments/friendsgiving-et-diners-internationaux</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-internacionals-i-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/friendsgiving-et-diners-internationaux" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/friendsgiving-e-cene-internazionali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://legoodanfitrion.com/it/momenti/friendsgiving-e-cene-internazionali</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/moments/sopars-internacionals-i-friendsgiving" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://legoodanfitrion.com/fr/moments/friendsgiving-et-diners-internationaux" />
+    <xhtml:link rel="alternate" hreflang="it" href="https://legoodanfitrion.com/it/momenti/friendsgiving-e-cene-internazionali" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://legoodanfitrion.com/momentos/cenas-internacionales-y-friendsgiving" />
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
     <loc>https://legoodanfitrion.com/privacidad</loc>
     <xhtml:link rel="alternate" hreflang="es" href="https://legoodanfitrion.com/privacidad" />
     <xhtml:link rel="alternate" hreflang="ca" href="https://legoodanfitrion.com/ca/privacitat" />

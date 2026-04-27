@@ -6,14 +6,22 @@ const SUPPORTED_LANGUAGES = new Set(["es", "ca", "en", "fr", "it"]);
 const DEFAULT_LANGUAGE = "es";
 
 const ROUTES_DICT = {
-    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", about: "sobre-nosotros", privacy: "privacidad", terms: "terminos", explore: "explorar" },
-    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", about: "sobre-nosaltres", privacy: "privacitat", terms: "termes", explore: "explorar" },
-    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", about: "about", privacy: "privacy", terms: "terms", explore: "explore" },
-    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", about: "a-propos", privacy: "confidentialite", terms: "conditions", explore: "explorer" },
-    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", about: "chi-siamo", privacy: "privacy", terms: "termini", explore: "esplora" }
+    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", about: "sobre-nosotros", privacy: "privacidad", terms: "terminos", explore: "explorar", "use-cases": "momentos" },
+    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", about: "sobre-nosaltres", privacy: "privacitat", terms: "termes", explore: "explorar", "use-cases": "moments" },
+    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", about: "about", privacy: "privacy", terms: "terms", explore: "explore", "use-cases": "moments" },
+    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", about: "a-propos", privacy: "confidentialite", terms: "conditions", explore: "explorer", "use-cases": "moments" },
+    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", about: "chi-siamo", privacy: "privacy", terms: "termini", explore: "esplora", "use-cases": "momenti" }
 };
 
-const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/about", "/privacy", "/terms", "/explore"]);
+const USE_CASE_SLUGS = {
+    es: { personal: "cenas-y-reuniones", gastro: "supper-clubs-y-gastronomia", penas: "penas-y-asociaciones", wellness: "retiros-y-bienestar", corporate: "eventos-de-empresa", life: "celebraciones-y-bodas", despedidas: "despedidas-de-soltera-y-soltero", expat: "cenas-internacionales-y-friendsgiving" },
+    ca: { personal: "sopars-i-reunions", gastro: "supper-clubs-i-gastronomia", penas: "penyes-i-associacions", wellness: "retirs-i-benestar", corporate: "esdeveniments-d-empresa", life: "celebracions-i-casaments", despedidas: "comiat-de-soltera-i-solter", expat: "sopars-internacionals-i-friendsgiving" },
+    en: { personal: "dinners-and-gatherings", gastro: "supper-clubs-and-gastronomy", penas: "clubs-associations-and-communities", wellness: "wellness-retreats-and-communities", corporate: "corporate-events-and-team-building", life: "life-celebrations-and-weddings", despedidas: "hen-and-stag-parties", expat: "friendsgiving-and-international-dinners" },
+    fr: { personal: "diners-et-reunions", gastro: "supper-clubs-et-gastronomie", penas: "associations-et-culture-locale", wellness: "retraites-bien-etre-et-communaute", corporate: "evenements-dentreprise", life: "celebrations-et-mariages", despedidas: "evjf-et-evg", expat: "friendsgiving-et-diners-internationaux" },
+    it: { personal: "cene-e-riunioni", gastro: "supper-club-e-gastronomia", penas: "associazioni-e-cultura-locale", wellness: "ritiri-benessere-e-comunita", corporate: "eventi-aziendali", life: "celebrazioni-e-matrimoni", despedidas: "addio-al-celibato-e-nubilato", expat: "friendsgiving-e-cene-internazionali" }
+};
+
+const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/about", "/privacy", "/terms", "/explore", "/use-cases", "/use-cases/personal", "/use-cases/gastro", "/use-cases/penas", "/use-cases/wellness", "/use-cases/corporate", "/use-cases/life", "/use-cases/despedidas", "/use-cases/expat"]);
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
 const EVENT_PLANNER_TABS = new Set(["overview", "menu", "shopping", "ambience", "timings", "communication", "risks"]);
@@ -36,6 +44,11 @@ function getInternalPath(localizedPath, lang) {
     const internalKey = Object.keys(dict).find(key => dict[key] === rootSegment);
     if (internalKey) {
         parts[0] = internalKey;
+        if (internalKey === "use-cases" && parts[1]) {
+            const ucDict = USE_CASE_SLUGS[lang] || USE_CASE_SLUGS[DEFAULT_LANGUAGE];
+            const ucKey = Object.keys(ucDict).find(k => ucDict[k] === parts[1]);
+            if (ucKey) parts[1] = ucKey;
+        }
         return "/" + parts.join("/");
     }
     return localizedPath;
@@ -50,6 +63,10 @@ export function getLocalizedPath(internalPath, lang) {
 
     if (dict[rootSegment]) {
         parts[0] = dict[rootSegment];
+        if (rootSegment === "use-cases" && parts[1]) {
+            const ucDict = USE_CASE_SLUGS[lang] || USE_CASE_SLUGS[DEFAULT_LANGUAGE];
+            if (ucDict[parts[1]]) parts[1] = ucDict[parts[1]];
+        }
         return "/" + parts.join("/");
     }
     return internalPath;
@@ -79,7 +96,7 @@ export function extractLanguageFromPath(pathname) {
     }
 
     // 3. ¿Es un click en un enlace interno puro de tu menú? (ej: <Link to="/pricing"> o "/")
-    const isInternalRawSlug = ["features", "pricing", "contact", "blog", "about", "privacy", "terms", "explore"].includes(firstSegment);
+    const isInternalRawSlug = ["features", "pricing", "contact", "blog", "about", "privacy", "terms", "explore", "use-cases"].includes(firstSegment);
     if (isInternalRawSlug || firstSegment === "") {
         // Le inyectamos su idioma activo de forma transparente
         return { lang: inferredLang, basePath: "/" + segments.join("/") };
@@ -102,6 +119,14 @@ export function extractLanguageFromPath(pathname) {
 
     const newSegments = [...segments];
     if (newSegments.length > 0) newSegments[0] = foundInternal;
+
+    // También traducimos el segundo segmento si es una sublanding de use-cases
+    if (foundInternal === "use-cases" && newSegments[1]) {
+        const ucDict = USE_CASE_SLUGS[detectedLang] || USE_CASE_SLUGS[DEFAULT_LANGUAGE];
+        const ucKey = Object.keys(ucDict).find(k => ucDict[k] === newSegments[1]);
+        if (ucKey) newSegments[1] = ucKey;
+    }
+
     const basePath = "/" + newSegments.join("/");
 
     return { lang: detectedLang, basePath: basePath === "/" ? "/" : basePath };

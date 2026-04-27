@@ -34,6 +34,8 @@ const BlogPostScreen = lazy(() => import("./screens/blog-post-screen").then((m) 
 const AboutScreen = lazy(() => import("./screens/about-screen").then((m) => ({ default: m.AboutScreen })));
 const AdminDashboardScreen = lazy(() => import("./screens/admin-dashboard-screen").then((m) => ({ default: m.AdminDashboardScreen })));
 const ExploreScreen = lazy(() => import("./screens/explore-screen").then((m) => ({ default: m.ExploreScreen })));
+const UseCasesScreen = lazy(() => import("./screens/use-cases-screen").then((m) => ({ default: m.UseCasesScreen })));
+const UseCaseDetailScreen = lazy(() => import("./screens/use-cases-detail-screen").then((m) => ({ default: m.UseCaseDetailScreen })));
 
 function ScreenFallback() {
   return (
@@ -758,6 +760,41 @@ function App() {
     return (
       <Suspense fallback={<ScreenFallback />}>
         <AdminDashboardScreen session={session} t={t} onNavigate={navigate} />
+      </Suspense>
+    );
+  }
+
+  if (route.kind === "landing" && route.path.startsWith("/use-cases/")) {
+    const ucKey = route.path.slice("/use-cases/".length);
+    const validUcKeys = new Set(["personal", "gastro", "penas", "wellness", "corporate", "life", "despedidas", "expat"]);
+    if (validUcKeys.has(ucKey)) {
+      return (
+        <Suspense fallback={<ScreenFallback />}>
+          <UseCaseDetailScreen
+            ucKey={ucKey}
+            t={t}
+            language={language}
+            setLanguage={handleLanguageChange}
+            themeMode={themeMode}
+            setThemeMode={setThemeMode}
+            onNavigate={navigate}
+          />
+        </Suspense>
+      );
+    }
+  }
+
+  if (route.kind === "landing" && route.path === "/use-cases") {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <UseCasesScreen
+          t={t}
+          language={language}
+          setLanguage={handleLanguageChange}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          onNavigate={navigate}
+        />
       </Suspense>
     );
   }

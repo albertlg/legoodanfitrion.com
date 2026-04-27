@@ -5,11 +5,10 @@ import { Icon } from "./icons";
 
 const NAV_ITEMS = [
     { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
+    { key: "use-cases", path: "/use-cases", labelKey: "landing_nav_use_cases" },
     { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
-    { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
     { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
     { key: "about", path: "/about", labelKey: "landing_nav_about" },
-    { key: "explore", path: "/explore", labelKey: "landing_nav_explore" },
 ];
 
 export function PublicPageHeader({ t, language, setLanguage, themeMode, setThemeMode, onNavigate, activeKey }) {
@@ -64,6 +63,13 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                             dropdownDirection="down"
                         />
                     </div>
+                    <button
+                        className="hidden md:block border border-black/10 dark:border-white/10 text-sm font-bold text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                        type="button"
+                        onClick={() => onNavigate("/explore")}
+                    >
+                        {t("landing_nav_explore")}
+                    </button>
                     <button
                         className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
                         type="button"
@@ -123,7 +129,14 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                         </button>
                     ))}
                     <button
-                        className="mt-2 w-full text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-3 rounded-2xl font-bold text-sm"
+                        className="mt-1 w-full text-center border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-5 py-3 rounded-2xl font-bold text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                        type="button"
+                        onClick={() => { onNavigate("/explore"); setIsMobileMenuOpen(false); }}
+                    >
+                        {t("landing_nav_explore")}
+                    </button>
+                    <button
+                        className="mt-1 w-full text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-3 rounded-2xl font-bold text-sm"
                         type="button"
                         onClick={() => { onNavigate("/login"); setIsMobileMenuOpen(false); }}
                     >

@@ -11,11 +11,10 @@ import { ModuleShowcaseCard } from "../components/landing/ModuleShowcaseCard";
 
 const NAV_ITEMS = [
   { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
+  { key: "use-cases", path: "/use-cases", labelKey: "landing_nav_use_cases" },
   { key: "pricing", path: "/pricing", labelKey: "landing_nav_pricing" },
-  { key: "contact", path: "/contact", labelKey: "landing_nav_contact" },
   { key: "blog", path: "/blog", labelKey: "blog_nav_title" },
   { key: "about", path: "/about", labelKey: "landing_nav_about" },
-  { key: "explore", path: "/explore", labelKey: "landing_nav_explore" }
 ];
 
 const FAQ_ITEMS = [
@@ -609,6 +608,14 @@ function LandingScreen({
           </div>
 
           <button
+            className="hidden md:block border border-black/10 dark:border-white/10 text-sm font-bold text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+            type="button"
+            onClick={() => onNavigate("/explore")}
+          >
+            {t("landing_nav_explore")}
+          </button>
+
+          <button
             className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
             type="button"
             onClick={primaryCta.onClick}
@@ -658,7 +665,13 @@ function LandingScreen({
             </button>
           ))}
 
-          <div className="mt-4 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-6">
+          <div className="mt-4 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-3">
+            <button
+              className="w-full border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-6 py-3.5 rounded-2xl font-bold text-base hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+              onClick={() => { onNavigate("/explore"); setIsMobileMenuOpen(false); }}
+            >
+              {t("landing_nav_explore")}
+            </button>
             <button
               className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-2xl font-black text-base shadow-lg hover:scale-[1.02] transition-transform"
               onClick={() => {
@@ -668,7 +681,7 @@ function LandingScreen({
             >
               {primaryCta.label}
             </button>
-            <div className="flex justify-center">
+            <div className="flex justify-center mt-3">
               <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
             </div>
           </div>
@@ -856,6 +869,59 @@ function LandingScreen({
                   </div>
                 </article>
               </div>
+            </section>
+
+            {/* ══════════ MOMENTOS TEASER ══════════ */}
+            <section className="py-20 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
+              <div className="text-center max-w-3xl mb-12">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">{t("landing_usecases_eyebrow")}</p>
+                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white mb-5 leading-tight text-balance">{t("landing_usecases_title")}</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 font-medium text-balance">{t("landing_usecases_subtitle")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full mb-10">
+                {/* Personal */}
+                <article className="relative flex flex-col rounded-3xl border bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30 p-6 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-500 opacity-80" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
+                    <Icon name="home" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">{t("uc_personal_kicker")}</p>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight mb-2">{t("uc_personal_title")}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t("uc_personal_desc")}</p>
+                </article>
+
+                {/* Gastro */}
+                <article className="relative flex flex-col rounded-3xl border bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30 p-6 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500 opacity-80" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
+                    <Icon name="utensils" className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">{t("uc_gastro_kicker")}</p>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight mb-2">{t("uc_gastro_title")}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t("uc_gastro_desc")}</p>
+                </article>
+
+                {/* Corporate */}
+                <article className="relative flex flex-col rounded-3xl border bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/40 p-6 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-slate-400 to-slate-600 opacity-80" />
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center mb-4">
+                    <Icon name="calendar" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                  </div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">{t("uc_corporate_kicker")}</p>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight mb-2">{t("uc_corporate_title")}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{t("uc_corporate_desc")}</p>
+                </article>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onNavigate("/use-cases")}
+                className="flex items-center gap-2 text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors group"
+              >
+                {t("landing_usecases_cta")}
+                <Icon name="arrow_left" className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform" />
+              </button>
             </section>
 
             <section id="como-funciona" className="py-24 px-6 w-full max-w-6xl mx-auto flex flex-col items-center">
