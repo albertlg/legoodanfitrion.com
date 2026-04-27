@@ -2967,7 +2967,7 @@ function DashboardScreen({
         selectedEventMealPlanSeed
       );
       const snapshotSections = selectedEventPlannerSnapshotState?.sections;
-      if (!snapshotSections || typeof snapshotSections !== "object") {
+      if (!snapshotSections || typeof snapshotSections !== "object" || isDemoMode) {
         return fallbackMealPlan;
       }
       const menuSection = toPlannerObject(snapshotSections.menu);
@@ -2997,6 +2997,7 @@ function DashboardScreen({
       selectedEventPlannerContextEffective,
       selectedEventMealPlanSeed,
       selectedEventPlannerSnapshotState,
+      isDemoMode,
       t
     ]
   );
@@ -3248,7 +3249,7 @@ function DashboardScreen({
         t
       });
       const snapshotSections = selectedEventPlannerSnapshotState?.sections;
-      if (!snapshotSections || typeof snapshotSections !== "object") {
+      if (!snapshotSections || typeof snapshotSections !== "object" || isDemoMode) {
         return fallbackPlaybook;
       }
       const ambienceSection = toPlannerObject(snapshotSections.ambience);
@@ -3287,6 +3288,7 @@ function DashboardScreen({
       selectedEventHealthAlerts,
       selectedEventHostPlanSeed,
       selectedEventPlannerSnapshotState,
+      isDemoMode,
       language,
       t
     ]
