@@ -1558,7 +1558,7 @@ function DashboardScreen({
     const targetEventTitle = String(dashboardChecklistEvent?.title || "").trim();
     const invitationSummary = targetEventId ? eventInvitationSummaryByEventId[targetEventId] || null : null;
     const langMap = targetEventId ? eventPlannerSnapshotsByEventId[targetEventId] || null : null;
-    const plannerSnapshot = langMap ? (langMap[language] || langMap["es"] || Object.values(langMap)[0] || null) : null;
+    const plannerSnapshot = langMap ? (langMap[language] || langMap["es"] || null) : null;
     const snapshotMenuSections = Array.isArray(plannerSnapshot?.sections?.menu?.menuSections)
       ? plannerSnapshot.sections.menu.menuSections
       : [];
@@ -2961,8 +2961,9 @@ function DashboardScreen({
     if (!langMap || typeof langMap !== "object") {
       return null;
     }
-    // Prefer current language, then Spanish (original), then any available
-    return langMap[language] || langMap["es"] || Object.values(langMap)[0] || null;
+    // Prefer current language, then Spanish (original). Never random-fallback to
+    // another language — if neither exists, the local heuristic takes over.
+    return langMap[language] || langMap["es"] || null;
   }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id, language]);
   const selectedEventMealPlan = useMemo(
     () => {
@@ -3331,6 +3332,8 @@ function DashboardScreen({
   ]);
   // Tracks in-flight demo translations to avoid duplicate calls across re-renders.
   const pendingDemoTranslationsRef = useRef(new Set());
+  // Counter of pending translations — drives the loading pill.
+  const [demoTranslatingCount, setDemoTranslatingCount] = useState(0);
 
   // Demo: when the user switches language, translate ALL events that have a Spanish
   // plan but no plan yet in the target language — in parallel, fire-and-forget.
@@ -3362,8 +3365,10 @@ function DashboardScreen({
         model_meta: spanishPlan.modelMeta || {}
       };
 
+      setDemoTranslatingCount((c) => c + 1);
       requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: "es", toLanguage: language })
         .then(({ data: translatedSnapshot }) => {
+          setDemoTranslatingCount((c) => Math.max(0, c - 1));
           if (!translatedSnapshot) return;
           const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
           if (!translatedState) return;
@@ -3373,11 +3378,26 @@ function DashboardScreen({
           }));
         })
         .catch(() => {
-          // On failure, remove from pending so it can retry on next language change
+          setDemoTranslatingCount((c) => Math.max(0, c - 1));
           pendingDemoTranslationsRef.current.delete(key);
         });
     }
   }, [isDemoMode, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId]);
+
+  // Clear all local plan state when the session user changes (logout / account switch).
+  // Prevents stale or mixed-language plan data from bleeding between sessions.
+  const prevSessionUserIdRef = useRef(null);
+  useEffect(() => {
+    const prevId = prevSessionUserIdRef.current;
+    const currId = session?.user?.id || null;
+    if (prevId !== null && prevId !== currId) {
+      setEventPlannerSnapshotsByEventId({});
+      setEventPlannerSnapshotHistoryByEventId({});
+      pendingDemoTranslationsRef.current.clear();
+      setDemoTranslatingCount(0);
+    }
+    prevSessionUserIdRef.current = currId;
+  }, [session?.user?.id, setEventPlannerSnapshotsByEventId, setEventPlannerSnapshotHistoryByEventId]);
 
   const selectedEventHostMessagesText = useMemo(() => {
     if (!selectedEventHostPlaybook?.messages?.length) {
@@ -10446,6 +10466,15 @@ function DashboardScreen({
             navigate("/login");
           }}
         />
+      )}
+      {isDemoMode && demoTranslatingCount > 0 && (
+        <div className="fixed bottom-20 right-4 z-[110] flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-lg">
+          <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          {t("translating_plan") || "Traduciendo plan…"}
+        </div>
       )}
     </Motion.div>
   );
