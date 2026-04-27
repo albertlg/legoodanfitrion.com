@@ -3333,7 +3333,7 @@ function DashboardScreen({
   // Tracks in-flight demo translations to avoid duplicate calls across re-renders.
   const pendingDemoTranslationsRef = useRef(new Set());
   // Counter of pending translations — drives the loading pill.
-  const [demoTranslatingCount, setDemoTranslatingCount] = useState(0);
+  const [translatingPlanCount, setTranslatingPlanCount] = useState(0);
 
   // Demo: when the user switches language, translate ALL events that have a Spanish
   // plan but no plan yet in the target language — in parallel, fire-and-forget.
@@ -3365,10 +3365,10 @@ function DashboardScreen({
         model_meta: spanishPlan.modelMeta || {}
       };
 
-      setDemoTranslatingCount((c) => c + 1);
+      setTranslatingPlanCount((c) => c + 1);
       requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: "es", toLanguage: language })
         .then(({ data: translatedSnapshot }) => {
-          setDemoTranslatingCount((c) => Math.max(0, c - 1));
+          setTranslatingPlanCount((c) => Math.max(0, c - 1));
           if (!translatedSnapshot) return;
           const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
           if (!translatedState) return;
@@ -3378,7 +3378,7 @@ function DashboardScreen({
           }));
         })
         .catch(() => {
-          setDemoTranslatingCount((c) => Math.max(0, c - 1));
+          setTranslatingPlanCount((c) => Math.max(0, c - 1));
           pendingDemoTranslationsRef.current.delete(key);
         });
     }
@@ -3394,7 +3394,7 @@ function DashboardScreen({
       setEventPlannerSnapshotsByEventId({});
       setEventPlannerSnapshotHistoryByEventId({});
       pendingDemoTranslationsRef.current.clear();
-      setDemoTranslatingCount(0);
+      setTranslatingPlanCount(0);
     }
     prevSessionUserIdRef.current = currId;
   }, [session?.user?.id, setEventPlannerSnapshotsByEventId, setEventPlannerSnapshotHistoryByEventId]);
@@ -6036,21 +6036,22 @@ function DashboardScreen({
         };
       });
 
-      // Background: translate full plan to all other languages (fire-and-forget, no UI block)
+      // Background: translate full plan to all other languages (fire-and-forget)
       if (safeScope === "all") {
         const ALL_LOCALES = ["es", "ca", "en", "fr", "it"];
         const otherLocales = ALL_LOCALES.filter((loc) => loc !== language);
         for (const targetLang of otherLocales) {
+          setTranslatingPlanCount((c) => c + 1);
           requestPlanTranslationAI({
             planSnapshot: snapshot,
             fromLanguage: language,
             toLanguage: targetLang
           })
             .then(({ data: translatedSnapshot }) => {
+              setTranslatingPlanCount((c) => Math.max(0, c - 1));
               if (!translatedSnapshot) return;
               const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
               if (!translatedState) return;
-              // Persist translated snapshot to DB (silent, no error feedback to user)
               supabase.rpc("upsert_event_host_plan", {
                 p_event_id: eventId,
                 p_plan_json: translatedSnapshot,
@@ -6066,7 +6067,7 @@ function DashboardScreen({
               });
             })
             .catch(() => {
-              // Silent background failure — user can still use the original language plan
+              setTranslatingPlanCount((c) => Math.max(0, c - 1));
             });
         }
       }
@@ -6093,7 +6094,8 @@ function DashboardScreen({
       t,
       setEventPlannerMessage,
       setEventPlannerSnapshotsByEventId,
-      setEventPlannerSnapshotHistoryByEventId
+      setEventPlannerSnapshotHistoryByEventId,
+      setTranslatingPlanCount
     ]
   );
   const handleRegenerateEventPlanner = async (scope = "all", options = {}) => {
@@ -10467,7 +10469,7 @@ function DashboardScreen({
           }}
         />
       )}
-      {isDemoMode && demoTranslatingCount > 0 && (
+      {translatingPlanCount > 0 && (
         <div className="fixed bottom-20 right-4 z-[110] flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-lg">
           <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
