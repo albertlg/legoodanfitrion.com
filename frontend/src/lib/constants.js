@@ -1,5 +1,7 @@
 // src/lib/constants.js
 
+export const DEMO_USER_ID = "de300000-0000-4000-a000-000000000001";
+
 export const GUEST_AVATAR_STORAGE_BUCKET = String(import.meta.env.VITE_SUPABASE_GUEST_AVATAR_BUCKET || "guest-avatars").trim() || "guest-avatars";
 export const GUEST_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 

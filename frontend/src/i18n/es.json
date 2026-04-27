@@ -2261,5 +2261,8 @@
   "landing_demo_range_start": "Llegada",
   "landing_demo_range_end": "Vuelta",
   "landing_demo_range_nights_suffix": " noches",
-  "landing_demo_notes_title": "Notas del evento"
+  "landing_demo_notes_title": "Notas del evento",
+  "demo_mode_banner_text": "Estás explorando LeGoodAnfitrión en modo demostración. La edición está desactivada.",
+  "demo_mode_banner_cta": "Crea tu cuenta gratis",
+  "demo_mode_readonly": "Esta acción no está disponible en modo demostración."
 }

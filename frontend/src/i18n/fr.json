@@ -2261,5 +2261,8 @@
   "landing_demo_range_start": "Arrivée",
   "landing_demo_range_end": "Retour",
   "landing_demo_range_nights_suffix": " nuits",
-  "landing_demo_notes_title": "Notes de l'événement"
+  "landing_demo_notes_title": "Notes de l'événement",
+  "demo_mode_banner_text": "Vous explorez LeGoodAnfitrión en mode démonstration. L'édition est désactivée.",
+  "demo_mode_banner_cta": "Créez votre compte gratuit",
+  "demo_mode_readonly": "Cette action n'est pas disponible en mode démonstration."
 }

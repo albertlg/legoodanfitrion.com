@@ -2261,5 +2261,8 @@
   "landing_demo_range_start": "Arribada",
   "landing_demo_range_end": "Tornada",
   "landing_demo_range_nights_suffix": " nits",
-  "landing_demo_notes_title": "Notes de l'esdeveniment"
+  "landing_demo_notes_title": "Notes de l'esdeveniment",
+  "demo_mode_banner_text": "Estàs explorant LeGoodAnfitrión en mode demostració. L'edició està desactivada.",
+  "demo_mode_banner_cta": "Crea el teu compte gratis",
+  "demo_mode_readonly": "Aquesta acció no està disponible en mode demostració."
 }

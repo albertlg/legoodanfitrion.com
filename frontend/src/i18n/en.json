@@ -2261,5 +2261,8 @@
   "landing_demo_range_start": "Arrival",
   "landing_demo_range_end": "Return",
   "landing_demo_range_nights_suffix": " nights",
-  "landing_demo_notes_title": "Event notes"
+  "landing_demo_notes_title": "Event notes",
+  "demo_mode_banner_text": "You are exploring LeGoodAnfitrión in demo mode. Editing is disabled.",
+  "demo_mode_banner_cta": "Create your free account",
+  "demo_mode_readonly": "This action is not available in demo mode."
 }

@@ -92,6 +92,8 @@ import { useHostProfileGlobalShareController } from "../hooks/useHostProfileGlob
 import { useImportWizardController } from "../hooks/useImportWizardController";
 import { useImportWizardState } from "../hooks/useImportWizardState";
 import { useDashboardHeaderState } from "../hooks/useDashboardHeaderState";
+import { useIsDemoMode } from "../hooks/useIsDemoMode";
+import { DemoModeBanner } from "./dashboard/components/demo-mode-banner";
 import { Helmet } from "react-helmet-async";
 import { DashboardModals } from "./dashboard/components/dashboard-modals";
 const DashboardOverview = lazy(() =>
@@ -410,6 +412,7 @@ function DashboardScreen({
   onNavigateApp
 }) {
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Madrid", []);
+  const isDemoMode = useIsDemoMode(session);
   const initialRouteState = useMemo(() => normalizeDashboardRouteState(appRoute), [appRoute]);
   const routeImportWizardSource = initialRouteState.importWizardSource || "";
   const {
@@ -5096,6 +5099,7 @@ function DashboardScreen({
   };
 
   const openInvitationCreate = ({ eventId = "", guestId = "", messageKey = "" } = {}) => {
+    if (isDemoMode) return;
     markUserNavigationIntent();
     let nextEventId = eventId || selectedEventId || events[0]?.id || "";
     let nextGuestId = guestId || selectedGuestId || "";
@@ -6776,6 +6780,10 @@ function DashboardScreen({
     if (!supabase || !session?.user?.id) {
       return;
     }
+    if (isDemoMode) {
+      setEventMessage(t("demo_mode_readonly"));
+      return;
+    }
     if (String(eventHoneypotField || "").trim()) {
       await reportSuspiciousHoneypot({
         formType: "event_create",
@@ -8432,7 +8440,7 @@ function DashboardScreen({
   };
 
   const handleRequestDeleteEvent = (eventItem) => {
-    if (!eventItem?.id) {
+    if (!eventItem?.id || isDemoMode) {
       return;
     }
     setDeleteTarget({
@@ -8442,7 +8450,7 @@ function DashboardScreen({
   };
 
   const handleRequestDeleteGuest = (guestItem) => {
-    if (!guestItem?.id) {
+    if (!guestItem?.id || isDemoMode) {
       return;
     }
     setDeleteTarget({
@@ -8922,7 +8930,7 @@ function DashboardScreen({
   };
 
   const handleRequestDeleteInvitation = (invitationItem, itemLabel = "") => {
-    if (!invitationItem?.id) {
+    if (!invitationItem?.id || isDemoMode) {
       return;
     }
     setDeleteTarget({
@@ -9525,6 +9533,7 @@ function DashboardScreen({
         <meta name="twitter:title" content={t("seo_title")} />
         <meta name="twitter:description" content={t("seo_desc")} />
       </Helmet>
+      {isDemoMode && <DemoModeBanner t={t} />}
       {/* Decorative blobs for glassmorphism layout background */}
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
       <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/10 dark:bg-purple-600/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 pointer-events-none -z-10"></div>
@@ -9699,6 +9708,7 @@ function DashboardScreen({
         <Suspense fallback={null}>
           <EventsWorkspaceContainer
             {...{
+              isDemoMode,
               routeEventsWorkspace,
               routeEventPlannerTab,
               WORKSPACE_ITEMS,

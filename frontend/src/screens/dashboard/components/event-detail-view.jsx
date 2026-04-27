@@ -492,7 +492,8 @@ export function EventDetailView({
   openGuestDetail,
   handlePrepareInvitationShare,
   handleRequestDeleteInvitation,
-  selectedEventRsvpTimeline
+  selectedEventRsvpTimeline,
+  isDemoMode = false
 }) {
   const shareCardRef = useRef(null);
   const calendarMenuMobileRef = useRef(null);
@@ -1330,6 +1331,7 @@ export function EventDetailView({
   };
 
   const handleSendCohostInvitationEmail = async () => {
+    if (isDemoMode) return;
     const eventId = String(selectedEventDetail?.id || "").trim();
     const targetEmail = String(cohostInviteTargetEmail || "").trim().toLowerCase();
     const inviteUrl = buildTeamApiUrl("invite");
@@ -1404,6 +1406,7 @@ export function EventDetailView({
   };
 
   const handleRemoveCohost = async (cohostRow) => {
+    if (isDemoMode) return;
     const cohostRowId = String(cohostRow?.id || "").trim();
     if (!cohostRowId || !supabase || !selectedEventDetail?.id || !isEventOwner) {
       return;
@@ -1614,7 +1617,7 @@ export function EventDetailView({
   };
 
   const handleInviteGroupToEvent = async () => {
-    if (!selectedEventDetail?.id || !supabase) {
+    if (isDemoMode || !selectedEventDetail?.id || !supabase) {
       return;
     }
     const normalizedGroupId = String(selectedGuestGroupId || "").trim();
@@ -1717,6 +1720,7 @@ export function EventDetailView({
   };
 
   const handleSaveEventPhotoGalleryUrl = async () => {
+    if (isDemoMode) return;
     const eventId = String(selectedEventDetail?.id || "").trim();
     const updateUrl = buildEventsApiUrl(eventId);
     if (!supabase || !eventId || !updateUrl) {
@@ -1790,6 +1794,7 @@ export function EventDetailView({
   };
 
   const handleSendBroadcastMessage = async () => {
+    if (isDemoMode) return;
     const eventId = String(selectedEventDetail?.id || "").trim();
     const broadcastUrl = buildEventsApiUrl(`${eventId}/broadcast`);
     const trimmedMessage = String(broadcastMessageDraft || "").trim();
@@ -1863,6 +1868,7 @@ export function EventDetailView({
   };
 
   const handleSaveEventModules = async () => {
+    if (isDemoMode) return;
     const eventId = String(selectedEventDetail?.id || "").trim();
     const updateUrl = buildEventsApiUrl(eventId);
     if (!supabase || !eventId || !updateUrl) {
@@ -1918,6 +1924,7 @@ export function EventDetailView({
   };
 
   const handleSaveFinanceConfig = async () => {
+    if (isDemoMode) return;
     const eventId = String(selectedEventDetail?.id || "").trim();
     if (!supabase || !eventId) {
       return;
