@@ -32,6 +32,7 @@ const ICON_PATHS = {
   chevron_up: "m18 15-6-6-6 6",
   arrow_left: "m15 18-6-6 6-6M9 12h11",
   arrow_right: "m9 6 6 6-6 6M15 12H4",
+  arrow_up_right: "M7 7h10v10M7 17 17 7",
   menu: "M4 6h16M4 12h16M4 18h16",
 
   // Acciones

@@ -608,11 +608,12 @@ function LandingScreen({
           </div>
 
           <button
-            className="hidden md:block border border-black/10 dark:border-white/10 text-sm font-bold text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+            className="hidden md:flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
             type="button"
             onClick={() => onNavigate("/explore")}
           >
-            {t("landing_nav_explore")}
+            Demo
+            <Icon name="arrow_up_right" className="w-3.5 h-3.5" />
           </button>
 
           <button
@@ -667,10 +668,11 @@ function LandingScreen({
 
           <div className="mt-4 pt-6 border-t border-black/5 dark:border-white/5 flex flex-col gap-3">
             <button
-              className="w-full border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-6 py-3.5 rounded-2xl font-bold text-base hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+              className="w-full border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-6 py-3.5 rounded-2xl font-bold text-base hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center justify-center gap-1.5"
               onClick={() => { onNavigate("/explore"); setIsMobileMenuOpen(false); }}
             >
-              {t("landing_nav_explore")}
+              Demo
+              <Icon name="arrow_up_right" className="w-3.5 h-3.5" />
             </button>
             <button
               className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-2xl font-black text-base shadow-lg hover:scale-[1.02] transition-transform"

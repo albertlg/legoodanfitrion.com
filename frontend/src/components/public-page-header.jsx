@@ -64,11 +64,12 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                         />
                     </div>
                     <button
-                        className="hidden md:block border border-black/10 dark:border-white/10 text-sm font-bold text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                        className="hidden md:flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
                         type="button"
                         onClick={() => onNavigate("/explore")}
                     >
-                        {t("landing_nav_explore")}
+                        Demo
+                        <Icon name="arrow_up_right" className="w-3.5 h-3.5" />
                     </button>
                     <button
                         className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
@@ -129,11 +130,12 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                         </button>
                     ))}
                     <button
-                        className="mt-1 w-full text-center border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-5 py-3 rounded-2xl font-bold text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                        className="mt-1 w-full text-center border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-5 py-3 rounded-2xl font-bold text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center justify-center gap-1.5"
                         type="button"
                         onClick={() => { onNavigate("/explore"); setIsMobileMenuOpen(false); }}
                     >
-                        {t("landing_nav_explore")}
+                        Demo
+                        <Icon name="arrow_up_right" className="w-3.5 h-3.5" />
                     </button>
                     <button
                         className="mt-1 w-full text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-3 rounded-2xl font-bold text-sm"
