@@ -13,7 +13,7 @@ import {
   toCatalogLabels
 } from "../lib/guest-catalogs";
 import { buildAppUrl } from "../lib/app-url";
-import { requestEventIcebreakerAI, requestEventPlannerAI } from "../lib/ai-planner-client";
+import { requestEventIcebreakerAI, requestEventPlannerAI, requestPlanTranslationAI } from "../lib/ai-planner-client";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
@@ -1557,7 +1557,8 @@ function DashboardScreen({
     const targetEventId = String(dashboardChecklistEvent?.id || "").trim();
     const targetEventTitle = String(dashboardChecklistEvent?.title || "").trim();
     const invitationSummary = targetEventId ? eventInvitationSummaryByEventId[targetEventId] || null : null;
-    const plannerSnapshot = targetEventId ? eventPlannerSnapshotsByEventId[targetEventId] || null : null;
+    const langMap = targetEventId ? eventPlannerSnapshotsByEventId[targetEventId] || null : null;
+    const plannerSnapshot = langMap ? (langMap[language] || langMap["es"] || Object.values(langMap)[0] || null) : null;
     const snapshotMenuSections = Array.isArray(plannerSnapshot?.sections?.menu?.menuSections)
       ? plannerSnapshot.sections.menu.menuSections
       : [];
@@ -1620,7 +1621,7 @@ function DashboardScreen({
       completed,
       percent
     };
-  }, [dashboardChecklistEvent, eventInvitationSummaryByEventId, eventPlannerSnapshotsByEventId, t]);
+  }, [dashboardChecklistEvent, eventInvitationSummaryByEventId, eventPlannerSnapshotsByEventId, language, t]);
   const hostRatingScore = useMemo(() => {
     const responseWeight = respondedInvitesRate / 100;
     const completionWeight = Math.min(1, events.filter((eventItem) => eventItem.status === "completed").length / 8);
@@ -2956,8 +2957,13 @@ function DashboardScreen({
     if (!selectedEventDetail?.id) {
       return null;
     }
-    return eventPlannerSnapshotsByEventId[selectedEventDetail.id] || null;
-  }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id]);
+    const langMap = eventPlannerSnapshotsByEventId[selectedEventDetail.id];
+    if (!langMap || typeof langMap !== "object") {
+      return null;
+    }
+    // Prefer current language, then Spanish (original), then any available
+    return langMap[language] || langMap["es"] || Object.values(langMap)[0] || null;
+  }, [eventPlannerSnapshotsByEventId, selectedEventDetail?.id, language]);
   const selectedEventMealPlan = useMemo(
     () => {
       const fallbackMealPlan = buildEventMealPlan(
@@ -2967,7 +2973,7 @@ function DashboardScreen({
         selectedEventMealPlanSeed
       );
       const snapshotSections = selectedEventPlannerSnapshotState?.sections;
-      if (!snapshotSections || typeof snapshotSections !== "object" || isDemoMode) {
+      if (!snapshotSections || typeof snapshotSections !== "object") {
         return fallbackMealPlan;
       }
       const menuSection = toPlannerObject(snapshotSections.menu);
@@ -2997,7 +3003,6 @@ function DashboardScreen({
       selectedEventPlannerContextEffective,
       selectedEventMealPlanSeed,
       selectedEventPlannerSnapshotState,
-      isDemoMode,
       t
     ]
   );
@@ -3249,7 +3254,7 @@ function DashboardScreen({
         t
       });
       const snapshotSections = selectedEventPlannerSnapshotState?.sections;
-      if (!snapshotSections || typeof snapshotSections !== "object" || isDemoMode) {
+      if (!snapshotSections || typeof snapshotSections !== "object") {
         return fallbackPlaybook;
       }
       const ambienceSection = toPlannerObject(snapshotSections.ambience);
@@ -3288,7 +3293,6 @@ function DashboardScreen({
       selectedEventHealthAlerts,
       selectedEventHostPlanSeed,
       selectedEventPlannerSnapshotState,
-      isDemoMode,
       language,
       t
     ]
@@ -3325,6 +3329,52 @@ function DashboardScreen({
     selectedEventEstimatedCostRange,
     selectedEventShoppingCheckedSet
   ]);
+  // Demo: when the user switches language and no translated plan exists yet,
+  // silently translate the Spanish demo plan in the background.
+  useEffect(() => {
+    if (!isDemoMode) return;
+    if (!selectedEventDetail?.id) return;
+    if (language === "es") return;
+    const eventId = selectedEventDetail.id;
+    const langMap = eventPlannerSnapshotsByEventId[eventId];
+    if (!langMap || typeof langMap !== "object") return;
+    const spanishPlan = langMap["es"];
+    if (!spanishPlan) return;
+    // Already have a translated plan for this language
+    if (langMap[language]) return;
+
+    // Retrieve the raw snapshot to pass to the backend (sections + structure)
+    // spanishPlan is a snapshotState (parsed by getHostPlanStateFromSnapshot),
+    // so we reconstruct the canonical snapshot shape for the translate call.
+    const rawSnapshot = {
+      schema_version: 1,
+      event_id: eventId,
+      version: spanishPlan.version,
+      generated_at: spanishPlan.generatedAt,
+      source: spanishPlan.source,
+      context: {},
+      context_overrides: spanishPlan.contextOverrides || {},
+      seeds: { all: spanishPlan.seedAll || 0, tabs: spanishPlan.seedByTab || {} },
+      sections: spanishPlan.sections || {},
+      alerts: spanishPlan.alerts || { critical: [], warning: [] },
+      model_meta: spanishPlan.modelMeta || {}
+    };
+
+    requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: "es", toLanguage: language })
+      .then(({ data: translatedSnapshot }) => {
+        if (!translatedSnapshot) return;
+        const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
+        if (!translatedState) return;
+        setEventPlannerSnapshotsByEventId((prev) => ({
+          ...prev,
+          [eventId]: { ...(prev[eventId] || {}), [language]: translatedState }
+        }));
+      })
+      .catch(() => {
+        // Silent: demo stays in Spanish on failure
+      });
+  }, [isDemoMode, selectedEventDetail?.id, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId]);
+
   const selectedEventHostMessagesText = useMemo(() => {
     if (!selectedEventHostPlaybook?.messages?.length) {
       return "";
@@ -5913,7 +5963,8 @@ function DashboardScreen({
         p_plan_json: snapshot,
         p_context_json: snapshot.context,
         p_scope: safeScope,
-        p_model_meta: snapshot.model_meta
+        p_model_meta: snapshot.model_meta,
+        p_plan_language: language
       });
 
       if (persistResult.error) {
@@ -5934,7 +5985,7 @@ function DashboardScreen({
       }
       setEventPlannerSnapshotsByEventId((prev) => ({
         ...prev,
-        [eventId]: persistedState
+        [eventId]: { ...(prev[eventId] || {}), [language]: persistedState }
       }));
       setEventPlannerSnapshotHistoryByEventId((prev) => {
         const currentHistory = Array.isArray(prev[eventId]) ? prev[eventId] : [];
@@ -5942,9 +5993,12 @@ function DashboardScreen({
           version: Number(persistedState.version || 0),
           generatedAt: String(persistedState.generatedAt || ""),
           scope: String(persistedState?.modelMeta?.scope || safeScope || "all"),
+          lang: language,
           snapshotState: persistedState
         };
-        const deduped = currentHistory.filter((item) => Number(item.version) !== Number(nextEntry.version));
+        const deduped = currentHistory.filter(
+          (item) => !(Number(item.version) === Number(nextEntry.version) && item.lang === language)
+        );
         const sorted = [nextEntry, ...deduped].sort((a, b) => {
           const versionDiff = Number(b.version || 0) - Number(a.version || 0);
           if (versionDiff !== 0) {
@@ -5957,6 +6011,41 @@ function DashboardScreen({
           [eventId]: sorted
         };
       });
+
+      // Background: translate full plan to all other languages (fire-and-forget, no UI block)
+      if (safeScope === "all") {
+        const ALL_LOCALES = ["es", "ca", "en", "fr", "it"];
+        const otherLocales = ALL_LOCALES.filter((loc) => loc !== language);
+        for (const targetLang of otherLocales) {
+          requestPlanTranslationAI({
+            planSnapshot: snapshot,
+            fromLanguage: language,
+            toLanguage: targetLang
+          })
+            .then(({ data: translatedSnapshot }) => {
+              if (!translatedSnapshot) return;
+              const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
+              if (!translatedState) return;
+              // Persist translated snapshot to DB (silent, no error feedback to user)
+              supabase.rpc("upsert_event_host_plan", {
+                p_event_id: eventId,
+                p_plan_json: translatedSnapshot,
+                p_context_json: translatedSnapshot.context || snapshot.context,
+                p_scope: "all",
+                p_model_meta: translatedSnapshot.model_meta || snapshot.model_meta,
+                p_plan_language: targetLang
+              }).then(() => {
+                setEventPlannerSnapshotsByEventId((prev) => ({
+                  ...prev,
+                  [eventId]: { ...(prev[eventId] || {}), [targetLang]: translatedState }
+                }));
+              });
+            })
+            .catch(() => {
+              // Silent background failure — user can still use the original language plan
+            });
+        }
+      }
     },
     [
       language,

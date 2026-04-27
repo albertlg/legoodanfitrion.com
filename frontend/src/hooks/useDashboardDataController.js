@@ -324,7 +324,7 @@ export function useDashboardDataController({
     if (eventIdsForPlans.length > 0) {
       const plannerResult = await supabase
         .from("event_host_plans")
-        .select("event_id, version, generated_at, source, model_meta, plan_context, plan_snapshot")
+        .select("event_id, plan_language, version, generated_at, source, model_meta, plan_context, plan_snapshot")
         .in("event_id", eventIdsForPlans)
         .order("generated_at", { ascending: false });
 
@@ -594,6 +594,7 @@ export function useDashboardDataController({
     setGuests(guestsData || []);
     setInvitations(invitationsData || []);
     setReceivedInvitations(receivedInvitationsData || []);
+    // { eventId: { lang: snapshotState } }
     const latestPlannerByEventId = {};
     const plannerHistoryByEventId = {};
     for (const row of eventPlannerRows) {
@@ -601,20 +602,28 @@ export function useDashboardDataController({
       if (!eventId) {
         continue;
       }
+      const planLang = String(row?.plan_language || "es").trim().toLowerCase() || "es";
       const snapshotState = getHostPlanStateFromSnapshot(row?.plan_snapshot);
       if (!snapshotState) {
         continue;
       }
       if (!latestPlannerByEventId[eventId]) {
-        latestPlannerByEventId[eventId] = snapshotState;
+        latestPlannerByEventId[eventId] = {};
+      }
+      // rows ordered desc by generated_at → first seen per lang is the latest
+      if (!latestPlannerByEventId[eventId][planLang]) {
+        latestPlannerByEventId[eventId][planLang] = snapshotState;
       }
       const currentHistory = plannerHistoryByEventId[eventId] || [];
-      const hasSameVersion = currentHistory.some((item) => Number(item.version) === Number(snapshotState.version));
-      if (!hasSameVersion) {
+      const hasSameVersionAndLang = currentHistory.some(
+        (item) => Number(item.version) === Number(snapshotState.version) && item.lang === planLang
+      );
+      if (!hasSameVersionAndLang) {
         currentHistory.push({
           version: Number(snapshotState.version || 0),
           generatedAt: String(snapshotState.generatedAt || ""),
           scope: String(snapshotState?.modelMeta?.scope || "all"),
+          lang: planLang,
           snapshotState
         });
       }
@@ -634,12 +643,17 @@ export function useDashboardDataController({
     const nextPlannerSeedByEventId = {};
     const nextPlannerSeedByEventIdByTab = {};
     const nextPlannerContextOverridesByEventId = {};
-    for (const [eventId, snapshotState] of Object.entries(latestPlannerByEventId)) {
-      nextPlannerSeedByEventId[eventId] = Math.max(0, Number(snapshotState.seedAll || 0));
-      nextPlannerSeedByEventIdByTab[eventId] = snapshotState.seedByTab || {};
+    for (const [eventId, langMap] of Object.entries(latestPlannerByEventId)) {
+      // Use the Spanish (original) plan for seeds; fall back to first available language
+      const refState = langMap["es"] || Object.values(langMap)[0];
+      if (!refState) {
+        continue;
+      }
+      nextPlannerSeedByEventId[eventId] = Math.max(0, Number(refState.seedAll || 0));
+      nextPlannerSeedByEventIdByTab[eventId] = refState.seedByTab || {};
       nextPlannerContextOverridesByEventId[eventId] =
-        snapshotState.contextOverrides && typeof snapshotState.contextOverrides === "object"
-          ? snapshotState.contextOverrides
+        refState.contextOverrides && typeof refState.contextOverrides === "object"
+          ? refState.contextOverrides
           : {};
     }
     setEventPlannerRegenerationByEventId(nextPlannerSeedByEventId);

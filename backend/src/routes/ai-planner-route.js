@@ -982,6 +982,138 @@ router.post("/planner", async (req, res) => {
   }
 });
 
+const LANGUAGE_NAMES = {
+  es: "Spanish",
+  ca: "Catalan",
+  en: "English",
+  fr: "French",
+  it: "Italian"
+};
+
+function buildTranslationSystemPrompt(fromLang, toLang) {
+  const fromName = LANGUAGE_NAMES[fromLang] || fromLang;
+  const toName = LANGUAGE_NAMES[toLang] || toLang;
+  return [
+    `You are a precise JSON translator for an event planning application called LeGoodAnfitrión.`,
+    `Translate ALL user-visible text in the provided JSON from ${fromName} to ${toName}.`,
+    ``,
+    `STRICT RULES:`,
+    `1. Return ONLY valid JSON with the EXACT same structure as the input — no extra keys, no removed keys.`,
+    `2. Preserve all numeric values and boolean values exactly as-is.`,
+    `3. DO NOT translate object property KEYS — only string VALUES.`,
+    `4. Preserve empty arrays and empty strings as-is.`,
+    `5. Keep any field named "id" or "level" unchanged.`,
+    `6. DO NOT translate or modify: brand names, product names (e.g. Coca-Cola, Prosecco, Ibérico), monetary amounts and currencies, quantities with units, proper nouns (person names, place names), URLs or codes.`,
+    `7. Translate naturally in context — this is a friendly event planning assistant.`,
+    `8. Never add commentary or explanation — return only the translated JSON object.`
+  ].join("\n");
+}
+
+router.post("/translate-plan", async (req, res) => {
+  console.log("--- NUEVA PETICIÓN IA / TRANSLATE-PLAN ---");
+
+  const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
+  if (!apiKey) {
+    return res.status(503).json({ error: "GEMINI_API_KEY no configurada en backend/.env" });
+  }
+
+  const requestPayload = ensureObject(req.body);
+  const planSnapshot = ensureObject(requestPayload.planSnapshot);
+  const fromLanguage = normalizeLocale(requestPayload.fromLanguage, "es");
+  const toLanguage = normalizeLocale(requestPayload.toLanguage, "es");
+
+  if (!planSnapshot || !planSnapshot.sections) {
+    return res.status(400).json({ error: "planSnapshot.sections is required" });
+  }
+  if (fromLanguage === toLanguage) {
+    return res.status(400).json({ error: "fromLanguage and toLanguage must be different" });
+  }
+
+  // Build the translatable payload: sections + alerts only
+  const translatablePayload = {
+    sections: ensureObject(planSnapshot.sections),
+    alerts: ensureObject(planSnapshot.alerts)
+  };
+
+  try {
+    const client = new GoogleGenAI({ apiKey });
+
+    let response;
+    try {
+      console.log(`Iniciando traducción Gemini: ${fromLanguage} → ${toLanguage}`);
+      response = await withTimeout(
+        client.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `INPUT_JSON:\n${JSON.stringify(translatablePayload, null, 2)}` }]
+            }
+          ],
+          config: {
+            responseMimeType: "application/json",
+            systemInstruction: buildTranslationSystemPrompt(fromLanguage, toLanguage),
+            temperature: 0.1
+          }
+        }),
+        Number(process.env.GEMINI_TIMEOUT_MS || 60000),
+        "Gemini translate-plan timeout"
+      );
+      console.log("Traducción Gemini completada.");
+    } catch (error) {
+      console.error("[ai/translate-plan] Error durante llamada a Gemini:", error);
+      return res.status(500).json({
+        error: String(error?.message || "Error desconocido en llamada a Gemini"),
+        fallback: true
+      });
+    }
+
+    const textResponse = getResponseText(response);
+    const cleanJson = String(textResponse || "")
+      .replace(/^```json/m, "")
+      .replace(/^```/m, "")
+      .replace(/```$/m, "")
+      .trim();
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch {
+      try {
+        parsed = safeJsonParse(textResponse);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    if (!parsed || !parsed.sections) {
+      return res.status(502).json({
+        error: "Gemini devolvió una respuesta no parseable como JSON en translate-plan.",
+        fallback: true
+      });
+    }
+
+    // Merge translated sections+alerts back into a copy of the original snapshot
+    const translatedSnapshot = {
+      ...planSnapshot,
+      sections: parsed.sections,
+      alerts: parsed.alerts || planSnapshot.alerts
+    };
+
+    return res.json({
+      data: translatedSnapshot,
+      meta: { provider: "google-gemini", model: "gemini-2.5-flash", from: fromLanguage, to: toLanguage }
+    });
+  } catch (error) {
+    console.error("[ai/translate-plan] Error no controlado:");
+    console.error(error);
+    return res.status(500).json({
+      error: `Error traduciendo plan con Gemini: ${String(error?.message || "unknown error")}`,
+      fallback: true
+    });
+  }
+});
+
 router.post("/icebreaker", async (req, res) => {
   console.log("--- NUEVA PETICIÓN IA / ICEBREAKER ---");
   console.log("GEMINI_API_KEY configurada:", process.env.GEMINI_API_KEY ? "SÍ" : "NO");

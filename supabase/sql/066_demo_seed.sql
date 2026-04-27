@@ -324,10 +324,11 @@ ON CONFLICT (event_id, guest_id) DO NOTHING;
 
 -- Plan snapshot Evento 1: Tech Networking Cocktail
 INSERT INTO public.event_host_plans (
-  host_user_id, event_id, version, generated_at, source, plan_context, plan_snapshot, model_meta
+  host_user_id, event_id, plan_language, version, generated_at, source, plan_context, plan_snapshot, model_meta
 ) VALUES (
   'de300000-0000-4000-a000-000000000001',
   'e7e41000-0000-0000-0000-000000000001',
+  'es',
   3,
   '2026-05-08 10:00:00+00',
   'gemini-2.0-flash',
@@ -441,14 +442,15 @@ INSERT INTO public.event_host_plans (
     }
   }'::jsonb,
   '{"model":"gemini-2.0-flash","scope":"all","tokens_used":4821,"latency_ms":3240}'::jsonb
-) ON CONFLICT ON CONSTRAINT event_host_plans_event_host_unique DO NOTHING;
+) ON CONFLICT ON CONSTRAINT event_host_plans_event_host_lang_unique DO NOTHING;
 
 -- Plan snapshot Evento 2: Cumpleaños de Marta
 INSERT INTO public.event_host_plans (
-  host_user_id, event_id, version, generated_at, source, plan_context, plan_snapshot, model_meta
+  host_user_id, event_id, plan_language, version, generated_at, source, plan_context, plan_snapshot, model_meta
 ) VALUES (
   'de300000-0000-4000-a000-000000000001',
   'e7e41000-0000-0000-0000-000000000002',
+  'es',
   2,
   '2026-05-20 16:30:00+00',
   'gemini-2.0-flash',
@@ -564,14 +566,15 @@ INSERT INTO public.event_host_plans (
     }
   }'::jsonb,
   '{"model":"gemini-2.0-flash","scope":"all","tokens_used":5134,"latency_ms":3780}'::jsonb
-) ON CONFLICT ON CONSTRAINT event_host_plans_event_host_unique DO NOTHING;
+) ON CONFLICT ON CONSTRAINT event_host_plans_event_host_lang_unique DO NOTHING;
 
 -- Plan snapshot Evento 3: Gran BBQ Familiar
 INSERT INTO public.event_host_plans (
-  host_user_id, event_id, version, generated_at, source, plan_context, plan_snapshot, model_meta
+  host_user_id, event_id, plan_language, version, generated_at, source, plan_context, plan_snapshot, model_meta
 ) VALUES (
   'de300000-0000-4000-a000-000000000001',
   'e7e41000-0000-0000-0000-000000000003',
+  'es',
   1,
   '2026-06-01 09:00:00+00',
   'gemini-2.0-flash',
@@ -698,7 +701,7 @@ INSERT INTO public.event_host_plans (
     }
   }'::jsonb,
   '{"model":"gemini-2.0-flash","scope":"all","tokens_used":5620,"latency_ms":4102}'::jsonb
-) ON CONFLICT ON CONSTRAINT event_host_plans_event_host_unique DO NOTHING;
+) ON CONFLICT ON CONSTRAINT event_host_plans_event_host_lang_unique DO NOTHING;
 
 -- =============================================================================
 -- FIN DEL SCRIPT
