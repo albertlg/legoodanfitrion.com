@@ -59,7 +59,7 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
             .catch(() => setIsLoadingPosts(false));
     }, [ucKey, language]);
 
-    const faqs = [1, 2, 3].map((n) => ({
+    const faqs = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
         q: t(`uc_${ucKey}_page_faq_${n}_q`),
         a: t(`uc_${ucKey}_page_faq_${n}_a`),
     }));
