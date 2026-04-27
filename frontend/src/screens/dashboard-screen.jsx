@@ -3329,51 +3329,55 @@ function DashboardScreen({
     selectedEventEstimatedCostRange,
     selectedEventShoppingCheckedSet
   ]);
-  // Demo: when the user switches language and no translated plan exists yet,
-  // silently translate the Spanish demo plan in the background.
+  // Tracks in-flight demo translations to avoid duplicate calls across re-renders.
+  const pendingDemoTranslationsRef = useRef(new Set());
+
+  // Demo: when the user switches language, translate ALL events that have a Spanish
+  // plan but no plan yet in the target language — in parallel, fire-and-forget.
   useEffect(() => {
     if (!isDemoMode) return;
-    if (!selectedEventDetail?.id) return;
     if (language === "es") return;
-    const eventId = selectedEventDetail.id;
-    const langMap = eventPlannerSnapshotsByEventId[eventId];
-    if (!langMap || typeof langMap !== "object") return;
-    const spanishPlan = langMap["es"];
-    if (!spanishPlan) return;
-    // Already have a translated plan for this language
-    if (langMap[language]) return;
 
-    // Retrieve the raw snapshot to pass to the backend (sections + structure)
-    // spanishPlan is a snapshotState (parsed by getHostPlanStateFromSnapshot),
-    // so we reconstruct the canonical snapshot shape for the translate call.
-    const rawSnapshot = {
-      schema_version: 1,
-      event_id: eventId,
-      version: spanishPlan.version,
-      generated_at: spanishPlan.generatedAt,
-      source: spanishPlan.source,
-      context: {},
-      context_overrides: spanishPlan.contextOverrides || {},
-      seeds: { all: spanishPlan.seedAll || 0, tabs: spanishPlan.seedByTab || {} },
-      sections: spanishPlan.sections || {},
-      alerts: spanishPlan.alerts || { critical: [], warning: [] },
-      model_meta: spanishPlan.modelMeta || {}
-    };
+    for (const [eventId, langMap] of Object.entries(eventPlannerSnapshotsByEventId)) {
+      if (!langMap || typeof langMap !== "object") continue;
+      const spanishPlan = langMap["es"];
+      if (!spanishPlan) continue;
+      if (langMap[language]) continue;
 
-    requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: "es", toLanguage: language })
-      .then(({ data: translatedSnapshot }) => {
-        if (!translatedSnapshot) return;
-        const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
-        if (!translatedState) return;
-        setEventPlannerSnapshotsByEventId((prev) => ({
-          ...prev,
-          [eventId]: { ...(prev[eventId] || {}), [language]: translatedState }
-        }));
-      })
-      .catch(() => {
-        // Silent: demo stays in Spanish on failure
-      });
-  }, [isDemoMode, selectedEventDetail?.id, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId]);
+      const key = `${eventId}:${language}`;
+      if (pendingDemoTranslationsRef.current.has(key)) continue;
+      pendingDemoTranslationsRef.current.add(key);
+
+      const rawSnapshot = {
+        schema_version: 1,
+        event_id: eventId,
+        version: spanishPlan.version,
+        generated_at: spanishPlan.generatedAt,
+        source: spanishPlan.source,
+        context: {},
+        context_overrides: spanishPlan.contextOverrides || {},
+        seeds: { all: spanishPlan.seedAll || 0, tabs: spanishPlan.seedByTab || {} },
+        sections: spanishPlan.sections || {},
+        alerts: spanishPlan.alerts || { critical: [], warning: [] },
+        model_meta: spanishPlan.modelMeta || {}
+      };
+
+      requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: "es", toLanguage: language })
+        .then(({ data: translatedSnapshot }) => {
+          if (!translatedSnapshot) return;
+          const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
+          if (!translatedState) return;
+          setEventPlannerSnapshotsByEventId((prev) => ({
+            ...prev,
+            [eventId]: { ...(prev[eventId] || {}), [language]: translatedState }
+          }));
+        })
+        .catch(() => {
+          // On failure, remove from pending so it can retry on next language change
+          pendingDemoTranslationsRef.current.delete(key);
+        });
+    }
+  }, [isDemoMode, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId]);
 
   const selectedEventHostMessagesText = useMemo(() => {
     if (!selectedEventHostPlaybook?.messages?.length) {
