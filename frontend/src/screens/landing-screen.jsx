@@ -591,7 +591,8 @@ function LandingScreen({
       <div className="fixed bottom-[-10%] left-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-purple-500/20 dark:bg-purple-600/10 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[120px] opacity-70 pointer-events-none z-0"></div>
 
       {/* HEADER (Sticky) */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4">
+        <div className="absolute inset-0 -z-10 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5 pointer-events-none" />
         <div className="flex items-center gap-6">
           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none" type="button" onClick={handleLogoClick}>
             <BrandMark text="" fallback={t("logo_fallback")} className="w-8 h-8" />

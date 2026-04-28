@@ -32,7 +32,8 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
 
     return (
         <>
-            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5">
+            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4">
+                <div className="absolute inset-0 -z-10 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5 pointer-events-none" />
                 <div className="flex items-center gap-6">
                     <button
                         className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none"
