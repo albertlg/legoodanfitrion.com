@@ -10,7 +10,7 @@ import { GlobalFooter } from "../components/global-footer";
 const DOMAIN = "https://legoodanfitrion.com";
 const BLOG_PATHS = { es: "/blog", ca: "/ca/blog", en: "/en/blog", fr: "/fr/blog", it: "/it/blog" };
 
-export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
+export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -103,6 +103,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                 setThemeMode={setThemeMode}
                 onNavigate={onNavigate}
                 activeKey="blog"
+                session={session}
             />
 
             {/* MAIN CONTENT */}

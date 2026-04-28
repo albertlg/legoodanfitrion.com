@@ -486,13 +486,32 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [language, themeMode, session?.user?.id, themeColumnSupported, profilePrefsHydrated]);
 
-  const handleSignIn = async (event) => {
-    event.preventDefault();
+  const validateTurnstile = async (token) => {
+    if (!token) return true;
+    try {
+      const { data, error } = await supabase.functions.invoke("validate-turnstile", {
+        body: { token },
+      });
+      if (error) return false;
+      return data?.success === true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSignIn = async (turnstileToken) => {
     if (!supabase) {
       return;
     }
     setAuthError("");
     setAccountMessage("");
+    if (turnstileToken) {
+      const valid = await validateTurnstile(turnstileToken);
+      if (!valid) {
+        setAuthError(t("auth_error_bot_detected"));
+        return;
+      }
+    }
     const email = loginEmail.trim();
     if (!email) {
       setAuthError(t("auth_error_email_required"));
@@ -516,12 +535,19 @@ function App() {
     navigate("/app", { replace: true });
   };
 
-  const handleSignUp = async () => {
+  const handleSignUp = async (turnstileToken) => {
     if (!supabase) {
       return;
     }
     setAuthError("");
     setAccountMessage("");
+    if (turnstileToken) {
+      const valid = await validateTurnstile(turnstileToken);
+      if (!valid) {
+        setAuthError(t("auth_error_bot_detected"));
+        return;
+      }
+    }
     const email = loginEmail.trim();
     if (!email) {
       setAuthError(t("auth_error_email_required"));

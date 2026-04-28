@@ -11,8 +11,15 @@ const NAV_ITEMS = [
     { key: "about", path: "/about", labelKey: "landing_nav_about" },
 ];
 
-export function PublicPageHeader({ t, language, setLanguage, themeMode, setThemeMode, onNavigate, activeKey }) {
+export function PublicPageHeader({ t, language, setLanguage, themeMode, setThemeMode, onNavigate, activeKey, session }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    const rawName = session?.user?.user_metadata?.full_name || "";
+    const firstName = rawName.split(" ")[0].trim();
+    const ctaLabel = session?.user?.id
+        ? (firstName ? t("landing_cta_dashboard_named").replace("{{name}}", firstName) : t("landing_cta_dashboard"))
+        : t("sign_in");
+    const ctaOnClick = () => { session?.user?.id ? onNavigate("/app") : onNavigate("/login"); };
 
     function handleNavItemClick(item) {
         setIsMobileMenuOpen(false);
@@ -74,9 +81,9 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                     <button
                         className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
                         type="button"
-                        onClick={() => onNavigate("/login")}
+                        onClick={ctaOnClick}
                     >
-                        {t("sign_in")}
+                        {ctaLabel}
                     </button>
                     <button
                         className="md:hidden p-2 -mr-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -140,9 +147,9 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                     <button
                         className="mt-1 w-full text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-3 rounded-2xl font-bold text-sm"
                         type="button"
-                        onClick={() => { onNavigate("/login"); setIsMobileMenuOpen(false); }}
+                        onClick={() => { ctaOnClick(); setIsMobileMenuOpen(false); }}
                     >
-                        {t("sign_in")}
+                        {ctaLabel}
                     </button>
                 </div>
                 <div className="p-4 border-t border-black/5 dark:border-white/5">

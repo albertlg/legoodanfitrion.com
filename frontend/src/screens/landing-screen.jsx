@@ -293,21 +293,32 @@ function LandingScreen({
   };
   const currentSeo = seoData[pageMode] || seoData.home;
 
-  const primaryCta = session?.user?.id
-    ? {
-      label: t("landing_cta_open_app"),
-      onClick: () => {
-        trackEvent("cta_open_app_click");
-        onGoApp();
-      }
-    }
+  // Navbar + drawer: cambia según sesión, con nombre personalizado
+  const navCta = session?.user?.id
+    ? (() => {
+      const rawName = session.user.user_metadata?.full_name || "";
+      const firstName = rawName.split(" ")[0].trim();
+      const label = firstName
+        ? t("landing_cta_dashboard_named").replace("{{name}}", firstName)
+        : t("landing_cta_dashboard");
+      return {
+        label,
+        onClick: () => { trackEvent("cta_open_app_click"); onGoApp(); }
+      };
+    })()
     : {
       label: t("landing_cta_create_event"),
-      onClick: () => {
-        trackEvent("cta_create_event_click", { location: "primary_button" });
-        onGoLogin();
-      }
+      onClick: () => { trackEvent("cta_create_event_click", { location: "nav" }); onGoLogin(); }
     };
+
+  // Hero: siempre copy de marketing, routing inteligente
+  const heroCta = {
+    label: t("landing_cta_create_event"),
+    onClick: () => {
+      trackEvent("cta_create_event_click", { location: "hero" });
+      session?.user?.id ? onGoApp() : onGoLogin();
+    }
+  };
 
   const handleJoinWaitlist = async (event) => {
     event.preventDefault();
@@ -619,9 +630,9 @@ function LandingScreen({
           <button
             className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
             type="button"
-            onClick={primaryCta.onClick}
+            onClick={navCta.onClick}
           >
-            {primaryCta.label}
+            {navCta.label}
           </button>
 
           <button
@@ -677,11 +688,11 @@ function LandingScreen({
             <button
               className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-2xl font-black text-base shadow-lg hover:scale-[1.02] transition-transform"
               onClick={() => {
-                primaryCta.onClick();
+                navCta.onClick();
                 setIsMobileMenuOpen(false);
               }}
             >
-              {primaryCta.label}
+              {navCta.label}
             </button>
             <div className="flex justify-center mt-3">
               <Controls themeMode={themeMode} setThemeMode={setThemeMode} language={language} setLanguage={setLanguage} t={t} />
@@ -722,10 +733,10 @@ function LandingScreen({
                       <button
                         className="w-full sm:w-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-xl font-black text-base shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                         type="button"
-                        onClick={primaryCta.onClick}
+                        onClick={heroCta.onClick}
                       >
                         <Icon name="sparkle" className="w-4 h-4" />
-                        {primaryCta.label}
+                        {heroCta.label}
                       </button>
                       <button
                         className="w-full sm:w-auto bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-6 py-3 rounded-xl font-bold text-base hover:bg-white/80 dark:hover:bg-white/5 transition-all text-gray-900 dark:text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer"
@@ -864,7 +875,7 @@ function LandingScreen({
                     <button
                       className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3.5 rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
                       type="button"
-                      onClick={primaryCta.onClick}
+                      onClick={heroCta.onClick}
                     >
                       {t("landing_cta_create_event")} <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
                     </button>
@@ -998,10 +1009,10 @@ function LandingScreen({
                       {highlight && (
                         <button
                           type="button"
-                          onClick={primaryCta.onClick}
+                          onClick={heroCta.onClick}
                           className="mt-6 inline-flex items-center justify-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer"
                         >
-                          {primaryCta.label}
+                          {heroCta.label}
                           <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
                         </button>
                       )}
@@ -1135,8 +1146,8 @@ function LandingScreen({
                     ))}
                   </ul>
 
-                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200" type="button" onClick={primaryCta.onClick}>
-                    {primaryCta.label}
+                  <button className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-4 rounded-xl font-bold text-lg shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200" type="button" onClick={heroCta.onClick}>
+                    {heroCta.label}
                   </button>
                 </article>
 

@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { FieldMeta } from "../components/field-meta";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
 import { Helmet } from "react-helmet-async";
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
 
 function AuthScreen({
   t,
@@ -41,6 +44,19 @@ function AuthScreen({
   // 1. Estados para capturar los datos temporales (PLG)
   const [plgIntent, setPlgIntent] = useState("");
   const [plgName, setPlgName] = useState("");
+
+  // Turnstile anti-bot
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef(null);
+
+  // Resetea el widget Turnstile cada vez que hay un error de auth,
+  // forzando al usuario (o bot) a obtener un token nuevo.
+  useEffect(() => {
+    if (authError && turnstileRef.current) {
+      turnstileRef.current.reset();
+      setTurnstileToken("");
+    }
+  }, [authError]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -93,6 +109,7 @@ function AuthScreen({
               language={language}
               setLanguage={setLanguage}
               t={t}
+              dropdownDirection="down"
             />
           </div>
           {onBackToLanding ? (
@@ -161,7 +178,15 @@ function AuthScreen({
           <form
             id="auth-access-panel"
             className="flex flex-col gap-4"
-            onSubmit={plgIntent ? (e) => { e.preventDefault(); onSignUp(); } : onSignIn}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (TURNSTILE_SITE_KEY && !turnstileToken) return;
+              if (plgIntent) {
+                onSignUp(turnstileToken);
+              } else {
+                onSignIn(turnstileToken);
+              }
+            }}
             noValidate
           >
             <button
@@ -234,21 +259,34 @@ function AuthScreen({
 
             {/* 3. Botones Internacionalizados */}
             <button
-              className={`w-full py-3.5 text-white font-bold rounded-xl shadow-md hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 mt-4 ${plgIntent ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-900 dark:bg-white dark:text-gray-900'}`}
+              className={`w-full py-3.5 text-white font-bold rounded-xl shadow-md hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed ${plgIntent ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-900 dark:bg-white dark:text-gray-900'}`}
               type="submit"
-              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
+              disabled={isSigningIn || isSigningUp || isSigningInWithGoogle || (Boolean(TURNSTILE_SITE_KEY) && !turnstileToken)}
             >
               {plgIntent
                 ? (isSigningUp ? t("signing_up") : t("auth_plg_create_account_btn"))
                 : (isSigningIn ? t("signing_in") : t("sign_in"))}
             </button>
 
+            {TURNSTILE_SITE_KEY ? (
+              <div className="flex justify-center mt-1">
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={TURNSTILE_SITE_KEY}
+                  options={{ theme: "auto", appearance: "interaction-only", size: "flexible" }}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onExpire={() => setTurnstileToken("")}
+                  onError={() => setTurnstileToken("")}
+                />
+              </div>
+            ) : null}
+
             <div className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
               {plgIntent ? t("auth_plg_already_have_account") : t("auth_no_account")}{" "}
               <button
                 className="font-bold text-gray-900 dark:text-white hover:underline transition-all"
                 type="button"
-                onClick={plgIntent ? onSignIn : onSignUp}
+                onClick={plgIntent ? () => onSignIn(turnstileToken) : () => onSignUp(turnstileToken)}
                 disabled={isSigningIn || isSigningUp || isSigningInWithGoogle}
               >
                 {plgIntent ? t("sign_in") : (isSigningUp ? t("signing_up") : t("sign_up"))}
