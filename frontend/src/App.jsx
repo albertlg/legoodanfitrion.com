@@ -804,6 +804,7 @@ function App() {
             themeMode={themeMode}
             setThemeMode={setThemeMode}
             onNavigate={navigate}
+            session={session}
           />
         </Suspense>
       );
@@ -820,6 +821,7 @@ function App() {
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           onNavigate={navigate}
+          session={session}
         />
       </Suspense>
     );
@@ -850,6 +852,7 @@ function App() {
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           onNavigate={navigate}
+          session={session}
         />
       </Suspense>
     );

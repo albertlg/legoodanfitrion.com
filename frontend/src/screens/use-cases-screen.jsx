@@ -95,7 +95,7 @@ const USE_CASES = [
     }
 ];
 
-export function UseCasesScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
+export function UseCasesScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
             <SEO
@@ -117,6 +117,7 @@ export function UseCasesScreen({ language, setLanguage, themeMode, setThemeMode,
                 setThemeMode={setThemeMode}
                 onNavigate={onNavigate}
                 activeKey="use-cases"
+                session={session}
             />
 
             <div className="flex-1 relative z-10 flex flex-col pt-24 md:pt-32">

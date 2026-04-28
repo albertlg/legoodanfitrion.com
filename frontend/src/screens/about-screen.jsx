@@ -23,7 +23,7 @@ const PRINCIPLES_KEYS = [
     { icon: "settings", key: "about_principle_5" }
 ];
 
-export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
+export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
             <SEO
@@ -45,6 +45,7 @@ export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t,
                 setThemeMode={setThemeMode}
                 onNavigate={onNavigate}
                 activeKey="about"
+                session={session}
             />
 
             {/* CONTENT */}

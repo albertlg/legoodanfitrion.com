@@ -32,7 +32,7 @@ const HUB_CATEGORIES = {
 const PERSONA_ICONS = ["user", "users", "star"];
 const FEAT_ICONS = ["check", "sparkle", "user", "calendar", "activity"];
 
-export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, setThemeMode, t, onNavigate }) {
+export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
     const meta = UC_META[ucKey] || UC_META.personal;
     const [openFaq, setOpenFaq] = useState(null);
     const [relatedPosts, setRelatedPosts] = useState([]);
@@ -98,6 +98,7 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
                 setThemeMode={setThemeMode}
                 onNavigate={onNavigate}
                 activeKey="use-cases"
+                session={session}
             />
 
             <div className="flex-1 relative z-10 flex flex-col pt-24 md:pt-32">
