@@ -307,8 +307,8 @@ function LandingScreen({
       };
     })()
     : {
-      label: t("landing_cta_create_event"),
-      onClick: () => { trackEvent("cta_create_event_click", { location: "nav" }); onGoLogin(); }
+      label: t("sign_in"),
+      onClick: () => { trackEvent("cta_sign_in_click", { location: "nav" }); onGoLogin(); }
     };
 
   // Hero: siempre copy de marketing, routing inteligente
