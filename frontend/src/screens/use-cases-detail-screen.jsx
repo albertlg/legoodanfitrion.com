@@ -39,7 +39,8 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
 
     useEffect(() => {
-        const catTitles = HUB_CATEGORIES[ucKey]?.[language] || [];
+        const primaryCat = HUB_CATEGORIES[ucKey]?.[language]?.[0];
+        const catTitles = primaryCat ? [primaryCat] : [];
         if (catTitles.length === 0) {
             setRelatedPosts([]);
             setIsLoadingPosts(false);
