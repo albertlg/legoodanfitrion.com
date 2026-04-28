@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const CLOUDFLARE_VERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -10,16 +8,16 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ success: false, error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: "method_not_allowed" }),
+      { status: 405, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -27,27 +25,25 @@ serve(async (req) => {
     const token = typeof body?.token === "string" ? body.token.trim() : "";
 
     if (!token) {
-      return new Response(JSON.stringify({ success: false, error: "missing_token" }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "missing_token" }),
+        { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
     }
 
     const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY") ?? "";
     if (!secretKey) {
-      // If no secret key is configured, let the request through
-      // (Turnstile not active server-side — safe for dev environments)
-      return new Response(JSON.stringify({ success: true, skipped: true }), {
-        status: 200,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      // No secret configured — let through (dev / Turnstile disabled)
+      return new Response(
+        JSON.stringify({ success: true, skipped: true }),
+        { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
     }
 
     const form = new FormData();
     form.append("secret", secretKey);
     form.append("response", token);
 
-    // Include the visitor IP for stronger bot detection
     const ip =
       req.headers.get("CF-Connecting-IP") ??
       req.headers.get("X-Forwarded-For") ??
@@ -60,10 +56,10 @@ serve(async (req) => {
     });
 
     if (!cfResponse.ok) {
-      return new Response(JSON.stringify({ success: false, error: "cloudflare_unreachable" }), {
-        status: 502,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "cloudflare_unreachable" }),
+        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
     }
 
     const result: { success: boolean; "error-codes"?: string[] } =
@@ -74,15 +70,13 @@ serve(async (req) => {
         success: result.success === true,
         errorCodes: result["error-codes"] ?? [],
       }),
-      {
-        status: 200,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
-  } catch {
-    return new Response(JSON.stringify({ success: false, error: "internal_error" }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
+  } catch (err) {
+    console.error("validate-turnstile error:", err);
+    return new Response(
+      JSON.stringify({ success: false, error: "internal_error" }),
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+    );
   }
 });
