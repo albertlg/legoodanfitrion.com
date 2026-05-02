@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { formatDashboardCta } from "../utils/string";
 import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
@@ -298,11 +299,8 @@ function LandingScreen({
     ? (() => {
       const rawName = session.user.user_metadata?.full_name || "";
       const firstName = rawName.split(" ")[0].trim();
-      const label = firstName
-        ? t("landing_cta_dashboard_named").replace("{{name}}", firstName)
-        : t("landing_cta_dashboard");
       return {
-        label,
+        label: formatDashboardCta(firstName, language, t),
         onClick: () => { trackEvent("cta_open_app_click"); onGoApp(); }
       };
     })()

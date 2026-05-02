@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Controls } from "./controls";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icons";
+import { formatDashboardCta } from "../utils/string";
 
 const NAV_ITEMS = [
     { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
@@ -17,7 +18,7 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
     const rawName = session?.user?.user_metadata?.full_name || "";
     const firstName = rawName.split(" ")[0].trim();
     const ctaLabel = session?.user?.id
-        ? (firstName ? t("landing_cta_dashboard_named").replace("{{name}}", firstName) : t("landing_cta_dashboard"))
+        ? formatDashboardCta(firstName, language, t)
         : t("sign_in");
     const ctaOnClick = () => { session?.user?.id ? onNavigate("/app") : onNavigate("/login"); };
 
