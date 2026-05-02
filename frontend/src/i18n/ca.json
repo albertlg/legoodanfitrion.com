@@ -977,6 +977,7 @@
   "contact_email_only": "Només amb correu",
   "contact_phone_only": "Només amb telèfon",
   "contact_any": "Amb correu o telèfon",
+  "filter_sheet_title": "Ordenar i filtrar",
   "sort_by": "Ordenar per",
   "sort_created_desc": "Més recents primer",
   "sort_created_asc": "Més antics primer",

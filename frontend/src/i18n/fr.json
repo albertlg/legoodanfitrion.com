@@ -977,6 +977,7 @@
   "contact_email_only": "Email uniquement",
   "contact_phone_only": "Telephone uniquement",
   "contact_any": "Email ou telephone",
+  "filter_sheet_title": "Trier et filtrer",
   "sort_by": "Trier par",
   "sort_created_desc": "Plus récents d'abord",
   "sort_created_asc": "Plus anciens d'abord",

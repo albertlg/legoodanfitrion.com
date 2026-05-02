@@ -977,6 +977,7 @@
   "contact_email_only": "Solo con email",
   "contact_phone_only": "Solo con teléfono",
   "contact_any": "Con email o teléfono",
+  "filter_sheet_title": "Ordenar y filtrar",
   "sort_by": "Ordenar por",
   "sort_created_desc": "Más recientes primero",
   "sort_created_asc": "Más antiguos primero",

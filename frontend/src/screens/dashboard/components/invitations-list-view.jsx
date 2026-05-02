@@ -4,6 +4,7 @@ import { Icon } from "../../../components/icons";
 import { AvatarCircle } from "../../../components/avatar-circle";
 import { formatEventDateDisplay, getInitials } from "../../../lib/formatters";
 import { ShareCard } from "../../../components/events/ShareCard";
+import { MobileFilterSheet, FilterSheetSelect } from "./mobile-filter-sheet";
 
 export function InvitationsListView({
   t,
@@ -51,6 +52,8 @@ export function InvitationsListView({
   hostAvatarUrl
 }) {
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const isFilterActive = invitationSort !== "created_desc" || invitationEventFilter !== "all";
   const [isSharingInvitationId, setIsSharingInvitationId] = useState("");
   const [shareImageMessage, setShareImageMessage] = useState("");
   const shareCardRefs = useRef({});
@@ -270,7 +273,39 @@ export function InvitationsListView({
 
         {invitationTab === "sent" ? (
           <>
-            <div className="flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
+            {/* TOOLBAR MÓVIL — tab Enviades */}
+            <div className="md:hidden flex gap-2 items-center p-4 border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                  <Icon name="search" className="w-4 h-4" />
+                </span>
+                <input
+                  type="search"
+                  value={invitationSearch}
+                  onChange={(e) => setInvitationSearch(e.target.value)}
+                  placeholder={t("search_invitations_placeholder")}
+                  className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all"
+                />
+              </div>
+              <button
+                type="button"
+                className={`relative shrink-0 p-2.5 rounded-xl border transition-colors ${
+                  isFilterActive
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                    : "border-black/10 dark:border-white/10 bg-white/5 dark:bg-black/20 text-gray-600 dark:text-gray-300"
+                }`}
+                onClick={() => setIsFilterSheetOpen(true)}
+                aria-label={t("filter_sheet_title")}
+              >
+                <Icon name="sliders" className="w-5 h-5" />
+                {isFilterActive && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900" />
+                )}
+              </button>
+            </div>
+
+            {/* TOOLBAR ESCRITORIO — tab Enviades */}
+            <div className="hidden md:flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
               <div className="flex flex-col md:flex-row gap-4 flex-1">
                 <label className="flex flex-col flex-1 max-w-sm">
                   <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
@@ -289,7 +324,6 @@ export function InvitationsListView({
                     />
                   </div>
                 </label>
-
                 <label className="flex flex-col flex-1 max-w-sm">
                   <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                     {t("field_event")}
@@ -308,7 +342,6 @@ export function InvitationsListView({
                   </select>
                 </label>
               </div>
-
               <div className="flex flex-wrap gap-3 items-end">
                 <label className="flex flex-col">
                   <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
@@ -337,14 +370,34 @@ export function InvitationsListView({
                     className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
                   >
                     {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                      <option key={optionValue} value={optionValue}>
-                        {optionValue}
-                      </option>
+                      <option key={optionValue} value={optionValue}>{optionValue}</option>
                     ))}
                   </select>
                 </label>
               </div>
             </div>
+
+            {/* Bottom sheet de filtros — tab Enviades (solo móvil) */}
+            <MobileFilterSheet
+              isOpen={isFilterSheetOpen}
+              onClose={() => setIsFilterSheetOpen(false)}
+              title={t("filter_sheet_title")}
+            >
+              <FilterSheetSelect label={t("field_event")} value={invitationEventFilter} onChange={(e) => setInvitationEventFilter(e.target.value)}>
+                <option value="all">{t("all_events")}</option>
+                {invitationEventOptions.map((eventOption) => (
+                  <option key={`inv-sheet-event-${eventOption.id}`} value={eventOption.id}>
+                    {eventOption.title}
+                  </option>
+                ))}
+              </FilterSheetSelect>
+              <FilterSheetSelect label={t("sort_by")} value={invitationSort} onChange={(e) => setInvitationSort(e.target.value)}>
+                <option value="created_desc">{t("sort_created_desc")}</option>
+                <option value="created_asc">{t("sort_created_asc")}</option>
+                <option value="responded_desc">{t("sort_responded_desc")}</option>
+                <option value="responded_asc">{t("sort_responded_asc")}</option>
+              </FilterSheetSelect>
+            </MobileFilterSheet>
 
             <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
               <div className="flex flex-wrap gap-2 items-center" role="group" aria-label={t("filter_status")}>
@@ -724,47 +777,39 @@ export function InvitationsListView({
           </>
         ) : (
           <div className="flex flex-col relative">
-            <div className="flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
-              <div className="flex flex-col md:flex-row gap-4 flex-1">
-                <label className="flex flex-col flex-1 max-w-sm">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                    {t("search")}
-                  </span>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <Icon name="search" className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="search"
-                      value={receivedSearch}
-                      onChange={(event) => setReceivedSearch(event.target.value)}
-                      placeholder={t("search_invitations_placeholder")}
-                      className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all"
-                    />
-                  </div>
-                </label>
+            {/* TOOLBAR — tab Rebudes (search en ambas vistas; pageSize solo escritorio) */}
+            <div className="flex gap-2 items-center p-4 border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
+              <div className="relative flex-1 max-w-sm">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                  <Icon name="search" className="w-4 h-4" />
+                </span>
+                <input
+                  type="search"
+                  value={receivedSearch}
+                  onChange={(event) => setReceivedSearch(event.target.value)}
+                  placeholder={t("search_invitations_placeholder")}
+                  className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all"
+                />
               </div>
-
-              <div className="flex flex-wrap gap-3 items-end">
-                <label className="flex flex-col">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                    {t("pagination_items_per_page")}
-                  </span>
-                  <select
-                    value={receivedPageSize}
-                    onChange={(event) =>
-                      setReceivedPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)
-                    }
-                    className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((optionValue) => (
-                      <option key={`received-page-size-${optionValue}`} value={optionValue}>
-                        {optionValue}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              {/* pageSize solo visible en escritorio */}
+              <label className="hidden md:flex flex-col ml-auto">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                  {t("pagination_items_per_page")}
+                </span>
+                <select
+                  value={receivedPageSize}
+                  onChange={(event) =>
+                    setReceivedPageSize(Number(event.target.value) || INVITATIONS_PAGE_SIZE_DEFAULT)
+                  }
+                  className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+                >
+                  {PAGE_SIZE_OPTIONS.map((optionValue) => (
+                    <option key={`received-page-size-${optionValue}`} value={optionValue}>
+                      {optionValue}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">

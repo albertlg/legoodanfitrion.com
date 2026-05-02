@@ -37,6 +37,7 @@ const ICON_PATHS = {
 
   // Acciones
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.35-4.35",
+  sliders: "M4 6h16M4 12h16M4 18h16M9 3v6M15 9v6M6 15v6",
   plus: "M12 5v14M5 12h14",
   check: "M20 6 9 17l-5-5",
   close: "M18 6 6 18M6 6l12 12",

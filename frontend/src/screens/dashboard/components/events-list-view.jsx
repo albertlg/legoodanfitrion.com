@@ -1,6 +1,7 @@
-import { useState } from "react"; // <-- Añadido el import de useState
+import { useState } from "react";
 import { Icon } from "../../../components/icons";
 import { formatEventDateDisplay } from "../../../lib/formatters";
+import { MobileFilterSheet, FilterSheetSelect } from "./mobile-filter-sheet";
 
 export function EventsListView({
   t,
@@ -39,8 +40,9 @@ export function EventsListView({
   GeoPointsMapPanel,
   openWorkspace
 }) {
-  // 🟢 1. EL ESTADO DEL MENÚ AÑADIDO AQUÍ
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const isFilterActive = eventSort !== "created_desc";
 
   const statusCounts = eventStatusCounts || {
     all: filteredEvents.length,
@@ -104,8 +106,39 @@ export function EventsListView({
           </div>
         </div>
 
-        {/* 1. TOOLBAR: Buscador y Ordenación */}
-        <div className="flex flex-col md:flex-row gap-4 p-5 md:items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10 backdrop-blur-md">
+        {/* TOOLBAR MÓVIL: búsqueda compacta + botón filtros */}
+        <div className="md:hidden flex gap-2 items-center p-4 border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <Icon name="search" className="w-4 h-4" />
+            </span>
+            <input
+              type="search"
+              value={eventSearch}
+              onChange={(e) => setEventSearch(e.target.value)}
+              placeholder={t("search_events_placeholder")}
+              className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all"
+            />
+          </div>
+          <button
+            type="button"
+            className={`relative shrink-0 p-2.5 rounded-xl border transition-colors ${
+              isFilterActive
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                : "border-black/10 dark:border-white/10 bg-white/5 dark:bg-black/20 text-gray-600 dark:text-gray-300"
+            }`}
+            onClick={() => setIsFilterSheetOpen(true)}
+            aria-label={t("filter_sheet_title")}
+          >
+            <Icon name="sliders" className="w-5 h-5" />
+            {isFilterActive && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900" />
+            )}
+          </button>
+        </div>
+
+        {/* TOOLBAR ESCRITORIO: búsqueda + ordenación + paginación */}
+        <div className="hidden md:flex flex-row gap-4 p-5 items-end justify-between border-b border-black/5 dark:border-white/10 bg-white/20 dark:bg-black/10 backdrop-blur-md">
           <label className="flex flex-col flex-1 max-w-sm">
             <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">{t("search")}</span>
             <div className="relative">
@@ -121,7 +154,6 @@ export function EventsListView({
               />
             </div>
           </label>
-
           <div className="flex flex-wrap gap-3 items-end">
             <label className="flex flex-col">
               <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">{t("sort_by")}</span>
@@ -145,14 +177,27 @@ export function EventsListView({
                 className="w-full bg-white/5 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
               >
                 {pageSizeOptions.map((optionValue) => (
-                  <option key={optionValue} value={optionValue}>
-                    {optionValue}
-                  </option>
+                  <option key={optionValue} value={optionValue}>{optionValue}</option>
                 ))}
               </select>
             </label>
           </div>
         </div>
+
+        {/* Bottom sheet de filtros (solo móvil) */}
+        <MobileFilterSheet
+          isOpen={isFilterSheetOpen}
+          onClose={() => setIsFilterSheetOpen(false)}
+          title={t("filter_sheet_title")}
+        >
+          <FilterSheetSelect label={t("sort_by")} value={eventSort} onChange={(e) => setEventSort(e.target.value)}>
+            <option value="created_desc">{t("sort_created_desc")}</option>
+            <option value="created_asc">{t("sort_created_asc")}</option>
+            <option value="start_asc">{t("sort_date_asc")}</option>
+            <option value="start_desc">{t("sort_date_desc")}</option>
+            <option value="title_asc">{t("sort_title_asc")}</option>
+          </FilterSheetSelect>
+        </MobileFilterSheet>
 
         {/* 2. PESTAÑAS DE FILTRO */}
         <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
