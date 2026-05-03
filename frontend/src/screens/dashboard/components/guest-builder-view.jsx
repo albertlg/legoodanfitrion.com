@@ -523,12 +523,12 @@ export function GuestBuilderView({
                   return (
                     <button
                       key={tabItem.key} type="button" role="tab" aria-selected={isActive}
-                      className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold leading-none transition-all whitespace-nowrap shadow-sm border outline-none ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                      className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold leading-none transition-all whitespace-nowrap shadow-sm border outline-none ${isActive ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
                       onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
                     >
                       <Icon name={tabIcon} className={`w-3.5 h-3.5 shrink-0 ${isActive ? "opacity-100" : "opacity-50"}`} />
                       <span>{tabItem.label}</span>
-                      <span className={`flex items-center justify-center w-3.5 h-3.5 rounded-full shrink-0 ${isActive ? (isCompleted ? "bg-white/20 text-white" : "bg-black/20 text-white") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
+                      <span className={`flex items-center justify-center w-3.5 h-3.5 rounded-full shrink-0 ${isActive ? (isCompleted ? "bg-white/25 dark:bg-black/20 text-white dark:text-gray-900" : "bg-white/15 dark:bg-black/15 text-white dark:text-gray-900") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
                         <Icon name={isCompleted ? "check" : "clock"} className="w-2.5 h-2.5" />
                       </span>
                     </button>
