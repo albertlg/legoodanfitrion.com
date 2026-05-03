@@ -184,48 +184,77 @@ export function GuestsListView({
                     </FilterSheetSelect>
                 </MobileFilterSheet>
 
-                {/* 2. PESTAÑAS DE FILTRO Y KPIs */}
-                <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
-                    <div className="flex flex-wrap gap-2 items-center" role="group">
-                        {[
-                            { key: "all", label: t("all_contacts") },
-                            { key: "contact", label: t("contact_any") },
-                            { key: "email", label: t("contact_email_only") },
-                            { key: "phone", label: t("contact_phone_only") }
-                        ].map((contactOption) => {
-                            const isActive = guestContactFilter === contactOption.key;
-                            return (
-                                <button
-                                    key={contactOption.key}
-                                    className={isActive
-                                        ? "bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                                        : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                                    }
-                                    type="button"
-                                    aria-pressed={isActive}
-                                    onClick={() => setGuestContactFilter(contactOption.key)}
-                                >
-                                    {contactOption.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white mt-6 mb-4">
-                            {t("results_count")}: {filteredGuests.length}
-                        </h3>
-                        <div className="flex flex-wrap gap-2 mt-6 mb-4">
-                            <span className="px-2 py-1 bg-blue-100/80 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-md text-[10px] font-bold uppercase tracking-wider border border-blue-200 dark:border-blue-800/50 backdrop-blur-sm">
-                                {t("host_potential_count_label")} {hostPotentialGuestsCount}
-                            </span>
-                            <span className="px-2 py-1 bg-green-100/80 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-md text-[10px] font-bold uppercase tracking-wider border border-green-200 dark:border-green-800/50 backdrop-blur-sm">
-                                {t("host_converted_count_label")} {convertedHostGuestsCount}
-                            </span>
-                            <span className="px-2 py-1 bg-yellow-100/80 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 rounded-md text-[10px] font-bold uppercase tracking-wider border border-yellow-200 dark:border-yellow-800/50 backdrop-blur-sm">
-                                {t("host_pending_conversion_label")} {pendingHostGuestsCount}
-                            </span>
+                {/* 2. CHIPS DE FILTRO Y KPIs */}
+                <div className="px-5 pt-3 pb-2 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
+                    <div className="relative">
+                        <div
+                            className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8"
+                            role="group"
+                        >
+                            {[
+                                { key: "all", label: t("all_contacts") },
+                                { key: "contact", label: t("contact_any") },
+                                { key: "email", label: t("contact_email_only") },
+                                { key: "phone", label: t("contact_phone_only") }
+                            ].map((contactOption) => {
+                                const isActive = guestContactFilter === contactOption.key;
+                                return (
+                                    <button
+                                        key={contactOption.key}
+                                        type="button"
+                                        aria-pressed={isActive}
+                                        onClick={() => setGuestContactFilter(contactOption.key)}
+                                        className={`shrink-0 inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                                            isActive
+                                                ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm"
+                                                : "bg-white/60 dark:bg-white/10 text-gray-600 dark:text-gray-300 border border-black/10 dark:border-white/15 hover:bg-white dark:hover:bg-white/20"
+                                        }`}
+                                    >
+                                        {contactOption.label}
+                                    </button>
+                                );
+                            })}
                         </div>
+                        {/* Scroll affordance — right fade */}
+                        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-gray-100 dark:from-gray-900 to-transparent" />
+                    </div>
+                    {/* Mini host-conversion strip + results — ≈32px high */}
+                    <div className="flex items-center gap-3 pt-2">
+                        {/* Segmented progress bar + dot·count legend */}
+                        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                            <div className="flex h-1 rounded-full overflow-hidden bg-black/10 dark:bg-white/10">
+                                {hostPotentialGuestsCount > 0 && (
+                                    <>
+                                        <div
+                                            className="bg-green-500 transition-all duration-500"
+                                            style={{ width: `${Math.round((convertedHostGuestsCount / hostPotentialGuestsCount) * 100)}%` }}
+                                        />
+                                        <div
+                                            className="bg-amber-400 transition-all duration-500"
+                                            style={{ width: `${Math.round((pendingHostGuestsCount / hostPotentialGuestsCount) * 100)}%` }}
+                                        />
+                                    </>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2.5 text-[10px] font-semibold">
+                                <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400" title={t("host_potential_count_label")}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                    {hostPotentialGuestsCount}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title={t("host_converted_count_label")}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                                    {convertedHostGuestsCount}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-amber-500 dark:text-amber-400" title={t("host_pending_conversion_label")}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                    {pendingHostGuestsCount}
+                                </span>
+                            </div>
+                        </div>
+                        {/* Results count */}
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium shrink-0">
+                            {t("results_count")}: <span className="font-semibold">{filteredGuests.length}</span>
+                        </p>
                     </div>
                 </div>
 

@@ -199,37 +199,48 @@ export function EventsListView({
           </FilterSheetSelect>
         </MobileFilterSheet>
 
-        {/* 2. PESTAÑAS DE FILTRO */}
-        <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
-          <div className="flex flex-wrap gap-2 items-center" role="group" aria-label={t("filter_status")}>
-            {[
-              { key: "all", label: t("all_status") },
-              { key: "published", label: t("status_published") },
-              { key: "draft", label: t("status_draft") },
-              { key: "completed", label: t("status_completed") },
-              { key: "cancelled", label: t("status_cancelled") }
-            ].map((statusOption) => {
-              const isActive = eventStatusFilter === statusOption.key;
-              return (
-                <button
-                  key={statusOption.key}
-                  className={isActive
-                    ? "bg-gray-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                  }
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => setEventStatusFilter(statusOption.key)}
-                >
-                  {statusOption.label} <span className="opacity-70 text-[10px] ml-1">({statusCounts[statusOption.key] || 0})</span>
-                </button>
-              );
-            })}
+        {/* 2. CHIPS DE FILTRO */}
+        <div className="px-5 pt-3 pb-2 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
+          <div className="relative">
+            <div
+              className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8"
+              role="group"
+              aria-label={t("filter_status")}
+            >
+              {[
+                { key: "all", label: t("all_status") },
+                { key: "published", label: t("status_published") },
+                { key: "draft", label: t("status_draft") },
+                { key: "completed", label: t("status_completed") },
+                { key: "cancelled", label: t("status_cancelled") }
+              ].map((statusOption) => {
+                const isActive = eventStatusFilter === statusOption.key;
+                return (
+                  <button
+                    key={statusOption.key}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => setEventStatusFilter(statusOption.key)}
+                    className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                      isActive
+                        ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm"
+                        : "bg-white/60 dark:bg-white/10 text-gray-600 dark:text-gray-300 border border-black/10 dark:border-white/15 hover:bg-white dark:hover:bg-white/20"
+                    }`}
+                  >
+                    {statusOption.label}
+                    <span className={`text-[10px] font-normal tabular-nums ${isActive ? "opacity-60" : "opacity-40"}`}>
+                      {statusCounts[statusOption.key] || 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Scroll affordance — right fade */}
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-gray-100 dark:from-gray-900 to-transparent" />
           </div>
-
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white mt-6 mb-4">
-            {t("results_count")}: {filteredEvents.length}
-          </h3>
+          <p className="text-right text-[11px] text-gray-400 dark:text-gray-500 font-medium pt-1.5">
+            {t("results_count")}: <span className="font-semibold">{filteredEvents.length}</span>
+          </p>
         </div>
 
         {/* 3. TABLA / LISTA */}

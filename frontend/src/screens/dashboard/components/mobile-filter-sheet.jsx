@@ -29,16 +29,16 @@ export function MobileFilterSheet({ isOpen, onClose, title, children }) {
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-0 z-[9992] bg-black/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Sheet panel */}
+      {/* Sheet panel — offset by nav bar height (≈64 px) so it slides up above the bottom nav */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-[201] transform transition-transform duration-300 ease-out md:hidden ${
+        className={`fixed bottom-16 left-0 right-0 z-[9993] transform transition-transform duration-300 ease-out md:hidden ${
           isOpen ? "translate-y-0" : "translate-y-full"
         }`}
         role="dialog"

@@ -399,37 +399,45 @@ export function InvitationsListView({
               </FilterSheetSelect>
             </MobileFilterSheet>
 
-            <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
-              <div className="flex flex-wrap gap-2 items-center" role="group" aria-label={t("filter_status")}>
-                {[
-                  { key: "all", label: t("all_status") },
-                  { key: "pending", label: t("status_pending") },
-                  { key: "yes", label: t("status_yes") },
-                  { key: "maybe", label: t("status_maybe") },
-                  { key: "no", label: t("status_no") }
-                ].map((statusOption) => {
-                  const isActive = invitationStatusFilter === statusOption.key;
-                  return (
-                    <button
-                      key={statusOption.key}
-                      className={
-                        isActive
-                          ? "bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                          : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                      }
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => setInvitationStatusFilter(statusOption.key)}
-                    >
-                      {statusOption.label}
-                    </button>
-                  );
-                })}
+            {/* CHIPS DE FILTRO — tab Enviades */}
+            <div className="px-5 pt-3 pb-2 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
+              <div className="relative">
+                <div
+                  className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8"
+                  role="group"
+                  aria-label={t("filter_status")}
+                >
+                  {[
+                    { key: "all", label: t("all_status") },
+                    { key: "pending", label: t("status_pending") },
+                    { key: "yes", label: t("status_yes") },
+                    { key: "maybe", label: t("status_maybe") },
+                    { key: "no", label: t("status_no") }
+                  ].map((statusOption) => {
+                    const isActive = invitationStatusFilter === statusOption.key;
+                    return (
+                      <button
+                        key={statusOption.key}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setInvitationStatusFilter(statusOption.key)}
+                        className={`shrink-0 inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                          isActive
+                            ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm"
+                            : "bg-white/60 dark:bg-white/10 text-gray-600 dark:text-gray-300 border border-black/10 dark:border-white/15 hover:bg-white dark:hover:bg-white/20"
+                        }`}
+                      >
+                        {statusOption.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Scroll affordance — right fade */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-gray-100 dark:from-gray-900 to-transparent" />
               </div>
-
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white mt-6 mb-4">
-                {t("results_count")}: {filteredInvitations.length}
-              </h3>
+              <p className="text-right text-[11px] text-gray-400 dark:text-gray-500 font-medium pt-1.5">
+                {t("results_count")}: <span className="font-semibold">{filteredInvitations.length}</span>
+              </p>
             </div>
 
             {invitationMessage || shareImageMessage ? (
@@ -812,37 +820,45 @@ export function InvitationsListView({
               </label>
             </div>
 
-            <div className="flex flex-col px-5 py-4 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
-              <div className="flex flex-wrap gap-2 items-center" role="group" aria-label={t("filter_status")}>
-                {[
-                  { key: "all", label: t("all_status") },
-                  { key: "pending", label: t("status_pending") },
-                  { key: "yes", label: t("status_yes") },
-                  { key: "maybe", label: t("status_maybe") },
-                  { key: "no", label: t("status_no") }
-                ].map((statusOption) => {
-                  const isActive = receivedStatusFilter === statusOption.key;
-                  return (
-                    <button
-                      key={`received-status-${statusOption.key}`}
-                      className={
-                        isActive
-                          ? "bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                          : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                      }
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => setReceivedStatusFilter(statusOption.key)}
-                    >
-                      {statusOption.label}
-                    </button>
-                  );
-                })}
+            {/* CHIPS DE FILTRO — tab Rebudes */}
+            <div className="px-5 pt-3 pb-2 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-md">
+              <div className="relative">
+                <div
+                  className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8"
+                  role="group"
+                  aria-label={t("filter_status")}
+                >
+                  {[
+                    { key: "all", label: t("all_status") },
+                    { key: "pending", label: t("status_pending") },
+                    { key: "yes", label: t("status_yes") },
+                    { key: "maybe", label: t("status_maybe") },
+                    { key: "no", label: t("status_no") }
+                  ].map((statusOption) => {
+                    const isActive = receivedStatusFilter === statusOption.key;
+                    return (
+                      <button
+                        key={`received-status-${statusOption.key}`}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setReceivedStatusFilter(statusOption.key)}
+                        className={`shrink-0 inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                          isActive
+                            ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm"
+                            : "bg-white/60 dark:bg-white/10 text-gray-600 dark:text-gray-300 border border-black/10 dark:border-white/15 hover:bg-white dark:hover:bg-white/20"
+                        }`}
+                      >
+                        {statusOption.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Scroll affordance — right fade */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-gray-100 dark:from-gray-900 to-transparent" />
               </div>
-
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white mt-6 mb-4">
-                {t("results_count")}: {filteredReceivedInvitations.length}
-              </h3>
+              <p className="text-right text-[11px] text-gray-400 dark:text-gray-500 font-medium pt-1.5">
+                {t("results_count")}: <span className="font-semibold">{filteredReceivedInvitations.length}</span>
+              </p>
             </div>
 
             {filteredReceivedInvitations.length === 0 ? (

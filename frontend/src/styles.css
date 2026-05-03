@@ -169,6 +169,14 @@ body {
   }
 }
 
+/* Hide native scrollbar while keeping scroll functionality */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* --- AÑADE ESTA LÍNEA AQUÍ --- */
 @layer components {
 
