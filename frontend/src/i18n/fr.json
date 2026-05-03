@@ -1908,6 +1908,7 @@
   "host_checklist_auto_badge": "Auto",
   "host_checklist_item_open_action": "Ouvrir",
   "host_checklist_item_unavailable_action": "Pas encore disponible",
+  "host_checklist_all_done": "Tout est prêt ! Checklist complété",
   "host_checklist_item_create_event": "Crée ton événement",
   "host_checklist_item_send_invitations": "Envoie les invitations",
   "host_checklist_item_first_confirmation": "Obtiens ta première confirmation",
