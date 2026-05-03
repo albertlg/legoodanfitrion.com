@@ -290,8 +290,16 @@ export function DashboardOverview({
                         </div>
 
                         {upcomingEventsPreview.length === 0 ? (
-                            <div className="py-8 text-center bg-black/5 dark:bg-white/5 rounded-2xl border border-dashed border-black/10 dark:border-white/10">
+                            <div className="py-8 text-center bg-black/5 dark:bg-white/5 rounded-2xl border border-dashed border-black/10 dark:border-white/10 flex flex-col items-center gap-4">
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{t("overview_upcoming_empty")}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => openWorkspace("events", "create")}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
+                                >
+                                    <Icon name="plus" className="w-4 h-4" />
+                                    {t("overview_upcoming_cta_create")}
+                                </button>
                             </div>
                         ) : (
                             <ul className="flex flex-col gap-3">
@@ -378,8 +386,9 @@ export function DashboardOverview({
                                 </p>
                             </div>
                         ) : (
+                            <>
                             <ul className="flex flex-col gap-3">
-                                {receivedInvitations.slice(0, 6).map((invitationItem) => {
+                                {receivedInvitations.slice(0, 3).map((invitationItem) => {
                                     const hostName = String(invitationItem.host_full_name || "").trim() || t("host_default_name");
                                     const eventTitle =
                                         String(invitationItem.event_title || "").trim() || t("field_event");
@@ -430,6 +439,16 @@ export function DashboardOverview({
                                     );
                                 })}
                             </ul>
+                            {receivedInvitations.length > 3 && (
+                                <button
+                                    type="button"
+                                    onClick={() => openWorkspace("invitations", "latest")}
+                                    className="w-full py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 active:bg-emerald-100 dark:active:bg-emerald-900/30 rounded-xl transition-colors"
+                                >
+                                    {t("overview_received_invitations_see_all")} ({receivedInvitations.length}) →
+                                </button>
+                            )}
+                            </>
                         )}
                     </article>
 
@@ -446,8 +465,9 @@ export function DashboardOverview({
                         {recentActivityItems.length === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400 italic py-4">{t("recent_activity_empty")}</p>
                         ) : (
+                            <>
                             <ul className="flex flex-col gap-2">
-                                {recentActivityItems.slice(0, 6).map((activityItem) => {
+                                {recentActivityItems.slice(0, 3).map((activityItem) => {
                                     // LÓGICA DE COLORES E ICONOS PARA ACTIVIDAD (RSVP, ETC)
                                     const statusVal = String(activityItem.status).toLowerCase();
                                     let iconColors = "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400";
@@ -479,6 +499,16 @@ export function DashboardOverview({
                                     );
                                 })}
                             </ul>
+                            {recentActivityItems.length > 3 && (
+                                <button
+                                    type="button"
+                                    onClick={() => openWorkspace("invitations", "latest")}
+                                    className="w-full py-2.5 text-xs font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 active:bg-purple-100 dark:active:bg-purple-900/30 rounded-xl transition-colors"
+                                >
+                                    {t("overview_activity_see_all")} ({recentActivityItems.length}) →
+                                </button>
+                            )}
+                            </>
                         )}
                     </article>
                 </div>
