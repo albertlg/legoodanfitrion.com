@@ -63,7 +63,7 @@ export function MultiSelectField({ id, label, value, options, onChange, helpText
       <div className="relative mt-1">
         <input
           type="text"
-          className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl pl-4 pr-24 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm"
+          className="w-full bg-white dark:bg-gray-800 border border-black/10 dark:border-white/10 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl pl-4 pr-24 py-2.5 text-sm text-gray-900 dark:text-white transition-colors outline-none shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-600"
           value={customOption}
           onChange={(event) => setCustomOption(event.target.value)}
           onKeyDown={(event) => {

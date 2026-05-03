@@ -585,139 +585,160 @@ export function GuestBuilderView({
             </div>
           </div>
 
-          <div className="flex flex-col gap-6 py-5 px-4 sm:px-6">
+          <div className="flex flex-col gap-5 py-5 px-4 sm:px-6">
+
+            {/* ── IDENTITAT ── */}
             {guestAdvancedEditTab === "identity" && (
-              <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.identity = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestAddress">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_address")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.address} id="advGuestAddress" name="guest_address" onChange={(event) => { const nextValue = event.target.value; setGuestAdvancedField("address", nextValue); if (selectedGuestAddressPlace && normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)) { setSelectedGuestAddressPlace(null); } }} placeholder={t("placeholder_address")} autoComplete="off" />
+              <section className="scroll-mt-[320px] sm:scroll-mt-[200px] flex flex-col gap-4" ref={(node) => { guestAdvancedSectionRefs.current.identity = node; }}>
+
+                {/* Grup: Ubicació */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestAddress">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_address")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.address} id="advGuestAddress" name="guest_address" onChange={(event) => { const nextValue = event.target.value; setGuestAdvancedField("address", nextValue); if (selectedGuestAddressPlace && normalizeLookupValue(nextValue) !== normalizeLookupValue(selectedGuestAddressPlace.formattedAddress)) { setSelectedGuestAddressPlace(null); } }} placeholder={t("placeholder_address")} autoComplete="off" />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestPostalCode">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_postal_code")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.postalCode} id="advGuestPostalCode" name="guest_postalCode" onChange={(event) => setGuestAdvancedField("postalCode", event.target.value)} placeholder={t("placeholder_postal_code")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestPostalCode">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_postal_code")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.postalCode} id="advGuestPostalCode" name="guest_postalCode" onChange={(event) => setGuestAdvancedField("postalCode", event.target.value)} placeholder={t("placeholder_postal_code")} />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestStateRegion">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_state_region")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.stateRegion} id="advGuestStateRegion" name="guest_stateRegion" onChange={(event) => setGuestAdvancedField("stateRegion", event.target.value)} placeholder={t("placeholder_state_region")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestStateRegion">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_state_region")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.stateRegion} id="advGuestStateRegion" name="guest_stateRegion" onChange={(event) => setGuestAdvancedField("stateRegion", event.target.value)} placeholder={t("placeholder_state_region")} />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestBirthday">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_birthday")}</span>
-                    <input type="date" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.birthday} id="advGuestBirthday" name="guest_birthday" onChange={(event) => setGuestAdvancedField("birthday", event.target.value)} />
+                </div>
+
+                {/* Grup: Dates */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestBirthday">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_birthday")}</span>
+                    <input type="date" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none" value={guestAdvanced.birthday} id="advGuestBirthday" name="guest_birthday" onChange={(event) => setGuestAdvancedField("birthday", event.target.value)} />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestLastMeetAt">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_last_meet")}</span>
-                    <input type="date" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.lastMeetAt} id="advGuestLastMeetAt" name="guest_lastMeetAt" onChange={(event) => setGuestAdvancedField("lastMeetAt", event.target.value)} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestLastMeetAt">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_last_meet")}</span>
+                    <input type="date" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none" value={guestAdvanced.lastMeetAt} id="advGuestLastMeetAt" name="guest_lastMeetAt" onChange={(event) => setGuestAdvancedField("lastMeetAt", event.target.value)} />
                   </label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10">
-                    <label className="flex flex-col gap-1.5" htmlFor="advGuestTwitter">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">X / Twitter</span>
-                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.twitter} id="advGuestTwitter" name="guest_twitter" onChange={(event) => setGuestAdvancedField("twitter", event.target.value)} placeholder={t("placeholder_social_x")} />
-                    </label>
-                    <label className="flex flex-col gap-1.5" htmlFor="advGuestInstagram">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Instagram</span>
-                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.instagram} id="advGuestInstagram" name="guest_instagram" onChange={(event) => setGuestAdvancedField("instagram", event.target.value)} placeholder={t("placeholder_social_instagram")} />
-                    </label>
-                    <label className="flex flex-col gap-1.5" htmlFor="advGuestLinkedIn">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">LinkedIn</span>
-                      <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.linkedIn} id="advGuestLinkedIn" name="guest_linkedIn" onChange={(event) => setGuestAdvancedField("linkedIn", event.target.value)} placeholder={t("placeholder_social_linkedin")} />
-                    </label>
-                  </div>
+                </div>
+
+                {/* Grup: Xarxes socials */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestTwitter">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">X / Twitter</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.twitter} id="advGuestTwitter" name="guest_twitter" onChange={(event) => setGuestAdvancedField("twitter", event.target.value)} placeholder={t("placeholder_social_x")} />
+                  </label>
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestInstagram">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Instagram</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.instagram} id="advGuestInstagram" name="guest_instagram" onChange={(event) => setGuestAdvancedField("instagram", event.target.value)} placeholder={t("placeholder_social_instagram")} />
+                  </label>
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestLinkedIn">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">LinkedIn</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.linkedIn} id="advGuestLinkedIn" name="guest_linkedIn" onChange={(event) => setGuestAdvancedField("linkedIn", event.target.value)} placeholder={t("placeholder_social_linkedin")} />
+                  </label>
                 </div>
               </section>
             )}
 
+            {/* ── ALIMENTACIÓ ── */}
             {guestAdvancedEditTab === "food" && (
-              <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.food = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestDietType">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_diet_type")}</span>
-                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.dietType} id="advGuestDietType" name="guest_dietType" onChange={(event) => setGuestAdvancedField("dietType", event.target.value)}>
+              <section className="scroll-mt-[320px] sm:scroll-mt-[200px] flex flex-col gap-4" ref={(node) => { guestAdvancedSectionRefs.current.food = node; }}>
+
+                {/* Grup: Dieta i preferències de text */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestDietType">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_diet_type")}</span>
+                    <select className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none appearance-none" value={guestAdvanced.dietType} id="advGuestDietType" name="guest_dietType" onChange={(event) => setGuestAdvancedField("dietType", event.target.value)}>
                       <option value="">{t("select_option_prompt")}</option>
                       {dietTypeOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
                     </select>
                   </label>
-
-                  <div className="md:col-span-2"><MultiSelectField id="guest-cuisine-types" name="guest_cuisineTypes" label={t("field_cuisine_type")} value={guestAdvanced.cuisineTypes} options={cuisineTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("cuisineTypes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <div className="md:col-span-2"><MultiSelectField id="guest-tasting-preferences" name="guest_tastingPreferences" label={t("field_tasting_preferences")} value={guestAdvanced.tastingPreferences} options={tastingPreferenceOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("tastingPreferences", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestFoodLikes">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_food_likes")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.foodLikes} id="advGuestFoodLikes" name="guest_foodLikes" onChange={(event) => setGuestAdvancedField("foodLikes", event.target.value)} placeholder={t("placeholder_food_likes")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestFoodLikes">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_food_likes")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.foodLikes} id="advGuestFoodLikes" name="guest_foodLikes" onChange={(event) => setGuestAdvancedField("foodLikes", event.target.value)} placeholder={t("placeholder_food_likes")} />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestFoodDislikes">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_food_dislikes")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.foodDislikes} id="advGuestFoodDislikes" name="guest_foodDislikes" onChange={(event) => setGuestAdvancedField("foodDislikes", event.target.value)} placeholder={t("placeholder_food_dislikes")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestFoodDislikes">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_food_dislikes")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.foodDislikes} id="advGuestFoodDislikes" name="guest_foodDislikes" onChange={(event) => setGuestAdvancedField("foodDislikes", event.target.value)} placeholder={t("placeholder_food_dislikes")} />
                   </label>
-
-                  <div className="md:col-span-2"><MultiSelectField id="guest-drink-likes" name="guest_drinkLikes" label={t("field_drink_likes")} value={guestAdvanced.drinkLikes} options={drinkOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkLikes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <div className="md:col-span-2"><MultiSelectField id="guest-drink-dislikes" name="guest_drinkDislikes" label={t("field_drink_dislikes")} value={guestAdvanced.drinkDislikes} options={drinkOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkDislikes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                 </div>
+
+                {/* Multi-selects solts */}
+                <MultiSelectField id="guest-cuisine-types" name="guest_cuisineTypes" label={t("field_cuisine_type")} value={guestAdvanced.cuisineTypes} options={cuisineTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("cuisineTypes", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-tasting-preferences" name="guest_tastingPreferences" label={t("field_tasting_preferences")} value={guestAdvanced.tastingPreferences} options={tastingPreferenceOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("tastingPreferences", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-drink-likes" name="guest_drinkLikes" label={t("field_drink_likes")} value={guestAdvanced.drinkLikes} options={drinkOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkLikes", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-drink-dislikes" name="guest_drinkDislikes" label={t("field_drink_dislikes")} value={guestAdvanced.drinkDislikes} options={drinkOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("drinkDislikes", nextValue)} helpText={t("multi_select_hint")} t={t} />
               </section>
             )}
 
+            {/* ── ESTIL DE VIDA ── */}
             {guestAdvancedEditTab === "lifestyle" && (
-              <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.lifestyle = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  <div className="md:col-span-2"><MultiSelectField id="guest-experience-types" name="guest_experienceTypes" label={t("field_experience_type")} value={guestAdvanced.experienceTypes} options={eventTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("experienceTypes", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <div className="md:col-span-2"><MultiSelectField id="guest-music-genres" name="guest_musicGenres" label={t("field_music_genres")} value={guestAdvanced.musicGenres} options={musicGenreOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("musicGenres", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
+              <section className="scroll-mt-[320px] sm:scroll-mt-[200px] flex flex-col gap-4" ref={(node) => { guestAdvancedSectionRefs.current.lifestyle = node; }}>
 
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestFavColor">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_favorite_color")}</span>
-                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.favoriteColor} id="advGuestFavColor" name="guest_favoriteColor" onChange={(event) => setGuestAdvancedField("favoriteColor", event.target.value)}>
+                {/* Multi-selects solts */}
+                <MultiSelectField id="guest-experience-types" name="guest_experienceTypes" label={t("field_experience_type")} value={guestAdvanced.experienceTypes} options={eventTypeOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("experienceTypes", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-music-genres" name="guest_musicGenres" label={t("field_music_genres")} value={guestAdvanced.musicGenres} options={musicGenreOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("musicGenres", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-sports" name="guest_sports" label={t("field_sport")} value={guestAdvanced.sports} options={sportOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("sports", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-pets" name="guest_pets" label={t("field_pets")} value={guestAdvanced.pets} options={petOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("pets", nextValue)} helpText={t("multi_select_hint")} t={t} />
+
+                {/* Grup: Cultura i oci */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestFavColor">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_favorite_color")}</span>
+                    <select className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none appearance-none" value={guestAdvanced.favoriteColor} id="advGuestFavColor" name="guest_favoriteColor" onChange={(event) => setGuestAdvancedField("favoriteColor", event.target.value)}>
                       <option value="">{t("select_option_prompt")}</option>
                       {colorOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestBooks">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_books")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.books} id="advGuestBooks" name="guest_books" onChange={(event) => setGuestAdvancedField("books", event.target.value)} placeholder={t("placeholder_books")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestBooks">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_books")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.books} id="advGuestBooks" name="guest_books" onChange={(event) => setGuestAdvancedField("books", event.target.value)} placeholder={t("placeholder_books")} />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestMovies">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_movies")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.movies} id="advGuestMovies" name="guest_movies" onChange={(event) => setGuestAdvancedField("movies", event.target.value)} placeholder={t("placeholder_movies")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestMovies">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_movies")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.movies} id="advGuestMovies" name="guest_movies" onChange={(event) => setGuestAdvancedField("movies", event.target.value)} placeholder={t("placeholder_movies")} />
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestSeries">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_series")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.series} id="advGuestSeries" name="guest_series" onChange={(event) => setGuestAdvancedField("series", event.target.value)} placeholder={t("placeholder_series")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestSeries">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_series")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.series} id="advGuestSeries" name="guest_series" onChange={(event) => setGuestAdvancedField("series", event.target.value)} placeholder={t("placeholder_series")} />
                   </label>
-
-                  <div className="md:col-span-2"><MultiSelectField id="guest-sports" name="guest_sports" label={t("field_sport")} value={guestAdvanced.sports} options={sportOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("sports", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestTeamFan">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_team_fan")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.teamFan} id="advGuestTeamFan" name="guest_teamFan" onChange={(event) => setGuestAdvancedField("teamFan", event.target.value)} placeholder={t("placeholder_team")} />
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestTeamFan">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_team_fan")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.teamFan} id="advGuestTeamFan" name="guest_teamFan" onChange={(event) => setGuestAdvancedField("teamFan", event.target.value)} placeholder={t("placeholder_team")} />
                   </label>
-
-                  <div className="md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10"><MultiSelectField id="guest-pets" name="guest_pets" label={t("field_pets")} value={guestAdvanced.pets} options={petOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("pets", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
                 </div>
               </section>
             )}
 
+            {/* ── CONVERSA ── */}
             {guestAdvancedEditTab === "conversation" && (
-              <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.conversation = node; }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  <div className="md:col-span-2"><MultiSelectField id="guest-preferred-relationships" name="guest_preferredRelationships" label={t("field_relationship")} value={guestAdvanced.preferredGuestRelationships} options={relationshipOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredGuestRelationships", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
+              <section className="scroll-mt-[320px] sm:scroll-mt-[200px] flex flex-col gap-4" ref={(node) => { guestAdvancedSectionRefs.current.conversation = node; }}>
 
-                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestLastTalkTopic">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_last_talk_topic")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.lastTalkTopic} id="advGuestLastTalkTopic" name="guest_lastTalkTopic" onChange={(event) => setGuestAdvancedField("lastTalkTopic", event.target.value)} placeholder={t("placeholder_talk_topic")} />
-                  </label>
-                  <label className="flex flex-col gap-1.5 md:col-span-2" htmlFor="advGuestTabooTopics">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_taboo_topics")}</span>
-                    <input type="text" className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm" value={guestAdvanced.tabooTopics} id="advGuestTabooTopics" name="guest_tabooTopics" onChange={(event) => setGuestAdvancedField("tabooTopics", event.target.value)} placeholder={t("placeholder_food_likes")} />
-                  </label>
+                <MultiSelectField id="guest-preferred-relationships" name="guest_preferredRelationships" label={t("field_relationship")} value={guestAdvanced.preferredGuestRelationships} options={relationshipOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredGuestRelationships", nextValue)} helpText={t("multi_select_hint")} t={t} />
 
-                  <div className="md:col-span-2 pt-4 border-t border-black/5 dark:border-white/10"><MultiSelectField id="guest-day-moments" name="guest_preferredDayMoments" label={t("field_day_moment")} value={guestAdvanced.preferredDayMoments} options={dayMomentOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredDayMoments", nextValue)} helpText={t("multi_select_hint")} t={t} /></div>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestPeriodicity">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_periodicity")}</span>
-                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.periodicity} id="advGuestPeriodicity" name="guest_periodicity" onChange={(event) => setGuestAdvancedField("periodicity", event.target.value)}>
+                {/* Grup: Temes de conversa */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestLastTalkTopic">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_last_talk_topic")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.lastTalkTopic} id="advGuestLastTalkTopic" name="guest_lastTalkTopic" onChange={(event) => setGuestAdvancedField("lastTalkTopic", event.target.value)} placeholder={t("placeholder_talk_topic")} />
+                  </label>
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestTabooTopics">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_taboo_topics")}</span>
+                    <input type="text" className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600" value={guestAdvanced.tabooTopics} id="advGuestTabooTopics" name="guest_tabooTopics" onChange={(event) => setGuestAdvancedField("tabooTopics", event.target.value)} placeholder={t("placeholder_food_likes")} />
+                  </label>
+                </div>
+
+                <MultiSelectField id="guest-day-moments" name="guest_preferredDayMoments" label={t("field_day_moment")} value={guestAdvanced.preferredDayMoments} options={dayMomentOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("preferredDayMoments", nextValue)} helpText={t("multi_select_hint")} t={t} />
+
+                {/* Grup: Hàbits */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="advGuestPeriodicity">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_periodicity")}</span>
+                    <select className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none appearance-none" value={guestAdvanced.periodicity} id="advGuestPeriodicity" name="guest_periodicity" onChange={(event) => setGuestAdvancedField("periodicity", event.target.value)}>
                       <option value="">{t("select_option_prompt")}</option>
                       {periodicityOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1.5" htmlFor="advGuestPunctuality">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_punctuality")}</span>
-                    <select className="w-full bg-white/70 dark:bg-black/40 border-2 border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none" value={guestAdvanced.punctuality} id="advGuestPunctuality" name="guest_punctuality" onChange={(event) => setGuestAdvancedField("punctuality", event.target.value)}>
+                  <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="advGuestPunctuality">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_punctuality")}</span>
+                    <select className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none appearance-none" value={guestAdvanced.punctuality} id="advGuestPunctuality" name="guest_punctuality" onChange={(event) => setGuestAdvancedField("punctuality", event.target.value)}>
                       <option value="">{t("select_option_prompt")}</option>
                       {punctualityOptions.map((optionValue) => (<option key={optionValue} value={optionValue}>{optionValue}</option>))}
                     </select>
@@ -726,23 +747,22 @@ export function GuestBuilderView({
               </section>
             )}
 
+            {/* ── SALUT ── */}
             {guestAdvancedEditTab === "health" && (
-              <section className="scroll-mt-[320px] sm:scroll-mt-[200px]" ref={(node) => { guestAdvancedSectionRefs.current.health = node; }}>
-                <div className="grid grid-cols-1 gap-6">
-                  <MultiSelectField id="guest-allergies" name="guest_allergies" label={t("field_allergies")} value={guestAdvanced.allergies} options={allergyOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("allergies", nextValue)} helpText={t("multi_select_hint")} t={t} />
-                  <MultiSelectField id="guest-intolerances" name="guest_intolerances" label={t("field_intolerances")} value={guestAdvanced.intolerances} options={intoleranceOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("intolerances", nextValue)} helpText={t("multi_select_hint")} t={t} />
-                  <MultiSelectField id="guest-pet-allergies" name="guest_petAllergies" label={t("field_pet_allergies")} value={guestAdvanced.petAllergies} options={petAllergyOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("petAllergies", nextValue)} helpText={t("multi_select_hint")} t={t} />
-                  <MultiSelectField id="guest-medical-conditions" name="guest_medicalConditions" label={t("field_medical_conditions")} value={guestAdvanced.medicalConditions} options={medicalConditionOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("medicalConditions", nextValue)} helpText={t("multi_select_hint")} t={t} />
-                  <MultiSelectField id="guest-dietary-medical-restrictions" name="guest_dietaryMedicalRestrictions" label={t("field_dietary_medical_restrictions")} value={guestAdvanced.dietaryMedicalRestrictions} options={dietaryMedicalRestrictionOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("dietaryMedicalRestrictions", nextValue)} helpText={t("multi_select_hint")} t={t} />
+              <section className="scroll-mt-[320px] sm:scroll-mt-[200px] flex flex-col gap-4" ref={(node) => { guestAdvancedSectionRefs.current.health = node; }}>
+                <MultiSelectField id="guest-allergies" name="guest_allergies" label={t("field_allergies")} value={guestAdvanced.allergies} options={allergyOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("allergies", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-intolerances" name="guest_intolerances" label={t("field_intolerances")} value={guestAdvanced.intolerances} options={intoleranceOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("intolerances", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-pet-allergies" name="guest_petAllergies" label={t("field_pet_allergies")} value={guestAdvanced.petAllergies} options={petAllergyOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("petAllergies", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-medical-conditions" name="guest_medicalConditions" label={t("field_medical_conditions")} value={guestAdvanced.medicalConditions} options={medicalConditionOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("medicalConditions", nextValue)} helpText={t("multi_select_hint")} t={t} />
+                <MultiSelectField id="guest-dietary-medical-restrictions" name="guest_dietaryMedicalRestrictions" label={t("field_dietary_medical_restrictions")} value={guestAdvanced.dietaryMedicalRestrictions} options={dietaryMedicalRestrictionOptions} onChange={(nextValue) => handleAdvancedMultiSelectChange("dietaryMedicalRestrictions", nextValue)} helpText={t("multi_select_hint")} t={t} />
 
-                  <label className="flex items-start gap-4 p-4 sm:p-5 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl cursor-pointer hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors mt-2" htmlFor="advGuestSensitiveConsent">
-                    <input type="checkbox" className="mt-1 w-5 h-5 text-red-600 bg-white border-red-300 rounded focus:ring-red-500 focus:ring-2 dark:bg-gray-800 dark:border-red-800 shrink-0" checked={Boolean(guestAdvanced.sensitiveConsent)} id="advGuestSensitiveConsent" name="guest_sensitiveConsent" onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)} />
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm font-bold text-red-900 dark:text-red-200">{t("field_sensitive_consent")}</span>
-                      <span className="text-xs text-red-700/80 dark:text-red-300/80 leading-relaxed">{t("guest_sensitive_consent_hint")}</span>
-                    </div>
-                  </label>
-                </div>
+                <label className="flex items-start gap-4 p-4 sm:p-5 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl cursor-pointer hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors" htmlFor="advGuestSensitiveConsent">
+                  <input type="checkbox" className="mt-1 w-5 h-5 text-red-600 bg-white border-red-300 rounded focus:ring-red-500 focus:ring-2 dark:bg-gray-800 dark:border-red-800 shrink-0" checked={Boolean(guestAdvanced.sensitiveConsent)} id="advGuestSensitiveConsent" name="guest_sensitiveConsent" onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)} />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-bold text-red-900 dark:text-red-200">{t("field_sensitive_consent")}</span>
+                    <span className="text-xs text-red-700/80 dark:text-red-300/80 leading-relaxed">{t("guest_sensitive_consent_hint")}</span>
+                  </div>
+                </label>
               </section>
             )}
           </div>
