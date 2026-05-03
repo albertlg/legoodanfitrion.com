@@ -320,129 +320,175 @@ export function GuestBuilderView({
       )
       }
 
-      {/* 📝 CAMPOS BÁSICOS DEL INVITADO */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-black/5 dark:border-white/10">
-        <label className="flex flex-col gap-2" htmlFor="guestFirstName">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_first_name")} *</span>
-          <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.firstName ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestFirstName}
-            id="guestFirstName" name="guestFirstName" onChange={(event) => setGuestFirstName(event.target.value)} placeholder={t("placeholder_first_name")}
-          />
-          {guestErrors.firstName && <span className="text-xs font-medium text-red-500 ml-1">{t(guestErrors.firstName)}</span>}
-        </label>
+      {/* 📝 CAMPOS BÁSICOS DEL INVITADO — Grupos compactos estilo iOS/Android */}
+      <div className="flex flex-col gap-3 pt-4 border-t border-black/5 dark:border-white/10">
 
-        <label className="flex flex-col gap-2" htmlFor="guestLastName">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_last_name")}</span>
-          <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.lastName ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestLastName}
-            id="guestLastName" name="guestLastName" onChange={(event) => setGuestLastName(event.target.value)} placeholder={t("placeholder_last_name")}
-          />
-        </label>
-
+        {/* Foto (solo en modo crear) */}
         {!isEditingGuest && (
-          <label className="flex flex-col gap-2 md:col-span-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_guest_photo")}</span>
-            <div className="flex items-center gap-4 bg-white/50 dark:bg-white/5 p-3 rounded-2xl border border-black/5 dark:border-white/5">
-              <AvatarCircle
-                className="ring-2 ring-black/10 dark:ring-white/10 shrink-0"
-                label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
-                fallback={getAvatarFallback()}
-                imageUrl={guestPhotoUrl}
-                size={48}
-              />
-              <div className="flex-1 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('main-guest-photo-upload').click()}
-                  className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold py-2 px-4 rounded-xl text-xs border border-black/10 dark:border-white/10 shadow-sm transition-all"
-                >
-                  <Icon name="camera" className="w-3 h-3 inline mr-1.5" />
-                  {t("guest_photo_upload")}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm flex items-center gap-4 px-4 py-3">
+            <AvatarCircle
+              className="ring-2 ring-black/10 dark:ring-white/10 shrink-0"
+              label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
+              fallback={getAvatarFallback()}
+              imageUrl={guestPhotoUrl}
+              size={44}
+            />
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+              <button
+                type="button"
+                onClick={() => document.getElementById('main-guest-photo-upload').click()}
+                className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold py-1.5 px-3 rounded-xl text-xs border border-black/5 dark:border-white/10 transition-all"
+              >
+                <Icon name="camera" className="w-3 h-3 inline mr-1" />
+                {t("guest_photo_upload")}
+              </button>
+              {guestPhotoUrl && (
+                <button className="text-red-500 hover:text-red-700 font-semibold py-1.5 px-2 rounded-xl transition-all text-xs" type="button" onClick={handleRemoveGuestPhoto}>
+                  {t("guest_photo_remove")}
                 </button>
-                {guestPhotoUrl && (
-                  <button className="text-red-500 hover:text-red-700 font-bold py-2 px-3 rounded-xl transition-all text-xs" type="button" onClick={handleRemoveGuestPhoto}>
-                    {t("guest_photo_remove")}
-                  </button>
-                )}
-              </div>
+              )}
             </div>
-          </label>
+          </div>
         )}
 
-        <label className="flex flex-col gap-2" htmlFor="guestEmail">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
-            <Icon name="mail" className="w-3 h-3" /> {t("email")}
-          </span>
-          <input type="email" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.email ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestEmail}
-            id="guestEmail" name="guestEmail" onChange={(event) => setGuestEmail(event.target.value)} placeholder={t("placeholder_email")}
-          />
-        </label>
+        {/* Grupo 1: Identidad */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+          <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="guestFirstName">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_first_name")} *</span>
+            <input
+              type="text"
+              className={`w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600 transition-colors ${guestErrors.firstName ? "placeholder:text-red-300" : ""}`}
+              value={guestFirstName}
+              id="guestFirstName"
+              name="guestFirstName"
+              onChange={(event) => setGuestFirstName(event.target.value)}
+              placeholder={t("placeholder_first_name")}
+            />
+            {guestErrors.firstName && <span className="text-xs font-medium text-red-500 mt-0.5">{t(guestErrors.firstName)}</span>}
+          </label>
+          <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="guestLastName">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_last_name")}</span>
+            <input
+              type="text"
+              className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+              value={guestLastName}
+              id="guestLastName"
+              name="guestLastName"
+              onChange={(event) => setGuestLastName(event.target.value)}
+              placeholder={t("placeholder_last_name")}
+            />
+          </label>
+        </div>
 
-        <label className="flex flex-col gap-2" htmlFor="guestPhone">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
-            <Icon name="phone" className="w-3 h-3" /> {t("field_phone")}
-          </span>
-          <input type="tel" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.phone ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestPhone}
-            id="guestPhone" name="guestPhone" onChange={(event) => setGuestPhone(event.target.value)} placeholder={t("placeholder_phone")}
-          />
-          {(guestErrors.phone || guestErrors.contact) && <span className="text-xs font-medium text-red-500 ml-1">{guestErrors.phone ? t(guestErrors.phone) : t(guestErrors.contact)}</span>}
-        </label>
+        {/* Grupo 2: Contacto */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+          <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="guestEmail">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              <Icon name="mail" className="w-3 h-3" /> {t("email")}
+            </span>
+            <input
+              type="email"
+              className={`w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600 ${guestErrors.email ? "text-red-500" : ""}`}
+              value={guestEmail}
+              id="guestEmail"
+              name="guestEmail"
+              onChange={(event) => setGuestEmail(event.target.value)}
+              placeholder={t("placeholder_email")}
+            />
+          </label>
+          <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="guestPhone">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              <Icon name="phone" className="w-3 h-3" /> {t("field_phone")}
+            </span>
+            <input
+              type="tel"
+              className={`w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600 ${guestErrors.phone ? "text-red-500" : ""}`}
+              value={guestPhone}
+              id="guestPhone"
+              name="guestPhone"
+              onChange={(event) => setGuestPhone(event.target.value)}
+              placeholder={t("placeholder_phone")}
+            />
+            {(guestErrors.phone || guestErrors.contact) && (
+              <span className="text-xs font-medium text-red-500 mt-0.5">{guestErrors.phone ? t(guestErrors.phone) : t(guestErrors.contact)}</span>
+            )}
+          </label>
+          <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="guestWorkEmail">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              <Icon name="mail" className="w-3 h-3" /> {t("field_work_email")}
+            </span>
+            <input
+              type="email"
+              className={`w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600 ${guestErrors.workEmail ? "text-red-500" : ""}`}
+              value={guestWorkEmail}
+              id="guestWorkEmail"
+              name="guestWorkEmail"
+              onChange={(event) => setGuestWorkEmail(event.target.value)}
+              placeholder={t("placeholder_work_email")}
+            />
+            {guestErrors.workEmail && <span className="text-xs font-medium text-red-500 mt-0.5">{t(guestErrors.workEmail)}</span>}
+          </label>
+        </div>
 
-        <label className="flex flex-col gap-2" htmlFor="guestWorkEmail">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
-            <Icon name="mail" className="w-3 h-3" /> {t("field_work_email")}
-          </span>
-          <input
-            type="email"
-            className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.workEmail ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`}
-            value={guestWorkEmail}
-            id="guestWorkEmail"
-            name="guestWorkEmail"
-            onChange={(event) => setGuestWorkEmail(event.target.value)}
-            placeholder={t("placeholder_work_email")}
-          />
-          {guestErrors.workEmail && <span className="text-xs font-medium text-red-500 ml-1">{t(guestErrors.workEmail)}</span>}
-        </label>
-
-        <label className="flex flex-col gap-2" htmlFor="guestCompanyName">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">
-            <Icon name="id_card" className="w-3 h-3" /> {t("field_company_name")}
-          </span>
-          <input
-            type="text"
-            className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.companyName ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`}
-            value={guestCompanyName}
-            id="guestCompanyName"
-            name="guestCompanyName"
-            onChange={(event) => setGuestCompanyName(event.target.value)}
-            placeholder={t("placeholder_company_name")}
-          />
-          {guestErrors.companyName && <span className="text-xs font-medium text-red-500 ml-1">{t(guestErrors.companyName)}</span>}
-        </label>
-
-        <label className="flex flex-col gap-2" htmlFor="guestRelationship">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_relationship")}</span>
-          <select className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm appearance-none ${guestErrors.relationship ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestRelationship}
-            id="guestRelationship" name="guestRelationship" onChange={(event) => setGuestRelationship(event.target.value)}
-          >
-            <option value="">{t("select_option_prompt")}</option>
-            {relationshipOptions.map((optionValue) => (
-              <option key={optionValue} value={optionValue}>{optionValue}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-2" htmlFor="guestCity">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_city")}</span>
-          <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.city ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestCity}
-            id="guestCity" name="guestCity" onChange={(event) => setGuestCity(event.target.value)} placeholder={t("placeholder_city")} list="guest-city-options"
-          />
-        </label>
-
-        <label className="flex flex-col gap-2 md:col-span-2" htmlFor="guestCountry">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">{t("field_country")}</span>
-          <input type="text" className={`w-full bg-white/70 dark:bg-black/40 border-2 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white transition-all outline-none shadow-sm ${guestErrors.country ? 'border-red-500 focus:border-red-500' : 'border-transparent focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500'}`} value={guestCountry}
-            id="guestCountry" name="guestCountry" onChange={(event) => setGuestCountry(event.target.value)} placeholder={t("placeholder_country")} list="guest-country-options"
-          />
-        </label>
+        {/* Grupo 3: Contexto */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+          <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="guestCompanyName">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              <Icon name="id_card" className="w-3 h-3" /> {t("field_company_name")}
+            </span>
+            <input
+              type="text"
+              className={`w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600 ${guestErrors.companyName ? "text-red-500" : ""}`}
+              value={guestCompanyName}
+              id="guestCompanyName"
+              name="guestCompanyName"
+              onChange={(event) => setGuestCompanyName(event.target.value)}
+              placeholder={t("placeholder_company_name")}
+            />
+            {guestErrors.companyName && <span className="text-xs font-medium text-red-500 mt-0.5">{t(guestErrors.companyName)}</span>}
+          </label>
+          <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="guestRelationship">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_relationship")}</span>
+            <select
+              className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none appearance-none"
+              value={guestRelationship}
+              id="guestRelationship"
+              name="guestRelationship"
+              onChange={(event) => setGuestRelationship(event.target.value)}
+            >
+              <option value="">{t("select_option_prompt")}</option>
+              {relationshipOptions.map((optionValue) => (
+                <option key={optionValue} value={optionValue}>{optionValue}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-0.5 px-4 py-3 border-b border-black/5 dark:border-white/5" htmlFor="guestCity">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_city")}</span>
+            <input
+              type="text"
+              className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+              value={guestCity}
+              id="guestCity"
+              name="guestCity"
+              onChange={(event) => setGuestCity(event.target.value)}
+              placeholder={t("placeholder_city")}
+              list="guest-city-options"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5 px-4 py-3" htmlFor="guestCountry">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{t("field_country")}</span>
+            <input
+              type="text"
+              className="w-full bg-transparent text-sm text-gray-900 dark:text-white outline-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+              value={guestCountry}
+              id="guestCountry"
+              name="guestCountry"
+              onChange={(event) => setGuestCountry(event.target.value)}
+              placeholder={t("placeholder_country")}
+              list="guest-country-options"
+            />
+          </label>
+        </div>
       </div>
 
       {/* 🚀 TÍTULO CONFIGURACIÓN AVANZADA (Efecto Breakout en móvil) */}
@@ -466,26 +512,31 @@ export function GuestBuilderView({
             ref={guestAdvancedToolbarRef}
             className="sticky top-[calc(4rem-1px)] md:top-[calc(72px-1px)] z-40 bg-gray-50/95 dark:bg-gray-900/95 supports-[backdrop-filter]:backdrop-blur-md border-b border-black/5 dark:border-white/10 shadow-sm py-2.5 px-4 sm:px-4 sm:py-3 flex flex-col gap-2.5 w-full"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:flex xl:flex-wrap gap-2 pb-1 min-w-0" role="tablist" aria-label={t("guest_advanced_title")}>
-              {guestAdvancedEditTabs.map((tabItem) => {
-                const isCompleted = Boolean(guestAdvancedSignalsBySection[tabItem.key]?.done);
-                const isActive = guestAdvancedEditTab === tabItem.key;
-                const tabIcon = tabItem.key === "identity" ? "id_card" : tabItem.key === "food" ? "utensils" : tabItem.key === "lifestyle" ? "star" : tabItem.key === "conversation" ? "message" : "heart";
+            {/* 🚀 TABS perfil avanzado — scroll horizontal + fade */}
+            <div className="relative">
+              <div className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8" role="tablist" aria-label={t("guest_advanced_title")}>
+                {guestAdvancedEditTabs.map((tabItem) => {
+                  const isCompleted = Boolean(guestAdvancedSignalsBySection[tabItem.key]?.done);
+                  const isActive = guestAdvancedEditTab === tabItem.key;
+                  const tabIcon = tabItem.key === "identity" ? "id_card" : tabItem.key === "food" ? "utensils" : tabItem.key === "lifestyle" ? "star" : tabItem.key === "conversation" ? "message" : "heart";
 
-                return (
-                  <button
-                    key={tabItem.key} type="button" role="tab" aria-selected={isActive}
-                    className={`w-full xl:w-auto min-w-0 max-w-full min-h-[38px] flex items-center gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-full text-[11px] md:text-[12px] font-bold leading-tight transition-all whitespace-normal break-words shadow-sm border outline-none ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-                    onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
-                  >
-                    <Icon name={tabIcon} className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isActive ? "opacity-100" : "opacity-50"}`} />
-                    <span className="min-w-0 break-words text-left">{tabItem.label}</span>
-                    <span className={`flex items-center justify-center w-3.5 h-3.5 md:w-4 md:h-4 rounded-full ${isActive ? (isCompleted ? "bg-white/20 text-white" : "bg-black/20 text-white") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
-                      <Icon name={isCompleted ? "check" : "clock"} className="w-2.5 h-2.5" />
-                    </span>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={tabItem.key} type="button" role="tab" aria-selected={isActive}
+                      className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold leading-none transition-all whitespace-nowrap shadow-sm border outline-none ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                      onClick={() => scrollToGuestAdvancedSection(tabItem.key)}
+                    >
+                      <Icon name={tabIcon} className={`w-3.5 h-3.5 shrink-0 ${isActive ? "opacity-100" : "opacity-50"}`} />
+                      <span>{tabItem.label}</span>
+                      <span className={`flex items-center justify-center w-3.5 h-3.5 rounded-full shrink-0 ${isActive ? (isCompleted ? "bg-white/20 text-white" : "bg-black/20 text-white") : (isCompleted ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-400 dark:bg-gray-700")}`} aria-hidden="true">
+                        <Icon name={isCompleted ? "check" : "clock"} className="w-2.5 h-2.5" />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Fade-out gradient — scroll affordance */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-gray-50 dark:from-gray-900 to-transparent" aria-hidden="true" />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -703,17 +754,24 @@ export function GuestBuilderView({
 
       <input id="main-guest-photo-upload" type="file" accept="image/*" className="hidden" onChange={handleGuestPhotoFileChange} />
 
-      {/* FOOTER CON BOTONES DE GUARDAR */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t border-black/5 dark:border-white/10 relative z-20">
+      {/* 🚀 FOOTER PEGAJOSO — sticky en móvil, estático en sm+ */}
+      <div className="sticky bottom-0 z-30 sm:static sm:z-auto sm:mt-8 -mx-4 sm:mx-0 px-4 sm:px-0 py-3 sm:py-0 sm:pt-6 bg-white/90 dark:bg-gray-900/90 sm:bg-transparent sm:dark:bg-transparent backdrop-blur-xl sm:backdrop-blur-none border-t border-black/10 dark:border-white/10 sm:border-black/5 sm:dark:border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] sm:shadow-none">
         <InlineMessage text={guestMessage} />
-
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+        <div className={`flex items-center gap-2 ${guestMessage ? "mt-2" : ""}`}>
           {isEditingGuest && (
-            <button className="flex-1 sm:flex-none bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-3 px-6 rounded-2xl transition-all shadow-sm border border-black/5 dark:border-white/5" type="button" onClick={handleCancelEditGuest}>
+            <button
+              className="shrink-0 text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-2.5 px-3 rounded-xl transition-colors outline-none"
+              type="button"
+              onClick={handleCancelEditGuest}
+            >
               {t("cancel_edit")}
             </button>
           )}
-          <button className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-2xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 disabled:opacity-50" type="submit" disabled={isSavingGuest}>
+          <button
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
+            type="submit"
+            disabled={isSavingGuest}
+          >
             {isSavingGuest ? (isEditingGuest ? t("updating_guest") : t("saving_guest")) : isEditingGuest ? t("update_guest") : t("save_guest")}
           </button>
         </div>
