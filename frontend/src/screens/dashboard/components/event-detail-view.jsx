@@ -2856,8 +2856,10 @@ export function EventDetailView({
                   title={t("event_detail_guest_list_title")}
                   badge={selectedEventDetailGuests.length > 0 ? selectedEventDetailGuests.length : undefined}
                 >
-                <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+
+                  {/* ── Card header: title + admin actions ── */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-3">
                     <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="users" className="w-4 h-4 text-blue-500" />
                       {t("event_detail_guest_list_title")}
@@ -2884,136 +2886,203 @@ export function EventDetailView({
                         <Icon name="users" className="w-4 h-4" />
                         {t("event_group_invite_action")}
                       </button>
-                      <button
-                        className={`${SECONDARY_BUTTON_CLASS} text-xs px-3 py-2`}
-                        type="button"
-                        onClick={handleShareInvitationImage}
-                        disabled={isSharingInvitationImage}
-                      >
-                        <Icon name="camera" className="w-4 h-4" />
-                        {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
-                      </button>
                     </div>
                   </div>
 
+                  {/* ── Share invitation CTA — full-width, above the list ── */}
+                  <div className="px-5 pb-4">
+                    <button
+                      className={`${PRIMARY_BUTTON_CLASS} w-full`}
+                      type="button"
+                      onClick={handleShareInvitationImage}
+                      disabled={isSharingInvitationImage}
+                    >
+                      <Icon name="camera" className="w-4 h-4" />
+                      {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
+                    </button>
+                  </div>
+
+                  {/* ── Guest list ── */}
                   {selectedEventDetailGuests.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic p-4 text-center">{t("event_detail_no_invites")}</p>
+                    <p className="text-xs text-gray-500 italic px-5 pb-5 text-center">{t("event_detail_no_invites")}</p>
                   ) : (
-                    <div className="w-full overflow-x-hidden">
-                      <table className="w-full table-fixed text-left border-collapse block sm:table">
-                        <thead className="hidden sm:table-header-group">
-                          <tr>
-                            <th className="py-3 px-3 w-[52%] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
-                            <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")}</th>
-                            <th className="py-3 sm:px-2 w-[96px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
-                            <th className="py-3 sm:px-2 w-[128px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="block sm:table-row-group divide-y-0 sm:divide-y divide-black/5 dark:divide-white/5">
-                          {selectedEventDetailGuests.map((row) => {
-                            const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
-                            const rowGuestLabel = row.name || t("field_guest");
-                            return (
-                              <tr key={row.invitation.id} className="block sm:table-row flex flex-col mb-3 sm:mb-0 p-4 sm:p-0 rounded-xl sm:rounded-none border border-black/5 dark:border-white/5 sm:border-transparent bg-white/40 dark:bg-white/5 sm:bg-transparent shadow-sm sm:shadow-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
-                                <td className="block sm:table-cell w-full sm:w-[52%] py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0">
-                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("field_guest")}</span>
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <AvatarCircle
-                                      className="flex-shrink-0"
-                                      label={rowGuestLabel}
-                                      fallback={getInitials(rowGuestLabel, "IN")}
-                                      imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
-                                      size={32}
-                                    />
-                                    <div className="min-w-0 w-full">
-                                      <button
-                                        className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left w-full whitespace-normal break-words sm:whitespace-nowrap sm:truncate"
-                                        type="button"
-                                        title={rowGuestLabel}
-                                        onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
-                                      >
-                                        {rowGuestLabel}
-                                      </button>
-                                      {(row.invitation.rsvp_group_tag || (Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 0) || row.invitation.rsvp_needs_accommodation === true || row.invitation.rsvp_transport_mode) ? (
-                                        <div className="flex flex-wrap items-center gap-1 mt-1">
-                                          {row.invitation.rsvp_group_tag ? (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border border-violet-200/60 dark:border-violet-700/40 truncate max-w-[120px]" title={row.invitation.rsvp_group_tag}>
-                                              {row.invitation.rsvp_group_tag}
-                                            </span>
-                                          ) : null}
-                                          {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.slice(0, 3).map((interest) => (
-                                            <span key={interest} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40">
-                                              {t(`rsvp_interest_${interest}`) || interest}
-                                            </span>
-                                          ))}
-                                          {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 3 ? (
-                                            <span className="text-[10px] text-gray-400 dark:text-gray-500">+{row.invitation.rsvp_interests.length - 3}</span>
-                                          ) : null}
-                                          {row.invitation.rsvp_needs_accommodation === true ? (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-700/40">
-                                              🏠
-                                            </span>
-                                          ) : null}
-                                          {row.invitation.rsvp_transport_mode ? (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-700/40">
-                                              {t(`rsvp_transport_mode_${row.invitation.rsvp_transport_mode}`) || row.invitation.rsvp_transport_mode}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      ) : null}
+                    <>
+                      {/* Mobile compact list tiles (< sm) — iOS/Android contact-list feel */}
+                      <ul className="sm:hidden flex flex-col divide-y divide-black/5 dark:divide-white/5 border-t border-black/5 dark:border-white/5">
+                        {selectedEventDetailGuests.map((row) => {
+                          const rowGuestLabel = row.name || t("field_guest");
+                          const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${rowGuestLabel}`;
+                          return (
+                            <li key={row.invitation.id} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] active:bg-black/5 dark:active:bg-white/5 transition-colors">
+                              {/* Avatar */}
+                              <AvatarCircle
+                                className="flex-shrink-0"
+                                label={rowGuestLabel}
+                                fallback={getInitials(rowGuestLabel, "IN")}
+                                imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
+                                size={36}
+                              />
+                              {/* Name + contact — tap to open detail */}
+                              <button
+                                className="flex-1 min-w-0 text-left py-0.5"
+                                type="button"
+                                onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
+                              >
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-snug">{rowGuestLabel}</p>
+                                {row.contact ? (
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-snug mt-0.5">{row.contact}</p>
+                                ) : null}
+                              </button>
+                              {/* Status badge */}
+                              <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border leading-none ${statusClass(row.invitation.status)}`}>
+                                {statusText(t, row.invitation.status)}
+                              </span>
+                              {/* Action buttons — compact icons */}
+                              <div className="flex items-center shrink-0">
+                                <button
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+                                  type="button"
+                                  onClick={() => handleCopyGuestInvitationLink(row.invitation)}
+                                  aria-label={t("copy_link")}
+                                  title={t("copy_link")}
+                                >
+                                  <Icon name="link" className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#25D366] hover:bg-[#25D366]/10 transition-colors"
+                                  type="button"
+                                  onClick={() => handleShareGuestInvitationWhatsapp(row.invitation)}
+                                  aria-label={t("host_invite_whatsapp_action")}
+                                  title={t("host_invite_whatsapp_action")}
+                                >
+                                  <Icon name="message" className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  type="button"
+                                  onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
+                                  aria-label={t("event_detail_remove_guest_action")}
+                                  title={t("event_detail_remove_guest_action")}
+                                >
+                                  <Icon name="trash" className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {/* Desktop table (>= sm) — clean, no block/flex hacks */}
+                      <div className="hidden sm:block w-full overflow-x-hidden border-t border-black/5 dark:border-white/5">
+                        <table className="w-full table-fixed text-left border-collapse">
+                          <thead>
+                            <tr>
+                              <th className="py-3 px-3 w-[45%] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("field_guest")}</th>
+                              <th className="py-3 px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("email")}</th>
+                              <th className="py-3 px-2 w-[96px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">{t("status")}</th>
+                              <th className="py-3 px-2 w-[120px] text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10 text-right">{t("actions_label")}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                            {selectedEventDetailGuests.map((row) => {
+                              const itemLabel = `${selectedEventDetail.title || t("field_event")} - ${row.name || t("field_guest")}`;
+                              const rowGuestLabel = row.name || t("field_guest");
+                              return (
+                                <tr key={row.invitation.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
+                                  <td className="py-2.5 px-3 align-middle min-w-0">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <AvatarCircle
+                                        className="flex-shrink-0"
+                                        label={rowGuestLabel}
+                                        fallback={getInitials(rowGuestLabel, "IN")}
+                                        imageUrl={getGuestAvatarUrl(row.guest, rowGuestLabel)}
+                                        size={32}
+                                      />
+                                      <div className="min-w-0 w-full">
+                                        <button
+                                          className="text-sm font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left w-full whitespace-nowrap truncate"
+                                          type="button"
+                                          title={rowGuestLabel}
+                                          onClick={() => openGuestDetail(row.guest?.id || row.invitation.guest_id)}
+                                        >
+                                          {rowGuestLabel}
+                                        </button>
+                                        {(row.invitation.rsvp_group_tag || (Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 0) || row.invitation.rsvp_needs_accommodation === true || row.invitation.rsvp_transport_mode) ? (
+                                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                                            {row.invitation.rsvp_group_tag ? (
+                                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border border-violet-200/60 dark:border-violet-700/40 truncate max-w-[120px]" title={row.invitation.rsvp_group_tag}>
+                                                {row.invitation.rsvp_group_tag}
+                                              </span>
+                                            ) : null}
+                                            {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.slice(0, 3).map((interest) => (
+                                              <span key={interest} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40">
+                                                {t(`rsvp_interest_${interest}`) || interest}
+                                              </span>
+                                            ))}
+                                            {Array.isArray(row.invitation.rsvp_interests) && row.invitation.rsvp_interests.length > 3 ? (
+                                              <span className="text-[10px] text-gray-400 dark:text-gray-500">+{row.invitation.rsvp_interests.length - 3}</span>
+                                            ) : null}
+                                            {row.invitation.rsvp_needs_accommodation === true ? (
+                                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-700/40">🏠</span>
+                                            ) : null}
+                                            {row.invitation.rsvp_transport_mode ? (
+                                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-700/40">
+                                                {t(`rsvp_transport_mode_${row.invitation.rsvp_transport_mode}`) || row.invitation.rsvp_transport_mode}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                      </div>
                                     </div>
-                                  </div>
-                                </td>
-                                <td className="block sm:table-cell py-2 sm:py-2.5 px-0 sm:px-3 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0">
-                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("email")}</span>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate block min-w-0" title={row.contact}>
-                                    {row.contact}
-                                  </span>
-                                </td>
-                                <td className="block sm:table-cell w-[96px] py-2 sm:py-2.5 px-0 sm:px-2 border-b border-black/5 dark:border-white/5 sm:border-none last:border-0 align-middle min-w-0 overflow-hidden">
-                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t("status")}</span>
-                                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border shadow-sm inline-block max-w-full truncate align-middle ${statusClass(row.invitation.status)}`}>
-                                    {statusText(t, row.invitation.status)}
-                                  </span>
-                                </td>
-                                <td className="block sm:table-cell w-[128px] py-2 sm:py-2.5 px-0 sm:px-2 border-none sm:border-none align-middle text-right overflow-hidden">
-                                  <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block text-left">{t("actions_label")}</span>
-                                  <div className="flex items-center justify-end gap-1 mt-2 sm:mt-0">
-                                    <button
-                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 cursor-pointer"
-                                      type="button"
-                                      onClick={() => handleCopyGuestInvitationLink(row.invitation)}
-                                      aria-label={t("copy_link")}
-                                      title={t("copy_link")}
-                                    >
-                                      <Icon name="link" className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-[#25D366] border border-[#25D366] text-white hover:bg-[#20bd5a] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer"
-                                      type="button"
-                                      onClick={() => handleShareGuestInvitationWhatsapp(row.invitation)}
-                                      aria-label={t("host_invite_whatsapp_action")}
-                                      title={t("host_invite_whatsapp_action")}
-                                    >
-                                      <Icon name="message" className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      className="inline-flex items-center justify-center h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/20 rounded-md transition-all duration-200 cursor-pointer border border-red-200/70 dark:border-red-700/40"
-                                      type="button"
-                                      onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
-                                      aria-label={t("event_detail_remove_guest_action")}
-                                      title={t("event_detail_remove_guest_action")}
-                                    >
-                                      <Icon name="trash" className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 align-middle min-w-0">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate block min-w-0" title={row.contact}>
+                                      {row.contact}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-2 align-middle min-w-0 overflow-hidden">
+                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border shadow-sm inline-block max-w-full truncate align-middle ${statusClass(row.invitation.status)}`}>
+                                      {statusText(t, row.invitation.status)}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-2 align-middle text-right overflow-hidden">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <button
+                                        className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+                                        type="button"
+                                        onClick={() => handleCopyGuestInvitationLink(row.invitation)}
+                                        aria-label={t("copy_link")}
+                                        title={t("copy_link")}
+                                      >
+                                        <Icon name="link" className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-[#25D366] border border-[#25D366] text-white hover:bg-[#20bd5a] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer"
+                                        type="button"
+                                        onClick={() => handleShareGuestInvitationWhatsapp(row.invitation)}
+                                        aria-label={t("host_invite_whatsapp_action")}
+                                        title={t("host_invite_whatsapp_action")}
+                                      >
+                                        <Icon name="message" className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        className="inline-flex items-center justify-center h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/20 rounded-md transition-all duration-200 cursor-pointer border border-red-200/70 dark:border-red-700/40"
+                                        type="button"
+                                        onClick={() => handleRequestDeleteInvitation(row.invitation, itemLabel)}
+                                        aria-label={t("event_detail_remove_guest_action")}
+                                        title={t("event_detail_remove_guest_action")}
+                                      >
+                                        <Icon name="trash" className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   )}
                 </article>
                 </EventModuleAccordion>
