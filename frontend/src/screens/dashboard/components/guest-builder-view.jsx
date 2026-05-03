@@ -754,8 +754,8 @@ export function GuestBuilderView({
 
       <input id="main-guest-photo-upload" type="file" accept="image/*" className="hidden" onChange={handleGuestPhotoFileChange} />
 
-      {/* 🚀 FOOTER PEGAJOSO — sticky en móvil, estático en sm+ */}
-      <div className="sticky bottom-0 z-30 sm:static sm:z-auto sm:mt-8 -mx-4 sm:mx-0 px-4 sm:px-0 py-3 sm:py-0 sm:pt-6 bg-white/90 dark:bg-gray-900/90 sm:bg-transparent sm:dark:bg-transparent backdrop-blur-xl sm:backdrop-blur-none border-t border-black/10 dark:border-white/10 sm:border-black/5 sm:dark:border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] sm:shadow-none">
+      {/* 🚀 FOOTER PEGAJOSO — sticky en móvil (bottom-16 para limpiar la bottom-nav md:hidden ~56px), estático en md+ */}
+      <div className="sticky bottom-16 z-30 md:static md:z-auto md:mt-8 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-0 md:pt-6 bg-white/90 dark:bg-gray-900/90 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t border-black/10 dark:border-white/10 md:border-black/5 md:dark:border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] md:shadow-none">
         <InlineMessage text={guestMessage} />
         <div className={`flex items-center gap-2 ${guestMessage ? "mt-2" : ""}`}>
           {isEditingGuest && (
