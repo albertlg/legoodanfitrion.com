@@ -870,6 +870,7 @@
   "invitation_all_guests_already_invited": "All guests already have an invitation for this event.",
   "invitation_guest_already_invited_selected": "That guest already has an invitation for this event.",
   "hint_accessibility": "All fields include labels and contextual hints for better usability.",
+  "dismiss": "Dismiss",
   "guest_advanced_title": "Advanced guest profile",
   "guest_advanced_hint": "This section improves automatic suggestions for menu, drinks, ambience, and conversation.",
   "field_company": "Company",

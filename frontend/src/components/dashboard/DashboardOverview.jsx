@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icon } from "../icons";
 import { AvatarCircle } from "../avatar-circle";
 import { HostChecklistCard } from "./HostChecklistCard";
@@ -114,6 +115,16 @@ export function DashboardOverview({
     openReceivedInvitationRsvp,
     dashboardHostChecklist,
 }) {
+    // Banner de ayuda: persiste el dismiss en localStorage para no volver a mostrarlo
+    const [showHelp, setShowHelp] = useState(() => {
+        try { return localStorage.getItem("lga_help_dismissed") !== "true"; }
+        catch { return true; }
+    });
+    const dismissHelp = () => {
+        try { localStorage.setItem("lga_help_dismissed", "true"); } catch {}
+        setShowHelp(false);
+    };
+
     const formatInvitationDate = (startAt, endAt) =>
         formatEventDateDisplay({
             startAt,
@@ -579,139 +590,34 @@ export function DashboardOverview({
                 </div>
             </div>
 
-            {/* ARTÍCULO 1: GROWTH ANALYTICS (Se mantiene idéntico) */}
-            <article className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-8 mb-6 mt-4">
-
-                <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-black/5 dark:border-white/10 pb-6">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-2">
-                            <div className="p-2.5 bg-blue-500/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 rounded-xl">
-                                <Icon name="trend" className="w-5 h-5" />
-                            </div>
-                            {t("growth_analytics_title")}
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-                            {t("growth_analytics_hint")}
+            {/* BANNER DE AYUDA — desestimable, persiste en localStorage */}
+            {showHelp && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="relative flex gap-4 items-start bg-blue-50/60 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-900/40 rounded-2xl px-5 py-4 mb-2 animate-in fade-in slide-in-from-top-1 duration-300"
+                >
+                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-xl text-blue-600 dark:text-blue-400 shrink-0 shadow-sm mt-0.5">
+                        <Icon name="sparkle" className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1 text-sm text-blue-900 dark:text-blue-200 pr-6">
+                        <p className="font-bold text-sm leading-snug">{t("hint_accessibility")}</p>
+                        <p className="opacity-80 leading-relaxed text-[13px]">{t("overview_help")}</p>
+                        <p className="opacity-60 leading-relaxed text-[11px] mt-1">
+                            <Icon name="info" className="w-3 h-3 inline mr-1 -mt-0.5" />
+                            {t("content_translation_note")}
                         </p>
                     </div>
-
-                    <div className="flex bg-white/50 dark:bg-black/20 p-1.5 rounded-2xl border border-black/5 dark:border-white/5 w-fit shadow-sm">
-                        <div className="px-4 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>
-                            7d <span className="text-gray-400 dark:text-gray-500">({conversionWindowCounts.d7})</span>
-                        </div>
-                        <div className="px-4 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 border-l border-black/5 dark:border-white/10">
-                            30d <span className="text-gray-400 dark:text-gray-500">({conversionWindowCounts.d30})</span>
-                        </div>
-                        <div className="px-4 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 border-l border-black/5 dark:border-white/10">
-                            90d <span className="text-gray-400 dark:text-gray-500">({conversionWindowCounts.d90})</span>
-                        </div>
-                    </div>
-                </header>
-
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
-                    <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm p-6 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gray-500/5 rounded-full blur-2xl group-hover:bg-gray-500/10 transition-colors"></div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
-                            {t("growth_funnel_potential")}
-                        </p>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-4 h-8 leading-tight">
-                            {t("growth_funnel_potential_desc")}
-                        </p>
-                        <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{hostPotentialGuestsCount}</p>
-                    </article>
-
-                    <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm p-6 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors"></div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-purple-500 dark:text-purple-400 mb-1">
-                            {t("growth_funnel_invited")}
-                        </p>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-4 h-8 leading-tight">
-                            {t("growth_funnel_invited_desc")}
-                        </p>
-                        <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{invitedPotentialHostsCount}</p>
-                    </article>
-
-                    <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm p-6 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-colors"></div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-green-500 dark:text-green-400 mb-1">
-                            {t("growth_funnel_converted")}
-                        </p>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-4 h-8 leading-tight">
-                            {t("growth_funnel_converted_desc")}
-                        </p>
-                        <p className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">{convertedHostGuestsCount}</p>
-                    </article>
-
-                    <article className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl border border-blue-500 shadow-xl shadow-blue-500/20 p-6 relative overflow-hidden group text-white">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-colors duration-500"></div>
-                        <Icon name="sparkle" className="absolute bottom-4 right-4 w-12 h-12 text-white/10 -rotate-12" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-blue-200 mb-1">
-                            {t("growth_funnel_rate")}
-                        </p>
-                        <p className="text-[11px] text-blue-100/70 mb-4 h-8 leading-tight">
-                            {t("growth_funnel_rate_desc")}
-                        </p>
-                        <p className="text-4xl font-black tracking-tight">{convertedHostRate}%</p>
-                    </article>
+                    <button
+                        type="button"
+                        aria-label={t("dismiss") || "Cerrar"}
+                        onClick={dismissHelp}
+                        className="absolute top-3 right-3 p-1.5 rounded-lg text-blue-400 dark:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-700 dark:hover:text-blue-300 transition-colors outline-none focus:ring-2 focus:ring-blue-500/40"
+                    >
+                        <Icon name="close" className="w-3.5 h-3.5" />
+                    </button>
                 </div>
-
-                <div className="bg-white/50 dark:bg-black/20 rounded-3xl p-6 border border-black/5 dark:border-white/5 shadow-inner">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-8 flex items-center gap-2">
-                        <Icon name="activity" className="w-3 h-3" />
-                        {t("growth_trend_14d_title")}
-                    </h3>
-
-                    <div className="growth-trend-chart-container overflow-x-auto md:overflow-x-visible pb-4 md:pb-0">
-                        <div
-                            className="flex items-end h-40 gap-2 md:gap-3 min-w-[360px] md:min-w-full"
-                            role="img"
-                            aria-label={t("growth_trend_14d_label")}
-                        >
-                            {conversionTrend14d.map((bucket) => {
-                                const isZero = bucket.count === 0;
-                                const heightPercent = isZero ? 5 : Math.max(15, Math.round((bucket.count / (conversionTrendMax || 1)) * 100));
-
-                                return (
-                                    <div key={bucket.key} className="flex-1 flex flex-col items-center justify-end h-full gap-2 group relative">
-
-                                        <div className="absolute -top-10 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:-translate-y-1 pointer-events-none whitespace-nowrap z-10 shadow-lg">
-                                            {bucket.count} {bucket.count === 1 ? t("growth_trend_host_single") : t("growth_trend_host_plural")}
-                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-white rotate-45"></div>
-                                        </div>
-
-                                        <div className="w-full flex items-end justify-center h-full bg-black/5 dark:bg-white/5 rounded-xl overflow-hidden shadow-inner relative">
-                                            <span
-                                                className={`w-full rounded-xl transition-all duration-700 ease-out ${isZero ? 'bg-transparent' : 'bg-gradient-to-t from-blue-500/40 to-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] group-hover:to-blue-400'}`}
-                                                style={{ height: `${heightPercent}%` }}
-                                            />
-                                        </div>
-
-                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isZero ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
-                                            {bucket.label}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            {/* ARTÍCULO 2: ACCESIBILIDAD Y CONSEJOS (Se mantiene idéntico) */}
-            <article className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl p-6 mb-6 flex gap-5 items-start">
-                <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-2xl text-blue-600 dark:text-blue-400 shrink-0 shadow-sm">
-                    <Icon name="sparkle" className="w-6 h-6" />
-                </div>
-                <div className="flex flex-col gap-1 text-sm text-blue-900 dark:text-blue-200 mt-1">
-                    <h2 className="font-bold text-base mb-1">{t("hint_accessibility")}</h2>
-                    <p className="opacity-80 leading-relaxed">{t("overview_help")}</p>
-                    <p className="opacity-70 leading-relaxed text-[11px] mt-2 bg-blue-100/50 dark:bg-blue-900/30 p-2 rounded-lg inline-block w-fit">
-                        <Icon name="info" className="w-3 h-3 inline mr-1 -mt-0.5" />
-                        {t("content_translation_note")}
-                    </p>
-                </div>
-            </article>
+            )}
         </section>
     );
 }

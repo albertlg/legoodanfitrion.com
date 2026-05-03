@@ -820,6 +820,7 @@
   "invitation_all_guests_already_invited": "Tutte le persone hanno già un invito per questo evento.",
   "invitation_guest_already_invited_selected": "Questa persona ha già un invito per questo evento.",
   "hint_accessibility": "Tutti i campi includono etichetta e aiuto contestuale per una migliore usabilità.",
+  "dismiss": "Chiudi",
   "guest_advanced_title": "Profilo avanzato",
   "guest_advanced_hint": "Questa sezione migliora i suggerimenti automatici su menu, bevande, atmosfera e conversazione.",
   "field_company": "Azienda",

@@ -870,6 +870,7 @@
   "invitation_all_guests_already_invited": "Tous les convives ont déjà une invitation pour cet événement.",
   "invitation_guest_already_invited_selected": "Ce convive a déjà une invitation pour cet événement.",
   "hint_accessibility": "Tous les champs ont une étiquette et une aide contextuelle pour une meilleure accessibilité.",
+  "dismiss": "Fermer",
   "guest_advanced_title": "Profil avancé du convive",
   "guest_advanced_hint": "Ce bloc améliore les suggestions automatiques de menu, boissons, ambiance et conversation.",
   "field_company": "Entreprise",

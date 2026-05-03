@@ -870,6 +870,7 @@
   "invitation_all_guests_already_invited": "Totes les persones ja tenen invitació per a aquest esdeveniment.",
   "invitation_guest_already_invited_selected": "Aquesta persona ja té invitació per a aquest esdeveniment.",
   "hint_accessibility": "Tots els camps tenen etiqueta i ajuda contextual per millorar usabilitat.",
+  "dismiss": "Tancar",
   "guest_advanced_title": "Perfil avançat de la persona convidada",
   "guest_advanced_hint": "Aquest bloc millora les suggerències automàtiques de menú, begudes, ambient i conversa.",
   "field_company": "Empresa",

@@ -870,6 +870,7 @@
   "invitation_all_guests_already_invited": "Todos los invitados ya tienen invitación para este evento.",
   "invitation_guest_already_invited_selected": "Ese invitado ya tiene invitación para este evento.",
   "hint_accessibility": "Todos los campos tienen etiqueta y ayuda contextual para mejorar usabilidad.",
+  "dismiss": "Cerrar",
   "guest_advanced_title": "Perfil avanzado del invitado",
   "guest_advanced_hint": "Este bloque mejora las sugerencias automáticas de menú, bebidas, ambiente y conversación.",
   "field_company": "Empresa",
