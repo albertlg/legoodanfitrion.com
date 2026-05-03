@@ -24,6 +24,22 @@ import {
   getEventModulesByZone
 } from "../modules/event-module-registry";
 import { EventModulesManagerModal } from "../modules/event-modules-manager-modal";
+import { EventModuleAccordion } from "../../../components/dashboard/presentational/EventModuleAccordion";
+
+/** Icon/colour config for the accordion header of each registry module. */
+const MODULE_ACCORDION_CONFIG = {
+  gallery:      { icon: "camera",   colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50 dark:bg-indigo-900/20" },
+  date_poll:    { icon: "calendar", colorClass: "text-blue-600 dark:text-blue-400",     bgClass: "bg-blue-50 dark:bg-blue-900/20" },
+  venues:       { icon: "location", colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50 dark:bg-indigo-900/20" },
+  spaces:       { icon: "location", colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50 dark:bg-indigo-900/20" },
+  shared_tasks: { icon: "check",    colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50 dark:bg-indigo-900/20" },
+  meals:        { icon: "utensils", colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50 dark:bg-indigo-900/20" },
+  megaphone:    { icon: "mail",     colorClass: "text-blue-600 dark:text-blue-400",     bgClass: "bg-blue-50 dark:bg-blue-900/20" },
+  finance:      { icon: "activity", colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-50 dark:bg-emerald-900/20" },
+  icebreaker:   { icon: "sparkle",  colorClass: "text-orange-500 dark:text-orange-400", bgClass: "bg-orange-50 dark:bg-orange-900/20" },
+};
+
+const DEFAULT_ACCORDION_CFG = { icon: "settings", colorClass: "text-gray-600 dark:text-gray-400", bgClass: "bg-gray-100 dark:bg-gray-800" };
 
 const EVENT_COVER_FALLBACK_BY_TYPE = {
   bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
@@ -2768,13 +2784,30 @@ export function EventDetailView({
                   ) : null}
                 </article>
 
-                {activeMainModules.map((moduleItem) => (
-                  <React.Fragment key={moduleItem.key}>
-                    {moduleItem.render(mainModuleRenderContext)}
-                  </React.Fragment>
-                ))}
+                {activeMainModules.map((moduleItem) => {
+                  const cfg = MODULE_ACCORDION_CONFIG[moduleItem.key] ?? DEFAULT_ACCORDION_CFG;
+                  return (
+                    <EventModuleAccordion
+                      key={moduleItem.key}
+                      iconName={cfg.icon}
+                      iconColorClass={cfg.colorClass}
+                      iconBgClass={cfg.bgClass}
+                      title={t(moduleItem.labelKey)}
+                    >
+                      {moduleItem.render(mainModuleRenderContext)}
+                    </EventModuleAccordion>
+                  );
+                })}
 
-                <article className="order-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                <EventModuleAccordion
+                  orderClass="order-1"
+                  iconName="users"
+                  iconColorClass="text-blue-500"
+                  iconBgClass="bg-blue-50 dark:bg-blue-900/20"
+                  title={t("event_detail_guest_list_title")}
+                  badge={selectedEventDetailGuests.length > 0 ? selectedEventDetailGuests.length : undefined}
+                >
+                <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="users" className="w-4 h-4 text-blue-500" />
@@ -2925,8 +2958,18 @@ export function EventDetailView({
                     </div>
                   )}
                 </article>
+                </EventModuleAccordion>
 
-                <article id="event-rsvp-timeline" className="order-8 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                <EventModuleAccordion
+                  id="event-rsvp-timeline"
+                  orderClass="order-8"
+                  iconName="clock"
+                  iconColorClass="text-gray-500"
+                  iconBgClass="bg-gray-100 dark:bg-gray-800"
+                  title={t("recent_activity_title")}
+                  badge={selectedEventRsvpTimeline.length > 0 ? selectedEventRsvpTimeline.length : undefined}
+                >
+                <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="clock" className="w-4 h-4 text-gray-500" />
                     {t("recent_activity_title")}
@@ -2955,6 +2998,7 @@ export function EventDetailView({
                     </div>
                   )}
                 </article>
+                </EventModuleAccordion>
 
               </div>
 
@@ -2962,13 +3006,25 @@ export function EventDetailView({
               <div className="flex flex-col gap-6 min-w-0">
 
                 {/* AI Planner — backport del visual de la landing (MagicCard gradiente púrpura) */}
-                <div className="order-1">
+                <EventModuleAccordion
+                  orderClass="order-1"
+                  iconName="sparkle"
+                  iconColorClass="text-purple-600 dark:text-purple-400"
+                  iconBgClass="bg-purple-50 dark:bg-purple-900/20"
+                  title={t("event_planner_title")}
+                >
                   <PlannerIACard t={t} onOpen={() => handleOpenEventPlan("overview")} />
-                </div>
+                </EventModuleAccordion>
 
                 {/* Lo que tus invitados preguntan */}
                 {selectedEventDetail?.id ? (
-                  <div className="order-2">
+                  <EventModuleAccordion
+                    orderClass="order-2"
+                    iconName="sparkle"
+                    iconColorClass="text-blue-600 dark:text-blue-400"
+                    iconBgClass="bg-blue-50 dark:bg-blue-900/20"
+                    title={t("insights_widget_title")}
+                  >
                     <GuestAiInsightsWidget
                       eventId={selectedEventDetail.id}
                       t={t}
@@ -2977,16 +3033,32 @@ export function EventDetailView({
                       isPlanUpdating={isPlanUpdatingWithSignals}
                       refreshTrigger={insightWidgetRefreshKey}
                     />
-                  </div>
+                  </EventModuleAccordion>
                 ) : null}
 
-                {activeSidebarModules.map((moduleItem) => (
-                  <React.Fragment key={moduleItem.key}>
-                    {moduleItem.render(sidebarModuleRenderContext)}
-                  </React.Fragment>
-                ))}
+                {activeSidebarModules.map((moduleItem) => {
+                  const cfg = MODULE_ACCORDION_CONFIG[moduleItem.key] ?? DEFAULT_ACCORDION_CFG;
+                  return (
+                    <EventModuleAccordion
+                      key={moduleItem.key}
+                      iconName={cfg.icon}
+                      iconColorClass={cfg.colorClass}
+                      iconBgClass={cfg.bgClass}
+                      title={t(moduleItem.labelKey)}
+                    >
+                      {moduleItem.render(sidebarModuleRenderContext)}
+                    </EventModuleAccordion>
+                  );
+                })}
 
-                <article className="order-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                <EventModuleAccordion
+                  orderClass="order-5"
+                  iconName="check"
+                  iconColorClass="text-green-500"
+                  iconBgClass="bg-green-50 dark:bg-green-900/20"
+                  title={t("event_detail_checklist_title")}
+                >
+                <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Icon name="check" className="w-4 h-4 text-green-500" />
                     {t("event_detail_checklist_title")}
@@ -3002,6 +3074,7 @@ export function EventDetailView({
                     ))}
                   </ul>
                 </article>
+                </EventModuleAccordion>
 
                 <article className="order-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <div className="flex justify-between items-start">
@@ -3036,7 +3109,14 @@ export function EventDetailView({
                 </article>
 
                 {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
-                  <article className="order-7 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <EventModuleAccordion
+                    orderClass="order-7"
+                    iconName="location"
+                    iconColorClass="text-blue-500"
+                    iconBgClass="bg-blue-50 dark:bg-blue-900/20"
+                    title={t("map_preview_title")}
+                  >
+                  <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                     <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Icon name="location" className="w-4 h-4 text-blue-500" />
                       {t("map_preview_title")}
@@ -3051,6 +3131,7 @@ export function EventDetailView({
                       />
                     </div>
                   </article>
+                  </EventModuleAccordion>
                 ) : null}
 
               </div>
