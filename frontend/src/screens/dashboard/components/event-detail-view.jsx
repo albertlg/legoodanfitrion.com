@@ -2181,22 +2181,6 @@ export function EventDetailView({
     return (
       <div className="relative z-20 mt-3 w-full min-w-0">
         <div className="sm:hidden flex flex-col gap-2">
-          <button
-            className={`${PRIMARY_BUTTON_CLASS} text-xs w-full min-h-11`}
-            type="button"
-            onClick={handleShareInvitationImage}
-            disabled={isSharingInvitationImage}
-          >
-            <Icon name="camera" className="w-4 h-4" />
-            {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
-          </button>
-
-          {activeHeaderActionModules.map((moduleItem) => (
-            <React.Fragment key={`mobile-${moduleItem.key}`}>
-              {moduleItem.render({ ...headerModuleContextBase, variant: "mobile" })}
-            </React.Fragment>
-          ))}
-
           <div className="flex w-full items-center gap-2">
             {canAddToCalendar ? (
               <div className="relative flex-1 min-w-0" ref={calendarMenuMobileRef}>
@@ -2655,20 +2639,12 @@ export function EventDetailView({
       {!selectedEventDetail ? (
         <p className="text-sm text-gray-500 dark:text-gray-400 italic text-center p-8">{t("event_detail_empty")}</p>
       ) : (
-        <div
-          className={`flex flex-col lg:grid ${
-            eventsWorkspace === "plan"
-              ? "grid-cols-1"
-              : "grid-cols-1 lg:grid-cols-[minmax(0,2.05fr)_minmax(0,1fr)]"
-          } gap-6`}
-        >
-
+        <>
+          {/* ── Vitals row: event info card + health alerts — always above the accordion modules ── */}
           {eventsWorkspace === "detail" ? (
-            <>
-              {/* Columna principal */}
-              <div className="flex flex-col gap-6 min-w-0">
-
-                <article id="event-invitations" className="order-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2.05fr)_minmax(0,1fr)] gap-6">
+              {/* ── Event info card ── */}
+              <article id="event-invitations" className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   {!hasEventHeroCover ? <p className="text-lg font-bold text-gray-900 dark:text-white">{selectedEventDetail.title}</p> : null}
 
                   {selectedEventDetail.event_type ? (
@@ -2736,10 +2712,63 @@ export function EventDetailView({
                   ) : null}
                 </article>
 
-                <article
+              {/* ── Health alerts ── */}
+              <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <div className="flex justify-between items-start">
+                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Icon name="shield" className="w-4 h-4 text-red-500" />
+                      {t("event_detail_alerts_title")}
+                    </p>
+                    <div className="flex gap-2">
+                      <span className="px-2 py-0.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-md text-[10px] font-bold shadow-sm" title={t("status_yes")}>
+                        {selectedEventHealthAlertsConfirmedCount}
+                      </span>
+                      <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 rounded-md text-[10px] font-bold shadow-sm" title={t("status_pending")}>
+                        {selectedEventHealthAlertsPendingCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedEventHealthAlerts.length > 0 ? (
+                    <ul className="flex flex-col gap-2">
+                      {selectedEventHealthAlerts.map((alertItem) => (
+                        <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2 bg-red-50/50 dark:bg-red-900/10 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+                          <Icon name="shield" className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                          <span>
+                            <strong className="text-red-700 dark:text-red-400">{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-gray-500 italic text-center p-4 bg-black/5 dark:bg-white/5 rounded-xl">{t("event_detail_alerts_empty")}</p>
+                  )}
+                </article>
+            </div>
+          ) : null}
+
+          {/* ── Module accordions grid ── */}
+          <div
+            className={`flex flex-col lg:grid ${
+              eventsWorkspace === "plan"
+                ? "grid-cols-1"
+                : "grid-cols-1 lg:grid-cols-[minmax(0,2.05fr)_minmax(0,1fr)]"
+            } gap-6`}
+          >
+
+          {eventsWorkspace === "detail" ? (
+            <>
+              {/* Columna principal */}
+              <div className="flex flex-col gap-6 min-w-0">
+
+                <EventModuleAccordion
                   id="event-modules"
-                  className="order-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 scroll-mt-28 transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+                  iconName="settings"
+                  iconColorClass="text-indigo-600 dark:text-indigo-400"
+                  iconBgClass="bg-indigo-50 dark:bg-indigo-900/20"
+                  title={t("event_modules_section_title")}
                 >
+                <article className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-2 min-w-0">
                       <Icon name="settings" className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5" />
@@ -2783,6 +2812,7 @@ export function EventDetailView({
                     <InlineMessage type={eventModulesFeedbackType} text={eventModulesFeedback} />
                   ) : null}
                 </article>
+                </EventModuleAccordion>
 
                 {activeMainModules.map((moduleItem) => {
                   const cfg = MODULE_ACCORDION_CONFIG[moduleItem.key] ?? DEFAULT_ACCORDION_CFG;
@@ -2834,6 +2864,15 @@ export function EventDetailView({
                       >
                         <Icon name="users" className="w-4 h-4" />
                         {t("event_group_invite_action")}
+                      </button>
+                      <button
+                        className={`${SECONDARY_BUTTON_CLASS} text-xs px-3 py-2`}
+                        type="button"
+                        onClick={handleShareInvitationImage}
+                        disabled={isSharingInvitationImage}
+                      >
+                        <Icon name="camera" className="w-4 h-4" />
+                        {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
                       </button>
                     </div>
                   </div>
@@ -3076,38 +3115,6 @@ export function EventDetailView({
                 </article>
                 </EventModuleAccordion>
 
-                <article className="order-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-                  <div className="flex justify-between items-start">
-                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Icon name="shield" className="w-4 h-4 text-red-500" />
-                      {t("event_detail_alerts_title")}
-                    </p>
-                    <div className="flex gap-2">
-                      <span className="px-2 py-0.5 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-md text-[10px] font-bold shadow-sm" title={t("status_yes")}>
-                        {selectedEventHealthAlertsConfirmedCount}
-                      </span>
-                      <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 rounded-md text-[10px] font-bold shadow-sm" title={t("status_pending")}>
-                        {selectedEventHealthAlertsPendingCount}
-                      </span>
-                    </div>
-                  </div>
-
-                  {selectedEventHealthAlerts.length > 0 ? (
-                    <ul className="flex flex-col gap-2">
-                      {selectedEventHealthAlerts.map((alertItem) => (
-                        <li key={`${alertItem.guestName}-${alertItem.avoid.join("|")}`} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2 bg-red-50/50 dark:bg-red-900/10 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
-                          <Icon name="shield" className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
-                          <span>
-                            <strong className="text-red-700 dark:text-red-400">{alertItem.guestName}:</strong> {alertItem.avoid.join(", ")}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-gray-500 italic text-center p-4 bg-black/5 dark:bg-white/5 rounded-xl">{t("event_detail_alerts_empty")}</p>
-                  )}
-                </article>
-
                 {typeof selectedEventDetail.location_lat === "number" && typeof selectedEventDetail.location_lng === "number" ? (
                   <EventModuleAccordion
                     orderClass="order-7"
@@ -3202,6 +3209,7 @@ export function EventDetailView({
           ) : null}
 
         </div>
+        </>
       )}
 
       {selectedEventDetail ? (
