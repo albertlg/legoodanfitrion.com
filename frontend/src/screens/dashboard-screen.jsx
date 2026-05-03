@@ -3343,71 +3343,30 @@ function DashboardScreen({
   // Counter of pending translations — drives the loading pill.
   const [translatingPlanCount, setTranslatingPlanCount] = useState(0);
 
-  // When the user switches language, translate ALL events that have a plan in another
-  // language but no plan yet in the target language — in parallel, fire-and-forget.
-  // For real users, the translated plan is also persisted to DB.
+  // ⚠️  AUTO-TRANSLATE EFFECT ELIMINADO (zombie chip bug)
+  //
+  // Este efecto disparaba requestPlanTranslationAI() automáticamente cada vez que:
+  //   a) eventPlannerSnapshotsByEventId se cargaba desde Supabase al montar el screen, O
+  //   b) el usuario cambiaba de idioma
+  // Como DashboardScreen wrappea TODAS las rutas autenticadas (nunca se desmonta),
+  // setTranslatingPlanCount(c => c+1) se ejecutaba en cada carga de página. Si la
+  // petición a la API tardaba o fallaba silenciosamente, el contador quedaba > 0
+  // para siempre y el chip verde aparecía en todas las rutas como estado zombi.
+  //
+  // La traducción de planes debe ocurrir SÓLO bajo demanda explícita del usuario
+  // (ej. al abrir la ficha de un evento y pulsar "Traducir").
+  // La traducción en segundo plano que ya existe en persistEventPlannerSnapshot
+  // (disparada tras generar un plan) es correcta y se mantiene intacta.
+
+  // Cleanup de seguridad: si quedara alguna traducción en vuelo al desmontar
+  // (p.ej. el usuario cierra sesión a mitad de una traducción generada por él),
+  // reseteamos el contador para que el chip no quede flotando en el siguiente montaje.
   useEffect(() => {
-    if (language === "es") return;
-
-    for (const [eventId, langMap] of Object.entries(eventPlannerSnapshotsByEventId)) {
-      if (!langMap || typeof langMap !== "object") continue;
-      if (langMap[language]) continue;
-
-      // Prefer the Spanish source; fall back to whichever language is available.
-      const sourceLang = Object.prototype.hasOwnProperty.call(langMap, "es") ? "es" : Object.keys(langMap)[0];
-      const sourcePlan = langMap[sourceLang];
-      if (!sourcePlan) continue;
-
-      const key = `${eventId}:${language}`;
-      if (pendingTranslationsRef.current.has(key)) continue;
-      pendingTranslationsRef.current.add(key);
-
-      const rawSnapshot = {
-        schema_version: 1,
-        event_id: eventId,
-        version: sourcePlan.version,
-        generated_at: sourcePlan.generatedAt,
-        source: sourcePlan.source,
-        context: {},
-        context_overrides: sourcePlan.contextOverrides || {},
-        seeds: { all: sourcePlan.seedAll || 0, tabs: sourcePlan.seedByTab || {} },
-        sections: sourcePlan.sections || {},
-        alerts: sourcePlan.alerts || { critical: [], warning: [] },
-        model_meta: sourcePlan.modelMeta || {}
-      };
-
-      setTranslatingPlanCount((c) => c + 1);
-      requestPlanTranslationAI({ planSnapshot: rawSnapshot, fromLanguage: sourceLang, toLanguage: language })
-        .then(({ data: translatedSnapshot }) => {
-          setTranslatingPlanCount((c) => Math.max(0, c - 1));
-          if (!translatedSnapshot) return;
-          const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
-          if (!translatedState) return;
-          const applyState = () => {
-            setEventPlannerSnapshotsByEventId((prev) => ({
-              ...prev,
-              [eventId]: { ...(prev[eventId] || {}), [language]: translatedState }
-            }));
-          };
-          if (isDemoMode) {
-            applyState();
-          } else {
-            supabase.rpc("upsert_event_host_plan", {
-              p_event_id: eventId,
-              p_plan_json: translatedSnapshot,
-              p_context_json: translatedSnapshot.context || rawSnapshot.context,
-              p_scope: "all",
-              p_model_meta: translatedSnapshot.model_meta || rawSnapshot.model_meta,
-              p_plan_language: language
-            }).then(applyState).catch(applyState);
-          }
-        })
-        .catch(() => {
-          setTranslatingPlanCount((c) => Math.max(0, c - 1));
-          pendingTranslationsRef.current.delete(key);
-        });
-    }
-  }, [isDemoMode, language, eventPlannerSnapshotsByEventId, setEventPlannerSnapshotsByEventId, supabase]);
+    return () => {
+      setTranslatingPlanCount(0);
+      pendingTranslationsRef.current.clear();
+    };
+  }, []);
 
   // Clear all local plan state when the session user changes (logout / account switch).
   // Prevents stale or mixed-language plan data from bleeding between sessions.
