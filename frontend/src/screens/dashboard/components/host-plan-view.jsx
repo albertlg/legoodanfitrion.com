@@ -287,27 +287,31 @@ export function HostPlanView({
 
       {/* PESTAÑAS PRINCIPALES DEL PLANNER (STICKY) */}
       <div className="sticky top-[70px] lg:top-[80px] z-30 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-sm p-3 sm:p-4 flex flex-col gap-2.5 mb-4 mt-2">
-        <div className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8" role="tablist" aria-label={t("event_planner_title")}>
-          {plannerTabs.map((tabItem) => {
-            const isActive = eventDetailPlannerTab === tabItem.key;
-            const hasVersion = Number(tabRounds[tabItem.key] || 0) > 0;
-            const isTabGenerating = isGeneratingCurrentTab && isActive;
-            return (
-              <button
-                key={tabItem.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`shrink-0 relative px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"} ${isTabGenerating ? "opacity-50 animate-pulse" : ""}`}
-                onClick={() => handleEventPlannerTabChange(tabItem.key)}
-              >
-                <span className="flex items-center gap-1.5">
-                  {tabItem.label}
-                  {hasVersion ? <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${isActive ? "bg-white/20 dark:bg-black/20" : "bg-black/5 dark:bg-white/10"}`}>v{tabRounds[tabItem.key]}</span> : null}
-                </span>
-              </button>
-            );
-          })}
+        <div className="relative">
+          <div className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8" role="tablist" aria-label={t("event_planner_title")}>
+            {plannerTabs.map((tabItem) => {
+              const isActive = eventDetailPlannerTab === tabItem.key;
+              const hasVersion = Number(tabRounds[tabItem.key] || 0) > 0;
+              const isTabGenerating = isGeneratingCurrentTab && isActive;
+              return (
+                <button
+                  key={tabItem.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`shrink-0 relative px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"} ${isTabGenerating ? "opacity-50 animate-pulse" : ""}`}
+                  onClick={() => handleEventPlannerTabChange(tabItem.key)}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {tabItem.label}
+                    {hasVersion ? <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${isActive ? "bg-white/20 dark:bg-black/20" : "bg-black/5 dark:bg-white/10"}`}>v{tabRounds[tabItem.key]}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Fade-out gradient — right-side scroll affordance */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-gray-50 dark:from-gray-900 to-transparent" aria-hidden="true" />
         </div>
 
         {eventDetailPlannerTab !== "overview" ? (

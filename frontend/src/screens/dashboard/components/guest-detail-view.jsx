@@ -287,32 +287,37 @@ export function GuestDetailView({
                 </button>
             </div>
 
-            {/* 🚀 NUEVOS TABS CON ICONOS (Estilo consistente) */}
-            <div className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8 border-b border-black/5 dark:border-white/10 mt-2" role="tablist" aria-label={t("guest_advanced_title")}>
-                {guestProfileTabs.map((tabItem) => {
-                    // Asignación rápida de iconos según la clave
-                    const tabIcon = tabItem.key === "general" ? "id_card"
-                        : tabItem.key === "food" ? "utensils"
-                            : tabItem.key === "lifestyle" ? "star"
-                                : tabItem.key === "conversation" ? "message"
-                                    : tabItem.key === "health" ? "heart"
-                                        : "clock"; // history
-                    const isActive = guestProfileViewTab === tabItem.key;
+            {/* 🚀 TABS — sticky · scroll-horizontal · fade-right */}
+            <div className="sticky top-[70px] lg:top-[80px] z-20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-xl border border-black/5 dark:border-white/10 shadow-sm px-3 pt-2.5 pb-2">
+                <div className="relative">
+                    <div className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-0.5 pr-8" role="tablist" aria-label={t("guest_advanced_title")}>
+                        {guestProfileTabs.map((tabItem) => {
+                            const tabIcon = tabItem.key === "general" ? "id_card"
+                                : tabItem.key === "food" ? "utensils"
+                                    : tabItem.key === "lifestyle" ? "star"
+                                        : tabItem.key === "conversation" ? "message"
+                                            : tabItem.key === "health" ? "heart"
+                                                : "clock"; // history
+                            const isActive = guestProfileViewTab === tabItem.key;
 
-                    return (
-                        <button
-                            key={tabItem.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={isActive}
-                            className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border outline-none ${isActive ? "bg-blue-600 text-white border-blue-700" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-                            onClick={() => setGuestProfileViewTab(tabItem.key)}
-                        >
-                            <Icon name={tabIcon} className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isActive ? "opacity-100" : "opacity-50"}`} />
-                            <span>{tabItem.label}</span>
-                        </button>
-                    );
-                })}
+                            return (
+                                <button
+                                    key={tabItem.key}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border outline-none ${isActive ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                                    onClick={() => setGuestProfileViewTab(tabItem.key)}
+                                >
+                                    <Icon name={tabIcon} className={`w-3.5 h-3.5 ${isActive ? "opacity-100" : "opacity-50"}`} />
+                                    <span>{tabItem.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {/* Fade-out gradient — right-side scroll affordance */}
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-white dark:from-gray-900 to-transparent" aria-hidden="true" />
+                </div>
             </div>
 
             {/* Tab Content */}
