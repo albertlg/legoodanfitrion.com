@@ -52,25 +52,25 @@ export function KpiTile({ label, value, hint, iconName, accent = "blue", valueCl
 
     return (
         <article
-            className={`bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2rem] border border-black/5 dark:border-white/10 shadow-sm p-6 flex flex-col gap-4 relative overflow-hidden group${interactiveClasses}`}
+            className={`bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl md:rounded-[2rem] border border-black/5 dark:border-white/10 shadow-sm p-3 md:p-6 flex flex-col gap-2 md:gap-4 relative overflow-hidden group${interactiveClasses}`}
             tabIndex={interactive ? 0 : undefined}
             role={interactive ? "button" : undefined}
             onClick={interactive ? onClick : undefined}
             onKeyDown={handleKeyDown}
         >
-            <div className={`absolute -right-6 -top-6 w-24 h-24 ${palette.blob} rounded-full blur-2xl transition-colors`}></div>
+            <div className={`absolute -right-4 -top-4 md:-right-6 md:-top-6 w-16 h-16 md:w-24 md:h-24 ${palette.blob} rounded-full blur-2xl transition-colors`}></div>
             <div className="flex justify-between items-start relative z-10">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mt-2">
+                <p className="text-[9px] md:text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mt-1 md:mt-2 leading-tight pr-1">
                     {label}
                 </p>
-                <div className={`p-3 ${palette.icon} rounded-2xl ${interactive ? "group-hover:scale-110 transition-transform" : ""}`}>
-                    <Icon name={iconName} className="w-5 h-5" />
+                <div className={`p-1.5 md:p-3 shrink-0 ${palette.icon} rounded-xl md:rounded-2xl ${interactive ? "group-hover:scale-110 transition-transform" : ""}`}>
+                    <Icon name={iconName} className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
             </div>
             <div className="relative z-10">
-                <p className={`text-4xl font-black tracking-tight ${valueClassName || "text-gray-900 dark:text-white"}`}>{value}</p>
+                <p className={`text-2xl md:text-4xl font-black tracking-tight ${valueClassName || "text-gray-900 dark:text-white"}`}>{value}</p>
                 {hint ? (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 truncate font-medium">{hint}</p>
+                    <p className="hidden md:block text-xs text-gray-500 dark:text-gray-400 mt-2 truncate font-medium">{hint}</p>
                 ) : null}
             </div>
         </article>

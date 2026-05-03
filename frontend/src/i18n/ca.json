@@ -1559,6 +1559,7 @@
   "host_rating_since_label": "Actiu des de:",
   "host_rating_since_unknown": "sense data",
   "host_rating_metric_completed": "Esdeveniments completats",
+  "host_rating_metric_completed_short": "events.",
   "host_rating_metric_response": "Resposta RSVP",
   "host_rating_metric_growth": "Conversió a organitzador/a",
   "recent_activity_title": "Historial i activitat",

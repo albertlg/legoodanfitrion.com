@@ -23,17 +23,17 @@ function DashboardOverviewSkeleton({ t }) {
                 <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-32 shrink-0"></div>
             </div>
 
-            {/* Fila de 4 Tarjetas de KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            {/* Fila de 4 Tarjetas de KPIs — 2×2 en móvil */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4 lg:gap-6 mb-4 md:mb-8">
                 {[1, 2, 3, 4].map((i) => (
-                    <article key={i} className="bg-gray-100/50 dark:bg-gray-800/20 border border-black/5 dark:border-white/5 rounded-[2rem] p-6 flex flex-col gap-4 h-40">
+                    <article key={i} className="bg-gray-100/50 dark:bg-gray-800/20 border border-black/5 dark:border-white/5 rounded-2xl md:rounded-[2rem] p-3 md:p-6 flex flex-col gap-2 md:gap-4">
                         <div className="flex justify-between items-start">
-                            <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/3 mt-2"></div>
-                            <div className="w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded-2xl"></div>
+                            <div className="h-2.5 md:h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/3 mt-1"></div>
+                            <div className="w-7 h-7 md:w-10 md:h-10 bg-gray-200 dark:bg-gray-800 rounded-xl md:rounded-2xl shrink-0"></div>
                         </div>
-                        <div className="mt-auto space-y-2">
-                            <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded-xl w-1/4"></div>
-                            <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-2/3"></div>
+                        <div className="mt-auto space-y-1.5 md:space-y-2">
+                            <div className="h-6 md:h-8 bg-gray-200 dark:bg-gray-800 rounded-xl w-1/3"></div>
+                            <div className="hidden md:block h-3 bg-gray-200 dark:bg-gray-800 rounded-lg w-2/3"></div>
                         </div>
                     </article>
                 ))}
@@ -181,31 +181,21 @@ export function DashboardOverview({
         );
     }
 
-    // 🚀 LÓGICA DE POPULATED STATE (TU DASHBOARD ACTUAL CON DATOS)
+    // 🚀 LÓGICA DE POPULATED STATE
+    const completedEventsCount = events.filter((e) => e.status === "completed").length;
+
     return (
         <section className="max-w-6xl mx-auto w-full flex flex-col view-transition">
 
-            {/* SALUDO DE CABECERA (Añadido sutilmente antes de tus tarjetas) 
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
-                        {t("dash_home_greeting").replace("{{name}}", hostDisplayName || "Anfitrión")}
-                    </h1>
-                    <p className="text-gray-500 dark:text-gray-400 font-medium mt-1">
-                        {t("dash_home_section_active")}
-                    </p>
+            {/* ① MÓVIL ONLY — Checklist primero si hay evento activo */}
+            {dashboardHostChecklist?.total > 0 && (
+                <div className="lg:hidden mb-4">
+                    <HostChecklistCard t={t} checklist={dashboardHostChecklist} />
                 </div>
-                <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-                    onClick={() => openWorkspace("events", "create")} // <-- Ajusta a tu manejador real
-                >
-                    <Icon name="plus" className="w-4 h-4" />
-                    {t("dash_home_cta_create_new")}
-                </button>
-            </div> */}
+            )}
 
-            {/* --- AQUÍ EMPIEZA TU CÓDIGO ORIGINAL INTACTO --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            {/* ② KPIs: 2×2 en móvil · 4 columnas en escritorio */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4 lg:gap-6 mb-4 md:mb-6">
                 <KpiTile
                     label={t("kpi_events")}
                     value={events.length}
@@ -241,6 +231,40 @@ export function DashboardOverview({
                 />
             </div>
 
+            {/* ③ MÓVIL ONLY — Banner de reputación compacto (~64 px) */}
+            <div className="lg:hidden mb-4">
+                <article className="flex items-center gap-3 bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 rounded-2xl border border-black/10 dark:border-gray-700 shadow-sm px-4 py-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-yellow-500/10 rounded-full blur-2xl -mr-6 -mt-6 pointer-events-none" />
+                    <AvatarCircle
+                        label={hostDisplayName}
+                        fallback={hostInitials}
+                        imageUrl={hostAvatarUrl}
+                        size={36}
+                        className="shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate leading-tight">{hostDisplayName}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{t("panel_title")}</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-2.5 py-1 rounded-xl text-xs font-black border border-yellow-200 dark:border-yellow-500/30 shrink-0">
+                        <Icon name="star" className="w-3 h-3 fill-current" />
+                        <span>{hostRatingScore}/5</span>
+                    </div>
+                    <div className="w-px h-8 bg-black/10 dark:bg-white/10 shrink-0" />
+                    <div className="flex flex-col gap-0.5 text-[10px] shrink-0 text-right">
+                        <span>
+                            <span className="font-bold text-gray-900 dark:text-white">{completedEventsCount}</span>
+                            <span className="text-gray-500 dark:text-gray-400"> {t("host_rating_metric_completed_short") || "ev."}</span>
+                        </span>
+                        <span>
+                            <span className="font-bold text-green-600 dark:text-green-400">{respondedInvitesRate}%</span>
+                            <span className="text-gray-500 dark:text-gray-400"> RSVP</span>
+                        </span>
+                    </div>
+                </article>
+            </div>
+
+            {/* ④ Grid principal: contenido izquierda + columna derecha (solo escritorio) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-8">
 
                 {/* COLUMNA IZQUIERDA (Próximos eventos y Actividad - Ocupa 2/3) */}
@@ -459,8 +483,8 @@ export function DashboardOverview({
                     </article>
                 </div>
 
-                {/* COLUMNA DERECHA (Perfil del anfitrión - Ocupa 1/3) */}
-                <div className="lg:col-span-1 flex flex-col gap-6 md:gap-8">
+                {/* COLUMNA DERECHA — solo visible en escritorio (en móvil hay banner + checklist arriba) */}
+                <div className="lg:col-span-1 hidden lg:flex flex-col gap-6 md:gap-8">
 
                     {/* TARJETA VIP DE ANFITRIÓN */}
                     <article className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-white rounded-[2.5rem] border border-black/10 dark:border-gray-700 shadow-xl p-6 md:p-8 relative overflow-hidden flex flex-col gap-6 transition-colors">

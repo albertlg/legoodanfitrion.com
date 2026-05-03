@@ -1559,6 +1559,7 @@
   "host_rating_since_label": "Activo desde:",
   "host_rating_since_unknown": "sin fecha",
   "host_rating_metric_completed": "Completados",
+  "host_rating_metric_completed_short": "events.",
   "host_rating_metric_response": "Respuesta RSVP",
   "host_rating_metric_growth": "Conversión a organizador/a",
   "recent_activity_title": "Historial y actividad",

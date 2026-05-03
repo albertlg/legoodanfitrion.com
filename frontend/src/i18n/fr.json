@@ -1559,6 +1559,7 @@
   "host_rating_since_label": "Actif depuis:",
   "host_rating_since_unknown": "inconnu",
   "host_rating_metric_completed": "Terminés",
+  "host_rating_metric_completed_short": "év.",
   "host_rating_metric_response": "Réponse RSVP",
   "host_rating_metric_growth": "Conversion en nouvelles personnes qui organisent",
   "recent_activity_title": "Historique et activité",

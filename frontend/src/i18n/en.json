@@ -1559,6 +1559,7 @@
   "host_rating_since_label": "Active since:",
   "host_rating_since_unknown": "unknown",
   "host_rating_metric_completed": "Completed",
+  "host_rating_metric_completed_short": "ev.",
   "host_rating_metric_response": "RSVP response",
   "host_rating_metric_growth": "Organizer conversion",
   "recent_activity_title": "History and activity",

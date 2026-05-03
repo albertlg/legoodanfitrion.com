@@ -1508,6 +1508,7 @@
   "host_rating_since_label": "Attivo dal:",
   "host_rating_since_unknown": "sconosciuto",
   "host_rating_metric_completed": "Completati",
+  "host_rating_metric_completed_short": "ev.",
   "host_rating_metric_response": "Risposta RSVP",
   "host_rating_metric_growth": "Crescita community",
   "recent_activity_title": "Cronologia e attività",
