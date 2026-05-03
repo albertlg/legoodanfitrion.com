@@ -207,14 +207,16 @@ export function HostPlanView({
             </div>
           </div>
 
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
-            <button className="flex-1 sm:flex-none bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-black/10 dark:border-white/10 font-bold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
-              <Icon name="edit" className="w-3.5 h-3.5" />
-              <span>{t("event_planner_action_context")}</span>
-            </button>
-            <button className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 font-bold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl transition-all text-[10px] sm:text-xs shadow-md shadow-blue-200/50 dark:shadow-blue-900/40 flex items-center justify-center gap-1.5 disabled:opacity-50" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
+            {/* Primary CTA — full-width on mobile, auto on sm+ */}
+            <button className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 font-bold py-2.5 px-4 rounded-xl transition-all text-xs shadow-md shadow-blue-200/50 dark:shadow-blue-900/40 flex items-center justify-center gap-2 disabled:opacity-50" type="button" onClick={() => handleRegenerateEventPlanner("all")} disabled={isGenerating}>
               <Icon name="sparkle" className="w-3.5 h-3.5" />
               <span>{isGeneratingAll ? t("event_planner_generating_all") : t("event_planner_action_regenerate")}</span>
+            </button>
+            {/* Secondary CTA — ghost style, below on mobile */}
+            <button className="w-full sm:w-auto bg-white/60 hover:bg-white/90 dark:bg-gray-800/60 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-black/10 dark:border-white/10 font-semibold py-2 px-3 rounded-xl transition-all text-xs shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50" type="button" onClick={handleOpenEventPlannerContext} disabled={isGenerating}>
+              <Icon name="edit" className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+              <span>{t("event_planner_action_context")}</span>
             </button>
           </div>
         </div>
@@ -285,7 +287,7 @@ export function HostPlanView({
 
       {/* PESTAÑAS PRINCIPALES DEL PLANNER (STICKY) */}
       <div className="sticky top-[70px] lg:top-[80px] z-30 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl shadow-sm p-3 sm:p-4 flex flex-col gap-2.5 mb-4 mt-2">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("event_planner_title")}>
+        <div className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8" role="tablist" aria-label={t("event_planner_title")}>
           {plannerTabs.map((tabItem) => {
             const isActive = eventDetailPlannerTab === tabItem.key;
             const hasVersion = Number(tabRounds[tabItem.key] || 0) > 0;
@@ -296,7 +298,7 @@ export function HostPlanView({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                className={`relative px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"} ${isTabGenerating ? "opacity-50 animate-pulse" : ""}`}
+                className={`shrink-0 relative px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${isActive ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700"} ${isTabGenerating ? "opacity-50 animate-pulse" : ""}`}
                 onClick={() => handleEventPlannerTabChange(tabItem.key)}
               >
                 <span className="flex items-center gap-1.5">
@@ -308,27 +310,17 @@ export function HostPlanView({
           })}
         </div>
 
-        {(activeTabVersionLabel || activeTabGeneratedAtLabel || eventDetailPlannerTab !== "overview") ? (
-          <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-black/5 dark:border-white/10">
-            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-              {(activeTabVersionLabel || activeTabGeneratedAtLabel) ? (
-                <>
-                  <Icon name="clock" className="w-3 h-3" />
-                  {t("event_planner_versions_label")}: {[activeTabVersionLabel, activeTabGeneratedAtLabel].filter(Boolean).join(" · ")}
-                </>
-              ) : null}
-            </p>
-            {eventDetailPlannerTab !== "overview" ? (
-              <button
-                className="flex shrink-0 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-1.5 px-3 rounded-xl transition-all text-[10px] shadow-sm items-center gap-1.5 disabled:opacity-50"
-                type="button"
-                onClick={handleRegenerateCurrentTabClick}
-                disabled={isGenerating}
-              >
-                <Icon name="sparkle" className="w-3 h-3" />
-                {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
-              </button>
-            ) : null}
+        {eventDetailPlannerTab !== "overview" ? (
+          <div className="flex items-center justify-end pt-1.5 border-t border-black/5 dark:border-white/10">
+            <button
+              className="flex shrink-0 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 font-bold py-1.5 px-3 rounded-xl transition-all text-[10px] shadow-sm items-center gap-1.5 disabled:opacity-50"
+              type="button"
+              onClick={handleRegenerateCurrentTabClick}
+              disabled={isGenerating}
+            >
+              <Icon name="sparkle" className="w-3 h-3" />
+              {isGeneratingCurrentTab ? t("event_planner_generating_tab") : t("event_planner_action_regenerate_tab")}
+            </button>
           </div>
         ) : null}
       </div>
@@ -375,7 +367,8 @@ export function HostPlanView({
                     pending: selectedEventHealthAlertsPendingCount
                   })}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                {/* Counter badges — hidden on mobile to reduce cognitive load */}
+                <div className="hidden sm:flex flex-wrap gap-2">
                   <span className="px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 rounded-md text-[10px] font-bold">
                     {t("event_planner_stat_allergies")}: {selectedEventAllergiesCount}
                   </span>
