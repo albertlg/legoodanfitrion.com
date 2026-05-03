@@ -2808,6 +2808,25 @@ export function EventDetailView({
                     })}
                   </div>
 
+                  {/* Spotify & other header-action modules — accessible here on mobile */}
+                  {activeHeaderActionModules.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-3 border-t border-black/5 dark:border-white/10">
+                      {activeHeaderActionModules.map((moduleItem) => (
+                        <React.Fragment key={`module-manager-action-${moduleItem.key}`}>
+                          {moduleItem.render({
+                            t,
+                            isProfessionalEvent,
+                            hasSpotifyPlaylist,
+                            isLoadingSpotifyState,
+                            handleOpenSpotifyPlaylist,
+                            handleConnectSpotify,
+                            variant: "desktop"
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  ) : null}
+
                   {eventModulesFeedback ? (
                     <InlineMessage type={eventModulesFeedbackType} text={eventModulesFeedback} />
                   ) : null}
