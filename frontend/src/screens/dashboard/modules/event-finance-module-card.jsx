@@ -40,6 +40,48 @@ function formatMoneyCompact(value, language) {
   }).format(numericValue);
 }
 
+/**
+ * Returns a compact, disambiguation-safe version of a participant name.
+ *
+ * Strategy:
+ *  – Alias in parens ≤ 12 chars  →  "FirstName (alias)"
+ *    e.g. "Miquel (pare Mia) Torregrosa" → "Miquel (pare Mia)"
+ *  – 1 word                      →  as-is
+ *  – 2–3 words                   →  "Word0 W1."  (initial of word[1] = first surname)
+ *    e.g. "Laura García Martínez" → "Laura G."
+ *  – 4+ words                    →  "Word0 W2."  (skip second given name, hit first surname)
+ *    e.g. "María José García Martínez" → "María G."
+ */
+function getCompactName(rawName) {
+  if (!rawName || typeof rawName !== "string") return rawName || "";
+  const raw = rawName.trim();
+  if (!raw) return raw;
+
+  // Extract the first parenthesised block as alias
+  const aliasMatch = raw.match(/\(([^)]+)\)/);
+  const aliasContent = aliasMatch ? aliasMatch[1].trim() : null;
+
+  // Strip ALL parenthesised blocks, normalise whitespace
+  const cleanName = raw.replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+  const words = cleanName.split(" ").filter(Boolean);
+
+  if (words.length === 0) return raw;
+
+  // Short alias → "FirstName (alias)" for instant recognition
+  if (aliasContent && aliasContent.length <= 12) {
+    return `${words[0]} (${aliasContent})`;
+  }
+
+  if (words.length === 1) return words[0];
+
+  // For 4+ words skip what may be a second given name (e.g. "María José")
+  const surnameIndex = words.length >= 4 ? 2 : 1;
+  const surnameWord = words[surnameIndex];
+  if (!surnameWord) return words[0];
+
+  return `${words[0]} ${surnameWord[0].toUpperCase()}.`;
+}
+
 function renderExpenseForm({
   t,
   isProfessionalEvent,
@@ -510,15 +552,24 @@ export function EventFinanceModuleCard({
               {splitDebts.map((transaction, index) => (
                 <li
                   key={`${transaction.from}-${transaction.to}-${index}`}
-                  className="rounded-xl border border-purple-200/70 dark:border-purple-700/30 bg-purple-50/70 dark:bg-purple-900/20 px-3 py-2.5 flex items-center gap-2 min-w-0"
+                  className="rounded-xl border border-purple-200/70 dark:border-purple-700/30 bg-purple-50/70 dark:bg-purple-900/20 px-3 py-2.5 flex items-center gap-2 min-w-0 overflow-hidden"
                 >
-                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate flex-1 min-w-0">{transaction.from}</span>
-                  <span className="text-base shrink-0 leading-none" aria-hidden="true">💸</span>
-                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 shrink-0 whitespace-nowrap">
-                    {formatMoneyAmount(transaction.amount, language)} €
+                  {/* FROM name — shrinks symmetrically with TO */}
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate flex-1 basis-0 min-w-0">
+                    {getCompactName(transaction.from)}
                   </span>
-                  <span className="text-gray-400 dark:text-gray-500 shrink-0 font-bold" aria-hidden="true">→</span>
-                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate flex-1 min-w-0 text-right">{transaction.to}</span>
+                  {/* Fixed amount block — NEVER compresses */}
+                  <span className="shrink-0 flex items-center gap-1 whitespace-nowrap">
+                    <span className="text-sm leading-none" aria-hidden="true">💸</span>
+                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 tabular-nums">
+                      {formatMoneyAmount(transaction.amount, language)} €
+                    </span>
+                  </span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0 font-bold text-xs" aria-hidden="true">→</span>
+                  {/* TO name — shrinks symmetrically with FROM */}
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate flex-1 basis-0 min-w-0 text-right">
+                    {getCompactName(transaction.to)}
+                  </span>
                 </li>
               ))}
             </ul>
