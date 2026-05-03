@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Icon } from "../../../components/icons";
 import { InlineMessage } from "../../../components/inline-message";
 
@@ -215,6 +215,9 @@ export function EventFinanceModuleCard({
   fixedPriceCollectedAmount,
   fixedPricePendingAmount
 }) {
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+
   const currentFinanceMode = String(financeMode || "split_tickets").trim().toLowerCase() || "split_tickets";
   const fixedPriceValue = Number(financeFixedPrice);
   const fixedPriceAmount = Number.isFinite(fixedPriceValue) && fixedPriceValue >= 0 ? fixedPriceValue : 0;
@@ -231,132 +234,210 @@ export function EventFinanceModuleCard({
       ? fixedPricePaidInvitationIds
       : new Set(Array.isArray(fixedPricePaidInvitationIds) ? fixedPricePaidInvitationIds : []);
 
+  const expenseFormProps = {
+    t,
+    isProfessionalEvent,
+    splitExpenseDescription,
+    setSplitExpenseDescription,
+    splitExpenseAmount,
+    setSplitExpenseAmount,
+    splitExpensePaidBy,
+    setSplitExpensePaidBy,
+    splitParticipants,
+    splitHelperMessage,
+    setSplitHelperMessage,
+    handleAddSplitExpense
+  };
+
+  const expenseListProps = {
+    t,
+    interpolateText,
+    splitExpenses,
+    formatMoneyAmount,
+    language,
+    handleRemoveSplitExpense
+  };
+
   return (
     <article className="order-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm overflow-hidden p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+
+      {/* ── Title row ── */}
       <div className="flex items-center gap-2">
         <Icon name="activity" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
         <p className="text-lg font-bold text-gray-900 dark:text-white">{t("event_finance_title")}</p>
       </div>
-      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{t("event_finance_hint")}</p>
 
-      <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 grid grid-cols-1 gap-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            {t("event_finance_mode_label")}
-          </span>
-          <select
-            className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-            value={currentFinanceMode}
-            onChange={(event) => setFinanceMode(event.target.value)}
-          >
-            {FINANCE_MODES.map((modeItem) => (
-              <option key={modeItem.key} value={modeItem.key}>
-                {t(modeItem.labelKey)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          {t(FINANCE_MODES.find((modeItem) => modeItem.key === currentFinanceMode)?.hintKey || "event_finance_mode_split_tickets_hint")}
-        </p>
-
-        {currentFinanceMode === "fixed_price" ? (
-          <>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {t("event_finance_fixed_price_label")}
-              </span>
-              <input
-                className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                placeholder={t("event_finance_fixed_price_placeholder")}
-                value={financeFixedPrice}
-                onChange={(event) => setFinanceFixedPrice(event.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {t("event_finance_payment_info_label")}
-              </span>
-              <input
-                className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                type="text"
-                placeholder={t("event_finance_payment_info_placeholder")}
-                value={financePaymentInfo}
-                onChange={(event) => setFinancePaymentInfo(event.target.value)}
-              />
-            </label>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("event_finance_payment_info_hint")}</p>
-          </>
-        ) : null}
-
-        {currentFinanceMode === "corporate_budget" ? (
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              {t("event_finance_total_budget_label")}
-            </span>
-            <input
-              className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              placeholder={t("event_finance_total_budget_placeholder")}
-              value={financeTotalBudget}
-              onChange={(event) => setFinanceTotalBudget(event.target.value)}
-            />
-          </label>
-        ) : null}
-
-        <button
-          className={`${PRIMARY_BUTTON_CLASS} text-[11px] px-3 py-2`}
-          type="button"
-          onClick={handleSaveFinanceConfig}
-          disabled={isSavingFinanceConfig}
-        >
-          <Icon name={isSavingFinanceConfig ? "loader" : "check"} className={`w-4 h-4 ${isSavingFinanceConfig ? "animate-spin" : ""}`} />
-          <span>{isSavingFinanceConfig ? t("event_finance_save_action_loading") : t("event_finance_save_action")}</span>
-        </button>
-      </div>
-
+      {/* ── Inline feedback (save errors, etc.) ── */}
       {financeFeedback ? <InlineMessage type={financeFeedbackType} text={financeFeedback} /> : null}
 
+      {/* ════════════════════════════════════════════
+          KPIs — always at top, immediately visible
+          ════════════════════════════════════════════ */}
+
+      {/* split_tickets KPIs */}
+      {currentFinanceMode === "split_tickets" ? (
+        <div className="grid grid-cols-2 gap-3">
+          <article className="rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 px-4 py-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
+              {t("event_expenses_total_spent_label")}
+            </span>
+            <p className="text-2xl font-black text-blue-700 dark:text-blue-300 leading-none">
+              {formatMoneyAmount(splitTotalAmount, language)} €
+            </p>
+          </article>
+          <article className="rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700/40 px-4 py-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
+              {t("event_expenses_people_count_label")}
+            </span>
+            <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300 leading-none">{splitTotalGuests || 0}</p>
+          </article>
+          <article className="col-span-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex items-center justify-between gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
+              {t("event_expenses_per_person_label")}
+            </span>
+            <p className="text-xl font-black text-emerald-700 dark:text-emerald-300 leading-tight text-right">
+              {interpolateText(t("event_expenses_per_person_value"), { amount: splitPerPersonLabel })}
+            </p>
+          </article>
+        </div>
+      ) : null}
+
+      {/* fixed_price KPIs */}
       {currentFinanceMode === "fixed_price" ? (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <article className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
-                {t("event_finance_fixed_price_paid_label")}
-              </span>
-              <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-none">{fixedPricePaidCount}</p>
-            </article>
-            <article className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 px-4 py-3 flex flex-col gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700/80 dark:text-amber-300/80">
-                {t("event_finance_fixed_price_pending_label")}
-              </span>
-              <p className="text-2xl font-black text-amber-700 dark:text-amber-300 leading-none">{fixedPricePendingCount}</p>
-            </article>
-            <article className="rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 px-4 py-3 flex flex-col gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
-                {t("event_finance_fixed_price_collected_label")}
-              </span>
-              <p className="text-xl font-black text-blue-700 dark:text-blue-300 leading-none">
-                {formatMoneyAmount(fixedPriceCollectedAmount, language)} €
+        <div className="grid grid-cols-2 gap-3">
+          <article className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
+              {t("event_finance_fixed_price_paid_label")}
+            </span>
+            <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-none">{fixedPricePaidCount}</p>
+          </article>
+          <article className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 px-4 py-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700/80 dark:text-amber-300/80">
+              {t("event_finance_fixed_price_pending_label")}
+            </span>
+            <p className="text-2xl font-black text-amber-700 dark:text-amber-300 leading-none">{fixedPricePendingCount}</p>
+          </article>
+          <article className="rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 px-4 py-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
+              {t("event_finance_fixed_price_collected_label")}
+            </span>
+            <p className="text-xl font-black text-blue-700 dark:text-blue-300 leading-none">
+              {formatMoneyAmount(fixedPriceCollectedAmount, language)} €
+            </p>
+          </article>
+          <article className="rounded-2xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700/40 px-4 py-3 flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700/80 dark:text-rose-300/80">
+              {t("event_finance_fixed_price_missing_label")}
+            </span>
+            <p className="text-xl font-black text-rose-700 dark:text-rose-300 leading-none">
+              {formatMoneyAmount(fixedPricePendingAmount, language)} €
+            </p>
+          </article>
+        </div>
+      ) : null}
+
+      {/* corporate_budget KPIs */}
+      {currentFinanceMode === "corporate_budget" ? (
+        <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              {t("event_finance_corporate_progress_label")}
+            </p>
+            <p className={`text-xs font-bold ${isCorporateOverBudget ? "text-red-600 dark:text-red-300" : "text-gray-700 dark:text-gray-200"}`}>
+              {corporateProgressPercent}%
+            </p>
+          </div>
+          <div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${isCorporateOverBudget ? "bg-red-500" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`}
+              style={{ width: `${Math.max(0, corporateProgressBarWidth)}%` }}
+            />
+          </div>
+          <article className="rounded-xl border border-blue-200 dark:border-blue-700/40 bg-blue-50 dark:bg-blue-900/20 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
+              {t("event_finance_corporate_budget_total_label")}
+            </p>
+            <p className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">
+              <span className="whitespace-nowrap">{formatMoneyCompact(corporateBudgetAmount, language)} €</span>
+            </p>
+          </article>
+          <div className="grid grid-cols-2 gap-3">
+            <article className="rounded-xl border border-emerald-200 dark:border-emerald-700/40 bg-emerald-50 dark:bg-emerald-900/20 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
+                {t("event_finance_corporate_spent_label")}
+              </p>
+              <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-none">
+                <span className="whitespace-nowrap">{formatMoneyCompact(splitTotalAmount, language)} €</span>
               </p>
             </article>
-            <article className="rounded-2xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700/40 px-4 py-3 flex flex-col gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700/80 dark:text-rose-300/80">
-                {t("event_finance_fixed_price_missing_label")}
-              </span>
-              <p className="text-xl font-black text-rose-700 dark:text-rose-300 leading-none">
-                {formatMoneyAmount(fixedPricePendingAmount, language)} €
+            <article
+              className={`rounded-xl p-3 border ${
+                isCorporateOverBudget
+                  ? "border-red-200 dark:border-red-700/40 bg-red-50 dark:bg-red-900/20"
+                  : "border-amber-200 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-900/20"
+              }`}
+            >
+              <p
+                className={`text-[10px] font-bold uppercase tracking-wider ${
+                  isCorporateOverBudget
+                    ? "text-red-700/80 dark:text-red-300/80"
+                    : "text-amber-700/80 dark:text-amber-300/80"
+                }`}
+              >
+                {t("event_finance_corporate_remaining_label")}
+              </p>
+              <p
+                className={`text-lg font-bold leading-none ${
+                  isCorporateOverBudget ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"
+                }`}
+              >
+                <span className="whitespace-nowrap">{formatMoneyCompact(corporateRemaining, language)} €</span>
               </p>
             </article>
           </div>
+        </div>
+      ) : null}
 
+      {/* ════════════════════════════════════════════
+          Expense entry — split_tickets & corporate
+          ════════════════════════════════════════════ */}
+
+      {(currentFinanceMode === "split_tickets" || currentFinanceMode === "corporate_budget") ? (
+        <>
+          {/* + Add expense CTA / inline form */}
+          {isFormOpen ? (
+            <div className="flex flex-col gap-2">
+              {renderExpenseForm(expenseFormProps)}
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-center py-1 transition-colors"
+              >
+                {t("cancel_action")}
+              </button>
+            </div>
+          ) : (
+            <button
+              className={`${PRIMARY_BUTTON_CLASS} w-full text-sm`}
+              type="button"
+              onClick={() => setIsFormOpen(true)}
+            >
+              <Icon name="plus" className="w-4 h-4" />
+              <span>{t("event_expenses_add_cta")}</span>
+            </button>
+          )}
+
+          {/* Expense list */}
+          {renderExpenseList(expenseListProps)}
+        </>
+      ) : null}
+
+      {/* ════════════════════════════════════════════
+          fixed_price — guest payment list
+          ════════════════════════════════════════════ */}
+
+      {currentFinanceMode === "fixed_price" ? (
+        <>
           <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Icon name="users" className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -407,192 +488,178 @@ export function EventFinanceModuleCard({
         </>
       ) : null}
 
+      {/* ════════════════════════════════════════════
+          Settlement — compact scannable tiles (split_tickets only)
+          ════════════════════════════════════════════ */}
+
       {currentFinanceMode === "split_tickets" ? (
-        <>
-          {renderExpenseForm({
-            t,
-            isProfessionalEvent,
-            splitExpenseDescription,
-            setSplitExpenseDescription,
-            splitExpenseAmount,
-            setSplitExpenseAmount,
-            splitExpensePaidBy,
-            setSplitExpensePaidBy,
-            splitParticipants,
-            splitHelperMessage,
-            setSplitHelperMessage,
-            handleAddSplitExpense
-          })}
-
-          {renderExpenseList({
-            t,
-            interpolateText,
-            splitExpenses,
-            formatMoneyAmount,
-            language,
-            handleRemoveSplitExpense
-          })}
-
-          <div className="grid grid-cols-2 gap-4">
-            <article className="rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 px-4 py-3 flex flex-col gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
-                {t("event_expenses_total_spent_label")}
-              </span>
-              <p className="text-2xl font-black text-blue-700 dark:text-blue-300 leading-none">
-                {formatMoneyAmount(splitTotalAmount, language)} €
-              </p>
-            </article>
-            <article className="rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700/40 px-4 py-3 flex flex-col gap-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
-                {t("event_expenses_people_count_label")}
-              </span>
-              <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300 leading-none">{splitTotalGuests || 0}</p>
-            </article>
-            <article className="col-span-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
-                {t("event_expenses_per_person_label")}
-              </span>
-              <p className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-tight break-words">
-                {interpolateText(t("event_expenses_per_person_value"), { amount: splitPerPersonLabel })}
-              </p>
-            </article>
+        <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Icon name="trend" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_expenses_settlement_title")}</p>
           </div>
 
-          <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Icon name="trend" className="w-4 h-4 text-purple-600 dark:text-purple-300" />
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{t("event_expenses_settlement_title")}</p>
-            </div>
+          {splitTotalGuests <= 0 ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_people_zero")}</p>
+          ) : splitExpenses.length === 0 ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_settlement_empty")}</p>
+          ) : splitDebts.length === 0 ? (
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{t("event_expenses_settlement_balanced")}</p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {splitDebts.map((transaction, index) => (
+                <li
+                  key={`${transaction.from}-${transaction.to}-${index}`}
+                  className="rounded-xl border border-purple-200/70 dark:border-purple-700/30 bg-purple-50/70 dark:bg-purple-900/20 px-3 py-2.5 flex items-center gap-2 min-w-0"
+                >
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate flex-1 min-w-0">{transaction.from}</span>
+                  <span className="text-base shrink-0 leading-none" aria-hidden="true">💸</span>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 shrink-0 whitespace-nowrap">
+                    {formatMoneyAmount(transaction.amount, language)} €
+                  </span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0 font-bold" aria-hidden="true">→</span>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white truncate flex-1 min-w-0 text-right">{transaction.to}</span>
+                </li>
+              ))}
+            </ul>
+          )}
 
-            {splitTotalGuests <= 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_people_zero")}</p>
-            ) : splitExpenses.length === 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400 italic">{t("event_expenses_settlement_empty")}</p>
-            ) : splitDebts.length === 0 ? (
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{t("event_expenses_settlement_balanced")}</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {splitDebts.map((transaction, index) => (
-                  <li
-                    key={`${transaction.from}-${transaction.to}-${index}`}
-                    className="rounded-xl border border-purple-200/70 dark:border-purple-700/30 bg-purple-50/70 dark:bg-purple-900/20 px-3 py-2.5 flex items-center justify-between gap-3"
-                  >
-                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                      {interpolateText(t("event_expenses_settlement_row"), {
-                        from: transaction.from,
-                        to: transaction.to,
-                        amount: `${formatMoneyAmount(transaction.amount, language)} €`
-                      })}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <button
-              className="mt-1 inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm text-xs disabled:opacity-60 disabled:cursor-not-allowed"
-              type="button"
-              onClick={handleShareSettlementWhatsApp}
-              disabled={splitTotalAmount <= 0 || splitTotalGuests <= 0}
-              aria-label={t("event_expenses_whatsapp_action")}
-              title={t("event_expenses_whatsapp_action")}
-            >
-              <Icon name="message" className="w-4 h-4" />
-              <span>{t("event_expenses_whatsapp_action")}</span>
-            </button>
-          </div>
-
-          <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
-        </>
+          <button
+            className="mt-1 inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-semibold px-4 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+            type="button"
+            onClick={handleShareSettlementWhatsApp}
+            disabled={splitTotalAmount <= 0 || splitTotalGuests <= 0}
+            aria-label={t("event_expenses_whatsapp_action")}
+            title={t("event_expenses_whatsapp_action")}
+          >
+            <Icon name="message" className="w-4 h-4" />
+            <span>{t("event_expenses_whatsapp_action")}</span>
+          </button>
+        </div>
       ) : null}
 
-      {currentFinanceMode === "corporate_budget" ? (
-        <>
-          <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/20 p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {t("event_finance_corporate_progress_label")}
+      {/* ── Helper / validation message ── */}
+      {(currentFinanceMode === "split_tickets" || currentFinanceMode === "corporate_budget") ? (
+        <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
+      ) : null}
+
+      {/* ════════════════════════════════════════════
+          Config — collapsible section at the bottom
+          ════════════════════════════════════════════ */}
+      <div className="border-t border-black/5 dark:border-white/10 pt-3 -mb-1">
+        <button
+          type="button"
+          onClick={() => setIsConfigOpen((v) => !v)}
+          className="w-full flex items-center gap-2 text-left py-0.5 group"
+          aria-expanded={isConfigOpen}
+        >
+          <Icon name="settings" className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 flex-1 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+            {t("event_finance_config_title")}
+          </span>
+          <Icon
+            name="chevron_down"
+            className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${isConfigOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {/* Collapsible config body */}
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            isConfigOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="pt-4 grid grid-cols-1 gap-3">
+              {/* Mode selector */}
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t("event_finance_mode_label")}
+                </span>
+                <select
+                  className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                  value={currentFinanceMode}
+                  onChange={(event) => setFinanceMode(event.target.value)}
+                >
+                  {FINANCE_MODES.map((modeItem) => (
+                    <option key={modeItem.key} value={modeItem.key}>
+                      {t(modeItem.labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t(FINANCE_MODES.find((modeItem) => modeItem.key === currentFinanceMode)?.hintKey || "event_finance_mode_split_tickets_hint")}
               </p>
-              <p className={`text-xs font-bold ${isCorporateOverBudget ? "text-red-600 dark:text-red-300" : "text-gray-700 dark:text-gray-200"}`}>
-                {corporateProgressPercent}%
-              </p>
-            </div>
-            <div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${isCorporateOverBudget ? "bg-red-500" : "bg-gradient-to-r from-indigo-500 to-purple-500"}`}
-                style={{ width: `${Math.max(0, corporateProgressBarWidth)}%` }}
-              />
-            </div>
-            <article className="rounded-xl border border-blue-200 dark:border-blue-700/40 bg-blue-50 dark:bg-blue-900/20 p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
-                {t("event_finance_corporate_budget_total_label")}
-              </p>
-              <p className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">
-                <span className="whitespace-nowrap">{formatMoneyCompact(corporateBudgetAmount, language)} €</span>
-              </p>
-            </article>
-            <div className="grid grid-cols-2 gap-3">
-              <article className="rounded-xl border border-emerald-200 dark:border-emerald-700/40 bg-emerald-50 dark:bg-emerald-900/20 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
-                  {t("event_finance_corporate_spent_label")}
-                </p>
-                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300 leading-none">
-                  <span className="whitespace-nowrap">{formatMoneyCompact(splitTotalAmount, language)} €</span>
-                </p>
-              </article>
-              <article
-                className={`rounded-xl p-3 border ${
-                  isCorporateOverBudget
-                    ? "border-red-200 dark:border-red-700/40 bg-red-50 dark:bg-red-900/20"
-                    : "border-amber-200 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-900/20"
-                }`}
+
+              {/* fixed_price extra fields */}
+              {currentFinanceMode === "fixed_price" ? (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("event_finance_fixed_price_label")}
+                    </span>
+                    <input
+                      className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      placeholder={t("event_finance_fixed_price_placeholder")}
+                      value={financeFixedPrice}
+                      onChange={(event) => setFinanceFixedPrice(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("event_finance_payment_info_label")}
+                    </span>
+                    <input
+                      className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                      type="text"
+                      placeholder={t("event_finance_payment_info_placeholder")}
+                      value={financePaymentInfo}
+                      onChange={(event) => setFinancePaymentInfo(event.target.value)}
+                    />
+                  </label>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("event_finance_payment_info_hint")}</p>
+                </>
+              ) : null}
+
+              {/* corporate_budget extra field */}
+              {currentFinanceMode === "corporate_budget" ? (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {t("event_finance_total_budget_label")}
+                  </span>
+                  <input
+                    className="w-full bg-white/90 dark:bg-black/35 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    placeholder={t("event_finance_total_budget_placeholder")}
+                    value={financeTotalBudget}
+                    onChange={(event) => setFinanceTotalBudget(event.target.value)}
+                  />
+                </label>
+              ) : null}
+
+              {/* Save button */}
+              <button
+                className={`${PRIMARY_BUTTON_CLASS} text-[11px] px-3 py-2`}
+                type="button"
+                onClick={handleSaveFinanceConfig}
+                disabled={isSavingFinanceConfig}
               >
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider ${
-                    isCorporateOverBudget
-                      ? "text-red-700/80 dark:text-red-300/80"
-                      : "text-amber-700/80 dark:text-amber-300/80"
-                  }`}
-                >
-                  {t("event_finance_corporate_remaining_label")}
-                </p>
-                <p
-                  className={`text-lg font-bold leading-none ${
-                    isCorporateOverBudget ? "text-red-600 dark:text-red-300" : "text-amber-700 dark:text-amber-300"
-                  }`}
-                >
-                  <span className="whitespace-nowrap">{formatMoneyCompact(corporateRemaining, language)} €</span>
-                </p>
-              </article>
+                <Icon name={isSavingFinanceConfig ? "loader" : "check"} className={`w-4 h-4 ${isSavingFinanceConfig ? "animate-spin" : ""}`} />
+                <span>{isSavingFinanceConfig ? t("event_finance_save_action_loading") : t("event_finance_save_action")}</span>
+              </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          {renderExpenseForm({
-            t,
-            splitExpenseDescription,
-            setSplitExpenseDescription,
-            splitExpenseAmount,
-            setSplitExpenseAmount,
-            splitExpensePaidBy,
-            setSplitExpensePaidBy,
-            splitParticipants,
-            splitHelperMessage,
-            setSplitHelperMessage,
-            handleAddSplitExpense
-          })}
-
-          {renderExpenseList({
-            t,
-            interpolateText,
-            splitExpenses,
-            formatMoneyAmount,
-            language,
-            handleRemoveSplitExpense
-          })}
-
-          <InlineMessage type={splitHelperMessageType} text={splitHelperMessage} />
-        </>
-      ) : null}
     </article>
   );
 }

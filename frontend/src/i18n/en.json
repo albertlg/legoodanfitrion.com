@@ -1345,6 +1345,8 @@
   "event_finance_save_action_loading": "Saving...",
   "event_finance_save_success": "Finance settings saved.",
   "event_finance_save_error": "We couldn't save finance settings.",
+  "event_finance_config_title": "Financial settings",
+  "event_expenses_add_cta": "Add expense",
   "event_finance_payment_toggle_error": "We couldn't update the payment status. Try again.",
   "event_finance_fixed_price_guest_list_title": "Confirmed guests and payment status",
   "event_finance_fixed_price_guest_list_empty": "There are no confirmed guests yet.",

@@ -1294,6 +1294,8 @@
   "event_finance_save_action_loading": "Salvataggio...",
   "event_finance_save_success": "Configurazione finanziaria salvata.",
   "event_finance_save_error": "Non siamo riusciti a salvare la configurazione finanziaria.",
+  "event_finance_config_title": "Configurazione finanziaria",
+  "event_expenses_add_cta": "Aggiungi spesa",
   "event_finance_payment_toggle_error": "Non siamo riusciti ad aggiornare lo stato del pagamento. Riprova.",
   "event_finance_fixed_price_guest_list_title": "Confermati e stato pagamento",
   "event_finance_fixed_price_guest_list_empty": "Non ci sono ancora invitati confermati.",

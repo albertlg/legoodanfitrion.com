@@ -1345,6 +1345,8 @@
   "event_finance_save_action_loading": "Guardando...",
   "event_finance_save_success": "Configuración financiera guardada.",
   "event_finance_save_error": "No se pudo guardar la configuración financiera.",
+  "event_finance_config_title": "Configuración financiera",
+  "event_expenses_add_cta": "Añadir gasto",
   "event_finance_payment_toggle_error": "No se pudo actualizar el estado de pago. Reinténtalo.",
   "event_finance_fixed_price_guest_list_title": "Confirmados y estado de pago",
   "event_finance_fixed_price_guest_list_empty": "No hay invitados confirmados todavía.",

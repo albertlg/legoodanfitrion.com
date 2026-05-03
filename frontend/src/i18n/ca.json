@@ -1345,6 +1345,8 @@
   "event_finance_save_action_loading": "Desant...",
   "event_finance_save_success": "Configuració financera desada.",
   "event_finance_save_error": "No s'ha pogut desar la configuració financera.",
+  "event_finance_config_title": "Configuració financera",
+  "event_expenses_add_cta": "Afegir despesa",
   "event_finance_payment_toggle_error": "No s'ha pogut actualitzar l'estat de pagament. Torna-ho a provar.",
   "event_finance_fixed_price_guest_list_title": "Confirmats i estat de pagament",
   "event_finance_fixed_price_guest_list_empty": "Encara no hi ha convidats confirmats.",

@@ -1345,6 +1345,8 @@
   "event_finance_save_action_loading": "Enregistrement...",
   "event_finance_save_success": "Configuration financière enregistrée.",
   "event_finance_save_error": "Nous n'avons pas pu enregistrer la configuration financière.",
+  "event_finance_config_title": "Configuration financière",
+  "event_expenses_add_cta": "Ajouter une dépense",
   "event_finance_payment_toggle_error": "Impossible de mettre à jour l'état de paiement. Réessaie.",
   "event_finance_fixed_price_guest_list_title": "Confirmés et état des paiements",
   "event_finance_fixed_price_guest_list_empty": "Aucune personne confirmée pour le moment.",
