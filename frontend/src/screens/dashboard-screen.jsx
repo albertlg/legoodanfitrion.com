@@ -1519,8 +1519,16 @@ function DashboardScreen({
     const nowMs = Date.now();
     return events
       .filter((eventItem) => {
-        const startMs = new Date(eventItem?.start_at || 0).getTime();
-        const endMs = new Date(eventItem?.end_at || 0).getTime();
+        // Excluir eventos cancelados o ya completados
+        const status = String(eventItem?.status || "").toLowerCase();
+        if (status === "cancelled" || status === "completed") return false;
+        // Usar NaN (no 0/epoch) cuando el campo es nulo para que Number.isFinite
+        // falle y el fallback a startMs funcione correctamente.
+        // El bug anterior usaba `|| 0`, lo que convertía end_at=null en epoch
+        // (1 ene 1970) y Number.isFinite(0)===true hacía que todos los eventos
+        // sin end_at se descartaran siempre.
+        const startMs = eventItem?.start_at ? new Date(eventItem.start_at).getTime() : NaN;
+        const endMs = eventItem?.end_at ? new Date(eventItem.end_at).getTime() : NaN;
         const activeUntilMs = Number.isFinite(endMs) ? endMs : startMs;
         return Number.isFinite(activeUntilMs) && activeUntilMs >= nowMs;
       })
