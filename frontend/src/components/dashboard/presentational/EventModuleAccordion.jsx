@@ -36,47 +36,49 @@ export function EventModuleAccordion({
 
   return (
     <div id={id} className={`${orderClass} scroll-mt-28`.trim()}>
-      {/* Mobile-only toggle header — hidden on lg+ */}
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        className="lg:hidden w-full flex items-center gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm px-4 py-3.5 rounded-xl transition-all duration-200 active:scale-[0.99] cursor-pointer"
-        aria-expanded={isOpen}
-      >
-        <span
-          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBgClass}`}
+      {/* Mobile-only toggle header — lg:hidden on wrapper guarantees hiding on desktop
+          regardless of CSS specificity between "flex" and "hidden" utilities */}
+      <div className="lg:hidden">
+        <button
+          type="button"
+          onClick={() => setIsOpen((v) => !v)}
+          className="w-full flex items-center gap-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/5 dark:ring-white/10 shadow-sm px-4 py-3.5 rounded-xl transition-all duration-200 active:scale-[0.99] cursor-pointer"
+          aria-expanded={isOpen}
         >
-          <Icon name={iconName} className={`w-4 h-4 ${iconColorClass}`} />
-        </span>
-        <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight truncate">
-            {title}
-          </p>
-          {summary && (
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-              {summary}
-            </p>
-          )}
-        </div>
-        {badge != null && (
-          <span className="shrink-0 px-2 py-0.5 bg-gray-100 dark:bg-white/10 text-xs font-bold text-gray-600 dark:text-gray-300 rounded-full">
-            {badge}
+          <span
+            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBgClass}`}
+          >
+            <Icon name={iconName} className={`w-4 h-4 ${iconColorClass}`} />
           </span>
-        )}
-        <Icon
-          name="chevron_down"
-          className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight truncate">
+              {title}
+            </p>
+            {summary && (
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                {summary}
+              </p>
+            )}
+          </div>
+          {badge != null && (
+            <span className="shrink-0 px-2 py-0.5 bg-gray-100 dark:bg-white/10 text-xs font-bold text-gray-600 dark:text-gray-300 rounded-full">
+              {badge}
+            </span>
+          )}
+          <Icon
+            name="chevron_down"
+            className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+      </div>
 
-      {/* Collapsible body
-          Mobile:  grid-rows-[0fr] when closed / grid-rows-[1fr] when open
-          Desktop: lg:grid-rows-[1fr] always-open CSS override
-      */}
+      {/* Collapsible body:
+          Mobile  (<lg) : grid-rows-[0fr] closed / grid-rows-[1fr] open — CSS animated
+          Desktop (lg+)  : lg:block overrides the grid; content always flows normally */}
       <div
-        className={`grid transition-[grid-template-rows] duration-300 ease-out lg:grid-rows-[1fr] ${
+        className={`grid transition-[grid-template-rows] duration-300 ease-out lg:block ${
           isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
       >

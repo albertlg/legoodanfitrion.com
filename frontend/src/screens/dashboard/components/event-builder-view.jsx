@@ -70,7 +70,7 @@ export function EventBuilderView({
     setEventHoneypotField
 }) {
     return (
-        <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 md:p-8 flex flex-col xl:flex-row gap-8 w-full max-w-7xl mx-auto" onSubmit={handleSaveEvent} noValidate>
+        <form className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-3xl shadow-2xl p-5 md:p-8 flex flex-col xl:grid xl:grid-cols-12 gap-8 w-full max-w-7xl mx-auto" onSubmit={handleSaveEvent} noValidate>
             <div className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden" aria-hidden="true">
                 <label htmlFor="event-website-field">Website</label>
                 <input
@@ -85,7 +85,7 @@ export function EventBuilderView({
             </div>
 
             {/* COLUMNA PRINCIPAL (IZQUIERDA) */}
-            <div className="flex-1 flex flex-col gap-6 pb-24 xl:pb-0">
+            <div className="xl:col-span-8 flex flex-col gap-6 pb-24 xl:pb-0 min-w-0">
 
                 {/* Plantillas */}
                 <section className="bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 flex flex-col gap-4" aria-label={t("event_templates_title")}>
@@ -459,8 +459,8 @@ export function EventBuilderView({
                 </div>
             </div>
 
-            {/* COLUMNA ASIDE (DERECHA) — sticky como unidad en xl+ */}
-            <aside className="w-full xl:w-[380px] xl:self-start xl:sticky xl:top-[72px] xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto flex flex-col gap-6 scrollbar-hide">
+            {/* COLUMNA ASIDE (DERECHA) — col-span-4 en grid xl; sticky como unidad */}
+            <aside className="xl:col-span-4 xl:self-start xl:sticky xl:top-[72px] xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto flex flex-col gap-6 scrollbar-hide min-w-0">
 
                 {/* Acciones principales — solo visible en xl+ (en mobile hay un sticky footer) */}
                 <section className="hidden xl:flex xl:flex-col bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 gap-4 shadow-sm">

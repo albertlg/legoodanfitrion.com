@@ -2260,22 +2260,6 @@ export function EventDetailView({
         </div>
 
         <div className="hidden sm:flex sm:flex-row sm:flex-wrap sm:items-center gap-2 min-w-0">
-          <button
-            className={`${PRIMARY_BUTTON_CLASS} text-xs w-full sm:w-auto`}
-            type="button"
-            onClick={handleShareInvitationImage}
-            disabled={isSharingInvitationImage}
-          >
-            <Icon name="camera" className="w-4 h-4" />
-            {isSharingInvitationImage ? t("event_share_card_generating") : t("event_share_card_action")}
-          </button>
-
-          {activeHeaderActionModules.map((moduleItem) => (
-            <React.Fragment key={`desktop-${moduleItem.key}`}>
-              {moduleItem.render({ ...headerModuleContextBase, variant: "desktop" })}
-            </React.Fragment>
-          ))}
-
           {canAddToCalendar ? (
             <div className="relative w-full sm:w-auto" ref={calendarMenuDesktopRef}>
               <button
