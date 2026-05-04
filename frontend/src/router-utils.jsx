@@ -203,6 +203,7 @@ export function buildDashboardPathFromState({
     selectedGuestDetailId,
     guestProfileViewTab,
     guestAdvancedEditTab,
+    editingEventId,
     editingGuestId,
     routeEventDetailId,
     routeEventPlannerTab,
@@ -219,7 +220,11 @@ export function buildDashboardPathFromState({
             : EVENT_PLANNER_TABS.has(normalizedRouteEventPlannerTab)
                 ? normalizedRouteEventPlannerTab
                 : "menu";
-        if (eventsWorkspace === "create") return "/app/events/new";
+        if (eventsWorkspace === "create") {
+            const effectiveEditingEventId = String(editingEventId || selectedEventDetailId || routeEventDetailId || "").trim();
+            if (effectiveEditingEventId) return `/app/events/${encodePathSegment(effectiveEditingEventId)}/edit`;
+            return "/app/events/new";
+        }
         if (eventsWorkspace === "insights") return "/app/events/insights";
         if (eventsWorkspace === "plan" && effectiveEventDetailId) {
             return `/app/events/${encodePathSegment(effectiveEventDetailId)}/plan/${encodePathSegment(effectiveEventPlannerTab)}`;
@@ -307,6 +312,9 @@ export function parseAppRoute(pathname, searchParams = new URLSearchParams()) {
         if (segments[1]) {
             const eventId = decodePathSegment(segments[1]);
             const thirdSegment = decodePathSegment(segments[2] || "").toLowerCase();
+            if (thirdSegment === "edit") {
+                return { view: "events", workspace: "create", eventId };
+            }
             if (thirdSegment === "plan") {
                 const plannerSegment = decodePathSegment(segments[3] || "").toLowerCase();
                 const eventPlannerTab = EVENT_PLANNER_TABS.has(plannerSegment) ? plannerSegment : "menu";
@@ -362,7 +370,10 @@ export function buildCanonicalAppPath(appRoute) {
 
     if (view === "profile") return "/profile";
     if (view === "events") {
-        if (workspace === "create") return "/app/events/new";
+        if (workspace === "create") {
+            if (appRoute?.eventId) return `/app/events/${encodeURIComponent(String(appRoute.eventId).trim())}/edit`;
+            return "/app/events/new";
+        }
         if (workspace === "insights") return "/app/events/insights";
         if (workspace === "plan" && appRoute?.eventId) {
             const eventPlannerTab = String(appRoute?.eventPlannerTab || "menu").trim().toLowerCase();

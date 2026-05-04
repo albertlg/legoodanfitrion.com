@@ -499,7 +499,11 @@ function DashboardScreen({
   const [selectedGuestAddressPlace, setSelectedGuestAddressPlace] = useState(null);
   const [eventMessage, setEventMessage] = useState("");
   const [eventErrors, setEventErrors] = useState({});
-  const [editingEventId, setEditingEventId] = useState("");
+  const [editingEventId, setEditingEventId] = useState(
+    initialRouteState.activeView === "events" && initialRouteState.eventsWorkspace === "create"
+      ? String(initialRouteState.selectedEventDetailId || "").trim()
+      : ""
+  );
   const [eventIcebreakerByEventId, setEventIcebreakerByEventId] = useState({});
   const [isSavingEvent, setIsSavingEvent] = useState(false);
 
@@ -509,6 +513,7 @@ function DashboardScreen({
   const guestAdvancedToolbarRef = useRef(null);
   const guestAdvancedSectionRefs = useRef({});
   const guestEditorHydratedIdRef = useRef("");
+  const eventEditorHydratedIdRef = useRef("");
   const eventPlannerSectionRef = useRef(null);
   const contactImportDetailsRef = useRef(null);
   const contactImportFileInputRef = useRef(null);
@@ -4541,6 +4546,86 @@ function DashboardScreen({
     }
   }, [routeActiveView, routeGuestsWorkspace, editingGuestId]);
 
+  // Auto-hydrate event form when navigating directly to /app/events/:id/edit
+  useEffect(() => {
+    if (routeActiveView !== "events" || routeEventsWorkspace !== "create") {
+      eventEditorHydratedIdRef.current = "";
+      return;
+    }
+    if (!routeSelectedEventDetailId) {
+      eventEditorHydratedIdRef.current = "";
+      return;
+    }
+    if (events.length === 0) {
+      return;
+    }
+    const eventItem = events.find((item) => item.id === routeSelectedEventDetailId);
+    if (!eventItem) {
+      return;
+    }
+    if (eventEditorHydratedIdRef.current === eventItem.id) {
+      return;
+    }
+    const eventSettings = normalizeEventSettings(eventItem);
+    const existingDatePollOptions = (eventDateOptionsByEventId[eventItem.id] || []).map((optionItem, optionIndex) => ({
+      id: String(optionItem.id || "").trim(),
+      localId: String(optionItem.id || "").trim() || `existing-${optionIndex}`,
+      startAt: toLocalDateTimeInput(optionItem.startAt)
+    }));
+    const pollStatus = String(eventItem.poll_status || "").trim().toLowerCase();
+    const scheduleMode = String(eventItem.schedule_mode || "").trim().toLowerCase();
+    const isDatePollEvent =
+      scheduleMode === "tbd" ||
+      pollStatus === "open" ||
+      (!pollStatus && existingDatePollOptions.length > 0 && !eventItem.start_at);
+    const nextResolvedModules = {
+      ...EVENT_MODULE_DEFAULTS,
+      ...(eventItem?.resolved_modules && typeof eventItem.resolved_modules === "object" ? eventItem.resolved_modules : {}),
+      ...normalizeEventActiveModules(eventItem?.active_modules)
+    };
+    const nextTemplateKey = resolveEventTemplateKeyFromModules(nextResolvedModules);
+    setEditingEventId(eventItem.id);
+    setEventTitle(eventItem.title || "");
+    setEventType(toCatalogLabel("experience_type", eventItem.event_type, language));
+    setEventStatus(String(eventItem.status || "draft"));
+    setEventDescription(eventSettings.description);
+    setEventSchedulingMode(isDatePollEvent ? "tbd" : "fixed");
+    setEventPollOptionDraft("");
+    setEventPollOptions(existingDatePollOptions);
+    setEventStartAt(isDatePollEvent ? "" : toLocalDateTimeInput(eventItem.start_at));
+    setEventEndAt(isDatePollEvent ? "" : toLocalDateTimeInput(eventItem.end_at));
+    setEventIsMultiDay(!isDatePollEvent && Boolean(eventItem.end_at));
+    setEventLocationName(eventItem.location_name || "");
+    setEventLocationAddress(eventItem.location_address || "");
+    setEventAllowPlusOne(eventSettings.allow_plus_one);
+    setEventAutoReminders(eventSettings.auto_reminders);
+    setEventDressCode(eventSettings.dress_code);
+    setEventPlaylistMode(eventSettings.playlist_mode);
+    setEventActiveModules(nextResolvedModules);
+    setEventTemplateKey(nextTemplateKey);
+    setSelectedPlace(
+      eventItem.location_address || eventItem.location_place_id || eventItem.location_lat != null || eventItem.location_lng != null
+        ? {
+          placeId: eventItem.location_place_id || null,
+          formattedAddress: eventItem.location_address || "",
+          lat: typeof eventItem.location_lat === "number" ? eventItem.location_lat : null,
+          lng: typeof eventItem.location_lng === "number" ? eventItem.location_lng : null
+        }
+        : null
+    );
+    setAddressPredictions([]);
+    setEventErrors({});
+    setEventMessage("");
+    eventEditorHydratedIdRef.current = eventItem.id;
+  }, [
+    routeActiveView,
+    routeEventsWorkspace,
+    routeSelectedEventDetailId,
+    events,
+    eventDateOptionsByEventId,
+    language
+  ]);
+
   useEffect(() => {
     if (!eventSettingsStorageKey || !session?.user?.id) {
       setEventSettingsCacheById({});
@@ -6770,7 +6855,7 @@ function DashboardScreen({
     if (!eventItem) {
       return;
     }
-    navigateAppPath("/app/events/new");
+    navigateAppPath(`/app/events/${encodeURIComponent(eventItem.id)}/edit`);
     const eventSettings = normalizeEventSettings(eventItem);
     setEditingEventId(eventItem.id);
     setEventTitle(eventItem.title || "");
