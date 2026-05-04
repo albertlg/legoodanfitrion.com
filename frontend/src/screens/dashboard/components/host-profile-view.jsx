@@ -76,11 +76,13 @@ function ProfileTabButton({ isActive, icon, label, onClick }) {
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={isActive}
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all ${
+      className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 border ${
         isActive
-          ? "border-blue-500 bg-blue-500/15 text-blue-700 shadow-sm dark:text-blue-300"
-          : "border-black/10 bg-white/50 text-gray-600 hover:bg-white dark:border-white/10 dark:bg-gray-900/50 dark:text-gray-300 dark:hover:bg-gray-900"
+          ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white shadow-sm"
+          : "bg-white/60 dark:bg-white/10 text-gray-600 dark:text-gray-300 border-black/10 dark:border-white/15 hover:bg-white dark:hover:bg-white/20"
       }`}
     >
       <Icon name={icon} className="h-4 w-4" />
@@ -424,16 +426,26 @@ export function HostProfileView({
         </div>
       </header>
 
-      <nav className="flex flex-wrap gap-2 rounded-3xl border border-black/10 bg-white/70 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/50">
-        {PROFILE_TABS.map((tab) => (
-          <ProfileTabButton
-            key={tab.key}
-            icon={tab.icon}
-            label={t(tab.labelKey)}
-            isActive={activeTab === tab.key}
-            onClick={() => handleTabChange(tab.key)}
-          />
-        ))}
+      <nav className="rounded-3xl border border-black/10 bg-white/70 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/50">
+        <div className="relative">
+          <div
+            className="flex flex-row gap-2 overflow-x-auto scrollbar-hide pb-1 pr-8"
+            role="tablist"
+            aria-label={t("host_profile_title")}
+          >
+            {PROFILE_TABS.map((tab) => (
+              <ProfileTabButton
+                key={tab.key}
+                icon={tab.icon}
+                label={t(tab.labelKey)}
+                isActive={activeTab === tab.key}
+                onClick={() => handleTabChange(tab.key)}
+              />
+            ))}
+          </div>
+          {/* Scroll affordance */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-white/70 dark:from-gray-900/50 to-transparent" aria-hidden="true" />
+        </div>
       </nav>
 
       {activeTab === "account" ? (
@@ -441,103 +453,108 @@ export function HostProfileView({
           <div className="flex flex-col gap-6">
             <ProfileCard title={t("profile_account_security_title")} hint={t("profile_account_security_hint")} icon="user">
               <form className="flex flex-col gap-4" onSubmit={handleSaveHostProfile}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_full_name")}</span>
-                  <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                    type="text"
-                    value={hostProfileName}
-                    onChange={(event) => setHostProfileName(event.target.value)}
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("email")}</span>
-                  <input
-                    className="cursor-not-allowed rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5"
-                    type="email"
-                    value={session?.user?.email || ""}
-                    readOnly
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_phone")}</span>
-                  <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                    type="tel"
-                    value={hostProfilePhone}
-                    onChange={(event) => setHostProfilePhone(event.target.value)}
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("profile_account_bizum_alias_label")}</span>
-                  <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                    type="text"
-                    value={hostProfileBizumAlias}
-                    onChange={(event) => setHostProfileBizumAlias(event.target.value)}
-                    placeholder={t("profile_account_bizum_alias_placeholder")}
-                  />
-                  <span className="text-xs text-gray-500">{t("profile_account_bizum_alias_hint")}</span>
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_relationship")}</span>
-                  <select
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                    value={hostProfileRelationship}
-                    onChange={(event) => setHostProfileRelationship(event.target.value)}
+                {/* Personal info card */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_full_name")}</span>
+                    <input
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
+                      type="text"
+                      value={hostProfileName}
+                      onChange={(event) => setHostProfileName(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("email")}</span>
+                    <input
+                      className="bg-transparent outline-none text-sm text-gray-500 dark:text-gray-400 w-full cursor-not-allowed"
+                      type="email"
+                      value={session?.user?.email || ""}
+                      readOnly
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_phone")}</span>
+                    <input
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
+                      type="tel"
+                      value={hostProfilePhone}
+                      onChange={(event) => setHostProfilePhone(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 px-4 py-3.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_account_bizum_alias_label")}</span>
+                    <input
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
+                      type="text"
+                      value={hostProfileBizumAlias}
+                      onChange={(event) => setHostProfileBizumAlias(event.target.value)}
+                      placeholder={t("profile_account_bizum_alias_placeholder")}
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t("profile_account_bizum_alias_hint")}</span>
+                  </label>
+                </div>
+
+                {/* Location card */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_relationship")}</span>
+                    <select
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer"
+                      value={hostProfileRelationship}
+                      onChange={(event) => setHostProfileRelationship(event.target.value)}
+                    >
+                      <option value="">{t("select_option_prompt")}</option>
+                      {relationshipOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_city")}</span>
+                    <input
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
+                      type="text"
+                      value={hostProfileCity}
+                      onChange={(event) => setHostProfileCity(event.target.value)}
+                      list="host-city-options"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 px-4 py-3.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_country")}</span>
+                    <input
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
+                      type="text"
+                      value={hostProfileCountry}
+                      onChange={(event) => setHostProfileCountry(event.target.value)}
+                      list="host-country-options"
+                    />
+                  </label>
+                </div>
+
+                <InlineMessage text={hostProfileMessage} />
+
+                <div className="sticky bottom-16 z-50 md:static md:z-auto md:mt-0 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-0 md:pt-2 bg-white/90 dark:bg-gray-900/90 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t border-black/10 dark:border-white/10 md:border-0 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] md:shadow-none">
+                  <button
+                    type="submit"
+                    disabled={isSavingHostProfile}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
                   >
-                    <option value="">{t("select_option_prompt")}</option>
-                    {relationshipOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_city")}</span>
-                  <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                    type="text"
-                    value={hostProfileCity}
-                    onChange={(event) => setHostProfileCity(event.target.value)}
-                    list="host-city-options"
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_country")}</span>
-                  <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                    type="text"
-                    value={hostProfileCountry}
-                    onChange={(event) => setHostProfileCountry(event.target.value)}
-                    list="host-country-options"
-                  />
-                </label>
-              </div>
-
-              <InlineMessage text={hostProfileMessage} />
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isSavingHostProfile}
-                  className="rounded-2xl bg-gray-900 px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-gray-900"
-                >
-                  {isSavingHostProfile ? t("host_profile_saving") : t("host_profile_save")}
-                </button>
-              </div>
+                    {isSavingHostProfile ? t("host_profile_saving") : t("host_profile_save")}
+                  </button>
+                </div>
               </form>
             </ProfileCard>
 
             {!isDemoMode && <ProfileCard title={t("profile_account_security_block_title")} hint={t("profile_account_security_block_hint")} icon="lock">
               <form className="flex flex-col gap-4" onSubmit={handleUpdatePassword}>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold text-gray-500">{t("profile_account_new_password_label")}</span>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                  <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_account_new_password_label")}</span>
                     <input
-                      className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                       type="password"
                       value={passwordForm.nextPassword}
                       onChange={(event) =>
@@ -547,12 +564,12 @@ export function HostProfileView({
                       autoComplete="new-password"
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold text-gray-500">
+                  <label className="flex flex-col gap-1 px-4 py-3.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                       {t("profile_account_new_password_confirm_label")}
                     </span>
                     <input
-                      className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                       type="password"
                       value={passwordForm.confirmPassword}
                       onChange={(event) =>
@@ -566,11 +583,11 @@ export function HostProfileView({
 
                 <InlineMessage text={accountMessage} />
 
-                <div className="flex justify-end">
+                <div className="sticky bottom-16 z-50 md:static md:z-auto md:mt-0 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-0 md:pt-2 bg-white/90 dark:bg-gray-900/90 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t border-black/10 dark:border-white/10 md:border-0 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] md:shadow-none">
                   <button
                     type="submit"
                     disabled={isSavingPassword}
-                    className="rounded-2xl bg-gray-900 px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-gray-900"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
                   >
                     {isSavingPassword ? t("profile_account_password_updating") : t("profile_account_password_update")}
                   </button>
@@ -604,32 +621,33 @@ export function HostProfileView({
             icon="users"
           >
             <form className="flex flex-col gap-4" onSubmit={handleSaveGuest}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_first_name")} *</span>
+              {/* Name + photo card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_first_name")} *</span>
                   <input
-                    className={`rounded-2xl border px-4 py-3 text-sm outline-none transition-colors dark:bg-gray-800 dark:text-white ${
+                    className={`bg-transparent outline-none text-sm w-full placeholder:text-gray-400 dark:placeholder:text-gray-600 ${
                       guestErrors?.firstName
-                        ? "border-red-500 bg-red-50/40 dark:border-red-400"
-                        : "border-black/10 bg-white focus:border-blue-500 dark:border-white/10"
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-gray-900 dark:text-white"
                     }`}
                     type="text"
                     value={guestFirstName}
                     onChange={(event) => setGuestFirstName(event.target.value)}
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_last_name")}</span>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_last_name")}</span>
                   <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                     type="text"
                     value={guestLastName}
                     onChange={(event) => setGuestLastName(event.target.value)}
                   />
                 </label>
-                <label className="flex flex-col gap-1.5 md:col-span-2">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_guest_photo")}</span>
-                  <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-1 px-4 py-3.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_guest_photo")}</span>
+                  <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center mt-1">
                     <AvatarCircle
                       className="h-12 w-12 rounded-full ring-2 ring-black/10 dark:ring-white/10"
                       label={`${guestFirstName || ""} ${guestLastName || ""}`.trim() || t("field_guest")}
@@ -638,13 +656,13 @@ export function HostProfileView({
                       size={48}
                     />
                     <input
-                      className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                      className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                       type="url"
                       value={guestPhotoInputValue}
                       onChange={(event) => handleGuestPhotoUrlChange(event.target.value)}
                       placeholder={t("placeholder_guest_photo")}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => photoInputRef.current?.click()}
@@ -663,62 +681,63 @@ export function HostProfileView({
                       ) : null}
                     </div>
                   </div>
-                </label>
+                </div>
+              </div>
 
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("email")}</span>
+              {/* Contact card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("email")}</span>
                   <input
-                    className="cursor-not-allowed rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5"
+                    className="bg-transparent outline-none text-sm text-gray-500 dark:text-gray-400 w-full cursor-not-allowed"
                     type="email"
                     value={guestEmail || session?.user?.email || ""}
                     readOnly
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_phone")}</span>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_phone")}</span>
                   <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                     type="tel"
                     value={guestPhone}
                     onChange={(event) => setGuestPhone(event.target.value)}
                   />
                 </label>
-
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_relationship")}</span>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_relationship")}</span>
                   <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                     type="text"
                     value={guestRelationship}
                     onChange={(event) => setGuestRelationship(event.target.value)}
                     list="profile-guest-relationship-options"
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_city")}</span>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_city")}</span>
                   <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                     type="text"
                     value={guestCity}
                     onChange={(event) => setGuestCity(event.target.value)}
                     list="profile-guest-city-options"
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_country")}</span>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_country")}</span>
                   <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                     type="text"
                     value={guestCountry}
                     onChange={(event) => setGuestCountry(event.target.value)}
                     list="profile-guest-country-options"
                   />
                 </label>
-
-                <label className="relative flex flex-col gap-1.5 md:col-span-2">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_address")}</span>
+                <label className="relative flex flex-col gap-1 px-4 py-3.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_address")}</span>
                   <input
-                    className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full"
                     type="text"
                     value={guestAdvanced.address || ""}
                     onChange={(event) => {
@@ -733,7 +752,7 @@ export function HostProfileView({
                     }}
                     autoComplete="off"
                   />
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {mapsStatus === "ready"
                       ? t("address_google_hint")
                       : mapsStatus === "error"
@@ -765,13 +784,14 @@ export function HostProfileView({
                   ) : null}
 
                   {selectedGuestAddressPlace?.placeId ? (
-                    <p className="text-xs font-semibold text-green-600 dark:text-green-300">{t("address_validated")}</p>
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-300 mt-0.5">{t("address_validated")}</p>
                   ) : null}
                 </label>
               </div>
 
               <InlineMessage text={guestMessage} />
-              <div className="flex flex-wrap justify-end gap-2">
+
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="rounded-xl border border-black/10 px-4 py-2 text-xs font-semibold transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
@@ -788,10 +808,13 @@ export function HostProfileView({
                     {t("view_guest_detail_action")}
                   </button>
                 ) : null}
+              </div>
+
+              <div className="sticky bottom-16 z-50 md:static md:z-auto md:mt-0 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-0 md:pt-2 bg-white/90 dark:bg-gray-900/90 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t border-black/10 dark:border-white/10 md:border-0 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] md:shadow-none">
                 <button
                   type="submit"
                   disabled={isSavingGuest}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
                 >
                   {isSavingGuest
                     ? isEditingGuest
@@ -811,74 +834,76 @@ export function HostProfileView({
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <ProfileCard title={t("profile_preferences_title")} hint={t("profile_preferences_hint")} icon="settings">
             <form className="flex flex-col gap-4" onSubmit={handleSavePreferences}>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("profile_preferences_theme")}</span>
-                <select
-                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={prefsForm.theme}
-                  onChange={(event) => setPrefsForm((prev) => ({ ...prev, theme: normalizeTheme(event.target.value) }))}
-                >
-                  <option value="system">{t("theme_system")}</option>
-                  <option value="light">{t("theme_light")}</option>
-                  <option value="dark">{t("theme_dark")}</option>
-                </select>
-              </label>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_preferences_theme")}</span>
+                  <select
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer"
+                    value={prefsForm.theme}
+                    onChange={(event) => setPrefsForm((prev) => ({ ...prev, theme: normalizeTheme(event.target.value) }))}
+                  >
+                    <option value="system">{t("theme_system")}</option>
+                    <option value="light">{t("theme_light")}</option>
+                    <option value="dark">{t("theme_dark")}</option>
+                  </select>
+                </label>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("profile_preferences_locale")}</span>
-                <select
-                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={prefsForm.locale}
-                  onChange={(event) =>
-                    setPrefsForm((prev) => ({ ...prev, locale: normalizeLocale(event.target.value, language) }))
-                  }
-                >
-                  <option value="es">Español</option>
-                  <option value="ca">Català</option>
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                  <option value="it">Italiano</option>
-                </select>
-              </label>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_preferences_locale")}</span>
+                  <select
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer"
+                    value={prefsForm.locale}
+                    onChange={(event) =>
+                      setPrefsForm((prev) => ({ ...prev, locale: normalizeLocale(event.target.value, language) }))
+                    }
+                  >
+                    <option value="es">Español</option>
+                    <option value="ca">Català</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="it">Italiano</option>
+                  </select>
+                </label>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("profile_preferences_table_rows")}</span>
-                <select
-                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={selectedRowsValue}
-                  onChange={(event) =>
-                    setPrefsForm((prev) => ({ ...prev, tableRows: normalizeTableRows(event.target.value, 10) }))
-                  }
-                >
-                  {TABLE_ROW_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {interpolateText(t("profile_preferences_table_rows_option"), { count: option })}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_preferences_table_rows")}</span>
+                  <select
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer"
+                    value={selectedRowsValue}
+                    onChange={(event) =>
+                      setPrefsForm((prev) => ({ ...prev, tableRows: normalizeTableRows(event.target.value, 10) }))
+                    }
+                  >
+                    {TABLE_ROW_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {interpolateText(t("profile_preferences_table_rows_option"), { count: option })}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("profile_preferences_hour_format")}</span>
-                <select
-                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={normalizeHourFormat(prefsForm.hourFormat, "24h")}
-                  onChange={(event) =>
-                    setPrefsForm((prev) => ({ ...prev, hourFormat: normalizeHourFormat(event.target.value, "24h") }))
-                  }
-                >
-                  <option value="24h">{t("profile_preferences_hour_format_24")}</option>
-                  <option value="12h">{t("profile_preferences_hour_format_12")}</option>
-                </select>
-              </label>
+                <label className="flex flex-col gap-1 px-4 py-3.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_preferences_hour_format")}</span>
+                  <select
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer"
+                    value={normalizeHourFormat(prefsForm.hourFormat, "24h")}
+                    onChange={(event) =>
+                      setPrefsForm((prev) => ({ ...prev, hourFormat: normalizeHourFormat(event.target.value, "24h") }))
+                    }
+                  >
+                    <option value="24h">{t("profile_preferences_hour_format_24")}</option>
+                    <option value="12h">{t("profile_preferences_hour_format_12")}</option>
+                  </select>
+                </label>
+              </div>
 
               <InlineMessage text={prefsMessage} />
 
-              <div className="flex justify-end">
+              <div className="sticky bottom-16 z-50 md:static md:z-auto md:mt-0 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-0 md:pt-2 bg-white/90 dark:bg-gray-900/90 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t border-black/10 dark:border-white/10 md:border-0 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] md:shadow-none">
                 <button
                   type="submit"
                   disabled={isSavingPrefs}
-                  className="rounded-2xl bg-gray-900 px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-gray-900"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
                 >
                   {isSavingPrefs ? t("profile_preferences_saving") : t("profile_preferences_save")}
                 </button>
@@ -960,40 +985,52 @@ export function HostProfileView({
             </div>
 
             <form className="flex flex-col gap-4" onSubmit={handleSaveGuest}>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("field_allergies")}</span>
-                <textarea
-                  className="min-h-[84px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={guestAdvanced.allergies || ""}
-                  onChange={(event) => setGuestAdvancedField("allergies", event.target.value)}
-                  placeholder={t("profile_identity_allergies_placeholder")}
-                />
-              </label>
-
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("field_intolerances")}</span>
-                <textarea
-                  className="min-h-[84px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={guestAdvanced.intolerances || ""}
-                  onChange={(event) => setGuestAdvancedField("intolerances", event.target.value)}
-                  placeholder={t("profile_identity_intolerances_placeholder")}
-                />
-              </label>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_pet_allergies")}</span>
+              {/* Food restrictions card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_allergies")}</span>
                   <textarea
-                    className="min-h-[72px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full resize-none min-h-[72px]"
+                    value={guestAdvanced.allergies || ""}
+                    onChange={(event) => setGuestAdvancedField("allergies", event.target.value)}
+                    placeholder={t("profile_identity_allergies_placeholder")}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_intolerances")}</span>
+                  <textarea
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full resize-none min-h-[72px]"
+                    value={guestAdvanced.intolerances || ""}
+                    onChange={(event) => setGuestAdvancedField("intolerances", event.target.value)}
+                    placeholder={t("profile_identity_intolerances_placeholder")}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_dietary_medical_restrictions")}</span>
+                  <textarea
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full resize-none min-h-[60px]"
+                    value={guestAdvanced.dietaryMedicalRestrictions || ""}
+                    onChange={(event) => setGuestAdvancedField("dietaryMedicalRestrictions", event.target.value)}
+                    placeholder={t("profile_identity_dietary_medical_placeholder")}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_pet_allergies")}</span>
+                  <textarea
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full resize-none min-h-[60px]"
                     value={guestAdvanced.petAllergies || ""}
                     onChange={(event) => setGuestAdvancedField("petAllergies", event.target.value)}
                     placeholder={t("profile_identity_pet_allergies_placeholder")}
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-gray-500">{t("field_medical_conditions")}</span>
+
+                <label className="flex flex-col gap-1 px-4 py-3.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_medical_conditions")}</span>
                   <textarea
-                    className="min-h-[72px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full resize-none min-h-[60px]"
                     value={guestAdvanced.medicalConditions || ""}
                     onChange={(event) => setGuestAdvancedField("medicalConditions", event.target.value)}
                     placeholder={t("profile_identity_medical_conditions_placeholder")}
@@ -1001,40 +1038,32 @@ export function HostProfileView({
                 </label>
               </div>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("field_dietary_medical_restrictions")}</span>
-                <textarea
-                  className="min-h-[72px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={guestAdvanced.dietaryMedicalRestrictions || ""}
-                  onChange={(event) => setGuestAdvancedField("dietaryMedicalRestrictions", event.target.value)}
-                  placeholder={t("profile_identity_dietary_medical_placeholder")}
-                />
-              </label>
-
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500">{t("profile_identity_global_notes")}</span>
-                <textarea
-                  className="min-h-[96px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500 dark:border-white/10 dark:bg-gray-800 dark:text-white"
-                  value={guestAdvanced.lastTalkTopic || ""}
-                  onChange={(event) => setGuestAdvancedField("lastTalkTopic", event.target.value)}
-                  placeholder={t("profile_identity_global_notes_placeholder")}
-                />
-              </label>
-
-              <label className="flex items-center gap-2 rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-gray-800/70 dark:text-gray-200">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-black/20 text-blue-600 focus:ring-blue-500 dark:border-white/20"
-                  checked={Boolean(guestAdvanced.sensitiveConsent)}
-                  onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)}
-                />
-                <span>{t("field_sensitive_consent")}</span>
-              </label>
+              {/* Notes + consent card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("profile_identity_global_notes")}</span>
+                  <textarea
+                    className="bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600 w-full resize-none min-h-[84px]"
+                    value={guestAdvanced.lastTalkTopic || ""}
+                    onChange={(event) => setGuestAdvancedField("lastTalkTopic", event.target.value)}
+                    placeholder={t("profile_identity_global_notes_placeholder")}
+                  />
+                </label>
+                <label className="flex items-center gap-2 px-4 py-3.5 text-sm dark:text-gray-200">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-black/20 text-blue-600 focus:ring-blue-500 dark:border-white/20"
+                    checked={Boolean(guestAdvanced.sensitiveConsent)}
+                    onChange={(event) => setGuestAdvancedField("sensitiveConsent", event.target.checked)}
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{t("field_sensitive_consent")}</span>
+                </label>
+              </div>
 
               <InlineMessage text={guestMessage} />
 
-              <div className="flex flex-wrap justify-end gap-2">
-                {isProfileGuestLinked ? (
+              {isProfileGuestLinked ? (
+                <div className="flex justify-end">
                   <button
                     type="button"
                     className="rounded-xl border border-black/10 px-4 py-2 text-xs font-semibold transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
@@ -1042,11 +1071,14 @@ export function HostProfileView({
                   >
                     {t("host_profile_open_advanced_action")}
                   </button>
-                ) : null}
+                </div>
+              ) : null}
+
+              <div className="sticky bottom-16 z-50 md:static md:z-auto md:mt-0 -mx-4 md:mx-0 px-4 md:px-0 py-3 md:py-0 md:pt-2 bg-white/90 dark:bg-gray-900/90 md:bg-transparent md:dark:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t border-black/10 dark:border-white/10 md:border-0 shadow-[0_-4px_20px_rgba(0,0,0,0.07)] md:shadow-none">
                 <button
                   type="submit"
                   disabled={isSavingGuest}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
                 >
                   {isSavingGuest ? t("saving_guest") : t("save_guest")}
                 </button>

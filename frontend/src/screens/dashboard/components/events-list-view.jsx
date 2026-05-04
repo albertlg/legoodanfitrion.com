@@ -94,7 +94,7 @@ export function EventsListView({
                   aria-selected={isActive}
                   className={`rounded-xl px-4 py-2 text-sm font-bold transition-all duration-200 ease-out ${
                     isActive
-                      ? "bg-blue-600 text-white shadow-md"
+                      ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md"
                       : "text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10"
                   }`}
                   onClick={() => setEventDateFilter(tabItem.key)}

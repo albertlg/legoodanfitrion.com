@@ -50,11 +50,11 @@ export function InvitationBuilderView({
                     <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">{t("create_invitation_title")}</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <label>
-                        <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_event")}</span>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                    <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_event")}</span>
                         <select
-                            className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm cursor-pointer"
+                            className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer disabled:opacity-50"
                             value={selectedEventId}
                             onChange={(event) => setSelectedEventId(event.target.value)}
                             disabled={!events.length}
@@ -68,11 +68,10 @@ export function InvitationBuilderView({
                             ))}
                         </select>
                     </label>
-
-                    <label>
-                        <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("field_guest")}</span>
+                    <label className="flex flex-col gap-1 px-4 py-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("field_guest")}</span>
                         <select
-                            className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm cursor-pointer disabled:opacity-50"
+                            className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer disabled:opacity-50"
                             value={selectedGuestId}
                             onChange={(event) => setSelectedGuestId(event.target.value)}
                             disabled={!guests.length || allGuestsAlreadyInvitedForSelectedEvent}
@@ -133,13 +132,13 @@ export function InvitationBuilderView({
 
                 {/* Filtros y Búsqueda */}
                 <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label>
-                            <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden shadow-sm">
+                        <label className="flex flex-col gap-1 px-4 py-3.5 border-b border-black/5 dark:border-white/5">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                                 {t("invitation_bulk_group_label")}
                             </span>
                             <select
-                                className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm cursor-pointer disabled:opacity-50"
+                                className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full cursor-pointer disabled:opacity-50"
                                 value={selectedBulkInvitationGroupId}
                                 onChange={(event) => handleSelectBulkInvitationGroup(event.target.value)}
                                 disabled={!events.length || allGuestsAlreadyInvitedForSelectedEvent || invitationBulkGroups.length === 0}
@@ -152,12 +151,11 @@ export function InvitationBuilderView({
                                 ))}
                             </select>
                         </label>
-
-                        <label>
-                            <span className="block mb-2 ml-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("search")}</span>
+                        <label className="flex flex-col gap-1 px-4 py-3.5">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t("search")}</span>
                             <input
                                 type="search"
-                                className="w-full bg-white/70 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all outline-none shadow-sm"
+                                className="bg-transparent outline-none text-sm text-gray-900 dark:text-white w-full placeholder:text-gray-400 dark:placeholder:text-gray-600"
                                 value={bulkInvitationSearch}
                                 onChange={(event) => setBulkInvitationSearch(event.target.value)}
                                 placeholder={t("invitation_bulk_search_placeholder")}
