@@ -434,8 +434,8 @@ export function EventBuilderView({
                 </datalist>
             </div>
 
-            {/* ── Sticky mobile CTA ── visible below xl; at xl the aside's sticky card takes over */}
-            <div className="xl:hidden sticky bottom-16 z-50 -mx-5 md:-mx-8 px-5 md:px-8 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-t border-black/10 dark:border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.07)]">
+            {/* ── Sticky mobile CTA ── visible below xl; at xl the aside handles it */}
+            <div className="xl:hidden sticky bottom-16 md:bottom-0 z-50 -mx-5 md:-mx-8 px-5 md:px-8 py-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-t border-black/10 dark:border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.07)]">
                 <InlineMessage text={eventMessage} />
                 <div className={`flex items-center gap-2${eventMessage ? " mt-2" : ""}`}>
                     {isEditingEvent && (
@@ -459,11 +459,11 @@ export function EventBuilderView({
                 </div>
             </div>
 
-            {/* COLUMNA ASIDE (DERECHA) */}
-            <aside className="w-full xl:w-[380px] flex flex-col gap-6">
+            {/* COLUMNA ASIDE (DERECHA) — sticky como unidad en xl+ */}
+            <aside className="w-full xl:w-[380px] xl:self-start xl:sticky xl:top-[72px] xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto flex flex-col gap-6 scrollbar-hide">
 
                 {/* Acciones principales — solo visible en xl+ (en mobile hay un sticky footer) */}
-                <section className="hidden xl:flex xl:flex-col bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 gap-4 shadow-sm sticky top-[80px] lg:top-[100px] z-20">
+                <section className="hidden xl:flex xl:flex-col bg-white/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/10 p-5 gap-4 shadow-sm">
                     <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-all w-full flex justify-center items-center gap-2 disabled:opacity-50" type="submit" disabled={isSavingEvent}>
                         {isSavingEvent
                             ? isEditingEvent
