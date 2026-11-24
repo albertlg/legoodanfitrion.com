@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App";
 import { preloadRouteAssets } from "./screens/screen-registry";
 import { startHydrationPass } from "./lib/ssr-state";
+import { resolveRoute } from "./router-utils";
 import "./styles.css";
 import { HelmetProvider } from "react-helmet-async";
 
@@ -79,7 +80,13 @@ try {
     throw new Error("No existe el nodo #root en index.html");
   }
 
-  if (rootNode.hasChildNodes()) {
+  // El HTML prerenderizado corresponde a la ruta sin query. Si la query cambia
+  // la pantalla (p. ej. /?token=... abre el RSVP), no se hidrata: se monta de cero.
+  const routeWithoutQuery = resolveRoute(window.location.pathname, new URLSearchParams(), { inferLanguage: false });
+  const routeWithQuery = resolveRoute(window.location.pathname, new URLSearchParams(window.location.search), { inferLanguage: false });
+  const queryChangesRoute = routeWithoutQuery.kind !== routeWithQuery.kind || routeWithoutQuery.path !== routeWithQuery.path;
+
+  if (rootNode.hasChildNodes() && !queryChangesRoute) {
     // 🚀 Página prerenderizada en el build (SEO): antes de hidratar cargamos la
     // pantalla y las traducciones de esta URL, para que el primer render del
     // cliente sea idéntico al HTML del servidor.

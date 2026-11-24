@@ -12,6 +12,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0A0D14" />
 
+  <!-- Tema antes del primer pintado: las páginas públicas llegan prerenderizadas,
+       así que hay que aplicar el modo oscuro guardado antes de que se vean. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("legood-theme-mode");
+        var mode = stored === "light" || stored === "dark" ? stored : "system";
+        var dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+        if (dark) document.documentElement.classList.add("dark");
+      } catch (e) { /* sin acceso a storage: tema por defecto */ }
+    })();
+  </script>
+
   <!-- Fallback neutro: react-helmet-async lo sobreescribe con el locale activo -->
   <title>LeGoodAnfitrión</title>
 

@@ -53,6 +53,33 @@
             ]
         }
     ],
+    "redirects": [
+        {
+            "source": "/caracteristicas",
+            "destination": "/#caracteristicas",
+            "permanent": true
+        },
+        {
+            "source": "/ca/caracteristiques",
+            "destination": "/ca#caracteristicas",
+            "permanent": true
+        },
+        {
+            "source": "/en/features",
+            "destination": "/en#caracteristicas",
+            "permanent": true
+        },
+        {
+            "source": "/fr/fonctionnalites",
+            "destination": "/fr#caracteristicas",
+            "permanent": true
+        },
+        {
+            "source": "/it/funzionalita",
+            "destination": "/it#caracteristicas",
+            "permanent": true
+        }
+    ],
     "rewrites": [
         {
             "source": "/api/(.*)",

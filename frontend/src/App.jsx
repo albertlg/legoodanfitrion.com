@@ -294,7 +294,15 @@ function App({ initialLocales = {} }) {
     setSystemPrefersDark(getSystemPrefersDark());
   }, []);
 
+  // En el primer commit tras hidratar no tocamos <html> ni localStorage: el
+  // script inline de index.html ya aplicó el tema guardado y aquí aún valdría
+  // "system" (provocaría un parpadeo claro/oscuro y borraría la preferencia).
+  const skipFirstPrefsWriteRef = useRef(startedFromPrerenderRef.current);
   useEffect(() => {
+    if (skipFirstPrefsWriteRef.current) {
+      skipFirstPrefsWriteRef.current = false;
+      return;
+    }
     document.documentElement.setAttribute("data-theme", activeTheme);
     document.documentElement.classList.toggle("dark", activeTheme === "dark");
     document.documentElement.lang = language;

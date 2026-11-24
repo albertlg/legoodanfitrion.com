@@ -172,7 +172,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
 
                                             {/* CABECERA: Fecha, Título y Extracto */}
                                             <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">
+                                                <p suppressHydrationWarning className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">
                                                     {new Date(post.publishedAt).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                                                 </p>
 

@@ -313,7 +313,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
 
                     <header className="mb-10 sm:mb-12">
                         <div className="flex items-center gap-4 mb-6">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                            <p suppressHydrationWarning className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                                 {new Date(post.publishedAt).toLocaleDateString(seoLanguage, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                             </p>
                             {post.categories && post.categories.length > 0 && (
