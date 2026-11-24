@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { sanityClient, urlFor } from "../sanityClient";
+import { urlFor } from "../sanityClient";
+import { fetchBlogPostList } from "../lib/blog-data";
+import { getInitialData, initialDataKeys } from "../lib/ssr-state";
 import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { PublicPageHeader } from "../components/public-page-header";
@@ -11,38 +13,31 @@ const DOMAIN = "https://legoodanfitrion.com";
 const BLOG_PATHS = { es: "/blog", ca: "/ca/blog", en: "/en/blog", fr: "/fr/blog", it: "/it/blog" };
 
 export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode, t, onNavigate, session }) {
-    const [posts, setPosts] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    // Si la página viene prerenderizada, arrancamos con la lista que usó el servidor.
+    const [posts, setPosts] = useState(() => getInitialData(initialDataKeys.postList(language)) || []);
+    const [isLoading, setIsLoading] = useState(() => !getInitialData(initialDataKeys.postList(language)));
+    const [loadedLanguage, setLoadedLanguage] = useState(() => (getInitialData(initialDataKeys.postList(language)) ? language : null));
 
     useEffect(() => {
-        if (typeof window !== "undefined") window.prerenderReady = false;
+        if (loadedLanguage === language) return undefined;
+        let isMounted = true;
         setIsLoading(true);
-        sanityClient
-            .fetch(
-                `*[_type == "post" && language == $lang]{
-          _id,
-          title,
-          slug,
-          publishedAt,
-          mainImage,
-          excerpt,
-          "authorName": author->name,
-          "authorImage": author->image,
-          "categories": coalesce(categories[]->title, [])
-        } | order(publishedAt desc)`,
-                { lang: language }
-            )
+        fetchBlogPostList(language)
             .then((data) => {
+                if (!isMounted) return;
                 setPosts(data);
+                setLoadedLanguage(language);
                 setIsLoading(false);
-                if (typeof window !== "undefined") window.prerenderReady = true;
             })
             .catch((error) => {
+                if (!isMounted) return;
                 console.error("Error fetching posts:", error);
                 setIsLoading(false);
-                if (typeof window !== "undefined") window.prerenderReady = true;
             });
-    }, [language]);
+        return () => {
+            isMounted = false;
+        };
+    }, [language, loadedLanguage]);
 
     const blogListItemsForSchema = posts.slice(0, 20).map((post, idx) => ({
         "@type": "ListItem",
@@ -178,7 +173,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                                             {/* CABECERA: Fecha, Título y Extracto */}
                                             <div>
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">
-                                                    {new Date(post.publishedAt).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    {new Date(post.publishedAt).toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                                                 </p>
 
                                                 <h2 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">

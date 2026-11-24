@@ -8,7 +8,7 @@
     "sitemap": "node scripts/generate-sitemap.mjs",
     "prerender": "node scripts/prerender.mjs",
     "prebuild": "node scripts/generate-sitemap.mjs",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/entry-server.jsx --outDir .ssr",
     "postbuild": "node scripts/prerender.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
@@ -47,7 +47,6 @@
     "eslint-plugin-react-refresh": "^0.4.12",
     "globals": "^15.11.0",
     "postcss": "^8.5.8",
-    "puppeteer": "^22.0.0",
     "tailwindcss": "^4.2.1",
     "vite": "^5.4.8"
   }

@@ -3,6 +3,8 @@ import { hydrateRoot, createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App";
+import { preloadRouteAssets } from "./screens/screen-registry";
+import { startHydrationPass } from "./lib/ssr-state";
 import "./styles.css";
 import { HelmetProvider } from "react-helmet-async";
 
@@ -53,34 +55,44 @@ class BootErrorBoundary extends Component {
   }
 }
 
-try {
-  if (!rootNode) {
-    throw new Error("No existe el nodo #root en index.html");
-  }
-
-  // Agrupamos el árbol de componentes en una variable para no repetir código
-  const AppTree = (
+function renderTree(initialLocales) {
+  return (
     <BootErrorBoundary>
       <HelmetProvider>
         <BrowserRouter>
-          <App />
+          <App initialLocales={initialLocales} />
           <SpeedInsights />
         </BrowserRouter>
       </HelmetProvider>
     </BootErrorBoundary>
   );
+}
 
-  // 🚀 LA MAGIA DEL SEO: ¿Hay HTML prerenderizado?
-  if (rootNode.hasChildNodes()) {
-    // Sí: Solo le "inyectamos" la interactividad de React (Hidratación)
-    hydrateRoot(rootNode, AppTree);
-  } else {
-    // No: Lo montamos desde cero como una SPA normal
-    createRoot(rootNode).render(AppTree);
-  }
-
-} catch (error) {
+function showBootError(error) {
   if (rootNode) {
     rootNode.textContent = error?.message || "Error desconocido al renderizar la aplicación.";
   }
+}
+
+try {
+  if (!rootNode) {
+    throw new Error("No existe el nodo #root en index.html");
+  }
+
+  if (rootNode.hasChildNodes()) {
+    // 🚀 Página prerenderizada en el build (SEO): antes de hidratar cargamos la
+    // pantalla y las traducciones de esta URL, para que el primer render del
+    // cliente sea idéntico al HTML del servidor.
+    startHydrationPass();
+    preloadRouteAssets(window.location.pathname)
+      .then(({ initialLocales }) => {
+        hydrateRoot(rootNode, renderTree(initialLocales));
+      })
+      .catch(showBootError);
+  } else {
+    // Rutas de la app (/app, /login, /rsvp...): SPA normal.
+    createRoot(rootNode).render(renderTree({}));
+  }
+} catch (error) {
+  showBootError(error);
 }

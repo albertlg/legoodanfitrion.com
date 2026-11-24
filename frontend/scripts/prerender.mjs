@@ -1,8 +1,17 @@
-import { mkdir, writeFile, readFile, stat, copyFile } from "node:fs/promises";
-import { createServer } from "node:http";
-import { resolve, dirname, join, extname } from "node:path";
-import { fileURLToPath } from "node:url";
+// Prerender (SSG) sin navegador: renderiza la App real en Node (bundle SSR de
+// src/entry-server.jsx) para cada URL pública y escribe dist/<ruta>/index.html.
+// El cliente hidrata ese HTML (ver src/main.jsx).
+//
+// Requiere, en este orden: `vite build` (cliente) y
+// `vite build --ssr src/entry-server.jsx --outDir .ssr` (servidor).
+//
+// Si alguna ruta falla, el script termina con código 1 y el build falla: sin
+// prerender, buscadores y bots de IA recibirían una página vacía.
+// SSG_ALLOW_FAILURES=1 lo desactiva (solo para depurar en local).
 
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { resolve, dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
     PUBLIC_LANGUAGES as LANGS,
     STATIC_PUBLIC_PAGES,
@@ -11,58 +20,16 @@ import {
 } from "../src/lib/public-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIST_DIR = resolve(__dirname, "..", "dist");
-const PORT = Number(process.env.SSG_PORT || 9999);
-const ROUTE_TIMEOUT_MS = Number(process.env.SSG_ROUTE_TIMEOUT_MS || 15000);
-// Shell SPA limpio para rutas de app (/app, /login, /rsvp...). Lo genera
-// vite.config.js antes de prerenderizar, porque "/" sobrescribe dist/index.html
-// con la home en español. vercel.json y middleware.js lo sirven como fallback.
+const ROOT = resolve(__dirname, "..");
+const DIST_DIR = join(ROOT, "dist");
+const SSR_ENTRY = join(ROOT, ".ssr", "entry-server.js");
+// Shell SPA limpio (lo genera vite.config.js). Es la plantilla de cada página.
 const APP_SHELL_FILE = "app-shell.html";
-// SSG_STRICT=1 hace fallar el build si alguna ruta no se prerenderiza.
-const STRICT = process.env.SSG_STRICT === "1";
+const ALLOW_FAILURES = process.env.SSG_ALLOW_FAILURES === "1";
 
 const SANITY_PROJECT = "bmf59j7w";
 const SANITY_DATASET = "production";
 const SANITY_API_VERSION = "2024-03-18";
-
-const MIME = {
-    ".js": "text/javascript; charset=utf-8",
-    ".mjs": "text/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".html": "text/html; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".map": "application/json; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".avif": "image/avif",
-    ".woff": "font/woff",
-    ".woff2": "font/woff2",
-    ".ttf": "font/ttf",
-    ".ico": "image/x-icon",
-    ".xml": "application/xml; charset=utf-8",
-    ".txt": "text/plain; charset=utf-8"
-};
-
-async function fileExists(p) {
-    try {
-        const s = await stat(p);
-        return s.isFile();
-    } catch {
-        return false;
-    }
-}
-
-async function dirExists(p) {
-    try {
-        const s = await stat(p);
-        return s.isDirectory();
-    } catch {
-        return false;
-    }
-}
 
 async function fetchSanitySlugs() {
     const query = `*[_type == "post" && defined(slug.current) && defined(language)]{"lang": language, "slug": slug.current}`;
@@ -73,208 +40,71 @@ async function fetchSanitySlugs() {
     return Array.isArray(json.result) ? json.result : [];
 }
 
-async function createShellServer(distDir) {
-    const shellPath = join(distDir, APP_SHELL_FILE);
-    if (!(await fileExists(shellPath))) {
-        throw new Error(`Shell index.html not found at ${shellPath}`);
-    }
-    const shell = await readFile(shellPath, "utf-8");
-
-    const server = createServer(async (req, res) => {
-        try {
-            const reqUrl = (req.url || "/").split("?")[0];
-            if (reqUrl !== "/" && reqUrl !== "/index.html") {
-                const candidate = join(distDir, reqUrl);
-                if (await fileExists(candidate)) {
-                    const ext = extname(candidate).toLowerCase();
-                    const body = await readFile(candidate);
-                    res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
-                    return res.end(body);
-                }
-            }
-            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-            return res.end(shell);
-        } catch (err) {
-            res.writeHead(500, { "Content-Type": "text/plain" });
-            return res.end(`server error: ${err.message}`);
-        }
-    });
-    await new Promise((resolvePromise, rejectPromise) => {
-        server.once("error", rejectPromise);
-        server.listen(PORT, "127.0.0.1", () => {
-            server.off("error", rejectPromise);
-            resolvePromise();
-        });
-    });
-    return server;
-}
-
 function outputPathForRoute(route) {
     if (route === "/") return join(DIST_DIR, "index.html");
     const clean = route.replace(/^\/+/, "").replace(/\/+$/, "");
     return join(DIST_DIR, clean, "index.html");
 }
 
-// Crea un contexto de navegador aislado para cada ruta: sin localStorage,
-// cookies o service workers compartidos entre ellas. Evita la contaminación
-// de idioma (legood-language persistía entre rutas y alteraba el HTML SSG
-// de la siguiente ruta según el locale previo).
-async function createIsolatedContext(browser) {
-    if (typeof browser.createBrowserContext === "function") {
-        return browser.createBrowserContext();
-    }
-    if (typeof browser.createIncognitoBrowserContext === "function") {
-        return browser.createIncognitoBrowserContext();
-    }
-    return null;
+function buildPage(template, { appHtml, head, htmlAttributes, data }, serializeForScript) {
+    const rootMarker = '<div id="root"></div>';
+    if (!template.includes(rootMarker)) throw new Error("La plantilla no contiene <div id=\"root\"></div>");
+    return template
+        // <html lang="es"> genérico -> atributos de Helmet (lang del idioma de la página)
+        .replace(/<html[^>]*>/i, `<html ${htmlAttributes || 'lang="es"'}>`)
+        // El <title> neutro de la plantilla lo sustituye el de Helmet
+        .replace(/<title>[^<]*<\/title>\s*/i, "")
+        .replace(/<noscript>[\s\S]*?<\/noscript>\s*/i, "")
+        .replace("</head>", `  ${head}\n</head>`)
+        .replace(rootMarker, `<div id="root">${appHtml}</div>`)
+        // Datos de contenido para hidratar (antes de que se ejecute el módulo principal)
+        .replace("</body>", `  <script>window.__LGA_DATA__=${serializeForScript(data)}</script>\n</body>`);
 }
-
-async function renderRoute(browser, route) {
-    const context = await createIsolatedContext(browser);
-    const page = context ? await context.newPage() : await browser.newPage();
-    try {
-        await page.setViewport({ width: 1280, height: 800 });
-        const url = `http://127.0.0.1:${PORT}${route}`;
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: ROUTE_TIMEOUT_MS });
-
-        // Cinturón y tirantes: aunque el contexto sea aislado, limpiamos
-        // explícitamente localStorage + sessionStorage por si algún loader
-        // o módulo ya ha escrito antes de que termine la hidratación.
-        await page.evaluate(() => {
-            try { window.localStorage.clear(); } catch { /* ignore */ }
-            try { window.sessionStorage.clear(); } catch { /* ignore */ }
-        });
-
-        await page.waitForFunction(() => {
-            const rootEl = document.getElementById("root");
-            if (!rootEl || rootEl.children.length === 0) return false;
-            if (rootEl.textContent.trim() === "Cargando...") return false;
-            return window.prerenderReady !== false;
-        }, { timeout: ROUTE_TIMEOUT_MS, polling: 200 });
-
-        const html = await page.content();
-        const outPath = outputPathForRoute(route);
-        await mkdir(dirname(outPath), { recursive: true });
-        await writeFile(outPath, html, "utf-8");
-        return { ok: true };
-    } catch (err) {
-        return { ok: false, reason: err.message };
-    } finally {
-        try { await page.close(); } catch { /* ignore */ }
-        if (context) {
-            try { await context.close(); } catch { /* ignore */ }
-        }
-    }
-}
-
-let prerenderedCount = 0;
-let expectedCount = 0;
 
 async function main() {
-    if (!(await dirExists(DIST_DIR))) {
-        console.warn(`[prerender] dist/ not found at ${DIST_DIR}. Skipping SSG (nothing to prerender).`);
-        return;
-    }
+    const template = await readFile(join(DIST_DIR, APP_SHELL_FILE), "utf-8");
+    const { render, serializeForScript } = await import(pathToFileURL(SSR_ENTRY).href);
 
-    // vite.config.js (appShellPlugin) ya genera el shell; esto es una red de seguridad.
-    if (!(await fileExists(join(DIST_DIR, APP_SHELL_FILE)))) {
-        await copyFile(join(DIST_DIR, "index.html"), join(DIST_DIR, APP_SHELL_FILE));
-        console.log(`[prerender] App shell copied to dist/${APP_SHELL_FILE}`);
-    }
-
-    let puppeteer;
-    try {
-        puppeteer = (await import("puppeteer")).default;
-    } catch (err) {
-        console.warn(`[prerender] puppeteer not available (${err.message}). Skipping SSG.`);
-        console.warn(`[prerender] Install with: cd frontend && npm install --save-dev puppeteer`);
-        return;
-    }
-
-    let posts = [];
-    try {
-        posts = await fetchSanitySlugs();
-        console.log(`[prerender] Sanity returned ${posts.length} blog slugs.`);
-    } catch (err) {
-        console.warn(`[prerender] Sanity slug fetch failed (${err.message}). Continuing with static routes only.`);
-    }
+    const posts = await fetchSanitySlugs();
+    console.log(`[prerender] Sanity: ${posts.length} posts.`);
 
     const routeSet = new Set();
     for (const page of STATIC_PUBLIC_PAGES) {
-        for (const lang of LANGS) {
-            routeSet.add(getPublicPath(page.path, lang));
-        }
+        for (const lang of LANGS) routeSet.add(getPublicPath(page.path, lang));
     }
     for (const post of posts) {
         if (!post?.slug || !post?.lang || !LANGS.includes(post.lang)) continue;
         routeSet.add(getBlogPostPath(post.lang, post.slug));
     }
     const routes = Array.from(routeSet);
-    console.log(`[prerender] Total routes to prerender: ${routes.length}`);
+    console.log(`[prerender] Rutas a prerenderizar: ${routes.length}`);
 
-    let server;
-    try {
-        server = await createShellServer(DIST_DIR);
-    } catch (err) {
-        console.warn(`[prerender] Could not start static shell server (${err.message}). Skipping SSG.`);
-        return;
-    }
-
-    let browser;
-    try {
-        // Build-only browser: Sanity CORS is configured for public domains,
-        // while prerender runs from localhost/127.0.0.1 inside Vercel.
-        browser = await puppeteer.launch({
-            headless: "new",
-            args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-web-security"
-            ]
-        });
-    } catch (err) {
-        console.warn(`[prerender] puppeteer.launch failed (${err.message}). Skipping SSG.`);
-        await new Promise((r) => server.close(r));
-        return;
-    }
-
-    const results = { ok: 0, failed: 0, failures: [] };
+    const failures = [];
+    const startedAt = Date.now();
     for (const route of routes) {
-        const result = await renderRoute(browser, route);
-        if (result.ok) {
-            results.ok += 1;
-            process.stdout.write(".");
-        } else {
-            results.failed += 1;
-            results.failures.push({ route, reason: result.reason });
-            process.stdout.write("x");
+        try {
+            const result = await render(route);
+            if (!result.appHtml || result.appHtml.length < 200) throw new Error("HTML vacío");
+            const outPath = outputPathForRoute(route);
+            await mkdir(dirname(outPath), { recursive: true });
+            await writeFile(outPath, buildPage(template, result, serializeForScript), "utf-8");
+        } catch (err) {
+            failures.push({ route, reason: err?.message || String(err) });
         }
     }
-    process.stdout.write("\n");
 
-    try { await browser.close(); } catch { /* ignore */ }
-    await new Promise((r) => server.close(r));
+    const okCount = routes.length - failures.length;
+    console.log(`[prerender] OK: ${okCount}/${routes.length} en ${((Date.now() - startedAt) / 1000).toFixed(1)} s`);
+    for (const f of failures) console.error(`[prerender]   ✗ ${f.route} — ${f.reason}`);
 
-    console.log(`[prerender] Done. OK: ${results.ok}, Failed: ${results.failed}, Total: ${routes.length}`);
-    prerenderedCount = results.ok;
-    expectedCount = routes.length;
-    if (results.failures.length > 0) {
-        console.warn(`[prerender] Failed routes (served from SPA fallback):`);
-        for (const f of results.failures) {
-            console.warn(`[prerender]   ${f.route} — ${f.reason}`);
-        }
+    if (failures.length > 0 && !ALLOW_FAILURES) {
+        console.error("[prerender] El build falla: hay rutas públicas sin HTML prerenderizado.");
+        process.exit(1);
     }
+    process.exit(0);
 }
 
 main().catch((err) => {
-    console.warn(`[prerender] Top-level error, skipping SSG: ${err.message}`);
-}).finally(() => {
-    const complete = expectedCount > 0 && prerenderedCount === expectedCount;
-    if (!complete) {
-        // Aviso muy visible: sin SSG los crawlers reciben el shell vacío.
-        console.error(`[prerender] ⚠️  SSG INCOMPLETO: ${prerenderedCount}/${expectedCount || "?"} rutas prerenderizadas. Los crawlers recibirán el shell SPA vacío.`);
-        if (STRICT) process.exit(1);
-    }
-    process.exit(0);
+    console.error(`[prerender] Error: ${err?.stack || err}`);
+    process.exit(ALLOW_FAILURES ? 0 : 1);
 });

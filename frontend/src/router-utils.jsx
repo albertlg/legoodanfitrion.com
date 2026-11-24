@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import {
     PUBLIC_LANGUAGES,
     DEFAULT_LANGUAGE,
@@ -10,6 +10,7 @@ import {
     localizeInternalPath,
     internalizeLocalizedPath
 } from "./lib/public-routes";
+import { isHydrationPass, isServer } from "./lib/ssr-state";
 
 // 🚀 SEO: idiomas, slugs y rutas públicas viven en un único módulo compartido
 // con seo.jsx y los scripts de build (sitemap/prerender).
@@ -34,7 +35,22 @@ const getInternalPath = internalizeLocalizedPath;
 export const getLocalizedPath = localizeInternalPath;
 
 // 🚀 SEO: Función super-inteligente que recuerda el idioma al cambiar de página
-export function extractLanguageFromPath(pathname) {
+// Idioma guardado al arrancar la página, leído antes de que ningún efecto lo
+// sobrescriba. Se usa para recordar el idioma del visitante tras hidratar.
+const BOOT_STORED_LANGUAGE = (() => {
+    if (isServer()) return null;
+    try {
+        const stored = window.localStorage.getItem("legood-language");
+        return stored && SUPPORTED_LANGUAGES.has(stored) ? stored : null;
+    } catch {
+        return null;
+    }
+})();
+
+// inferLanguage=false: el idioma sale solo de la URL (sin prefijo = español).
+// Es obligatorio en el servidor y durante la hidratación, para que el cliente
+// renderice lo mismo que el HTML prerenderizado.
+export function extractLanguageFromPath(pathname, { inferLanguage = true } = {}) {
     const segments = pathname.split("/").filter(Boolean);
     const firstSegment = segments[0]?.toLowerCase() || "";
 
@@ -48,7 +64,7 @@ export function extractLanguageFromPath(pathname) {
     // 2. Si no tiene prefijo, recuperamos el último idioma activo del usuario
     let inferredLang = DEFAULT_LANGUAGE;
     try {
-        const stored = window.localStorage.getItem("legood-language");
+        const stored = inferLanguage ? window.localStorage.getItem("legood-language") : null;
         if (stored && SUPPORTED_LANGUAGES.has(stored)) {
             inferredLang = stored;
         }
@@ -404,6 +420,48 @@ export function getCanonicalPathForRoute(route, lang = DEFAULT_LANGUAGE) {
     return localizedBasePath === "/" ? `/${lang}` : `/${lang}${localizedBasePath}`;
 }
 
+// Resuelve una URL a la ruta interna de la app. Función pura: la usan el hook
+// useAppRouter y el prerender del build (para saber qué pantalla renderizar).
+export function resolveRoute(pathname, searchParams = new URLSearchParams(), { inferLanguage = true } = {}) {
+    const rawPathname = normalizePathname(pathname);
+
+    // 🚀 SEO: Extraemos el idioma y la ruta interna (ej: /pricing)
+    const { lang, basePath } = extractLanguageFromPath(rawPathname, { inferLanguage });
+    const queryToken = String(searchParams.get("token") || "").trim();
+
+    const createRoute = (kind, path, extra = {}) => ({
+        kind,
+        path,           // La ruta SIN idioma (para que App.jsx funcione normal)
+        originalPath: rawPathname, // La ruta original en la barra de direcciones
+        urlLang: lang,  // El idioma extraído de la URL
+        ...extra
+    });
+
+    if (queryToken) return createRoute("rsvp", `/rsvp/${queryToken}`, { token: queryToken });
+
+    if (basePath.startsWith("/rsvp/")) {
+        const token = basePath.replace("/rsvp/", "").trim();
+        return token ? createRoute("rsvp", basePath, { token }) : createRoute("landing", "/");
+    }
+
+    if (basePath === "/lg-hq-admin-2026") return createRoute("admin", "/lg-hq-admin-2026");
+    if (basePath === "/login") return createRoute("login", "/login");
+    if (basePath === "/profile") return createRoute("app", "/profile", { appRoute: { view: "profile" } });
+    if (basePath === "/app" || basePath.startsWith("/app/")) {
+        return createRoute("app", basePath, { appRoute: parseAppRoute(basePath, searchParams) });
+    }
+
+    // Ya validado internamente (ej: /blog)
+    if (basePath.startsWith("/blog")) return createRoute("blog", basePath);
+    // 🚀 AÑADIMOS LAS DOS RUTAS LEGALES AQUÍ
+    if (basePath === "/privacy") return createRoute("privacy", basePath);
+    if (basePath === "/terms") return createRoute("terms", basePath);
+
+    if (LANDING_PATHS.has(basePath)) return createRoute("landing", basePath);
+
+    return createRoute("landing", "/");
+}
+
 export function useAppRouter() {
     const location = useLocation();
     const navigateFull = useNavigate();
@@ -413,45 +471,28 @@ export function useAppRouter() {
         navigateFull(nextPath, { replace });
     }, [navigateFull]);
 
-    const route = useMemo(() => {
-        const rawPathname = normalizePathname(location.pathname);
+    // En la pasada de hidratación no se infiere el idioma (ver extractLanguageFromPath).
+    const [startedFromPrerender] = useState(() => isHydrationPass());
+    const route = useMemo(
+        () => resolveRoute(location.pathname, searchParams, { inferLanguage: !isHydrationPass() }),
+        [location.pathname, searchParams]
+    );
 
-        // 🚀 SEO: Extraemos el idioma y la ruta interna (ej: /pricing)
-        const { lang, basePath } = extractLanguageFromPath(rawPathname);
-        const queryToken = String(searchParams.get("token") || "").trim();
-
-        const createRoute = (kind, path, extra = {}) => ({
-            kind,
-            path,           // La ruta SIN idioma (para que App.jsx funcione normal)
-            originalPath: rawPathname, // La ruta original en la barra de direcciones
-            urlLang: lang,  // El idioma extraído de la URL
-            ...extra
-        });
-
-        if (queryToken) return createRoute("rsvp", `/rsvp/${queryToken}`, { token: queryToken });
-
-        if (basePath.startsWith("/rsvp/")) {
-            const token = basePath.replace("/rsvp/", "").trim();
-            return token ? createRoute("rsvp", basePath, { token }) : createRoute("landing", "/");
-        }
-
-        if (basePath === "/lg-hq-admin-2026") return createRoute("admin", "/lg-hq-admin-2026");
-        if (basePath === "/login") return createRoute("login", "/login");
-        if (basePath === "/profile") return createRoute("app", "/profile", { appRoute: { view: "profile" } });
-        if (basePath === "/app" || basePath.startsWith("/app/")) {
-            return createRoute("app", basePath, { appRoute: parseAppRoute(basePath, searchParams) });
-        }
-
-        // Ya validado internamente (ej: /blog)
-        if (basePath.startsWith("/blog")) return createRoute("blog", basePath);
-        // 🚀 AÑADIMOS LAS DOS RUTAS LEGALES AQUÍ
-        if (basePath === "/privacy") return createRoute("privacy", basePath);
-        if (basePath === "/terms") return createRoute("terms", basePath);
-
-        if (LANDING_PATHS.has(basePath)) return createRoute("landing", basePath);
-
-        return createRoute("landing", "/");
-    }, [location.pathname, searchParams]);
+    // Tras hidratar una página prerenderizada sin prefijo de idioma (/, /blog,
+    // /explorar), respetamos el idioma que el visitante tenía guardado, como
+    // hacía la app antes del prerender. No aplica a artículos: su slug es propio
+    // de cada idioma.
+    useEffect(() => {
+        if (!startedFromPrerender || !BOOT_STORED_LANGUAGE || BOOT_STORED_LANGUAGE === DEFAULT_LANGUAGE) return;
+        if (route.urlLang !== DEFAULT_LANGUAGE) return;
+        const firstSegment = normalizePathname(location.pathname).split("/").filter(Boolean)[0] || "";
+        if (SUPPORTED_LANGUAGES.has(firstSegment)) return;
+        const isSharedPath = route.path === "/" || route.path === "/blog" || route.path === "/explore";
+        if (!isSharedPath) return;
+        navigateFull(getCanonicalPathForRoute(route, BOOT_STORED_LANGUAGE), { replace: true });
+        // Solo al montar
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const isRecoveryMode = useMemo(() => {
         const type = String(searchParams.get("type") || "").toLowerCase();

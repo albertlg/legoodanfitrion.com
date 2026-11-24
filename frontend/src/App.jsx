@@ -1,41 +1,30 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandMark } from "./components/brand-mark";
 import { Controls } from "./components/controls";
 import es from "./i18n/es.json";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { useAppRouter, getCanonicalPathForRoute } from "./router-utils";
+import { isHydrationPass, endHydrationPass } from "./lib/ssr-state";
+import { LOCALE_LOADERS } from "./screens/screen-registry";
 import { LegalScreen } from "./screens/legal-screen";
 
 const DEFAULT_LANGUAGE = "es";
 const SUPPORTED_LANGUAGES = ["es", "ca", "en", "fr", "it"];
-const LOCALE_LOADERS = {
-  ca: () => import("./i18n/ca.json"),
-  en: () => import("./i18n/en.json"),
-  fr: () => import("./i18n/fr.json"),
-  it: () => import("./i18n/it.json")
-};
-const AuthScreen = lazy(() =>
-  import("./screens/auth-screen").then((module) => ({ default: module.AuthScreen }))
-);
-const LandingScreen = lazy(() =>
-  import("./screens/landing-screen").then((module) => ({ default: module.LandingScreen }))
-);
-const DashboardScreen = lazy(() =>
-  import("./screens/dashboard-screen").then((module) => ({ default: module.DashboardScreen }))
-);
-const PublicRsvpScreen = lazy(() =>
-  import("./screens/public-rsvp-screen").then((module) => ({ default: module.PublicRsvpScreen }))
-);
-
-// --- NUEVAS PANTALLAS DEL BLOG ---
-const BlogIndexScreen = lazy(() => import("./screens/blog-index-screen").then((m) => ({ default: m.BlogIndexScreen })));
-const BlogPostScreen = lazy(() => import("./screens/blog-post-screen").then((m) => ({ default: m.BlogPostScreen })));
-const AboutScreen = lazy(() => import("./screens/about-screen").then((m) => ({ default: m.AboutScreen })));
-const AdminDashboardScreen = lazy(() => import("./screens/admin-dashboard-screen").then((m) => ({ default: m.AdminDashboardScreen })));
-const ExploreScreen = lazy(() => import("./screens/explore-screen").then((m) => ({ default: m.ExploreScreen })));
-const UseCasesScreen = lazy(() => import("./screens/use-cases-screen").then((m) => ({ default: m.UseCasesScreen })));
-const UseCaseDetailScreen = lazy(() => import("./screens/use-cases-detail-screen").then((m) => ({ default: m.UseCaseDetailScreen })));
+import {
+  AuthScreen,
+  LandingScreen,
+  DashboardScreen,
+  PublicRsvpScreen,
+  BlogIndexScreen,
+  BlogPostScreen,
+  AboutScreen,
+  AdminDashboardScreen,
+  ExploreScreen,
+  UseCasesScreen,
+  UseCaseDetailScreen,
+  VALID_USE_CASE_KEYS
+} from "./screens/screen-registry";
 
 function ScreenFallback() {
   return (
@@ -121,8 +110,10 @@ function normalizeAuthErrorMessage(error, t) {
   return rawMessage;
 }
 
-function App() {
+function App({ initialLocales = {} }) {
   const { route, navigate, isRecoveryMode: initialRecoveryMode } = useAppRouter();
+  // ¿Este render hidrata HTML prerenderizado? (ver lib/ssr-state.js)
+  const startedFromPrerenderRef = useRef(isHydrationPass());
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -136,6 +127,10 @@ function App() {
 
   // 🚀 SEO 1: Inicializamos el idioma pasándole lo que ha detectado el router
   const [language, setLanguage] = useState(() => {
+    // Servidor e hidratación: el idioma sale solo de la URL.
+    if (isHydrationPass()) {
+      return route.urlLang || DEFAULT_LANGUAGE;
+    }
     if (route.kind === "rsvp") {
       const nav = (window.navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
       return SUPPORTED_LANGUAGES.includes(nav) ? nav : DEFAULT_LANGUAGE;
@@ -143,9 +138,11 @@ function App() {
     return detectLanguage(route.urlLang, route.originalPath);
   });
 
-  const [loadedLocales, setLoadedLocales] = useState(() => ({ [DEFAULT_LANGUAGE]: es }));
-  const [themeMode, setThemeMode] = useState(getThemeModeInitial);
-  const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
+  const [loadedLocales, setLoadedLocales] = useState(() => ({ [DEFAULT_LANGUAGE]: es, ...initialLocales }));
+  // Servidor e hidratación: tema "system" sin leer el navegador; las
+  // preferencias guardadas se aplican justo después de montar.
+  const [themeMode, setThemeMode] = useState(() => (isHydrationPass() ? "system" : getThemeModeInitial()));
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => (isHydrationPass() ? false : getSystemPrefersDark()));
   const [themeColumnSupported, setThemeColumnSupported] = useState(true);
   const [profilePrefsHydrated, setProfilePrefsHydrated] = useState(false);
 
@@ -285,6 +282,17 @@ function App() {
     },
     [language, loadedLocales]
   );
+
+  // Tras hidratar HTML prerenderizado: aplicamos las preferencias del navegador
+  // que no se pudieron usar en el primer render. Debe ir ANTES del efecto que
+  // guarda el tema en localStorage, para leerlo antes de que se sobrescriba.
+  useEffect(() => {
+    if (!startedFromPrerenderRef.current) return;
+    endHydrationPass();
+    const storedTheme = getThemeModeInitial();
+    if (storedTheme !== "system") setThemeMode(storedTheme);
+    setSystemPrefersDark(getSystemPrefersDark());
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", activeTheme);
@@ -792,8 +800,7 @@ function App() {
 
   if (route.kind === "landing" && route.path.startsWith("/use-cases/")) {
     const ucKey = route.path.slice("/use-cases/".length);
-    const validUcKeys = new Set(["personal", "gastro", "penas", "wellness", "corporate", "life", "despedidas", "expat"]);
-    if (validUcKeys.has(ucKey)) {
+    if (VALID_USE_CASE_KEYS.has(ucKey)) {
       return (
         <Suspense fallback={<ScreenFallback />}>
           <UseCaseDetailScreen

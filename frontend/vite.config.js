@@ -9,21 +9,26 @@ import { resolve } from "node:path";
 // home en español, así que las rutas de app no pueden depender de él.
 function appShellPlugin() {
   let outDir = "dist";
+  let isSsrBuild = false;
   return {
     name: "lga-app-shell",
     apply: "build",
     configResolved(config) {
       outDir = resolve(config.root, config.build.outDir);
+      isSsrBuild = Boolean(config.build.ssr);
     },
     closeBundle() {
+      if (isSsrBuild) return;
       copyFileSync(resolve(outDir, "index.html"), resolve(outDir, "app-shell.html"));
     }
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
   plugins: [tailwindcss(), appShellPlugin()],
   build: {
+    // El bundle SSR (prerender) no necesita copiar public/
+    copyPublicDir: !isSsrBuild,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -52,4 +57,4 @@ export default defineConfig({
     port: 5173,
     strictPort: true
   }
-});
+}));

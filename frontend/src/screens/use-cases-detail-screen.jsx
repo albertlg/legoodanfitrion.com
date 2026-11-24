@@ -265,7 +265,7 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
                                                 )}
                                                 <div className="p-5 flex flex-col gap-2 flex-1">
                                                     <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                                                        {new Date(post.publishedAt).toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric" })}
+                                                        {new Date(post.publishedAt).toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
                                                     </p>
                                                     <h3 className="font-black text-sm text-gray-900 dark:text-white leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
                                                         {post.title}

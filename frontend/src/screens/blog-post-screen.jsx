@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PortableText } from "@portabletext/react";
-import { sanityClient, urlFor } from "../sanityClient";
+import { urlFor } from "../sanityClient";
+import { fetchBlogPost } from "../lib/blog-data";
+import { getInitialData, initialDataKeys } from "../lib/ssr-state";
 import { Icon } from "../components/icons";
 import { PublicPageHeader } from "../components/public-page-header";
 import { Helmet } from "react-helmet-async";
@@ -85,18 +87,18 @@ function createPortableTextComponents({ t, language }) {
 }
 
 export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onNavigate, session }) {
-    const [post, setPost] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-
-    if (typeof window !== "undefined" && isLoading) {
-        window.prerenderReady = false;
-    }
-
     const routeBlog = useMemo(
         () => getBlogRouteFromPath(typeof window !== "undefined" ? window.location.pathname : "", language, slug),
         [language, slug]
     );
+    // Si la página viene prerenderizada, arrancamos con el mismo post que usó
+    // el servidor (window.__LGA_DATA__) para que la hidratación coincida.
+    const [post, setPost] = useState(
+        () => getInitialData(initialDataKeys.post(routeBlog.language, routeBlog.slug || slug)) || null
+    );
+    const [isLoading, setIsLoading] = useState(() => !post);
+    const [notFound, setNotFound] = useState(false);
+
     const requestLanguage = routeBlog.language;
     const requestSlug = routeBlog.slug || slug;
     const seoLanguage = requestLanguage;
@@ -122,25 +124,17 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
     useEffect(() => {
         let isMounted = true; // 🚀 FIX: Creamos un "semáforo" para esta petición
 
-        if (typeof window !== "undefined") window.prerenderReady = false;
+        // Ya tenemos este post (prerender): no lo volvemos a pedir.
+        if (post && getPostSlug(post) === requestSlug && post.language === requestLanguage) {
+            setIsLoading(false);
+            return () => {
+                isMounted = false;
+            };
+        }
+
         setIsLoading(true);
         setNotFound(false);
-        sanityClient
-            .fetch(
-                `*[_type == "post" && slug.current == $slug && language == $lang][0]{
-                  _id, _updatedAt, title, "slug": slug.current, publishedAt, body, language, excerpt,
-                  steps[]{title, text},
-                  mainImage,
-                  "authorName": author->name,
-                  "authorImage": author->image,
-                  "categories": coalesce(categories[]->title, []),
-                  "translations": *[_type == "translation.metadata" && references(^._id)][0].translations[].value->{
-                    "lang": language,
-                    "slug": slug.current
-                  }
-                }`,
-                { slug: requestSlug, lang: requestLanguage }
-            )
+        fetchBlogPost(requestLanguage, requestSlug)
             .then((data) => {
                 if (!isMounted) return; // 🚀 FIX: Si se disparó otra petición mientras tanto, ignoramos esta
 
@@ -163,15 +157,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
         return () => {
             isMounted = false;
         };
-    }, [requestSlug, requestLanguage]);
-
-    useEffect(() => {
-        if (typeof window === "undefined" || isLoading) return;
-        const readyTimer = window.setTimeout(() => {
-            window.prerenderReady = true;
-        }, 0);
-        return () => window.clearTimeout(readyTimer);
-    }, [isLoading, post, notFound, blogSchemas.length]);
+    }, [requestSlug, requestLanguage, post]);
 
     // 🚀 FIX: Interceptamos el selector de idioma localmente ANTES de que App.jsx rompa la URL
     const handleLocalLanguageChange = (newLang) => {
@@ -328,7 +314,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                     <header className="mb-10 sm:mb-12">
                         <div className="flex items-center gap-4 mb-6">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                                {new Date(post.publishedAt).toLocaleDateString(seoLanguage, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                {new Date(post.publishedAt).toLocaleDateString(seoLanguage, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                             </p>
                             {post.categories && post.categories.length > 0 && (
                                 <div className="flex items-center gap-2">

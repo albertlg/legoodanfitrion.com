@@ -17,3 +17,5 @@ pnpm-debug.log*
 google-credentials.json
 backend/google-credentials.json
 backend/config/google-credentials.json
+# Bundle SSR del prerender (build)
+frontend/.ssr/
