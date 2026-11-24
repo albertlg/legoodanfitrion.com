@@ -80,7 +80,7 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
             <SEO
                 language={language}
                 slug={`use-cases/${ucKey}`}
-                title={`${t(`uc_${ucKey}_page_seo_title`)} | ${t("app_name")}`}
+                title={t(`uc_${ucKey}_page_seo_title`)}
                 description={t(`uc_${ucKey}_page_seo_desc`)}
             />
             <Helmet>

@@ -23,7 +23,7 @@ docker-compose.yml
 
 ## Requisitos
 
-- Node.js 20+
+- Node.js 24+
 - npm 10+
 - Docker (opcional, recomendado para entorno local unificado)
 - Proyecto Supabase activo

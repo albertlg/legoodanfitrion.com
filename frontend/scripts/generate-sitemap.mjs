@@ -3,39 +3,15 @@ import { writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+    PUBLIC_LANGUAGES as LANGS,
+    DEFAULT_LANGUAGE,
+    STATIC_PUBLIC_PAGES,
+    getPublicUrl,
+    getBlogPostUrl
+} from "../src/lib/public-routes.js";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const DOMAIN = "https://legoodanfitrion.com";
-const LANGS = ["es", "ca", "en", "fr", "it"];
-
-const ROUTES_DICT = {
-    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", about: "sobre-nosotros", privacy: "privacidad", terms: "terminos" },
-    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", about: "sobre-nosaltres", privacy: "privacitat", terms: "termes" },
-    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", about: "about", privacy: "privacy", terms: "terms" },
-    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", about: "a-propos", privacy: "confidentialite", terms: "conditions" },
-    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", about: "chi-siamo", privacy: "privacy", terms: "termini" }
-};
-
-const STATIC_ROUTES = [
-    { key: "/", priority: "1.0", changefreq: "weekly" },
-    { key: "features", priority: "0.8", changefreq: "monthly" },
-    { key: "pricing", priority: "0.8", changefreq: "monthly" },
-    { key: "contact", priority: "0.6", changefreq: "monthly" },
-    { key: "blog", priority: "0.8", changefreq: "weekly" },
-    { key: "about", priority: "0.7", changefreq: "monthly" },
-    { key: "privacy", priority: "0.3", changefreq: "yearly" },
-    { key: "terms", priority: "0.3", changefreq: "yearly" }
-];
-
-function getUrl(lang, key) {
-    if (key === "/") return lang === "es" ? `${DOMAIN}/` : `${DOMAIN}/${lang}`;
-    const slug = ROUTES_DICT[lang]?.[key] || key;
-    return lang === "es" ? `${DOMAIN}/${slug}` : `${DOMAIN}/${lang}/${slug}`;
-}
-
-function getBlogPostUrl(lang, slug) {
-    return lang === "es" ? `${DOMAIN}/blog/${slug}` : `${DOMAIN}/${lang}/blog/${slug}`;
-}
 
 function escapeXml(value) {
     return String(value)
@@ -51,7 +27,7 @@ function buildUrlBlock({ loc, alternates, priority, changefreq, lastmod }) {
     for (const alt of alternates) {
         lines.push(`    <xhtml:link rel="alternate" hreflang="${alt.lang}" href="${escapeXml(alt.href)}" />`);
     }
-    const defaultAlt = alternates.find((a) => a.lang === "es") || alternates[0];
+    const defaultAlt = alternates.find((a) => a.lang === DEFAULT_LANGUAGE) || alternates[0];
     if (defaultAlt) {
         lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(defaultAlt.href)}" />`);
     }
@@ -85,10 +61,10 @@ async function fetchBlogPosts() {
 async function generate() {
     const urlBlocks = [];
 
-    for (const route of STATIC_ROUTES) {
+    for (const route of STATIC_PUBLIC_PAGES) {
         for (const lang of LANGS) {
-            const loc = getUrl(lang, route.key);
-            const alternates = LANGS.map((l) => ({ lang: l, href: getUrl(l, route.key) }));
+            const loc = getPublicUrl(route.path, lang);
+            const alternates = LANGS.map((l) => ({ lang: l, href: getPublicUrl(route.path, l) }));
             urlBlocks.push(buildUrlBlock({
                 loc,
                 alternates,
@@ -143,7 +119,7 @@ ${urlBlocks.join("\n\n")}
     const outPath = resolve(__dirname, "..", "public", "sitemap.xml");
     writeFileSync(outPath, xml, "utf-8");
 
-    const staticCount = STATIC_ROUTES.length * LANGS.length;
+    const staticCount = STATIC_PUBLIC_PAGES.length * LANGS.length;
     console.log(`[sitemap] OK -> ${outPath}`);
     console.log(`[sitemap]   static URLs: ${staticCount}`);
     console.log(`[sitemap]   blog post URLs: ${postCount}`);

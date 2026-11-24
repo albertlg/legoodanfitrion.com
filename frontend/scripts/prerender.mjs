@@ -1,28 +1,29 @@
-import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
+import { mkdir, writeFile, readFile, stat, copyFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve, dirname, join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+    PUBLIC_LANGUAGES as LANGS,
+    STATIC_PUBLIC_PAGES,
+    getPublicPath,
+    getBlogPostPath
+} from "../src/lib/public-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = resolve(__dirname, "..", "dist");
 const PORT = Number(process.env.SSG_PORT || 9999);
 const ROUTE_TIMEOUT_MS = Number(process.env.SSG_ROUTE_TIMEOUT_MS || 15000);
+// Shell SPA limpio para rutas de app (/app, /login, /rsvp...). Lo genera
+// vite.config.js antes de prerenderizar, porque "/" sobrescribe dist/index.html
+// con la home en español. vercel.json y middleware.js lo sirven como fallback.
+const APP_SHELL_FILE = "app-shell.html";
+// SSG_STRICT=1 hace fallar el build si alguna ruta no se prerenderiza.
+const STRICT = process.env.SSG_STRICT === "1";
 
 const SANITY_PROJECT = "bmf59j7w";
 const SANITY_DATASET = "production";
 const SANITY_API_VERSION = "2024-03-18";
-
-const LANGS = ["es", "ca", "en", "fr", "it"];
-
-const ROUTES_DICT = {
-    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", about: "sobre-nosotros", privacy: "privacidad", terms: "terminos" },
-    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", about: "sobre-nosaltres", privacy: "privacitat", terms: "termes" },
-    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", about: "about", privacy: "privacy", terms: "terms" },
-    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", about: "a-propos", privacy: "confidentialite", terms: "conditions" },
-    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", about: "chi-siamo", privacy: "privacy", terms: "termini" }
-};
-
-const STATIC_KEYS = ["/", "features", "pricing", "contact", "about", "blog", "privacy", "terms"];
 
 const MIME = {
     ".js": "text/javascript; charset=utf-8",
@@ -44,16 +45,6 @@ const MIME = {
     ".xml": "application/xml; charset=utf-8",
     ".txt": "text/plain; charset=utf-8"
 };
-
-function getLocalPath(lang, key) {
-    if (key === "/") return lang === "es" ? "/" : `/${lang}`;
-    const slug = ROUTES_DICT[lang]?.[key] || key;
-    return lang === "es" ? `/${slug}` : `/${lang}/${slug}`;
-}
-
-function getBlogPostLocalPath(lang, slug) {
-    return lang === "es" ? `/blog/${slug}` : `/${lang}/blog/${slug}`;
-}
 
 async function fileExists(p) {
     try {
@@ -83,7 +74,7 @@ async function fetchSanitySlugs() {
 }
 
 async function createShellServer(distDir) {
-    const shellPath = join(distDir, "index.html");
+    const shellPath = join(distDir, APP_SHELL_FILE);
     if (!(await fileExists(shellPath))) {
         throw new Error(`Shell index.html not found at ${shellPath}`);
     }
@@ -176,10 +167,19 @@ async function renderRoute(browser, route) {
     }
 }
 
+let prerenderedCount = 0;
+let expectedCount = 0;
+
 async function main() {
     if (!(await dirExists(DIST_DIR))) {
         console.warn(`[prerender] dist/ not found at ${DIST_DIR}. Skipping SSG (nothing to prerender).`);
         return;
+    }
+
+    // vite.config.js (appShellPlugin) ya genera el shell; esto es una red de seguridad.
+    if (!(await fileExists(join(DIST_DIR, APP_SHELL_FILE)))) {
+        await copyFile(join(DIST_DIR, "index.html"), join(DIST_DIR, APP_SHELL_FILE));
+        console.log(`[prerender] App shell copied to dist/${APP_SHELL_FILE}`);
     }
 
     let puppeteer;
@@ -200,14 +200,14 @@ async function main() {
     }
 
     const routeSet = new Set();
-    for (const key of STATIC_KEYS) {
+    for (const page of STATIC_PUBLIC_PAGES) {
         for (const lang of LANGS) {
-            routeSet.add(getLocalPath(lang, key));
+            routeSet.add(getPublicPath(page.path, lang));
         }
     }
     for (const post of posts) {
         if (!post?.slug || !post?.lang || !LANGS.includes(post.lang)) continue;
-        routeSet.add(getBlogPostLocalPath(post.lang, post.slug));
+        routeSet.add(getBlogPostPath(post.lang, post.slug));
     }
     const routes = Array.from(routeSet);
     console.log(`[prerender] Total routes to prerender: ${routes.length}`);
@@ -257,6 +257,8 @@ async function main() {
     await new Promise((r) => server.close(r));
 
     console.log(`[prerender] Done. OK: ${results.ok}, Failed: ${results.failed}, Total: ${routes.length}`);
+    prerenderedCount = results.ok;
+    expectedCount = routes.length;
     if (results.failures.length > 0) {
         console.warn(`[prerender] Failed routes (served from SPA fallback):`);
         for (const f of results.failures) {
@@ -268,6 +270,11 @@ async function main() {
 main().catch((err) => {
     console.warn(`[prerender] Top-level error, skipping SSG: ${err.message}`);
 }).finally(() => {
-    // Directive #2: NEVER fail the pipeline. Always exit 0.
+    const complete = expectedCount > 0 && prerenderedCount === expectedCount;
+    if (!complete) {
+        // Aviso muy visible: sin SSG los crawlers reciben el shell vacío.
+        console.error(`[prerender] ⚠️  SSG INCOMPLETO: ${prerenderedCount}/${expectedCount || "?"} rutas prerenderizadas. Los crawlers recibirán el shell SPA vacío.`);
+        if (STRICT) process.exit(1);
+    }
     process.exit(0);
 });

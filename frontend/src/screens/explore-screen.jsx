@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../components/icons";
-import { Helmet } from "react-helmet-async";
+import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
 import { PublicPageHeader } from "../components/public-page-header";
 import { signInDemoUser } from "../lib/demo-auth";
@@ -75,11 +75,12 @@ export function ExploreScreen({ language, setLanguage, themeMode, setThemeMode, 
 
     return (
         <main className="min-h-screen relative bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white font-sans selection:bg-blue-200 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-white overflow-hidden flex flex-col">
-            <Helmet htmlAttributes={{ lang: language }}>
-                <title>{t("explore_seo_title")}</title>
-                <meta name="description" content={t("explore_seo_desc")} />
-                <meta name="robots" content="index, follow" />
-            </Helmet>
+            <SEO
+                language={language}
+                slug="explore"
+                title={t("explore_seo_title")}
+                description={t("explore_seo_desc")}
+            />
 
             {/* Decorative blobs */}
             <div className="fixed top-[-10%] right-[-5%] w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-indigo-500/15 dark:bg-indigo-600/8 rounded-full filter blur-[100px] opacity-60 pointer-events-none z-0" />

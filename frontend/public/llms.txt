@@ -62,18 +62,29 @@ Currently free during open beta. All features (events, guests, RSVP, AI planning
 
 ## Technology
 
-Built with React, TailwindCSS, and Supabase. AI features (menu planning, icebreakers, smart suggestions) powered by Google Gemini. Multilingual support (ES, EN, CA, FR, IT) with full i18n and localized URLs per language. Deployed on Vercel with Prerender.io for crawler compatibility.
+Built with React, TailwindCSS, and Supabase. AI features (menu planning, icebreakers, smart suggestions) powered by Google Gemini. Multilingual support (ES, EN, CA, FR, IT) with full i18n and localized URLs per language. Deployed on Vercel.
 
 ## Key URLs
 
-- Homepage: https://legoodanfitrion.com
-- Features: https://legoodanfitrion.com/features
-- Pricing: https://legoodanfitrion.com/pricing
-- Blog: https://legoodanfitrion.com/blog
-- Contact: https://legoodanfitrion.com/contact
-- About the founders: https://legoodanfitrion.com/about
+Spanish is the default language (no prefix). Other languages use a prefix: /ca/, /en/, /fr/, /it/. The full list of public URLs in every language is in https://legoodanfitrion.com/sitemap.xml
+
+- Homepage: https://legoodanfitrion.com/ (English: https://legoodanfitrion.com/en)
+- Pricing: https://legoodanfitrion.com/en/pricing
+- Use cases ("Moments"): https://legoodanfitrion.com/en/moments
+  - Dinners and gatherings: https://legoodanfitrion.com/en/moments/dinners-and-gatherings
+  - Supper clubs and gastronomy: https://legoodanfitrion.com/en/moments/supper-clubs-and-gastronomy
+  - Clubs, associations and communities: https://legoodanfitrion.com/en/moments/clubs-associations-and-communities
+  - Wellness retreats: https://legoodanfitrion.com/en/moments/wellness-retreats-and-communities
+  - Corporate events and team building: https://legoodanfitrion.com/en/moments/corporate-events-and-team-building
+  - Life celebrations and weddings: https://legoodanfitrion.com/en/moments/life-celebrations-and-weddings
+  - Hen and stag parties: https://legoodanfitrion.com/en/moments/hen-and-stag-parties
+  - Friendsgiving and international dinners: https://legoodanfitrion.com/en/moments/friendsgiving-and-international-dinners
+- Explore demo events: https://legoodanfitrion.com/en/explore
+- Blog (hosting guides): https://legoodanfitrion.com/en/blog (Spanish: https://legoodanfitrion.com/blog)
+- About the founders: https://legoodanfitrion.com/en/about
+- Contact: https://legoodanfitrion.com/en/contact
 
 ## Legal
 
-- Privacy Policy: https://legoodanfitrion.com/privacy
-- Terms of Service: https://legoodanfitrion.com/terms
+- Privacy Policy: https://legoodanfitrion.com/en/privacy
+- Terms of Service: https://legoodanfitrion.com/en/terms

@@ -1,0 +1,34 @@
+name: SEO check (producción)
+
+# Tras cada deploy de producción de Vercel (integración Git), comprueba que todas
+# las URLs del sitemap sirven HTML real (título, lang, canonical, hreflang y
+# texto) a un crawler que no ejecuta JavaScript. Si falla, el prerender no ha
+# funcionado y los bots de IA / previews sociales están recibiendo el shell vacío.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  seo-check:
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Check crawler-visible HTML for every sitemap URL
+        run: node scripts/check-seo.mjs

@@ -1,27 +1,20 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMemo, useCallback, useEffect } from "react";
+import {
+    PUBLIC_LANGUAGES,
+    DEFAULT_LANGUAGE,
+    ROUTES_DICT,
+    USE_CASE_SLUGS,
+    LANDING_INTERNAL_PATHS,
+    PUBLIC_ROOT_KEYS,
+    localizeInternalPath,
+    internalizeLocalizedPath
+} from "./lib/public-routes";
 
-// 🚀 SEO: Idiomas soportados y Diccionario de Slugs Públicos
-const SUPPORTED_LANGUAGES = new Set(["es", "ca", "en", "fr", "it"]);
-const DEFAULT_LANGUAGE = "es";
-
-const ROUTES_DICT = {
-    es: { features: "caracteristicas", pricing: "precios", contact: "contacto", blog: "blog", about: "sobre-nosotros", privacy: "privacidad", terms: "terminos", explore: "explorar", "use-cases": "momentos" },
-    ca: { features: "caracteristiques", pricing: "preus", contact: "contacte", blog: "blog", about: "sobre-nosaltres", privacy: "privacitat", terms: "termes", explore: "explorar", "use-cases": "moments" },
-    en: { features: "features", pricing: "pricing", contact: "contact", blog: "blog", about: "about", privacy: "privacy", terms: "terms", explore: "explore", "use-cases": "moments" },
-    fr: { features: "fonctionnalites", pricing: "tarifs", contact: "contact", blog: "blog", about: "a-propos", privacy: "confidentialite", terms: "conditions", explore: "explorer", "use-cases": "moments" },
-    it: { features: "funzionalita", pricing: "prezzi", contact: "contatti", blog: "blog", about: "chi-siamo", privacy: "privacy", terms: "termini", explore: "esplora", "use-cases": "momenti" }
-};
-
-const USE_CASE_SLUGS = {
-    es: { personal: "cenas-y-reuniones", gastro: "supper-clubs-y-gastronomia", penas: "penas-y-asociaciones", wellness: "retiros-y-bienestar", corporate: "eventos-de-empresa", life: "celebraciones-y-bodas", despedidas: "despedidas-de-soltera-y-soltero", expat: "cenas-internacionales-y-friendsgiving" },
-    ca: { personal: "sopars-i-reunions", gastro: "supper-clubs-i-gastronomia", penas: "penyes-i-associacions", wellness: "retirs-i-benestar", corporate: "esdeveniments-d-empresa", life: "celebracions-i-casaments", despedidas: "comiat-de-soltera-i-solter", expat: "sopars-internacionals-i-friendsgiving" },
-    en: { personal: "dinners-and-gatherings", gastro: "supper-clubs-and-gastronomy", penas: "clubs-associations-and-communities", wellness: "wellness-retreats-and-communities", corporate: "corporate-events-and-team-building", life: "life-celebrations-and-weddings", despedidas: "hen-and-stag-parties", expat: "friendsgiving-and-international-dinners" },
-    fr: { personal: "diners-et-reunions", gastro: "supper-clubs-et-gastronomie", penas: "associations-et-culture-locale", wellness: "retraites-bien-etre-et-communaute", corporate: "evenements-dentreprise", life: "celebrations-et-mariages", despedidas: "evjf-et-evg", expat: "friendsgiving-et-diners-internationaux" },
-    it: { personal: "cene-e-riunioni", gastro: "supper-club-e-gastronomia", penas: "associazioni-e-cultura-locale", wellness: "ritiri-benessere-e-comunita", corporate: "eventi-aziendali", life: "celebrazioni-e-matrimoni", despedidas: "addio-al-celibato-e-nubilato", expat: "friendsgiving-e-cene-internazionali" }
-};
-
-const LANDING_PATHS = new Set(["/", "/features", "/pricing", "/contact", "/blog", "/about", "/privacy", "/terms", "/explore", "/use-cases", "/use-cases/personal", "/use-cases/gastro", "/use-cases/penas", "/use-cases/wellness", "/use-cases/corporate", "/use-cases/life", "/use-cases/despedidas", "/use-cases/expat"]);
+// 🚀 SEO: idiomas, slugs y rutas públicas viven en un único módulo compartido
+// con seo.jsx y los scripts de build (sitemap/prerender).
+const SUPPORTED_LANGUAGES = new Set(PUBLIC_LANGUAGES);
+const LANDING_PATHS = LANDING_INTERNAL_PATHS;
 const GUEST_PROFILE_TABS = new Set(["general", "food", "lifestyle", "conversation", "health", "history"]);
 const GUEST_ADVANCED_EDIT_TABS = new Set(["identity", "food", "lifestyle", "conversation", "health"]);
 const EVENT_PLANNER_TABS = new Set(["overview", "menu", "shopping", "ambience", "timings", "communication", "risks"]);
@@ -35,42 +28,10 @@ export function normalizePathname(pathname) {
 }
 
 // 🚀 SEO Helper: Traduce una URL pública a la ruta interna de React (Ej: /ca/preus -> /pricing)
-function getInternalPath(localizedPath, lang) {
-    if (localizedPath === "/") return "/";
-    const parts = localizedPath.split("/").filter(Boolean);
-    const rootSegment = parts[0]?.toLowerCase();
-    const dict = ROUTES_DICT[lang] || ROUTES_DICT[DEFAULT_LANGUAGE];
+const getInternalPath = internalizeLocalizedPath;
 
-    const internalKey = Object.keys(dict).find(key => dict[key] === rootSegment);
-    if (internalKey) {
-        parts[0] = internalKey;
-        if (internalKey === "use-cases" && parts[1]) {
-            const ucDict = USE_CASE_SLUGS[lang] || USE_CASE_SLUGS[DEFAULT_LANGUAGE];
-            const ucKey = Object.keys(ucDict).find(k => ucDict[k] === parts[1]);
-            if (ucKey) parts[1] = ucKey;
-        }
-        return "/" + parts.join("/");
-    }
-    return localizedPath;
-}
-
-// 🚀 SEO Helper: Traduce una ruta interna a la URL pública del idioma (Ej: /pricing -> /ca/preus)
-export function getLocalizedPath(internalPath, lang) {
-    if (internalPath === "/") return "/";
-    const parts = internalPath.split("/").filter(Boolean);
-    const rootSegment = parts[0]?.toLowerCase();
-    const dict = ROUTES_DICT[lang] || ROUTES_DICT[DEFAULT_LANGUAGE];
-
-    if (dict[rootSegment]) {
-        parts[0] = dict[rootSegment];
-        if (rootSegment === "use-cases" && parts[1]) {
-            const ucDict = USE_CASE_SLUGS[lang] || USE_CASE_SLUGS[DEFAULT_LANGUAGE];
-            if (ucDict[parts[1]]) parts[1] = ucDict[parts[1]];
-        }
-        return "/" + parts.join("/");
-    }
-    return internalPath;
-}
+// 🚀 SEO Helper: Traduce una ruta interna a la URL pública del idioma (Ej: /pricing -> /preus)
+export const getLocalizedPath = localizeInternalPath;
 
 // 🚀 SEO: Función super-inteligente que recuerda el idioma al cambiar de página
 export function extractLanguageFromPath(pathname) {
@@ -96,7 +57,7 @@ export function extractLanguageFromPath(pathname) {
     }
 
     // 3. ¿Es un click en un enlace interno puro de tu menú? (ej: <Link to="/pricing"> o "/")
-    const isInternalRawSlug = ["features", "pricing", "contact", "blog", "about", "privacy", "terms", "explore", "use-cases"].includes(firstSegment);
+    const isInternalRawSlug = PUBLIC_ROOT_KEYS.includes(firstSegment);
     if (isInternalRawSlug || firstSegment === "") {
         // Le inyectamos su idioma activo de forma transparente
         return { lang: inferredLang, basePath: "/" + segments.join("/") };

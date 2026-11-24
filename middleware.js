@@ -140,7 +140,7 @@ export default async function middleware(request) {
 
     let html;
     try {
-        const res = await fetch(`${url.origin}/index.html`, {
+        const res = await fetch(`${url.origin}/app-shell.html`, {
             headers: { "user-agent": "LGA-EdgeMiddleware/1.0" }
         });
         if (!res.ok) return;
