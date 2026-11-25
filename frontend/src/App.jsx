@@ -754,7 +754,10 @@ function App({ initialLocales = {} }) {
     };
   }, [isLoadingAuth, navigate, route.kind, session?.user?.id]);
 
-  if (!hasSupabaseEnv && route.kind !== "landing") {
+  // Sin Supabase solo fallan las zonas de la app; las páginas públicas (landing,
+  // blog, legales, 404) se renderizan igual, también en el prerender del CI.
+  const isPublicRoute = ["landing", "blog", "privacy", "terms", "notFound"].includes(route.kind);
+  if (!hasSupabaseEnv && !isPublicRoute) {
     return (
       <main className="page">
         <section className="card app-card">
