@@ -1,0 +1,41 @@
+name: Redeploy por contenido de Sanity
+
+# Agrupa las publicaciones de Sanity en un solo deploy.
+#
+# Al publicar un artículo, Sanity llama al webhook una vez por cada documento
+# que cambia (5 idiomas + la ficha de traducciones), y cada llamada directa al
+# deploy hook de Vercel lanzaba un deploy: 5–6 seguidos, con algunos cortados
+# por Vercel por exceso de frecuencia.
+#
+# Ahora el webhook de Sanity dispara este workflow (repository_dispatch). Cada
+# ejecución espera 2 minutos y, si llega otra llamada mientras tanto, la nueva
+# cancela a la anterior (concurrency + cancel-in-progress). Solo la última de
+# la tanda llama al deploy hook: un deploy por publicación.
+
+on:
+  repository_dispatch:
+    types: [sanity-publish]
+  workflow_dispatch:
+
+concurrency:
+  group: sanity-redeploy
+  cancel-in-progress: true
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Esperar a que termine la tanda de cambios
+        run: sleep 120
+
+      - name: Lanzar el deploy de producción en Vercel
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "Falta el secreto VERCEL_DEPLOY_HOOK_URL" >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST "$VERCEL_DEPLOY_HOOK_URL" -o /dev/null
+          echo "Deploy de producción solicitado a Vercel."
