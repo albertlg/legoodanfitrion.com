@@ -102,9 +102,14 @@ function getEventPlaceLookupValue(eventItem) {
   if (!eventItem) {
     return "";
   }
+  // Sin coordenadas llegan como null: Number(null) es 0 y daría un mapa de
+  // "null,null". Solo se usan si ambas vienen informadas.
+  const hasCoordinates = [eventItem.location_lat, eventItem.location_lng].every(
+    (value) => value !== null && value !== undefined && String(value).trim() !== ""
+  );
   const latitude = Number(eventItem.location_lat);
   const longitude = Number(eventItem.location_lng);
-  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+  if (hasCoordinates && Number.isFinite(latitude) && Number.isFinite(longitude)) {
     return `${eventItem.location_lat},${eventItem.location_lng}`;
   }
   const addressLabel = normalizeLocationText(eventItem.location_address);
