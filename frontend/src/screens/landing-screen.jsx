@@ -4,7 +4,7 @@ import { BrandMark } from "../components/brand-mark";
 import { Controls } from "../components/controls";
 import { Icon } from "../components/icons";
 import { InlineMessage } from "../components/inline-message";
-import { hasSupabaseEnv, supabase } from "../lib/supabaseClient";
+import { hasSupabaseEnv, loadSupabase } from "../lib/supabase-loader";
 import { SEO } from "../components/seo"; // 🚀 Importamos el SEO en lugar del Helmet
 import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
@@ -343,7 +343,7 @@ function LandingScreen({
       showToast(text, "error");
       return;
     }
-    if (!hasSupabaseEnv || !supabase) {
+    if (!hasSupabaseEnv) {
       setWaitlistMessageType("error");
       const text = t("waitlist_join_error_config");
       setWaitlistMessage(text);
@@ -353,6 +353,17 @@ function LandingScreen({
 
     setIsJoiningWaitlist(true);
     setWaitlistMessage("");
+
+    // Supabase se descarga solo al enviar (ver lib/supabase-loader.js).
+    const supabase = await loadSupabase().catch(() => null);
+    if (!supabase) {
+      setIsJoiningWaitlist(false);
+      setWaitlistMessageType("error");
+      const text = t("waitlist_join_error_config");
+      setWaitlistMessage(text);
+      showToast(text, "error");
+      return;
+    }
 
     const payload = {
       p_email: email,
@@ -439,7 +450,7 @@ function LandingScreen({
       showToast(text, "error");
       return;
     }
-    if (!hasSupabaseEnv || !supabase) {
+    if (!hasSupabaseEnv) {
       setContactMessageType("error");
       const text = t("landing_contact_form_error_config");
       setContactMessage(text);
@@ -449,6 +460,17 @@ function LandingScreen({
 
     setIsSendingContact(true);
     setContactMessage("");
+
+    // Supabase se descarga solo al enviar (ver lib/supabase-loader.js).
+    const supabase = await loadSupabase().catch(() => null);
+    if (!supabase) {
+      setIsSendingContact(false);
+      setContactMessageType("error");
+      const text = t("landing_contact_form_error_config");
+      setContactMessage(text);
+      showToast(text, "error");
+      return;
+    }
 
     const payload = {
       p_name: name,

@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { BrandMark } from "./components/brand-mark";
 import { Controls } from "./components/controls";
 import { getAuthRedirectUrl } from "./lib/app-url";
-import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
+import { hasSupabaseEnv, loadSupabase, mayHaveSupabaseSession } from "./lib/supabase-loader";
 import { useAppRouter, getCanonicalPathForRoute } from "./router-utils";
 import { isHydrationPass, endHydrationPass, isServer, reportMissingLocaleKey } from "./lib/ssr-state";
 import { isFullDictionary, loadFullLocale, loadPublicLocale, PUBLIC_ROUTE_KINDS, SUPPORTED_LOCALES } from "./screens/screen-registry";
@@ -148,7 +148,15 @@ function App({ initialLocales = {} }) {
   const [profilePrefsHydrated, setProfilePrefsHydrated] = useState(false);
 
   const [session, setSession] = useState(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  // Cliente de Supabase: se carga bajo demanda (lib/supabase-loader.js). Las
+  // páginas públicas solo lo descargan si puede haber una sesión que restaurar.
+  const [supabase, setSupabase] = useState(null);
+  const [mayHaveSessionAtStart] = useState(() => !isServer() && mayHaveSupabaseSession());
+  const wantsSupabase = hasSupabaseEnv && (!isPublicRoute || mayHaveSessionAtStart);
+  const [isLoadingAuthState, setIsLoadingAuth] = useState(true);
+  // Mientras no hay cliente en una ruta que lo necesita, la sesión sigue "cargando"
+  // (así los guardas de /app y /login no redirigen antes de tiempo).
+  const isLoadingAuth = isLoadingAuthState || (wantsSupabase && !supabase);
   const [authError, setAuthError] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -230,7 +238,7 @@ function App({ initialLocales = {} }) {
         console.warn("[language-sync] No se pudo sincronizar locale en user_metadata:", metadataError.message);
       }
     },
-    [session?.user?.id, session?.user?.user_metadata?.preferences, themeColumnSupported, themeMode]
+    [supabase, session?.user?.id, session?.user?.user_metadata?.preferences, themeColumnSupported, themeMode]
   );
 
   // 🚀 SEO + UX: cambio manual siempre gana y sincroniza contra Supabase si hay sesión
@@ -344,8 +352,32 @@ function App({ initialLocales = {} }) {
   }, []);
 
   useEffect(() => {
-    if (!supabase) {
+    if (supabase) {
+      return undefined;
+    }
+    if (!wantsSupabase) {
       setIsLoadingAuth(false);
+      return undefined;
+    }
+    let isCancelled = false;
+    loadSupabase()
+      .then((client) => {
+        if (isCancelled) return;
+        // Las dos a la vez: con cliente, la sesión sigue cargando hasta getSession().
+        setIsLoadingAuth(Boolean(client));
+        setSupabase(client);
+      })
+      .catch((error) => {
+        console.error("[supabase] No se pudo cargar el cliente:", error);
+        if (!isCancelled) setIsLoadingAuth(false);
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [supabase, wantsSupabase]);
+
+  useEffect(() => {
+    if (!supabase) {
       return undefined;
     }
 
@@ -422,7 +454,7 @@ function App({ initialLocales = {} }) {
       isMounted = false;
       data.subscription.unsubscribe();
     };
-  }, [navigate, t]);
+  }, [supabase, navigate, t]);
 
   useEffect(() => {
     if (!initialRecoveryMode) return;
@@ -486,7 +518,7 @@ function App({ initialLocales = {} }) {
     return () => {
       isCancelled = true;
     };
-  }, [session?.user, session?.user?.id, session?.user?.user_metadata?.preferences?.locale, session?.user?.user_metadata?.preferences?.theme]);
+  }, [supabase, session?.user, session?.user?.id, session?.user?.user_metadata?.preferences?.locale, session?.user?.user_metadata?.preferences?.theme]);
 
   // 🚀 FIX: Auto-guardado de preferencias (Idioma/Tema)
   useEffect(() => {
@@ -522,7 +554,7 @@ function App({ initialLocales = {} }) {
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [language, themeMode, session?.user?.id, themeColumnSupported, profilePrefsHydrated]);
+  }, [supabase, language, themeMode, session?.user?.id, themeColumnSupported, profilePrefsHydrated]);
 
   const validateTurnstile = async (token) => {
     if (!token) return true;
@@ -773,7 +805,7 @@ function App({ initialLocales = {} }) {
     return () => {
       isCancelled = true;
     };
-  }, [isLoadingAuth, navigate, route.kind, session?.user?.id]);
+  }, [supabase, isLoadingAuth, navigate, route.kind, session?.user?.id]);
 
   // Sin Supabase solo fallan las zonas de la app; las páginas públicas (landing,
   // blog, legales, 404) se renderizan igual, también en el prerender del CI.

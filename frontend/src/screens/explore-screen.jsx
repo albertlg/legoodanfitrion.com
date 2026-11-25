@@ -4,7 +4,7 @@ import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
 import { PublicPageHeader } from "../components/public-page-header";
 import { signInDemoUser } from "../lib/demo-auth";
-import { supabase } from "../lib/supabaseClient";
+import { loadSupabase } from "../lib/supabase-loader";
 
 const SHOWCASE_EVENTS = [
     {
@@ -63,6 +63,7 @@ export function ExploreScreen({ language, setLanguage, themeMode, setThemeMode, 
         setLoadingCardId(eventId);
         setErrorCardId(null);
 
+        const supabase = await loadSupabase().catch(() => null);
         const { error } = await signInDemoUser(supabase);
         if (error) {
             setLoadingCardId(null);
