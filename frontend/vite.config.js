@@ -25,6 +25,40 @@ function appShellPlugin() {
   };
 }
 
+// Precarga Fraunces latin (src/fonts.css) en el <head>: es la de los titulares,
+// y sin esto el navegador no la pide hasta haber descargado y leído el CSS.
+// DM Sans no se precarga: las páginas públicas usan la clase font-sans de
+// Tailwind (fuente del sistema) y solo la piden el banner de cookies y la app.
+// Los nombres llevan hash, así que se buscan en el bundle. El prerender parte
+// de este index.html, de modo que la precarga llega a todas las páginas.
+const PRELOADED_FONTS = ["fraunces-latin.woff2"];
+
+function fontPreloadPlugin() {
+  return {
+    name: "lga-font-preload",
+    apply: "build",
+    transformIndexHtml(html, ctx) {
+      if (!ctx.bundle) return html;
+      const tags = [];
+      for (const file of Object.values(ctx.bundle)) {
+        if (file.type !== "asset") continue;
+        const sources = [...(file.originalFileNames || []), ...(file.names || [])];
+        if (sources.some((source) => PRELOADED_FONTS.some((font) => source.endsWith(font)))) {
+          tags.push({
+            tag: "link",
+            attrs: { rel: "preload", href: `/${file.fileName}`, as: "font", type: "font/woff2", crossorigin: "anonymous" },
+            injectTo: "head"
+          });
+        }
+      }
+      if (tags.length !== PRELOADED_FONTS.length) {
+        this.error(`lga-font-preload: se esperaban ${PRELOADED_FONTS.length} fuentes y hay ${tags.length}`);
+      }
+      return tags;
+    }
+  };
+}
+
 // Diccionarios partidos en dos módulos virtuales por idioma:
 //   virtual:lga-locale/<idioma>.public  -> claves de las páginas públicas
 //   virtual:lga-locale/<idioma>.rest    -> el resto (app, login, RSVP...)
@@ -58,7 +92,7 @@ function localeSplitPlugin() {
 }
 
 export default defineConfig(({ isSsrBuild }) => ({
-  plugins: [tailwindcss(), localeSplitPlugin(), appShellPlugin()],
+  plugins: [tailwindcss(), localeSplitPlugin(), fontPreloadPlugin(), appShellPlugin()],
   build: {
     // El bundle SSR (prerender) no necesita copiar public/
     copyPublicDir: !isSsrBuild,

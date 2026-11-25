@@ -6,6 +6,7 @@ import App from "./App";
 import { preloadRouteAssets, preloadClientLocale } from "./screens/screen-registry";
 import { startHydrationPass } from "./lib/ssr-state";
 import { resolveRoute } from "./router-utils";
+import "./fonts.css";
 import "./styles.css";
 import { HelmetProvider } from "react-helmet-async";
 import { initCookieConsent } from "./lib/cookie-consent";
