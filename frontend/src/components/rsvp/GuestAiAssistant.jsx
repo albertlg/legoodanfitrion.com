@@ -222,7 +222,7 @@ function GuestAiAssistant({ t, context, token, language }) {
       setIsOpen(true);
       logGuestInsight(token, question, intent, language);
     },
-    [context, t, token]
+    [context, t, token, language]
   );
 
   // Glass solo para la burbuja flotante (el panel es sólido para contrastar con el overlay blur).

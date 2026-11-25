@@ -105,12 +105,6 @@ export function DashboardOverview({
     hostMemberSinceLabel,
     hostRatingScore,
     recentActivityItems,
-    hostPotentialGuestsCount,
-    invitedPotentialHostsCount,
-    convertedHostGuestsCount,
-    conversionWindowCounts,
-    conversionTrend14d,
-    conversionTrendMax,
     receivedInvitations = [],
     openReceivedInvitationRsvp,
     dashboardHostChecklist,
@@ -121,7 +115,7 @@ export function DashboardOverview({
         catch { return true; }
     });
     const dismissHelp = () => {
-        try { localStorage.setItem("lga_help_dismissed", "true"); } catch {}
+        try { localStorage.setItem("lga_help_dismissed", "true"); } catch { /* sin storage: solo se oculta en esta sesión */ }
         setShowHelp(false);
     };
 

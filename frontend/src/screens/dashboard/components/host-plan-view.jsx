@@ -20,11 +20,8 @@ export function HostPlanView({
   selectedEventPlannerSavedLabel,
   selectedEventPlannerSnapshotVersion = 0,
   selectedEventPlannerSnapshotHistory = [],
-  selectedEventPlannerVariantSeed = 0,
   selectedEventPlannerTabSeed = {},
-  selectedEventPlannerLastGeneratedByScope = {},
   selectedEventPlannerGenerationState,
-  language = "en",
   handleOpenEventPlannerContext,
   handleRegenerateEventPlanner,
   handleRestoreEventPlannerSnapshot,
@@ -96,23 +93,6 @@ export function HostPlanView({
     communication: Number(selectedEventPlannerTabSeed?.communication || 0),
     risks: Number(selectedEventPlannerTabSeed?.risks || 0)
   };
-  const activeTabGenerationMeta =
-    selectedEventPlannerLastGeneratedByScope[eventDetailPlannerTab] ||
-    selectedEventPlannerLastGeneratedByScope.all ||
-    null;
-  const activeTabGeneratedAtLabel = activeTabGenerationMeta?.generatedAt
-    ? new Date(activeTabGenerationMeta.generatedAt).toLocaleString(language || undefined, {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
-    : "";
-  const activeTabVersionLabel = activeTabGenerationMeta?.version
-    ? `v${activeTabGenerationMeta.version}`
-    : selectedEventPlannerVariantSeed
-      ? `v${selectedEventPlannerVariantSeed}`
-      : "";
   const ambienceTimelineHighlights = (selectedEventHostPlaybook?.timeline || []).slice(0, 3);
   const plannerDressCodeKey = ["none", "casual", "elegant", "formal", "themed"].includes(
     String(selectedEventPlannerContextEffective?.dressCode || "")

@@ -2169,14 +2169,6 @@ export function EventDetailView({
       "absolute right-0 top-full z-[80] mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden";
     const dropdownItemClass =
       "flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
-    const headerModuleContextBase = {
-      t,
-      isProfessionalEvent,
-      hasSpotifyPlaylist,
-      isLoadingSpotifyState,
-      handleOpenSpotifyPlaylist,
-      handleConnectSpotify
-    };
 
     return (
       <div className="relative z-20 mt-3 w-full min-w-0">

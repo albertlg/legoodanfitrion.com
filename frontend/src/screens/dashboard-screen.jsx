@@ -3367,9 +3367,10 @@ function DashboardScreen({
   // (p.ej. el usuario cierra sesión a mitad de una traducción generada por él),
   // reseteamos el contador para que el chip no quede flotando en el siguiente montaje.
   useEffect(() => {
+    const pendingTranslations = pendingTranslationsRef.current;
     return () => {
       setTranslatingPlanCount(0);
-      pendingTranslationsRef.current.clear();
+      pendingTranslations.clear();
     };
   }, []);
 
@@ -5355,6 +5356,7 @@ function DashboardScreen({
 
     autoTriggeredPlanEventIds.current.add(eventId);
     handleRegenerateEventPlanner("all");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- omisión intencionada (ver comentario en las deps)
   }, [
     selectedEventDetail?.id,
     selectedEventDetail?.title,
@@ -6583,7 +6585,7 @@ function DashboardScreen({
           if (sigData && typeof sigData === "object") {
             icebreakerInsightSignals = sigData;
           }
-        } catch (_err) {
+        } catch {
           // non-critical — proceed without signals
         }
       }
@@ -10534,7 +10536,7 @@ function DashboardScreen({
           t={t}
           onCtaClick={async () => {
             if (supabase) await supabase.auth.signOut();
-            navigate("/login");
+            onNavigateApp("/login");
           }}
         />
       )}
