@@ -84,6 +84,27 @@ Spanish is the default language (no prefix). Other languages use a prefix: /ca/,
 - About the founders: https://legoodanfitrion.com/en/about
 - Contact: https://legoodanfitrion.com/en/contact
 
+## Hosting guides (blog)
+
+Practical guides for hosts, published in Spanish, Catalan, English, French and Italian (each page links its translations with hreflang). English versions (16):
+
+- [One Menu for Coeliac, Vegan and Lactose-Intolerant Guests at the Same Table](https://legoodanfitrion.com/en/blog/menu-coeliac-vegan-lactose-intolerant-guests-same-table): How to plan one menu that coeliac, vegan and lactose-intolerant guests can all share: a menu for 8, label checks and avoiding cross-contamination.
+- [12 Icebreakers for Dinner Parties Where Not Everyone Knows Each Other](https://legoodanfitrion.com/en/blog/icebreakers-dinner-parties-guests-dont-know-each-other): 12 icebreakers for a dinner party where guests don't know each other: what to do on arrival, at the table and after dessert to get conversation flowing.
+- [New Year's Eve Dinner at Home: The Ultimate Guide to Menu, RSVPs and Decorations](https://legoodanfitrion.com/en/blog/new-years-eve-dinner-home-guide-menu-rsvp-decorations): How to host New Year's Eve dinner at home without the stress: a timeline, a make-ahead menu, RSVPs, decorations and a plan for the midnight countdown.
+- [The Perfect Home BBQ: Shopping List, Marinades and Managing 30 Guests](https://legoodanfitrion.com/en/blog/perfect-bbq-home-shopping-list-marinades-30-guests): Everything you need for a home BBQ with 30 guests: shopping list, three foolproof marinades, and a 3-day prep plan.
+- [How to Host a Birthday Dinner at Home for 20 People (Step by Step)](https://legoodanfitrion.com/en/blog/birthday-dinner-home-20-people-step-by-step): Everything you need to host a birthday dinner at home for 20: format, menu, shopping list and guest management, step by step.
+- [The Ultimate Guide to Planning a Hen Party Nobody Will Forget](https://legoodanfitrion.com/en/blog/ultimate-guide-hen-party-planning): A complete, practical system for planning a hen party that’s genuinely memorable, from budget and logistics to activities and the final toast.
+- [Group Yoga Retreat: How to Create the Perfect Atmosphere and Coordinate Everyone](https://legoodanfitrion.com/en/blog/group-yoga-retreat-perfect-atmosphere-coordinate): How to host a group yoga retreat where logistics, menus, and costs run smoothly so everyone—including the organiser—actually relaxes.
+- [Gastronomic Team Building: 6 Ideas That Actually Work](https://legoodanfitrion.com/en/blog/gastronomic-team-building-6-ideas-that-actually-work): Six gastronomic team-building formats that create real connection, not forced fun — from competitive cooking to artisan making and designed dinners.
+- [How to Organise a First Communion Party Without Losing Your Mind (or Creating Ten WhatsApp Groups)](https://legoodanfitrion.com/en/blog/how-organise-first-communion-party-without-losing-mind): Make your child's First Communion joyful, not stressful: centralise guests, menu, costs and logistics instead of drowning in WhatsApp chaos.
+- [Mother's Day at Home: How to Organise an Unforgettable Brunch Without the Stress](https://legoodanfitrion.com/en/blog/mothers-day-home-unforgettable-brunch-without-stress): Plan a stress-free Mother's Day at home with a tailored brunch or afternoon tea, smart dietary planning, and seamless cost-splitting.
+- [How to organize outdoor spring events without complications](https://legoodanfitrion.com/en/blog/how-to-organize-outdoor-spring-events-without-complications): Take advantage of the good weather and organize unique events. Discover how to plan every detail
+- [Games and activities to help unfamiliar guests connect](https://legoodanfitrion.com/en/blog/games-and-activities-to-help-unfamiliar-guests-connect): Improve interaction between guests and create a more dynamic atmosphere. Discover practical ideas
+- [Avoid mistakes in your guest list with these key tips](https://legoodanfitrion.com/en/blog/avoid-mistakes-in-your-guest-list-with-these-key-tips): Reduce organizational errors and ensure a perfect experience for your guests. Discover how.
+- [Father's Day: How to Celebrate at Home with the People Who Matter Most](https://legoodanfitrion.com/en/blog/fathers-day-how-to-celebrate-at-home-with-the-people-who-matter-most): The best celebration isn't the most elaborate — it's the most heartfelt: a table full of love, food that tastes like home, and moments that last.
+- [Hosting in 2026: The Trends Every Good Host Needs to Know](https://legoodanfitrion.com/en/blog/hosting-in-2026-the-trends-every-good-host-needs-to-know): 2026 is redefining what it means to be a great host. It's no longer about perfection — it's about intentionality, warmth, and creating memorable experiences.
+- [How to Become the Host Everyone Wants (and Create Events People Remember)](https://legoodanfitrion.com/en/blog/how-to-become-the-host-everyone-wants-and-create-events-people-remember): Learn to create memorable events and become the host everyone remembers. Discover practical tips and improve your event planning skills
+
 ## Legal
 
 - Privacy Policy: https://legoodanfitrion.com/en/privacy

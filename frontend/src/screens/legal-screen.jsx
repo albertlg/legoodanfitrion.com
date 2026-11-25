@@ -15,7 +15,7 @@ export function LegalScreen({ type, t, language, onNavigate }) {
 
     return (
         <main className="min-h-screen bg-gray-50 dark:bg-[#0A0D14] text-gray-900 dark:text-white pt-24 pb-12 px-6">
-            <SEO title={`${title} | LeGoodAnfitrión`} description={`Documento legal de ${title}`} language={language} slug={type} />
+            <SEO title={`${title} | LeGoodAnfitrión`} description={isPrivacy ? t("legal_privacy_seo_desc") : t("legal_terms_seo_desc")} language={language} slug={type} />
 
             <header className="max-w-3xl mx-auto mb-12 flex items-center justify-between">
                 <PublicLink to="/" language={language} onNavigate={onNavigate} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-black dark:hover:text-white">
