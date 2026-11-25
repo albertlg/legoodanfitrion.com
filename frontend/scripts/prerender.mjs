@@ -93,6 +93,17 @@ async function main() {
         }
     }
 
+    // Página 404: Vercel sirve dist/404.html (con estado 404) para cualquier URL
+    // que no exista. Se renderiza con una ruta inventada que el router no reconoce.
+    try {
+        const result = await render("/__lga-pagina-inexistente");
+        if (!result.appHtml.includes("404")) throw new Error("no es la pantalla 404");
+        await writeFile(join(DIST_DIR, "404.html"), buildPage(template, result, serializeForScript), "utf-8");
+        console.log("[prerender] 404.html generado.");
+    } catch (err) {
+        failures.push({ route: "404.html", reason: err?.message || String(err) });
+    }
+
     const okCount = routes.length - failures.length;
     console.log(`[prerender] OK: ${okCount}/${routes.length} en ${((Date.now() - startedAt) / 1000).toFixed(1)} s`);
     for (const f of failures) console.error(`[prerender]   ✗ ${f.route} — ${f.reason}`);

@@ -206,7 +206,7 @@ export function ExploreScreen({ language, setLanguage, themeMode, setThemeMode, 
                     </p>
                     <button
                         type="button"
-                        onClick={() => onNavigate("/register")}
+                        onClick={() => onNavigate("/login")}
                         className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white
                             bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
                             transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"

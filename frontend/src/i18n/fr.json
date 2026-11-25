@@ -35,6 +35,8 @@
   "auth_error_bot_detected": "Nous n'avons pas pu vérifier que tu es humain. Recharge la page et réessaie.",
   "auth_no_account": "Pas encore de compte ?",
   "landing_back_home": "Retour à l'accueil",
+  "not_found_title": "Page introuvable",
+  "not_found_subtitle": "La page que vous cherchez n'existe pas ou a changé d'adresse. Ces rubriques pourraient vous intéresser :",
   "landing_nav_features": "Fonctionnalités",
   "landing_nav_features_title": "Fonctionnalités de notre application",
   "landing_nav_pricing": "Tarifs",

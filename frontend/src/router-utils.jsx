@@ -385,6 +385,8 @@ export function buildCanonicalAppPath(appRoute) {
 // 🚀 SEO: Añadimos el parámetro lang para reconstruir la URL completa correctamente
 export function getCanonicalPathForRoute(route, lang = DEFAULT_LANGUAGE) {
     if (!route || typeof route !== "object") return "/";
+    // Una URL inexistente se queda donde está (no redirigimos a la home).
+    if (route.kind === "notFound") return normalizePathname(route.originalPath || "/");
 
     let basePath = "/";
     if (route.kind === "landing") basePath = route.path;
@@ -446,6 +448,8 @@ export function resolveRoute(pathname, searchParams = new URLSearchParams(), { i
 
     if (basePath === "/lg-hq-admin-2026") return createRoute("admin", "/lg-hq-admin-2026");
     if (basePath === "/login") return createRoute("login", "/login");
+    // Enlaces antiguos de registro (emails de co-anfitrión, botón de Explorar)
+    if (basePath === "/signup" || basePath === "/register") return createRoute("login", "/login");
     if (basePath === "/profile") return createRoute("app", "/profile", { appRoute: { view: "profile" } });
     if (basePath === "/app" || basePath.startsWith("/app/")) {
         return createRoute("app", basePath, { appRoute: parseAppRoute(basePath, searchParams) });
@@ -459,7 +463,8 @@ export function resolveRoute(pathname, searchParams = new URLSearchParams(), { i
 
     if (LANDING_PATHS.has(basePath)) return createRoute("landing", basePath);
 
-    return createRoute("landing", "/");
+    // URL desconocida: pantalla 404 (el servidor responde con estado 404).
+    return createRoute("notFound", basePath);
 }
 
 export function useAppRouter() {

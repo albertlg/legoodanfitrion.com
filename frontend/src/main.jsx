@@ -85,8 +85,11 @@ try {
   const routeWithoutQuery = resolveRoute(window.location.pathname, new URLSearchParams(), { inferLanguage: false });
   const routeWithQuery = resolveRoute(window.location.pathname, new URLSearchParams(window.location.search), { inferLanguage: false });
   const queryChangesRoute = routeWithoutQuery.kind !== routeWithQuery.kind || routeWithoutQuery.path !== routeWithQuery.path;
+  // La página 404 se prerenderiza una sola vez (en español) y se sirve para
+  // cualquier URL inexistente: se monta de cero en el idioma de la URL.
+  const isNotFound = routeWithoutQuery.kind === "notFound";
 
-  if (rootNode.hasChildNodes() && !queryChangesRoute) {
+  if (rootNode.hasChildNodes() && !queryChangesRoute && !isNotFound) {
     // 🚀 Página prerenderizada en el build (SEO): antes de hidratar cargamos la
     // pantalla y las traducciones de esta URL, para que el primer render del
     // cliente sea idéntico al HTML del servidor.

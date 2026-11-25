@@ -1,5 +1,7 @@
 export const config = {
-    matcher: "/rsvp/:token*"
+    matcher: "/rsvp/:token*",
+    // Runtime Node (el runtime "edge" está obsoleto en Vercel)
+    runtime: "nodejs"
 };
 
 const BOT_UA_RE = /bot|crawler|spider|googlebot|bingbot|yandex|baiduspider|whatsapp|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|pinterest|applebot|embedly|redditbot|quora|tumblr|vkshare|flipboard|mastodon|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Google-Extended|CCBot|Bytespider|Applebot-Extended|cohere-ai|amazonbot|meta-externalagent|DuckAssistBot/i;

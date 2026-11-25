@@ -35,6 +35,8 @@
   "auth_error_bot_detected": "No hemos podido verificar que eres humano. Recarga la página e inténtalo de nuevo.",
   "auth_no_account": "¿No tienes cuenta?",
   "landing_back_home": "Volver al inicio",
+  "not_found_title": "Página no encontrada",
+  "not_found_subtitle": "La página que buscas no existe o ha cambiado de dirección. Estas secciones te pueden interesar:",
   "landing_nav_features": "Características",
   "landing_nav_features_title": "Características de nuestra aplicación",
   "landing_nav_pricing": "Precios",

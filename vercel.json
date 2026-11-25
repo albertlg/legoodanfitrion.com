@@ -78,6 +78,96 @@
             "source": "/it/funzionalita",
             "destination": "/it#caracteristicas",
             "permanent": true
+        },
+        {
+            "source": "/signup",
+            "destination": "/login",
+            "permanent": false
+        },
+        {
+            "source": "/register",
+            "destination": "/login",
+            "permanent": false
+        },
+        {
+            "source": "/features",
+            "destination": "/#caracteristicas",
+            "permanent": true
+        },
+        {
+            "source": "/pricing",
+            "destination": "/precios",
+            "permanent": true
+        },
+        {
+            "source": "/about",
+            "destination": "/sobre-nosotros",
+            "permanent": true
+        },
+        {
+            "source": "/contact",
+            "destination": "/contacto",
+            "permanent": true
+        },
+        {
+            "source": "/privacy",
+            "destination": "/privacidad",
+            "permanent": true
+        },
+        {
+            "source": "/terms",
+            "destination": "/terminos",
+            "permanent": true
+        },
+        {
+            "source": "/explore",
+            "destination": "/explorar",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases",
+            "destination": "/momentos",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/personal",
+            "destination": "/momentos/cenas-y-reuniones",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/gastro",
+            "destination": "/momentos/supper-clubs-y-gastronomia",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/penas",
+            "destination": "/momentos/penas-y-asociaciones",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/wellness",
+            "destination": "/momentos/retiros-y-bienestar",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/corporate",
+            "destination": "/momentos/eventos-de-empresa",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/life",
+            "destination": "/momentos/celebraciones-y-bodas",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/despedidas",
+            "destination": "/momentos/despedidas-de-soltera-y-soltero",
+            "permanent": true
+        },
+        {
+            "source": "/use-cases/expat",
+            "destination": "/momentos/cenas-internacionales-y-friendsgiving",
+            "permanent": true
         }
     ],
     "rewrites": [
@@ -86,7 +176,27 @@
             "destination": "/api/index.js"
         },
         {
-            "source": "/([^.]*)",
+            "source": "/app",
+            "destination": "/app-shell.html"
+        },
+        {
+            "source": "/app/:path*",
+            "destination": "/app-shell.html"
+        },
+        {
+            "source": "/login",
+            "destination": "/app-shell.html"
+        },
+        {
+            "source": "/profile",
+            "destination": "/app-shell.html"
+        },
+        {
+            "source": "/rsvp/:path*",
+            "destination": "/app-shell.html"
+        },
+        {
+            "source": "/lg-hq-admin-2026",
             "destination": "/app-shell.html"
         }
     ],

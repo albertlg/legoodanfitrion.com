@@ -8,6 +8,7 @@ import { useAppRouter, getCanonicalPathForRoute } from "./router-utils";
 import { isHydrationPass, endHydrationPass } from "./lib/ssr-state";
 import { LOCALE_LOADERS } from "./screens/screen-registry";
 import { LegalScreen } from "./screens/legal-screen";
+import { NotFoundScreen } from "./screens/not-found-screen";
 
 const DEFAULT_LANGUAGE = "es";
 const SUPPORTED_LANGUAGES = ["es", "ca", "en", "fr", "it"];
@@ -804,6 +805,10 @@ function App({ initialLocales = {} }) {
         <AdminDashboardScreen session={session} t={t} onNavigate={navigate} />
       </Suspense>
     );
+  }
+
+  if (route.kind === "notFound") {
+    return <NotFoundScreen t={t} language={language} onNavigate={navigate} />;
   }
 
   if (route.kind === "landing" && route.path.startsWith("/use-cases/")) {

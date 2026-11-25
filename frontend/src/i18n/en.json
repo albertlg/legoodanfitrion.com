@@ -35,6 +35,8 @@
   "auth_error_bot_detected": "We couldn't verify you're human. Please reload the page and try again.",
   "auth_no_account": "New here? Create an account",
   "landing_back_home": "Back to home",
+  "not_found_title": "Page not found",
+  "not_found_subtitle": "The page you're looking for doesn't exist or has moved. These sections might interest you:",
   "landing_nav_features": "Features",
   "landing_nav_features_title": "Features of our application",
   "landing_nav_pricing": "Pricing",

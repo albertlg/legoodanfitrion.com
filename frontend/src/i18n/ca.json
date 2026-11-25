@@ -35,6 +35,8 @@
   "auth_error_bot_detected": "No hem pogut verificar que ets humà. Recarrega la pàgina i torna-ho a intentar.",
   "auth_no_account": "No tens compte?",
   "landing_back_home": "Tornar a l'inici",
+  "not_found_title": "Pàgina no trobada",
+  "not_found_subtitle": "La pàgina que cerques no existeix o ha canviat d'adreça. Aquestes seccions et poden interessar:",
   "landing_nav_features": "Característiques",
   "landing_nav_features_title": "Característiques de la nostra aplicació",
   "landing_nav_pricing": "Preus",
