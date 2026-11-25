@@ -48,25 +48,25 @@ const guestSchema = z
 
     if (!hasEmail && !hasPhone) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["contact"],
         message: "guest_contact_required"
       });
       return;
     }
 
-    if (hasEmail && !z.string().email().safeParse(value.email).success) {
+    if (hasEmail && !z.email().safeParse(value.email).success) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["email"],
         message: "guest_email_invalid"
       });
     }
 
     const hasWorkEmail = Boolean(value.workEmail);
-    if (hasWorkEmail && !z.string().email().safeParse(value.workEmail).success) {
+    if (hasWorkEmail && !z.email().safeParse(value.workEmail).success) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["workEmail"],
         message: "guest_work_email_invalid"
       });
@@ -74,7 +74,7 @@ const guestSchema = z
 
     if (hasPhone && !phoneRegex.test(value.phone || "")) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["phone"],
         message: "guest_phone_invalid"
       });
@@ -85,6 +85,13 @@ const invitationSchema = z.object({
   eventId: z.string().trim().min(1, "invitation_select_required"),
   guestId: z.string().trim().min(1, "invitation_select_required")
 });
+
+// Zod 4 cambió el mensaje por defecto de un campo ausente ("Required" en Zod 3).
+// Lo conservamos para que la UI muestre exactamente lo mismo que antes. Los
+// mensajes definidos en cada esquema tienen prioridad sobre este.
+const parseOptions = {
+  error: (issue) => (issue.code === "invalid_type" && issue.input === undefined ? "Required" : undefined)
+};
 
 function parseZodErrors(error) {
   const byField = {};
@@ -98,7 +105,7 @@ function parseZodErrors(error) {
 }
 
 function validateEventForm(input) {
-  const result = eventSchema.safeParse(input);
+  const result = eventSchema.safeParse(input, parseOptions);
   if (result.success) {
     return { success: true, errors: {} };
   }
@@ -106,7 +113,7 @@ function validateEventForm(input) {
 }
 
 function validateGuestForm(input) {
-  const result = guestSchema.safeParse(input);
+  const result = guestSchema.safeParse(input, parseOptions);
   if (result.success) {
     return { success: true, errors: {} };
   }
@@ -114,7 +121,7 @@ function validateGuestForm(input) {
 }
 
 function validateInvitationForm(input) {
-  const result = invitationSchema.safeParse(input);
+  const result = invitationSchema.safeParse(input, parseOptions);
   if (result.success) {
     return { success: true, errors: {} };
   }

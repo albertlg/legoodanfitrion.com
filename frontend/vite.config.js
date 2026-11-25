@@ -29,35 +29,28 @@ export default defineConfig(({ isSsrBuild }) => ({
   build: {
     // El bundle SSR (prerender) no necesita copiar public/
     copyPublicDir: !isSsrBuild,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) {
-            return undefined;
-          }
-          if (id.includes("react-router")) {
-            return "vendor-router";
-          }
-          if (id.includes("@supabase")) {
-            return "vendor-supabase";
-          }
-          if (id.includes("lucide-react")) {
-            return "vendor-icons";
-          }
-          // React se comparte en todas las pantallas: chunk propio y estable.
-          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
-            return "vendor-react";
-          }
-          // El resto de librerías (recharts, framer-motion, qrcode, Sanity...)
-          // NO va a un "vendor" común: Rollup las coloca junto a la pantalla que
-          // las usa, para que las páginas públicas no descarguen el código del panel.
-          return undefined;
-        }
+        // Solo las librerías compartidas por toda la app tienen chunk propio.
+        // El resto (recharts, framer-motion, qrcode, Sanity...) NO va a un
+        // "vendor" común: Rolldown las coloca junto a la pantalla que las usa,
+        // para que las páginas públicas no descarguen el código del panel.
+        codeSplitting: isSsrBuild
+          ? true
+          : {
+              groups: [
+                { name: "vendor-react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+                { name: "vendor-router", test: /node_modules[\\/](react-router|react-router-dom)[\\/]/ },
+                { name: "vendor-supabase", test: /node_modules[\\/]@supabase[\\/]/ },
+                { name: "vendor-icons", test: /node_modules[\\/]lucide-react[\\/]/ }
+              ]
+            }
       }
     }
   },
-  esbuild: {
-    jsx: "automatic"
+  // Vite 8 transforma con Oxc (sustituye a la opción esbuild).
+  oxc: {
+    jsx: { runtime: "automatic" }
   },
   server: {
     host: true,
