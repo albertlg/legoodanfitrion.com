@@ -10,6 +10,14 @@ import { Helmet } from "react-helmet-async";
 import { GlobalFooter } from "../components/global-footer";
 import { PublicLink } from "../components/public-link";
 import { ModuleShowcaseCard } from "../components/landing/ModuleShowcaseCard";
+// Foto de la landing servida desde la propia web (Unsplash, licencia Unsplash).
+import heroImage800Jpg from "../assets/images/landing-hero-800.jpg";
+import heroImage800Webp from "../assets/images/landing-hero-800.webp";
+import heroImage1600Jpg from "../assets/images/landing-hero-1600.jpg";
+import heroImage1600Webp from "../assets/images/landing-hero-1600.webp";
+
+// La foto ocupa el ancho de la sección (max-w-6xl con px-6).
+const HERO_IMAGE_SIZES = "(min-width: 1152px) 1104px, calc(100vw - 48px)";
 
 const NAV_ITEMS = [
   { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
@@ -815,13 +823,24 @@ function LandingScreen({
               </div>
 
               <figure className="w-full mt-20 md:mt-24 aspect-video sm:aspect-[21/9] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-950 ring-1 ring-black/5 dark:ring-white/10 rounded-t-3xl sm:rounded-t-[3rem] shadow-2xl shadow-black/10 dark:shadow-black/40 relative overflow-hidden group">
-                <img
-                  src="https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
-                  alt={t("landing_hero_narrative")}
-                  className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-[1.02]"
-                  loading="eager"
-                  decoding="async"
-                />
+                <picture className="block w-full h-full">
+                  <source
+                    type="image/webp"
+                    srcSet={`${heroImage800Webp} 800w, ${heroImage1600Webp} 1600w`}
+                    sizes={HERO_IMAGE_SIZES}
+                  />
+                  <img
+                    src={heroImage1600Jpg}
+                    srcSet={`${heroImage800Jpg} 800w, ${heroImage1600Jpg} 1600w`}
+                    sizes={HERO_IMAGE_SIZES}
+                    width="1600"
+                    height="1067"
+                    alt={t("landing_hero_narrative")}
+                    className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-[1.02]"
+                    loading="eager"
+                    decoding="async"
+                  />
+                </picture>
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-50 dark:from-[#0A0D14] via-transparent to-transparent pointer-events-none"></div>
               </figure>
             </section>

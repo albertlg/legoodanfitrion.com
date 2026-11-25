@@ -743,7 +743,7 @@ body {
     border: 1px solid color-mix(in srgb, var(--border) 86%, var(--primary) 14%);
     background:
       linear-gradient(180deg, rgba(10, 19, 31, 0.1) 0%, rgba(10, 19, 31, 0.26) 100%),
-      url("https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80");
+      url("./assets/images/landing-hero-1600.jpg");
     background-size: cover;
     background-position: center;
     position: relative;

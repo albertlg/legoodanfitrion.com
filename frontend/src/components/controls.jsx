@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./icons";
+// Banderas servidas desde la propia web (SVG de Wikimedia Commons, dominio público).
+import flagCa from "../assets/flags/ca.svg";
+import flagEn from "../assets/flags/en.svg";
+import flagEs from "../assets/flags/es.svg";
+import flagFr from "../assets/flags/fr.svg";
+import flagIt from "../assets/flags/it.svg";
 
 const LANGUAGE_OPTIONS = ["es", "ca", "en", "fr", "it"];
 const LANGUAGE_FLAGS = {
-  es: "https://upload.wikimedia.org/wikipedia/en/9/9a/Flag_of_Spain.svg",
-  ca: "https://upload.wikimedia.org/wikipedia/commons/c/ce/Flag_of_Catalonia.svg",
-  en: "https://upload.wikimedia.org/wikipedia/en/a/ae/Flag_of_the_United_Kingdom.svg",
-  fr: "https://upload.wikimedia.org/wikipedia/en/c/c3/Flag_of_France.svg",
-  it: "https://upload.wikimedia.org/wikipedia/commons/0/03/Flag_of_Italy.svg"
+  es: flagEs,
+  ca: flagCa,
+  en: flagEn,
+  fr: flagFr,
+  it: flagIt
 };
 
 function getSystemTheme() {
