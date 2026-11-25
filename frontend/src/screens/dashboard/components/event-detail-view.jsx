@@ -25,6 +25,15 @@ import {
 } from "../modules/event-module-registry";
 import { EventModulesManagerModal } from "../modules/event-modules-manager-modal";
 import { EventModuleAccordion } from "../../../components/dashboard/presentational/EventModuleAccordion";
+import coverBbq from "../../../assets/images/event-covers/bbq.webp";
+import coverBookClub from "../../../assets/images/event-covers/book-club.webp";
+import coverBrunch from "../../../assets/images/event-covers/brunch.webp";
+import coverCelebration from "../../../assets/images/event-covers/celebration.webp";
+import coverDinner from "../../../assets/images/event-covers/dinner.webp";
+import coverMeeting from "../../../assets/images/event-covers/meeting.webp";
+import coverParty from "../../../assets/images/event-covers/party.webp";
+import coverRomanticDate from "../../../assets/images/event-covers/romantic-date.webp";
+import coverDefault from "../../../assets/images/landing-hero-1600.webp";
 
 /** Icon/colour config for the accordion header of each registry module. */
 const MODULE_ACCORDION_CONFIG = {
@@ -41,16 +50,18 @@ const MODULE_ACCORDION_CONFIG = {
 
 const DEFAULT_ACCORDION_CFG = { icon: "settings", colorClass: "text-gray-600 dark:text-gray-400", bgClass: "bg-gray-100 dark:bg-gray-800" };
 
+// Portadas por defecto según el tipo de evento (si no tiene imagen propia).
+// Fotos de Unsplash (licencia Unsplash) servidas desde la propia web.
 const EVENT_COVER_FALLBACK_BY_TYPE = {
-  bbq: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1600&q=80",
-  celebration: "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1600&q=80",
-  party: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=80",
-  romantic_date: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80",
-  book_club: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1600&q=80",
-  meeting: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1600&q=80",
-  brunch: "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=1600&q=80",
-  dinner: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1600&q=80",
-  default: "https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=1600&q=80"
+  bbq: coverBbq,
+  celebration: coverCelebration,
+  party: coverParty,
+  romantic_date: coverRomanticDate,
+  book_club: coverBookClub,
+  meeting: coverMeeting,
+  brunch: coverBrunch,
+  dinner: coverDinner,
+  default: coverDefault
 };
 
 function getFallbackEventCoverUrl(eventType) {
