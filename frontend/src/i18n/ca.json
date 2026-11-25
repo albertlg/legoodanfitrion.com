@@ -132,7 +132,7 @@
   "landing_faq_q9": "Què són els jocs trencagels amb IA?",
   "landing_faq_a9": "El Mode Trencagels és un salvavides express per reactivar l'energia de l'esdeveniment. La IA genera a l'instant un acudit dolent, temes de conversa adaptats al grup i un joc ràpid de 5 minuts. Pots regenerar-lo les vegades que vulguis durant l'esdeveniment per mantenir l'ambient.",
   "landing_faq_q10": "Les dades estan protegides i alineades amb GDPR?",
-  "landing_faq_a10": "Sí. Apliquem minimització de dades, consentiment explícit i accés controlat per fila mitjançant RLS a Supabase. Les dades dels teus convidats (al·lèrgies, preferències, contactes) només són accessibles per a tu. La connexió va xifrada amb HTTPS, utilitzem Cookiebot per al consentiment i complim GDPR amb dret a supressió a petició.",
+  "landing_faq_a10": "Sí. Apliquem minimització de dades, consentiment explícit i accés controlat per fila mitjançant RLS a Supabase. Les dades dels teus convidats (al·lèrgies, preferències, contactes) només són accessibles per a tu. La connexió va xifrada amb HTTPS, només fem servir galetes analítiques si les acceptes i complim GDPR amb dret a supressió a petició.",
   "landing_faq_q11": "En quins idiomes està disponible i des de quins dispositius?",
   "landing_faq_a11": "LeGoodAnfitrión està disponible en 5 idiomes: espanyol, anglès, català, francès i italià. Es detecta l'idioma del navegador i cada convidat rep la invitació en el seu idioma preferit. Funciona des de qualsevol navegador modern en mòbil, tauleta i escriptori, amb disseny mobile-first i sense necessitat d'instal·lar aplicacions.",
   "landing_faq_blog_cta_text": "Busques inspiració pas a pas? Explora les nostres guies interactives al",
@@ -2031,7 +2031,7 @@
   "auth_plg_host_hint": "Registra't per fer servir la nostra IA i organitzar el teu esdeveniment en menys de 2 minuts.",
   "auth_plg_create_account_btn": "Crear el meu compte gratis",
   "auth_plg_already_have_account": "Ja tens un compte?",
-  "privacy_content": "Última actualització: Març 2026\n\nA LeGoodAnfitrión respectem la teva privacitat i la de les persones convidades. Aquesta política explica com recopilem, utilitzem i protegim la teva informació personal (complint amb el RGPD).\n\n1. Informació que recopilem\n- Dades de compte: En registrar-te, recopilem el teu correu electrònic i nom.\n- Dades de l'esdeveniment: Títols, dates, ubicacions i llistes de persones convidades que afegeixis a la plataforma.\n- Dades de persones convidades: Noms, respostes d'assistència (RSVP), restriccions alimentàries i al·lèrgies que les mateixes persones proporcionin.\n\n2. Com utilitzem la teva informació\nUtilitzem aquestes dades exclusivament per proporcionar-te el servei de gestió d'esdeveniments: enviar invitacions, recopilar respostes i generar estadístiques per al teu tauler de control.\n\n3. Compartir informació\nMai vendrem les teves dades personals ni les de les persones convidades a tercers. Només compartim informació amb proveïdors de serveis essencials (com serveis de hosting o enviament d'emails) que compleixen amb estrictes estàndards de seguretat.\n\n4. Els teus drets\nTens dret a accedir, corregir o eliminar les teves dades personals en qualsevol moment. Si desitges eliminar el teu compte i totes les dades associades als teus esdeveniments, contacta'ns a hello@legoodanfitrion.com.\n\n5. Galetes (Cookies)\nUtilitzem galetes essencials per mantenir la teva sessió iniciada i galetes analítiques (si les acceptes) per millorar la nostra plataforma. Pots gestionar les teves preferències en qualsevol moment.",
+  "privacy_content": "Última actualització: Novembre 2026\n\nA LeGoodAnfitrión respectem la teva privacitat i la de les persones convidades. Aquesta política explica com recopilem, utilitzem i protegim la teva informació personal (complint amb el RGPD).\n\n1. Informació que recopilem\n- Dades de compte: En registrar-te, recopilem el teu correu electrònic i nom.\n- Dades de l'esdeveniment: Títols, dates, ubicacions i llistes de persones convidades que afegeixis a la plataforma.\n- Dades de persones convidades: Noms, respostes d'assistència (RSVP), restriccions alimentàries i al·lèrgies que les mateixes persones proporcionin.\n\n2. Com utilitzem la teva informació\nUtilitzem aquestes dades exclusivament per proporcionar-te el servei de gestió d'esdeveniments: enviar invitacions, recopilar respostes i generar estadístiques per al teu tauler de control.\n\n3. Compartir informació\nMai vendrem les teves dades personals ni les de les persones convidades a tercers. Només compartim informació amb proveïdors de serveis essencials (com serveis de hosting o enviament d'emails) que compleixen amb estrictes estàndards de seguretat.\n\n4. Els teus drets\nTens dret a accedir, corregir o eliminar les teves dades personals en qualsevol moment. Si desitges eliminar el teu compte i totes les dades associades als teus esdeveniments, contacta'ns a hello@legoodanfitrion.com.\n\n5. Galetes (Cookies)\nUtilitzem galetes essencials per mantenir la teva sessió iniciada i galetes analítiques (si les acceptes) per millorar la nostra plataforma. Les analítiques són de Google Analytics i no es carreguen fins que les acceptes. Pots canviar la teva elecció en qualsevol moment des de l'enllaç «Galetes» del peu de pàgina o amb el botó de sota.",
   "terms_content": "Última actualització: Març 2026\n\nEt donem la benvinguda a LeGoodAnfitrión! En utilitzar la nostra plataforma, acceptes aquests termes i condicions.\n\n1. Ús del Servei\nLeGoodAnfitrión és una eina per ajudar a organitzar esdeveniments i gestionar llistes de persones convidades. Et compromets a no utilitzar el servei per enviar correu brossa, contingut ofensiu, o per a qualsevol propòsit il·legal.\n\n2. Comptes i Seguretat\nEts responsable de mantenir la confidencialitat del teu compte i de totes les activitats que ocorrin sota el mateix. Ens reservem el dret de suspendre comptes que violin les nostres polítiques.\n\n3. Privacitat de les persones convidades\nCom a persona organitzadora, ets responsable d'assegurar que tens el consentiment de les persones convidades per afegir les seves dades a la plataforma. LeGoodAnfitrión actua únicament com a processador d'aquestes dades.\n\n4. Disponibilitat del Servei\nTreballem dur perquè la plataforma estigui sempre disponible, però no podem garantir un 100% de temps d'activitat. Podem realitzar manteniments o actualitzacions que interrompin temporalment el servei.\n\n5. Propietat Intel·lectual\nTot el codi, disseny i contingut de la plataforma és propietat de LeGoodAnfitrión. No està permès copiar, modificar o distribuir la nostra propietat intel·lectual sense permís explícit.\n\n6. Limitació de Responsabilitat\nLeGoodAnfitrión no serà responsable de cap dany indirecte, incidental o conseqüent derivat de l'ús o la incapacitat d'usar el nostre servei.\n\nSi tens cap dubte sobre aquests termes, escriu-nos a hello@legoodanfitrion.com.",
   "landing_footer_copyright": "Creat amb ❤ per: Albert L.G. © 2026 Tots els drets reservats.",
   "event_expenses_whatsapp_action": "Enviar per WhatsApp",
@@ -2311,7 +2311,6 @@
   "landing_nav_explore": "Explorar",
   "landing_explore_cta": "Veure demo completa",
   "landing_explore_cta_hint": "Sense compte ni targeta · Accés immediat",
-
   "landing_nav_use_cases": "Moments",
   "use_cases_seo_title": "Moments — Per a cada tipus d'esdeveniment",
   "use_cases_seo_desc": "De sopars íntims a penyes culturals, supper clubs i esdeveniments d'empresa. LeGoodAnfitrión funciona per a tots els amfitrions i tots els moments.",
@@ -2320,37 +2319,30 @@
   "use_cases_hero_subtitle": "Tant si organitzes un sopar d'aniversari, un supper club, un retir de ioga o el sopar de Nadal de la teva empresa, LGA s'adapta a tu i a qui convides.",
   "use_cases_cta_primary": "Comença gratis",
   "use_cases_cta_secondary": "Veure la demo",
-
   "uc_personal_kicker": "Per a tu i els teus",
   "uc_personal_title": "Sopars i reunions",
   "uc_personal_desc": "Aniversaris, sopars a casa, trobades d'amics. Deixa de perseguir confirmacions per WhatsApp i centra't en el que importa: gaudir.",
   "uc_personal_chips": "RSVP · Planner IA · Llista de la compra · Trencaglaç",
-
   "uc_gastro_kicker": "Supper clubs · Cates · Chef's table",
   "uc_gastro_title": "Gastronomia i taula",
   "uc_gastro_desc": "Per als qui fan de la taula un ritual. El planner IA coneix al·lèrgies, maridatges i timings. Cada esdeveniment, una història que val la pena compartir.",
   "uc_gastro_chips": "Planner IA · Menú · Llista de la compra · Divisió de despeses",
-
   "uc_penas_kicker": "Penyes · Associacions · AMPAs",
   "uc_penas_title": "Cultura i vida de barri",
   "uc_penas_desc": "El teixit associatiu porta dècades organitzat amb WhatsApp i quaderns en espiral. Era hora de tenir una eina a l'altura.",
   "uc_penas_chips": "RSVP · Divisió de despeses · Galeria · Tasques compartides",
-
   "uc_wellness_kicker": "Ioga · Retirs · Cercles",
   "uc_wellness_title": "Benestar i comunitat",
   "uc_wellness_desc": "Retirs de ioga, cercles de meditació, tallers de breathwork. Dietes, logística i inscripcions des d'un sol lloc, sense el caos del correu.",
   "uc_wellness_chips": "Dietes · Planner IA · Venue · Tasques compartides",
-
   "uc_corporate_kicker": "Empreses · Office Managers · Equips",
   "uc_corporate_title": "Esdeveniments d'empresa",
   "uc_corporate_desc": "Del sopar de Nadal al team lunch setmanal. Assistència, al·lèrgies i divisió de despeses sense fulls de càlcul ni missatges perduts.",
   "uc_corporate_chips": "RSVP · Divisió de despeses · Planner IA · Suggeriments IA",
-
   "uc_life_kicker": "Comunions · Batejos · Noces",
   "uc_life_title": "Celebracions de vida",
   "uc_life_desc": "Els moments que es recorden per sempre mereixen més que un grup de WhatsApp. Convidats organitzats, menú planificat, sense el caos de darrera hora.",
   "uc_life_chips": "RSVP · Planner IA · Galeria · Targetes d'invitació",
-
   "landing_usecases_eyebrow": "Per a cada moment",
   "landing_usecases_title": "Un amfitrió per a cada ocasió",
   "landing_usecases_subtitle": "LGA funciona per a qui organitza un sopar a casa, dirigeix un supper club, gestiona esdeveniments d'empresa o coordina una comunitat.",
@@ -2535,7 +2527,6 @@
   "uc_life_page_ex_4": "Aniversari rodó (40, 50, 60...)",
   "uc_life_page_ex_5": "Noces de plata o d'or",
   "uc_life_page_ex_6": "Jubilació o comiat",
-
   "uc_despedidas_page_seo_title": "Organitza comiats de soltera i solter | LeGoodAnfitrión",
   "uc_despedidas_page_seo_desc": "La primera eina per a comiats de soltera i solter dissenyada per a Catalunya i Espanya: repartiment de despeses, mode sorpresa, jocs i coordinació de cap de setmana.",
   "uc_despedidas_page_eyebrow": "Comiats de soltera i solter",
@@ -2566,7 +2557,6 @@
   "uc_despedidas_page_ex_4": "Sopar sorpresa amb jocs",
   "uc_despedidas_page_ex_5": "Festa temàtica a casa",
   "uc_despedidas_page_ex_6": "Aventura d'activitats a l'aire lliure",
-
   "uc_expat_page_seo_title": "Organitza un Friendsgiving o sopar internacional | LeGoodAnfitrión",
   "uc_expat_page_seo_desc": "L'única eina que entén els sopars culturals internacionals: receptes en diversos idiomes, despeses en múltiples monedes, potluck coordinat. Per a expats a Espanya.",
   "uc_expat_page_eyebrow": "Sopars internacionals i Friendsgiving",
@@ -2734,5 +2724,7 @@
   "uc_expat_page_faq_7_q": "Es pot organitzar un intercanvi de receptes entre els convidats?",
   "uc_expat_page_faq_7_a": "Sí. Pots demanar a cada assistent que comparteixi la recepta del plat que portarà, i LGA les centralitza en un llibre de receptes de l'esdeveniment accessible per a tothom després del sopar.",
   "uc_expat_page_faq_8_q": "LGA té en compte restriccions dietètiques culturals com halal o kosher?",
-  "uc_expat_page_faq_8_a": "Sí. El sistema de restriccions alimentàries inclou opcions per a halal, kosher, jain i altres règims culturals o religiosos, garantint que ningú es quedi sense menjar."
+  "uc_expat_page_faq_8_a": "Sí. El sistema de restriccions alimentàries inclou opcions per a halal, kosher, jain i altres règims culturals o religiosos, garantint que ningú es quedi sense menjar.",
+  "landing_footer_cookies": "Galetes",
+  "legal_cookie_settings": "Configurar galetes"
 }

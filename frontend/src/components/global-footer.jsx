@@ -2,6 +2,7 @@ import React from "react";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icons";
 import { PublicLink } from "./public-link";
+import { openCookieSettings } from "../lib/cookie-consent";
 
 const FOOTER_LINK_CLASS = "text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors";
 
@@ -43,6 +44,9 @@ export function GlobalFooter({ t, onNavigate, language = "es" }) {
                                 {t(link.labelKey)}
                             </PublicLink>
                         ))}
+                        <button type="button" onClick={openCookieSettings} className={FOOTER_LINK_CLASS}>
+                            {t("landing_footer_cookies")}
+                        </button>
                         <PublicLink to="/explore" language={language} onNavigate={onNavigate} className="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors">
                             {t("landing_nav_explore")}
                         </PublicLink>

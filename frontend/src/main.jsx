@@ -8,6 +8,7 @@ import { startHydrationPass } from "./lib/ssr-state";
 import { resolveRoute } from "./router-utils";
 import "./styles.css";
 import { HelmetProvider } from "react-helmet-async";
+import { initCookieConsent } from "./lib/cookie-consent";
 
 const rootNode = document.getElementById("root");
 
@@ -112,3 +113,7 @@ try {
 } catch (error) {
   showBootError(error);
 }
+
+// Banner de cookies y Google Analytics (si ya se aceptó). Va fuera de #root,
+// así que no interfiere con la hidratación.
+initCookieConsent();

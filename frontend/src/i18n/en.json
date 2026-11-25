@@ -132,7 +132,7 @@
   "landing_faq_q9": "What are the AI icebreaker games?",
   "landing_faq_a9": "Icebreaker Mode is an express lifeline to bring back the energy at your event. The AI instantly generates a cheesy joke, conversation topics tailored to the group, and a quick 5-minute game. You can regenerate it as many times as you want during the event to keep the vibe alive.",
   "landing_faq_q10": "Is my data protected and GDPR-compliant?",
-  "landing_faq_a10": "Yes. We apply data minimization, explicit consent, and row-level access control via Supabase RLS. Your guests' data (allergies, preferences, contacts) is only accessible to you. The connection is HTTPS encrypted, we use Cookiebot for consent management, and we comply with GDPR with right to erasure on request.",
+  "landing_faq_a10": "Yes. We apply data minimization, explicit consent, and row-level access control via Supabase RLS. Your guests' data (allergies, preferences, contacts) is only accessible to you. The connection is HTTPS encrypted, we only use analytics cookies if you accept them, and we comply with GDPR with right to erasure on request.",
   "landing_faq_q11": "What languages is it available in and from what devices?",
   "landing_faq_a11": "LeGoodAnfitrión is available in 5 languages: Spanish, English, Catalan, French, and Italian. The browser language is auto-detected and each guest receives the invitation in their preferred language. Works from any modern browser on mobile, tablet, and desktop, with a mobile-first design and no apps to install.",
   "landing_faq_blog_cta_text": "Looking for step-by-step inspiration? Explore our interactive guides on the",
@@ -2031,7 +2031,7 @@
   "auth_plg_host_hint": "Sign up to use our AI and organize your event in less than 2 minutes.",
   "auth_plg_create_account_btn": "Create my free account",
   "auth_plg_already_have_account": "Already have an account?",
-  "privacy_content": "Last updated: March 2026\n\nAt LeGoodAnfitrión, we respect your privacy and that of your guests. This policy explains how we collect, use, and protect your personal information (in compliance with GDPR).\n\n1. Information we collect\n- Account data: When you sign up, we collect your email and name.\n- Event data: Titles, dates, locations, and guest lists you add to the platform.\n- Guest data: Names, RSVP responses, dietary restrictions, and allergies provided by the guests themselves.\n\n2. How we use your information\nWe use this data exclusively to provide you with the event management service: sending invitations, collecting responses, and generating statistics for your dashboard.\n\n3. Sharing information\nWe will never sell your personal data or your guests' data to third parties. We only share information with essential service providers (such as hosting or email delivery services) that meet strict security standards.\n\n4. Your rights\nYou have the right to access, correct, or delete your personal data at any time. If you wish to delete your account and all data associated with your events, please contact us at hello@legoodanfitrion.com.\n\n5. Cookies\nWe use essential cookies to keep you logged in and analytical cookies (if accepted) to improve our platform. You can manage your preferences at any time.",
+  "privacy_content": "Last updated: November 2026\n\nAt LeGoodAnfitrión, we respect your privacy and that of your guests. This policy explains how we collect, use, and protect your personal information (in compliance with GDPR).\n\n1. Information we collect\n- Account data: When you sign up, we collect your email and name.\n- Event data: Titles, dates, locations, and guest lists you add to the platform.\n- Guest data: Names, RSVP responses, dietary restrictions, and allergies provided by the guests themselves.\n\n2. How we use your information\nWe use this data exclusively to provide you with the event management service: sending invitations, collecting responses, and generating statistics for your dashboard.\n\n3. Sharing information\nWe will never sell your personal data or your guests' data to third parties. We only share information with essential service providers (such as hosting or email delivery services) that meet strict security standards.\n\n4. Your rights\nYou have the right to access, correct, or delete your personal data at any time. If you wish to delete your account and all data associated with your events, please contact us at hello@legoodanfitrion.com.\n\n5. Cookies\nWe use essential cookies to keep you logged in and analytical cookies (if accepted) to improve our platform. Analytics cookies come from Google Analytics and are not loaded until you accept them. You can change your choice at any time from the “Cookies” link in the footer or with the button below.",
   "terms_content": "Last updated: March 2026\n\nWelcome to LeGoodAnfitrión! By using our platform, you agree to these terms and conditions.\n\n1. Use of Service\nLeGoodAnfitrión is a tool to help organize events and manage guest lists. You agree not to use the service to send spam, offensive content, or for any illegal purpose.\n\n2. Accounts and Security\nYou are responsible for maintaining the confidentiality of your account and all activities that occur under it. We reserve the right to suspend accounts that violate our policies.\n\n3. Guest Privacy\nAs an organizer, you are responsible for ensuring that you have your guests' consent to add their data to the platform. LeGoodAnfitrión acts solely as a data processor for this information.\n\n4. Service Availability\nWe work hard to ensure the platform is always available, but we cannot guarantee 100% uptime. We may perform maintenance or updates that temporarily interrupt the service.\n\n5. Intellectual Property\nAll code, design, and content of the platform is the property of LeGoodAnfitrión. You are not allowed to copy, modify, or distribute our intellectual property without explicit permission.\n\n6. Limitation of Liability\nLeGoodAnfitrión shall not be liable for any indirect, incidental, or consequential damages arising from the use or inability to use our service.\n\nIf you have any questions about these terms, please contact us at hello@legoodanfitrion.com.",
   "landing_footer_copyright": "Created with ❤ by: Albert L.G. © 2026 All rights reserved.",
   "event_expenses_whatsapp_action": "Send via WhatsApp",
@@ -2311,7 +2311,6 @@
   "landing_nav_explore": "Explore",
   "landing_explore_cta": "See full demo",
   "landing_explore_cta_hint": "No account or card needed · Instant access",
-
   "landing_nav_use_cases": "Moments",
   "use_cases_seo_title": "Moments — For every type of event",
   "use_cases_seo_desc": "From intimate dinners to cultural clubs, supper clubs and company events. LeGoodAnfitrión works for every host and every moment.",
@@ -2320,37 +2319,30 @@
   "use_cases_hero_subtitle": "Whether you're hosting a birthday dinner, a supper club, a yoga retreat or your company's Christmas party, LGA adapts to you and the people you invite.",
   "use_cases_cta_primary": "Start for free",
   "use_cases_cta_secondary": "See the demo",
-
   "uc_personal_kicker": "For you and yours",
   "uc_personal_title": "Dinners & gatherings",
   "uc_personal_desc": "Birthdays, home dinners, friends' get-togethers. Stop chasing confirmations on WhatsApp and focus on what matters: enjoying.",
   "uc_personal_chips": "RSVP · AI Planner · Shopping list · Icebreakers",
-
   "uc_gastro_kicker": "Supper clubs · Tastings · Chef's table",
   "uc_gastro_title": "Gastronomy & the table",
   "uc_gastro_desc": "For those who make the table a ritual. The AI planner knows allergies, pairings and timings. Every event, a story worth sharing.",
   "uc_gastro_chips": "AI Planner · Menu · Shopping list · Expense split",
-
   "uc_penas_kicker": "Clubs · Associations · Community groups",
   "uc_penas_title": "Culture & local life",
   "uc_penas_desc": "Local clubs and cultural associations have been running on WhatsApp and notebooks for decades. Time for something better.",
   "uc_penas_chips": "RSVP · Expense split · Gallery · Shared tasks",
-
   "uc_wellness_kicker": "Yoga · Retreats · Circles",
   "uc_wellness_title": "Wellness & community",
   "uc_wellness_desc": "Yoga retreats, meditation circles, breathwork workshops. Dietary needs, logistics and sign-ups from one place, without the email chaos.",
   "uc_wellness_chips": "Diets · AI Planner · Venue · Shared tasks",
-
   "uc_corporate_kicker": "Companies · Office Managers · Teams",
   "uc_corporate_title": "Work events",
   "uc_corporate_desc": "From the Christmas dinner to the weekly team lunch. Attendance, allergies and expense split without spreadsheets or lost messages.",
   "uc_corporate_chips": "RSVP · Expense split · AI Planner · AI Suggestions",
-
   "uc_life_kicker": "Communions · Christenings · Weddings",
   "uc_life_title": "Life celebrations",
   "uc_life_desc": "The moments remembered forever deserve more than a WhatsApp group. Guests organised, menu planned, no last-minute chaos.",
   "uc_life_chips": "RSVP · AI Planner · Gallery · Invitation cards",
-
   "landing_usecases_eyebrow": "For every moment",
   "landing_usecases_title": "A host for every occasion",
   "landing_usecases_subtitle": "LGA works for anyone hosting a home dinner, running a supper club, managing company events or coordinating a community.",
@@ -2732,5 +2724,7 @@
   "uc_expat_page_faq_7_q": "Can we organise a recipe exchange among the guests?",
   "uc_expat_page_faq_7_a": "Yes. You can ask each attendee to share the recipe for the dish they're bringing, and LGA compiles them into an event recipe book accessible to everyone after the dinner.",
   "uc_expat_page_faq_8_q": "Does LGA cater for cultural dietary requirements like halal or kosher?",
-  "uc_expat_page_faq_8_a": "Yes. The dietary restrictions system includes options for halal, kosher, jain and other cultural or religious requirements, ensuring everyone has something to eat."
+  "uc_expat_page_faq_8_a": "Yes. The dietary restrictions system includes options for halal, kosher, jain and other cultural or religious requirements, ensuring everyone has something to eat.",
+  "landing_footer_cookies": "Cookies",
+  "legal_cookie_settings": "Cookie settings"
 }

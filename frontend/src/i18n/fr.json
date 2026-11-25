@@ -132,7 +132,7 @@
   "landing_faq_q9": "Que sont les jeux brise-glace avec IA ?",
   "landing_faq_a9": "Le Mode Brise-glace est un sauveteur express pour raviver l'énergie de ton événement. L'IA génère instantanément une blague pourrie, des sujets de conversation adaptés au groupe et un jeu rapide de 5 minutes. Tu peux le régénérer autant de fois que tu le souhaites pendant l'événement pour maintenir l'ambiance.",
   "landing_faq_q10": "Mes données sont-elles protégées et conformes au RGPD ?",
-  "landing_faq_a10": "Oui. Nous appliquons la minimisation des données, le consentement explicite et un contrôle d'accès par ligne via Supabase RLS. Les données de tes invités (allergies, préférences, contacts) ne sont accessibles qu'à toi. La connexion est chiffrée HTTPS, nous utilisons Cookiebot pour le consentement et respectons le RGPD avec droit à l'effacement sur demande.",
+  "landing_faq_a10": "Oui. Nous appliquons la minimisation des données, le consentement explicite et un contrôle d'accès par ligne via Supabase RLS. Les données de tes invités (allergies, préférences, contacts) ne sont accessibles qu'à toi. La connexion est chiffrée HTTPS, nous n'utilisons des cookies analytiques que si tu les acceptes et respectons le RGPD avec droit à l'effacement sur demande.",
   "landing_faq_q11": "En quelles langues est-il disponible et depuis quels appareils ?",
   "landing_faq_a11": "LeGoodAnfitrión est disponible en 5 langues : espagnol, anglais, catalan, français et italien. La langue du navigateur est auto-détectée et chaque invité reçoit l'invitation dans sa langue préférée. Fonctionne depuis n'importe quel navigateur moderne sur mobile, tablette et ordinateur, avec un design mobile-first et sans installer d'applications.",
   "landing_faq_blog_cta_text": "Tu cherches de l'inspiration pas à pas ? Explore nos guides interactifs sur le",
@@ -2031,7 +2031,7 @@
   "auth_plg_host_hint": "Inscris-toi pour utiliser notre IA et organiser ton événement en moins de 2 minutes",
   "auth_plg_create_account_btn": "Créer mon compte gratuit",
   "auth_plg_already_have_account": "Tu as déjà un compte ?",
-  "privacy_content": "Dernière mise à jour : Mars 2026\n\nChez LeGoodAnfitrión, nous respectons ta vie privée et celle de tes convives. Cette politique explique comment nous collectons, utilisons et protégeons tes informations personnelles (en conformité avec le RGPD).\n\n1. Informations que nous collectons\n- Données de compte : Lors de ton inscription, nous collectons ton email et ton nom.\n- Données de l'événement : Titres, dates, lieux et listes de convives que tu ajoutes à la plateforme.\n- Données des convives : Noms, réponses de participation (RSVP), restrictions alimentaires et allergies fournies par les personnes invitées elles-mêmes.\n\n2. Comment nous utilisons tes informations\nNous utilisons ces données exclusivement pour te fournir le service de gestion d'événements : envoyer des invitations, collecter les réponses et générer des statistiques pour ton tableau de bord.\n\n3. Partage d'informations\nNous ne vendrons jamais tes données personnelles ni celles de tes convives à des tiers. Nous partageons uniquement les informations avec des fournisseurs de services essentiels (tels que les services d'hébergement ou d'envoi d'emails) qui respectent des normes de sécurité strictes.\n\n4. Tes droits\nTu as le droit d'accéder, de corriger ou de supprimer tes données personnelles à tout moment. Si tu souhaites supprimer ton compte et toutes les données associées à tes événements, contacte-nous à hello@legoodanfitrion.com.\n\n5. Cookies\nNous utilisons des cookies essentiels pour maintenir ta session active et des cookies analytiques (si tu les acceptes) pour améliorer notre plateforme. Tu peux gérer tes préférences à tout moment.",
+  "privacy_content": "Dernière mise à jour : Novembre 2026\n\nChez LeGoodAnfitrión, nous respectons ta vie privée et celle de tes convives. Cette politique explique comment nous collectons, utilisons et protégeons tes informations personnelles (en conformité avec le RGPD).\n\n1. Informations que nous collectons\n- Données de compte : Lors de ton inscription, nous collectons ton email et ton nom.\n- Données de l'événement : Titres, dates, lieux et listes de convives que tu ajoutes à la plateforme.\n- Données des convives : Noms, réponses de participation (RSVP), restrictions alimentaires et allergies fournies par les personnes invitées elles-mêmes.\n\n2. Comment nous utilisons tes informations\nNous utilisons ces données exclusivement pour te fournir le service de gestion d'événements : envoyer des invitations, collecter les réponses et générer des statistiques pour ton tableau de bord.\n\n3. Partage d'informations\nNous ne vendrons jamais tes données personnelles ni celles de tes convives à des tiers. Nous partageons uniquement les informations avec des fournisseurs de services essentiels (tels que les services d'hébergement ou d'envoi d'emails) qui respectent des normes de sécurité strictes.\n\n4. Tes droits\nTu as le droit d'accéder, de corriger ou de supprimer tes données personnelles à tout moment. Si tu souhaites supprimer ton compte et toutes les données associées à tes événements, contacte-nous à hello@legoodanfitrion.com.\n\n5. Cookies\nNous utilisons des cookies essentiels pour maintenir ta session active et des cookies analytiques (si tu les acceptes) pour améliorer notre plateforme. Les cookies analytiques proviennent de Google Analytics et ne sont chargés qu'après ton accord. Tu peux modifier ton choix à tout moment depuis le lien « Cookies » en bas de page ou avec le bouton ci-dessous.",
   "terms_content": "Dernière mise à jour : Mars 2026\n\nBienvenue sur LeGoodAnfitrión ! En utilisant notre plateforme, tu acceptes ces termes et conditions.\n\n1. Utilisation du Service\nLeGoodAnfitrión est un outil conçu pour t'aider à organiser des événements et à gérer des listes de convives. Tu t'engages à ne pas utiliser le service pour envoyer du spam, du contenu offensant ou pour toute fin illégale.\n\n2. Comptes et Sécurité\nTu es responsable du maintien de la confidentialité de ton compte et de toutes les activités qui s'y déroulent. Nous nous réservons le droit de suspendre les comptes qui enfreignent nos politiques.\n\n3. Confidentialité des Convives\nEn tant que personne qui organise, tu es responsable de t'assurer que tu as le consentement de tes convives pour ajouter leurs données à la plateforme. LeGoodAnfitrión agit uniquement comme processeur de ces données.\n\n4. Disponibilité du Service\nNous travaillons dur pour que la plateforme soit toujours disponible, mais nous ne pouvons garantir un temps de fonctionnement de 100 %. Nous pouvons effectuer des maintenances ou des mises à jour qui interrompent temporairement le service.\n\n5. Propriété Intellectuelle\nTout le code, le design et le contenu de la plateforme sont la propriété de LeGoodAnfitrión. Il est interdit de copier, modifier ou distribuer notre propriété intellectuelle sans permission explicite.\n\n6. Limitation de Responsabilité\nLeGoodAnfitrión ne sera pas responsable des dommages indirects, accessoires ou consécutifs découlant de l'utilisation ou de l'impossibilité d'utiliser notre service.\n\nSi tu as des questions sur ces termes, écris-nous à hello@legoodanfitrion.com.",
   "landing_footer_copyright": "Créé avec ❤ par : Albert L.G. © 2026 Tous droits réservés.",
   "event_expenses_whatsapp_action": "Envoyer par WhatsApp",
@@ -2311,7 +2311,6 @@
   "landing_nav_explore": "Explorer",
   "landing_explore_cta": "Voir la démo complète",
   "landing_explore_cta_hint": "Sans compte ni carte · Accès immédiat",
-
   "landing_nav_use_cases": "Moments",
   "use_cases_seo_title": "Moments — Pour chaque type d'événement",
   "use_cases_seo_desc": "Des dîners intimes aux associations culturelles, supper clubs et événements d'entreprise. LeGoodAnfitrión fonctionne pour tous les hôtes et tous les moments.",
@@ -2320,37 +2319,30 @@
   "use_cases_hero_subtitle": "Que tu organises un dîner d'anniversaire, un supper club, une retraite de yoga ou le repas de Noël de ton équipe, LGA s'adapte à toi et à tes invités.",
   "use_cases_cta_primary": "Commencer gratuitement",
   "use_cases_cta_secondary": "Voir la démo",
-
   "uc_personal_kicker": "Pour toi et tes proches",
   "uc_personal_title": "Dîners et retrouvailles",
   "uc_personal_desc": "Anniversaires, dîners à la maison, retrouvailles entre amis. Arrête de courir après les confirmations sur WhatsApp et profite de ce qui compte.",
   "uc_personal_chips": "RSVP · Planner IA · Liste de courses · Brise-glace",
-
   "uc_gastro_kicker": "Supper clubs · Dégustations · Chef's table",
   "uc_gastro_title": "Gastronomie et art de la table",
   "uc_gastro_desc": "Pour ceux qui font de la table un rituel. Le planner IA connaît les allergies, les accords mets-vins et les timings. Chaque événement, une histoire à partager.",
   "uc_gastro_chips": "Planner IA · Menu · Liste de courses · Partage des dépenses",
-
   "uc_penas_kicker": "Clubs · Associations · Groupes locaux",
   "uc_penas_title": "Culture et vie de quartier",
   "uc_penas_desc": "Les clubs et associations culturelles fonctionnent depuis des décennies avec WhatsApp et des cahiers. Il était temps d'avoir un outil à leur hauteur.",
   "uc_penas_chips": "RSVP · Partage des dépenses · Galerie · Tâches partagées",
-
   "uc_wellness_kicker": "Yoga · Retraites · Cercles",
   "uc_wellness_title": "Bien-être et communauté",
   "uc_wellness_desc": "Retraites de yoga, cercles de méditation, ateliers de breathwork. Régimes, logistique et inscriptions depuis un seul endroit, sans le chaos des emails.",
   "uc_wellness_chips": "Régimes · Planner IA · Lieu · Tâches partagées",
-
   "uc_corporate_kicker": "Entreprises · Office Managers · Équipes",
   "uc_corporate_title": "Événements d'entreprise",
   "uc_corporate_desc": "Du repas de Noël au déjeuner d'équipe hebdomadaire. Présences, allergies et partage des dépenses sans tableurs ni messages perdus.",
   "uc_corporate_chips": "RSVP · Partage des dépenses · Planner IA · Suggestions IA",
-
   "uc_life_kicker": "Communions · Baptêmes · Mariages",
   "uc_life_title": "Célébrations de vie",
   "uc_life_desc": "Les moments dont on se souvient toujours méritent mieux qu'un groupe WhatsApp. Invités organisés, menu planifié, sans le chaos de dernière minute.",
   "uc_life_chips": "RSVP · Planner IA · Galerie · Cartes d'invitation",
-
   "landing_usecases_eyebrow": "Pour chaque moment",
   "landing_usecases_title": "Un hôte pour chaque occasion",
   "landing_usecases_subtitle": "LGA fonctionne pour qui organise un dîner chez soi, dirige un supper club, gère des événements d'entreprise ou coordonne une communauté.",
@@ -2732,5 +2724,7 @@
   "uc_expat_page_faq_7_q": "Peut-on organiser un échange de recettes entre les invités ?",
   "uc_expat_page_faq_7_a": "Oui. Vous pouvez demander à chaque participant de partager la recette du plat qu'il apporte, et LGA les compile dans un livre de recettes de l'événement accessible à tous après le dîner.",
   "uc_expat_page_faq_8_q": "LGA tient-il compte des restrictions alimentaires culturelles comme le halal ou le casher ?",
-  "uc_expat_page_faq_8_a": "Oui. Le système de restrictions alimentaires inclut des options pour le halal, le casher, le jaïn et d'autres régimes culturels ou religieux, garantissant que personne ne reste sans manger."
+  "uc_expat_page_faq_8_a": "Oui. Le système de restrictions alimentaires inclut des options pour le halal, le casher, le jaïn et d'autres régimes culturels ou religieux, garantissant que personne ne reste sans manger.",
+  "landing_footer_cookies": "Cookies",
+  "legal_cookie_settings": "Paramètres des cookies"
 }

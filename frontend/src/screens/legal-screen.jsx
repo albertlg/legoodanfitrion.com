@@ -3,6 +3,7 @@ import { PublicLink } from "../components/public-link";
 import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { SEO } from "../components/seo";
+import { openCookieSettings } from "../lib/cookie-consent";
 
 export function LegalScreen({ type, t, language, onNavigate }) {
     useEffect(() => { window.scrollTo(0, 0); }, [type]);
@@ -30,6 +31,15 @@ export function LegalScreen({ type, t, language, onNavigate }) {
                     {/* El texto legal vendrá con \n desde tu JSON para hacer los saltos de línea */}
                     {content}
                 </div>
+                {isPrivacy ? (
+                    <button
+                        type="button"
+                        onClick={openCookieSettings}
+                        className="mt-8 px-5 py-2.5 rounded-xl text-sm font-bold border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                    >
+                        {t("legal_cookie_settings")}
+                    </button>
+                ) : null}
             </article>
         </main>
     );
