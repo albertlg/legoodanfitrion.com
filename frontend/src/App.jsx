@@ -1,7 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandMark } from "./components/brand-mark";
 import { Controls } from "./components/controls";
-import es from "./i18n/es.json";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { useAppRouter, getCanonicalPathForRoute } from "./router-utils";
@@ -139,7 +138,7 @@ function App({ initialLocales = {} }) {
     return detectLanguage(route.urlLang, route.originalPath);
   });
 
-  const [loadedLocales, setLoadedLocales] = useState(() => ({ [DEFAULT_LANGUAGE]: es, ...initialLocales }));
+  const [loadedLocales, setLoadedLocales] = useState(() => ({ ...initialLocales }));
   // Servidor e hidratación: tema "system" sin leer el navegador; las
   // preferencias guardadas se aplican justo después de montar.
   const [themeMode, setThemeMode] = useState(() => (isHydrationPass() ? "system" : getThemeModeInitial()));
@@ -279,7 +278,12 @@ function App({ initialLocales = {} }) {
   const t = useCallback(
     (key) => {
       const localized = loadedLocales[language]?.[key];
-      return localized || es[key] || key;
+      if (localized) return localized;
+      // Mientras carga el idioma nuevo (o si falta una clave), usamos otro
+      // diccionario ya cargado: primero el español, luego cualquiera.
+      const fallback = loadedLocales[DEFAULT_LANGUAGE]?.[key]
+        || Object.values(loadedLocales).find((dict) => dict?.[key])?.[key];
+      return fallback || key;
     },
     [language, loadedLocales]
   );

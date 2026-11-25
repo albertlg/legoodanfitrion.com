@@ -2,12 +2,14 @@
 // Vive fuera de App.jsx para que la usen también main.jsx (antes de hidratar)
 // y el prerender del build (entry-server.jsx).
 import { lazy } from "react";
-import es from "../i18n/es.json";
 import { resolveRoute } from "../router-utils";
 
 const DEFAULT_LANGUAGE = "es";
 
+// Todos los idiomas (también el español) se cargan bajo demanda: una página en
+// inglés no descarga el diccionario español.
 export const LOCALE_LOADERS = {
+  es: () => import("../i18n/es.json"),
   ca: () => import("../i18n/ca.json"),
   en: () => import("../i18n/en.json"),
   fr: () => import("../i18n/fr.json"),
@@ -64,9 +66,37 @@ function getPublicScreenForRoute(route) {
 }
 
 export async function loadLocale(language) {
-  if (language === DEFAULT_LANGUAGE || !LOCALE_LOADERS[language]) return es;
-  const module = await LOCALE_LOADERS[language]();
+  const loader = LOCALE_LOADERS[language] || LOCALE_LOADERS[DEFAULT_LANGUAGE];
+  const module = await loader();
   return module?.default || module;
+}
+
+const SUPPORTED = Object.keys(LOCALE_LOADERS);
+
+// Idioma con el que App arrancará en las rutas que NO vienen prerenderizadas
+// (/app, /login, /rsvp...). Replica detectLanguage de App.jsx para precargar
+// ese diccionario antes del primer render.
+export function getClientInitialLanguage(pathname, search = "") {
+  const route = resolveRoute(pathname, new URLSearchParams(search), { inferLanguage: true });
+  const firstSegment = String(pathname || "").split("/").filter(Boolean)[0];
+  const fromNavigator = () => {
+    const nav = (window.navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
+    return SUPPORTED.includes(nav) ? nav : DEFAULT_LANGUAGE;
+  };
+  if (route.kind === "rsvp") return fromNavigator();
+  if (SUPPORTED.includes(firstSegment)) return firstSegment;
+  try {
+    const stored = window.localStorage.getItem("legood-language");
+    if (stored && SUPPORTED.includes(stored)) return stored;
+  } catch {
+    /* sin storage */
+  }
+  return fromNavigator();
+}
+
+export async function preloadClientLocale(pathname, search) {
+  const language = getClientInitialLanguage(pathname, search);
+  return { [language]: await loadLocale(language) };
 }
 
 // Precarga lo que necesita el primer render de una URL pública: la pantalla y

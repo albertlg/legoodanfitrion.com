@@ -3,7 +3,7 @@ import { hydrateRoot, createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App";
-import { preloadRouteAssets } from "./screens/screen-registry";
+import { preloadRouteAssets, preloadClientLocale } from "./screens/screen-registry";
 import { startHydrationPass } from "./lib/ssr-state";
 import { resolveRoute } from "./router-utils";
 import "./styles.css";
@@ -100,8 +100,14 @@ try {
       })
       .catch(showBootError);
   } else {
-    // Rutas de la app (/app, /login, /rsvp...): SPA normal.
-    createRoot(rootNode).render(renderTree({}));
+    // Rutas de la app (/app, /login, /rsvp...) y 404: SPA normal. Antes de
+    // montar cargamos el diccionario del idioma con el que arrancará la app.
+    preloadClientLocale(window.location.pathname, window.location.search)
+      .catch(() => ({}))
+      .then((initialLocales) => {
+        createRoot(rootNode).render(renderTree(initialLocales));
+      })
+      .catch(showBootError);
   }
 } catch (error) {
   showBootError(error);

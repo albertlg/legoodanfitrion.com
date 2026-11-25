@@ -44,7 +44,14 @@ export default defineConfig(({ isSsrBuild }) => ({
           if (id.includes("lucide-react")) {
             return "vendor-icons";
           }
-          return "vendor";
+          // React se comparte en todas las pantallas: chunk propio y estable.
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
+            return "vendor-react";
+          }
+          // El resto de librerías (recharts, framer-motion, qrcode, Sanity...)
+          // NO va a un "vendor" común: Rollup las coloca junto a la pantalla que
+          // las usa, para que las páginas públicas no descarguen el código del panel.
+          return undefined;
         }
       }
     }
