@@ -228,7 +228,7 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
             </div>
 
             {/* FOOTER */}
-            <GlobalFooter t={t} onNavigate={onNavigate} />
+            <GlobalFooter t={t} onNavigate={onNavigate} language={language} />
         </main>
     );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { PublicLink } from "../components/public-link";
 import { BrandMark } from "../components/brand-mark";
 import { Icon } from "../components/icons";
 import { SEO } from "../components/seo";
@@ -17,9 +18,9 @@ export function LegalScreen({ type, t, language, onNavigate }) {
             <SEO title={`${title} | LeGoodAnfitrión`} description={`Documento legal de ${title}`} language={language} slug={type} />
 
             <header className="max-w-3xl mx-auto mb-12 flex items-center justify-between">
-                <button onClick={() => onNavigate("/")} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-black dark:hover:text-white">
-                    <Icon name="arrow_left" className="w-5 h-5" /> Volver
-                </button>
+                <PublicLink to="/" language={language} onNavigate={onNavigate} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-black dark:hover:text-white">
+                    <Icon name="arrow_left" className="w-5 h-5" /> {t("landing_back_home")}
+                </PublicLink>
                 <BrandMark className="w-8 h-8 opacity-50 grayscale" />
             </header>
 

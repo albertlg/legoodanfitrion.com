@@ -110,3 +110,11 @@ export function getPublicUrl(internalPath, lang) {
 export function getBlogPostUrl(lang, slug) {
     return `${SITE_ORIGIN}${getBlogPostPath(lang, slug)}`;
 }
+
+// Ruta interna ("/pricing", "/use-cases/gastro", "/#caracteristicas") -> URL
+// pública localizada ("/ca/preus", "/en/moments/...", "/en#caracteristicas").
+export function getPublicHref(to, language) {
+    const [path, hash] = String(to || "/").split("#");
+    const localized = getPublicPath(path || "/", language);
+    return hash ? `${localized}#${hash}` : localized;
+}

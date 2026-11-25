@@ -1,4 +1,5 @@
 import React from "react";
+import { PublicLink } from "../components/public-link";
 import { Icon } from "../components/icons";
 import { SEO } from "../components/seo";
 import { GlobalFooter } from "../components/global-footer";
@@ -141,13 +142,11 @@ export function UseCasesScreen({ language, setLanguage, themeMode, setThemeMode,
                         >
                             {t("use_cases_cta_primary")} <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => onNavigate("/explore")}
+                        <PublicLink to="/explore" language={language} onNavigate={onNavigate}
                             className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-6 py-3 rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform"
                         >
                             {t("use_cases_cta_secondary")}
-                        </button>
+                        </PublicLink>
                     </div>
                 </section>
 
@@ -155,9 +154,11 @@ export function UseCasesScreen({ language, setLanguage, themeMode, setThemeMode,
                 <section className="py-8 pb-24 px-6 w-full max-w-6xl mx-auto">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {USE_CASES.map((uc) => (
-                            <article
+                            <PublicLink
                                 key={uc.key}
-                                onClick={() => onNavigate(`/use-cases/${uc.key}`)}
+                                to={`/use-cases/${uc.key}`}
+                                language={language}
+                                onNavigate={onNavigate}
                                 className={`relative flex flex-col rounded-3xl border ${uc.bgLight} ${uc.bgDark} ${uc.border} p-7 overflow-hidden group transition-transform hover:-translate-y-1 cursor-pointer`}
                             >
                                 {/* Top accent line */}
@@ -192,7 +193,7 @@ export function UseCasesScreen({ language, setLanguage, themeMode, setThemeMode,
                                         <Icon name="arrow_left" className="w-3 h-3 rotate-180" />
                                     </span>
                                 </div>
-                            </article>
+                            </PublicLink>
                         ))}
                     </div>
                 </section>

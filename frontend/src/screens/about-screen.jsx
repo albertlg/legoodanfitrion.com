@@ -268,7 +268,7 @@ export function AboutScreen({ language, setLanguage, themeMode, setThemeMode, t,
                 </div>
             </div>
 
-            <GlobalFooter t={t} onNavigate={onNavigate} />
+            <GlobalFooter t={t} onNavigate={onNavigate} language={language} />
         </main>
     );
 }

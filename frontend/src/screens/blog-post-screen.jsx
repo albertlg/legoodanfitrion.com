@@ -7,6 +7,7 @@ import { Icon } from "../components/icons";
 import { PublicPageHeader } from "../components/public-page-header";
 import { Helmet } from "react-helmet-async";
 import { SEO } from "../components/seo";
+import { PublicLink } from "../components/public-link";
 import { GlobalFooter } from "../components/global-footer";
 import InteractiveDemo from "../components/landing/InteractiveDemo";
 import { generateBlogSchema } from "../lib/blog-schema";
@@ -281,14 +282,15 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                 )}
 
                 <article className="w-full max-w-3xl lg:max-w-none mx-auto lg:mx-0">
-                    <button
-                        type="button"
-                        onClick={() => onNavigate("/blog")}
+                    <PublicLink
+                        to="/blog"
+                        language={seoLanguage}
+                        onNavigate={onNavigate}
                         className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                     >
                         <Icon name="arrow_left" className="w-4 h-4" />
                         {t("blog_back")}
-                    </button>
+                    </PublicLink>
                     {tocHeadings.length > 0 ? (
                         <div className="lg:hidden sticky top-20 z-20 mb-6 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl p-3 shadow-sm">
                             <details>
@@ -373,12 +375,14 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                             <p className="font-black text-lg text-gray-900 dark:text-white">{t("blog_cta_footer")}</p>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                            <button
-                                onClick={() => onNavigate("/")}
-                                className="shrink-0 px-6 py-3 border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-800 dark:text-gray-100 rounded-xl font-bold"
+                            <PublicLink
+                                to="/"
+                                language={seoLanguage}
+                                onNavigate={onNavigate}
+                                className="shrink-0 px-6 py-3 border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-800 dark:text-gray-100 rounded-xl font-bold text-center"
                             >
                                 {t("landing_back_home")}
-                            </button>
+                            </PublicLink>
                             <button
                                 onClick={() => onNavigate(session?.user?.id ? "/app" : "/login")}
                                 className="shrink-0 px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-black shadow-sm hover:shadow-md hover:scale-[1.02] transition-transform"
@@ -389,7 +393,7 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
                     </div>
                 </article>
             </div>
-            <GlobalFooter t={t} onNavigate={onNavigate} />
+            <GlobalFooter t={t} onNavigate={onNavigate} language={seoLanguage} />
         </main>
     );
 }

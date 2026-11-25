@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PublicLink } from "../components/public-link";
 import { Helmet } from "react-helmet-async";
 import { Icon } from "../components/icons";
 import { SEO } from "../components/seo";
@@ -105,14 +106,12 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
 
                 {/* ── Breadcrumb ── */}
                 <div className="px-6 pt-6 w-full max-w-5xl mx-auto">
-                    <button
-                        type="button"
-                        onClick={() => onNavigate("/use-cases")}
+                    <PublicLink to="/use-cases" language={language} onNavigate={onNavigate}
                         className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors group"
                     >
                         <Icon name="arrow_left" className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                         {t("landing_nav_use_cases")}
-                    </button>
+                    </PublicLink>
                 </div>
 
                 {/* ── Hero ── */}
@@ -137,13 +136,11 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
                         >
                             {t("use_cases_cta_primary")} <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => onNavigate("/explore")}
+                        <PublicLink to="/explore" language={language} onNavigate={onNavigate}
                             className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-7 py-3.5 rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform"
                         >
                             {t("use_cases_cta_secondary")}
-                        </button>
+                        </PublicLink>
                     </div>
                 </section>
 
@@ -302,13 +299,11 @@ export function UseCaseDetailScreen({ ucKey, language, setLanguage, themeMode, s
                         >
                             {t("use_cases_cta_primary")} <Icon name="arrow_left" className="w-4 h-4 rotate-180" />
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => onNavigate("/use-cases")}
+                        <PublicLink to="/use-cases" language={language} onNavigate={onNavigate}
                             className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-8 py-4 rounded-xl font-bold text-base hover:scale-[1.02] transition-transform"
                         >
                             {t("landing_nav_use_cases")}
-                        </button>
+                        </PublicLink>
                     </div>
                 </section>
 

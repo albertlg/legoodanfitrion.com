@@ -3,6 +3,7 @@ import { Controls } from "./controls";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icons";
 import { formatDashboardCta } from "../utils/string";
+import { PublicLink } from "./public-link";
 
 const NAV_ITEMS = [
     { key: "features", path: "/", labelKey: "landing_nav_features", anchorId: "caracteristicas" },
@@ -22,42 +23,37 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
         : t("sign_in");
     const ctaOnClick = () => { session?.user?.id ? onNavigate("/app") : onNavigate("/login"); };
 
-    function handleNavItemClick(item) {
-        setIsMobileMenuOpen(false);
-        if (item?.anchorId) {
-            onNavigate(`/#${item.anchorId}`);
-            return;
-        }
-        onNavigate(item.path);
-    }
+    const itemTarget = (item) => (item?.anchorId ? `${item.path}#${item.anchorId}` : item.path);
+    const linkProps = { language, onNavigate };
 
     return (
         <>
             <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4">
                 <div className="absolute inset-0 -z-10 bg-white/70 dark:bg-[#0A0D14]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5 pointer-events-none" />
                 <div className="flex items-center gap-6">
-                    <button
+                    <PublicLink
+                        {...linkProps}
+                        to="/"
                         className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none"
-                        type="button"
-                        onClick={() => onNavigate("/")}
                     >
                         <BrandMark text="" fallback={t("logo_fallback")} className="w-8 h-8" />
                         <span className="font-black text-lg tracking-tight">{t("app_name")}</span>
-                    </button>
+                    </PublicLink>
                     <nav className="hidden md:flex items-center gap-1">
                         {NAV_ITEMS.map((item) => (
-                            <button
+                            <PublicLink
+                                {...linkProps}
+                                to={itemTarget(item)}
                                 key={item.key}
                                 className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
                                     item.key === activeKey
                                         ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white"
                                         : "text-gray-500 hover:text-gray-900 hover:bg-black/5 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"
                                 }`}
-                                type="button"
-                                onClick={() => handleNavItemClick(item)}
+                                aria-current={item.key === activeKey ? "page" : undefined}
                             >
                                 {t(item.labelKey)}
-                            </button>
+                            </PublicLink>
                         ))}
                     </nav>
                 </div>
@@ -72,14 +68,14 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                             dropdownDirection="down"
                         />
                     </div>
-                    <button
+                    <PublicLink
+                        {...linkProps}
+                        to="/explore"
                         className="hidden md:flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-                        type="button"
-                        onClick={() => onNavigate("/explore")}
                     >
                         Demo
                         <Icon name="arrow_up_right" className="w-3.5 h-3.5" />
-                    </button>
+                    </PublicLink>
                     <button
                         className="hidden sm:block bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-full font-bold text-sm shadow-md hover:scale-[1.02] transition-transform"
                         type="button"
@@ -126,26 +122,30 @@ export function PublicPageHeader({ t, language, setLanguage, themeMode, setTheme
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-2">
                     {NAV_ITEMS.map((item) => (
-                        <button
+                        <PublicLink
+                            {...linkProps}
+                            to={itemTarget(item)}
                             key={`mob-${item.key}`}
                             className={`flex items-center w-full px-4 py-3.5 rounded-2xl text-base font-bold transition-all ${
                                 item.key === activeKey
                                     ? "bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white"
                                     : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
                             }`}
-                            onClick={() => handleNavItemClick(item)}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            aria-current={item.key === activeKey ? "page" : undefined}
                         >
                             {t(item.labelKey)}
-                        </button>
+                        </PublicLink>
                     ))}
-                    <button
+                    <PublicLink
+                        {...linkProps}
+                        to="/explore"
                         className="mt-1 w-full text-center border border-black/10 dark:border-white/10 text-gray-900 dark:text-white px-5 py-3 rounded-2xl font-bold text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-all flex items-center justify-center gap-1.5"
-                        type="button"
-                        onClick={() => { onNavigate("/explore"); setIsMobileMenuOpen(false); }}
+                        onClick={() => setIsMobileMenuOpen(false)}
                     >
                         Demo
                         <Icon name="arrow_up_right" className="w-3.5 h-3.5" />
-                    </button>
+                    </PublicLink>
                     <button
                         className="mt-1 w-full text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-3 rounded-2xl font-bold text-sm"
                         type="button"

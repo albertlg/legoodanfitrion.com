@@ -1,8 +1,23 @@
 import React from "react";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icons";
+import { PublicLink } from "./public-link";
 
-export function GlobalFooter({ t, onNavigate }) {
+const FOOTER_LINK_CLASS = "text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors";
+
+// Enlaces reales a las páginas públicas: también sirven a buscadores y bots
+// para descubrir y relacionar las páginas en cada idioma.
+const FOOTER_LINKS = [
+    { to: "/use-cases", labelKey: "landing_nav_use_cases" },
+    { to: "/pricing", labelKey: "landing_nav_pricing" },
+    { to: "/blog", labelKey: "blog_nav_title" },
+    { to: "/about", labelKey: "landing_nav_about" },
+    { to: "/contact", labelKey: "landing_nav_contact" },
+    { to: "/privacy", labelKey: "landing_footer_privacy" },
+    { to: "/terms", labelKey: "landing_footer_terms" }
+];
+
+export function GlobalFooter({ t, onNavigate, language = "es" }) {
     return (
         <footer className="w-full bg-white/30 dark:bg-black/30 backdrop-blur-lg border-t border-black/5 dark:border-white/5 py-8 mt-auto relative z-20">
             <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -23,21 +38,14 @@ export function GlobalFooter({ t, onNavigate }) {
 
                     {/* Enlaces Legales */}
                     <div className="flex flex-wrap items-center justify-center gap-6">
-                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/privacy")}>
-                            {t("landing_footer_privacy")}
-                        </button>
-                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/terms")}>
-                            {t("landing_footer_terms")}
-                        </button>
-                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/contact")}>
-                            {t("landing_nav_contact")}
-                        </button>
-                        <button className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors" type="button" onClick={() => onNavigate("/about")}>
-                            {t("landing_nav_about")}
-                        </button>
-                        <button className="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors" type="button" onClick={() => onNavigate("/explore")}>
+                        {FOOTER_LINKS.map((link) => (
+                            <PublicLink key={link.to} to={link.to} language={language} onNavigate={onNavigate} className={FOOTER_LINK_CLASS}>
+                                {t(link.labelKey)}
+                            </PublicLink>
+                        ))}
+                        <PublicLink to="/explore" language={language} onNavigate={onNavigate} className="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors">
                             {t("landing_nav_explore")}
-                        </button>
+                        </PublicLink>
                     </div>
 
                     {/* Separador Visual (Solo en Desktop) */}
