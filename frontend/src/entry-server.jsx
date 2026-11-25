@@ -8,7 +8,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App";
 import { preloadRouteAssets } from "./screens/screen-registry";
-import { setServerInitialData, initialDataKeys } from "./lib/ssr-state";
+import { setServerInitialData, initialDataKeys, takeMissingLocaleKeys } from "./lib/ssr-state";
 import { fetchBlogPost, fetchBlogPostList } from "./lib/blog-data";
 
 export { serializeForScript } from "./lib/ssr-state";
@@ -44,6 +44,7 @@ export async function render(url) {
     const { route, language, initialLocales } = await preloadRouteAssets(url);
     const data = await loadRouteData(route, language);
     setServerInitialData(data);
+    takeMissingLocaleKeys();
 
     const helmetContext = {};
     const appHtml = await renderToString(
@@ -70,6 +71,7 @@ export async function render(url) {
         head,
         htmlAttributes: helmet.htmlAttributes.toString(),
         language,
-        data
+        data,
+        missingLocaleKeys: takeMissingLocaleKeys()
     };
 }

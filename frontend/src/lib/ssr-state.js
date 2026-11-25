@@ -37,6 +37,21 @@ export function getInitialData(key) {
     return source[key];
 }
 
+// Claves de traducción que se pidieron en el servidor y no estaban en la parte
+// pública del diccionario. El prerender hace fallar el build si alguna existe
+// en el diccionario completo: la página saldría con la clave en vez del texto.
+const missingLocaleKeys = new Set();
+
+export function reportMissingLocaleKey(key) {
+    if (isServer()) missingLocaleKeys.add(key);
+}
+
+export function takeMissingLocaleKeys() {
+    const keys = [...missingLocaleKeys];
+    missingLocaleKeys.clear();
+    return keys;
+}
+
 export const initialDataKeys = {
     post: (lang, slug) => `post:${lang}:${slug}`,
     postList: (lang) => `posts:${lang}`

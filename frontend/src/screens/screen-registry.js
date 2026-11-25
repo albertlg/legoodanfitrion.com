@@ -6,15 +6,28 @@ import { resolveRoute } from "../router-utils";
 
 const DEFAULT_LANGUAGE = "es";
 
-// Todos los idiomas (también el español) se cargan bajo demanda: una página en
-// inglés no descarga el diccionario español.
-export const LOCALE_LOADERS = {
-  es: () => import("../i18n/es.json"),
-  ca: () => import("../i18n/ca.json"),
-  en: () => import("../i18n/en.json"),
-  fr: () => import("../i18n/fr.json"),
-  it: () => import("../i18n/it.json")
+// Diccionarios partidos en dos (ver scripts/locale-split.mjs y vite.config.js):
+// las páginas públicas solo descargan la parte "public" de su idioma; la app
+// (login, panel, RSVP, admin) descarga además la parte "rest".
+const PUBLIC_LOCALE_LOADERS = {
+  es: () => import("virtual:lga-locale/es.public"),
+  ca: () => import("virtual:lga-locale/ca.public"),
+  en: () => import("virtual:lga-locale/en.public"),
+  fr: () => import("virtual:lga-locale/fr.public"),
+  it: () => import("virtual:lga-locale/it.public")
 };
+const REST_LOCALE_LOADERS = {
+  es: () => import("virtual:lga-locale/es.rest"),
+  ca: () => import("virtual:lga-locale/ca.rest"),
+  en: () => import("virtual:lga-locale/en.rest"),
+  fr: () => import("virtual:lga-locale/fr.rest"),
+  it: () => import("virtual:lga-locale/it.rest")
+};
+export const SUPPORTED_LOCALES = Object.keys(PUBLIC_LOCALE_LOADERS);
+
+// Rutas que solo necesitan la parte pública del diccionario. El resto (app,
+// login, RSVP, admin) usa el completo.
+export const PUBLIC_ROUTE_KINDS = ["landing", "blog", "privacy", "terms", "notFound"];
 
 // Pantalla con carga diferida que se puede precargar. Si el módulo ya está
 // cargado, React.lazy lo resuelve en el primer render sin suspender (thenable
@@ -65,13 +78,32 @@ function getPublicScreenForRoute(route) {
   return LandingScreen;
 }
 
-export async function loadLocale(language) {
-  const loader = LOCALE_LOADERS[language] || LOCALE_LOADERS[DEFAULT_LANGUAGE];
-  const module = await loader();
-  return module?.default || module;
+const normalizeLocale = (language) => (PUBLIC_LOCALE_LOADERS[language] ? language : DEFAULT_LANGUAGE);
+const moduleData = (module) => module?.default || module;
+
+// Diccionarios completos (parte pública + resto) ya cargados.
+const fullDictionaries = new WeakSet();
+const fullDictionaryByLanguage = new Map();
+
+export function isFullDictionary(dictionary) {
+  return Boolean(dictionary) && fullDictionaries.has(dictionary);
 }
 
-const SUPPORTED = Object.keys(LOCALE_LOADERS);
+// Solo las claves de las páginas públicas.
+export async function loadPublicLocale(language) {
+  return moduleData(await PUBLIC_LOCALE_LOADERS[normalizeLocale(language)]());
+}
+
+// Todas las claves (para la app). Las dos partes se piden en paralelo.
+export async function loadFullLocale(language) {
+  const lang = normalizeLocale(language);
+  if (fullDictionaryByLanguage.has(lang)) return fullDictionaryByLanguage.get(lang);
+  const [publicPart, restPart] = await Promise.all([PUBLIC_LOCALE_LOADERS[lang](), REST_LOCALE_LOADERS[lang]()]);
+  const dictionary = { ...moduleData(publicPart), ...moduleData(restPart) };
+  fullDictionaries.add(dictionary);
+  fullDictionaryByLanguage.set(lang, dictionary);
+  return dictionary;
+}
 
 // Idioma con el que App arrancará en las rutas que NO vienen prerenderizadas
 // (/app, /login, /rsvp...). Replica detectLanguage de App.jsx para precargar
@@ -81,32 +113,36 @@ export function getClientInitialLanguage(pathname, search = "") {
   const firstSegment = String(pathname || "").split("/").filter(Boolean)[0];
   const fromNavigator = () => {
     const nav = (window.navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
-    return SUPPORTED.includes(nav) ? nav : DEFAULT_LANGUAGE;
+    return SUPPORTED_LOCALES.includes(nav) ? nav : DEFAULT_LANGUAGE;
   };
   if (route.kind === "rsvp") return fromNavigator();
-  if (SUPPORTED.includes(firstSegment)) return firstSegment;
+  if (SUPPORTED_LOCALES.includes(firstSegment)) return firstSegment;
   try {
     const stored = window.localStorage.getItem("legood-language");
-    if (stored && SUPPORTED.includes(stored)) return stored;
+    if (stored && SUPPORTED_LOCALES.includes(stored)) return stored;
   } catch {
     /* sin storage */
   }
   return fromNavigator();
 }
 
+// Primer render sin HTML prerenderizado (app, login, RSVP... y, en desarrollo,
+// todas las rutas): parte pública en las páginas públicas, completo en el resto.
 export async function preloadClientLocale(pathname, search) {
   const language = getClientInitialLanguage(pathname, search);
-  return { [language]: await loadLocale(language) };
+  const route = resolveRoute(pathname, new URLSearchParams(search), { inferLanguage: true });
+  const load = PUBLIC_ROUTE_KINDS.includes(route.kind) ? loadPublicLocale : loadFullLocale;
+  return { [language]: await load(language) };
 }
 
 // Precarga lo que necesita el primer render de una URL pública: la pantalla y
-// las traducciones del idioma de la URL. La usan el prerender (servidor) y
+// la parte pública del diccionario del idioma de la URL. La usan el prerender (servidor) y
 // main.jsx antes de hidratar, para que ambos rendericen exactamente lo mismo.
 export async function preloadRouteAssets(pathname) {
   const route = resolveRoute(pathname, new URLSearchParams(), { inferLanguage: false });
   const language = route.urlLang || DEFAULT_LANGUAGE;
   const Screen = getPublicScreenForRoute(route);
-  const [locale] = await Promise.all([loadLocale(language), Screen?.preload?.()]);
+  const [locale] = await Promise.all([loadPublicLocale(language), Screen?.preload?.()]);
   return { route, language, initialLocales: { [language]: locale } };
 }
 

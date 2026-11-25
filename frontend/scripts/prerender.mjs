@@ -18,6 +18,7 @@ import {
     getPublicPath,
     getBlogPostPath
 } from "../src/lib/public-routes.js";
+import { readDictionary } from "./locale-split.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -38,6 +39,22 @@ async function fetchSanitySlugs() {
     if (!res.ok) throw new Error(`Sanity HTTP ${res.status}`);
     const json = await res.json();
     return Array.isArray(json.result) ? json.result : [];
+}
+
+// Una página pública no puede usar claves que solo están en la parte "rest"
+// del diccionario (scripts/locale-split.mjs): saldría la clave en vez del texto.
+const fullDictionaries = new Map();
+function assertPublicLocaleKeys(result) {
+    const keys = result.missingLocaleKeys || [];
+    if (keys.length === 0) return;
+    if (!fullDictionaries.has(result.language)) {
+        fullDictionaries.set(result.language, readDictionary(join(ROOT, "src"), result.language));
+    }
+    const dictionary = fullDictionaries.get(result.language);
+    const misplaced = keys.filter((key) => key in dictionary);
+    if (misplaced.length > 0) {
+        throw new Error(`claves fuera de la parte pública del diccionario: ${misplaced.join(", ")}`);
+    }
 }
 
 function outputPathForRoute(route) {
@@ -85,6 +102,7 @@ async function main() {
         try {
             const result = await render(route);
             if (!result.appHtml || result.appHtml.length < 200) throw new Error("HTML vacío");
+            assertPublicLocaleKeys(result);
             const outPath = outputPathForRoute(route);
             await mkdir(dirname(outPath), { recursive: true });
             await writeFile(outPath, buildPage(template, result, serializeForScript), "utf-8");
@@ -98,6 +116,7 @@ async function main() {
     try {
         const result = await render("/__lga-pagina-inexistente");
         if (!result.appHtml.includes("404")) throw new Error("no es la pantalla 404");
+        assertPublicLocaleKeys(result);
         await writeFile(join(DIST_DIR, "404.html"), buildPage(template, result, serializeForScript), "utf-8");
         console.log("[prerender] 404.html generado.");
     } catch (err) {

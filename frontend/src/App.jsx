@@ -4,8 +4,8 @@ import { Controls } from "./components/controls";
 import { getAuthRedirectUrl } from "./lib/app-url";
 import { hasSupabaseEnv, supabase } from "./lib/supabaseClient";
 import { useAppRouter, getCanonicalPathForRoute } from "./router-utils";
-import { isHydrationPass, endHydrationPass } from "./lib/ssr-state";
-import { LOCALE_LOADERS } from "./screens/screen-registry";
+import { isHydrationPass, endHydrationPass, isServer, reportMissingLocaleKey } from "./lib/ssr-state";
+import { isFullDictionary, loadFullLocale, loadPublicLocale, PUBLIC_ROUTE_KINDS, SUPPORTED_LOCALES } from "./screens/screen-registry";
 import { LegalScreen } from "./screens/legal-screen";
 import { NotFoundScreen } from "./screens/not-found-screen";
 
@@ -112,6 +112,7 @@ function normalizeAuthErrorMessage(error, t) {
 
 function App({ initialLocales = {} }) {
   const { route, navigate, isRecoveryMode: initialRecoveryMode } = useAppRouter();
+  const isPublicRoute = PUBLIC_ROUTE_KINDS.includes(route.kind);
   // ¿Este render hidrata HTML prerenderizado? (ver lib/ssr-state.js)
   const startedFromPrerenderRef = useRef(isHydrationPass());
 
@@ -251,34 +252,50 @@ function App({ initialLocales = {} }) {
     void syncLanguagePreference(normalizedLanguage);
   }, [route, navigate, syncLanguagePreference]);
 
+  // Diccionario del idioma activo: en páginas públicas basta la parte pública;
+  // en la app (o si una página pública pide una clave que no está en ella) se
+  // carga el completo.
+  const [needsFullLocale, setNeedsFullLocale] = useState(false);
+  const missingKeyReportedRef = useRef(false);
+  const wantsFullLocale = !isPublicRoute || needsFullLocale;
+  const currentDictionary = loadedLocales[language];
+  const hasCurrentFullLocale = isFullDictionary(currentDictionary);
   useEffect(() => {
-    if (loadedLocales[language] || !LOCALE_LOADERS[language]) {
-      return;
-    }
+    if (!SUPPORTED_LOCALES.includes(language)) return;
+    if (currentDictionary && (hasCurrentFullLocale || !wantsFullLocale)) return;
     let isCancelled = false;
-    LOCALE_LOADERS[language]()
-      .then((module) => {
-        if (isCancelled) {
-          return;
-        }
-        const localeData = module?.default || module;
-        if (!localeData) {
-          return;
-        }
-        setLoadedLocales((prev) => ({
-          ...prev,
-          [language]: localeData
-        }));
+    (wantsFullLocale ? loadFullLocale : loadPublicLocale)(language)
+      .then((localeData) => {
+        if (isCancelled || !localeData) return;
+        setLoadedLocales((prev) => (
+          // Nunca sustituimos un diccionario completo por la parte pública
+          isFullDictionary(prev[language]) && !isFullDictionary(localeData)
+            ? prev
+            : { ...prev, [language]: localeData }
+        ));
       })
       .catch(() => undefined);
     return () => {
       isCancelled = true;
     };
-  }, [language, loadedLocales]);
+  }, [language, currentDictionary, hasCurrentFullLocale, wantsFullLocale]);
+
   const t = useCallback(
     (key) => {
-      const localized = loadedLocales[language]?.[key];
+      const dictionary = loadedLocales[language];
+      const localized = dictionary?.[key];
       if (localized) return localized;
+      // Clave que no está en la parte pública del diccionario: en el servidor
+      // se anota (el prerender falla); en el navegador se carga el completo.
+      if (dictionary && !isFullDictionary(dictionary)) {
+        if (isServer()) {
+          reportMissingLocaleKey(key);
+        } else if (!missingKeyReportedRef.current) {
+          missingKeyReportedRef.current = true;
+          if (import.meta.env.DEV) console.warn(`[i18n] "${key}" no está en la parte pública del diccionario`);
+          queueMicrotask(() => setNeedsFullLocale(true));
+        }
+      }
       // Mientras carga el idioma nuevo (o si falta una clave), usamos otro
       // diccionario ya cargado: primero el español, luego cualquiera.
       const fallback = loadedLocales[DEFAULT_LANGUAGE]?.[key]
@@ -760,7 +777,6 @@ function App({ initialLocales = {} }) {
 
   // Sin Supabase solo fallan las zonas de la app; las páginas públicas (landing,
   // blog, legales, 404) se renderizan igual, también en el prerender del CI.
-  const isPublicRoute = ["landing", "blog", "privacy", "terms", "notFound"].includes(route.kind);
   if (!hasSupabaseEnv && !isPublicRoute) {
     return (
       <main className="page">
@@ -785,6 +801,13 @@ function App({ initialLocales = {} }) {
         </section>
       </main>
     );
+  }
+
+  // App, login, RSVP y admin esperan a tener un diccionario completo (por
+  // ejemplo, al llegar desde la landing sin recargar). Si ya hay uno de otro
+  // idioma, se usa como reserva mientras carga el nuevo: no se desmonta nada.
+  if (!isPublicRoute && !Object.values(loadedLocales).some(isFullDictionary)) {
+    return <ScreenFallback />;
   }
 
   if (route.kind === "rsvp" && route.token) {
