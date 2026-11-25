@@ -109,8 +109,14 @@ function loadAnalytics() {
   document.head.appendChild(script);
 }
 
-// Retirar el consentimiento: el script no se puede descargar, pero se desactiva
-// el envío y se borran sus cookies (_ga, _ga_XXXX) en el dominio y subdominios.
+// Cookies que hay que borrar al rechazar: las de Google Analytics (_ga, _ga_XXXX,
+// _gid) y la que dejó Cookiebot (CookieConsent) a quien lo usó antes.
+function isAnalyticsOrLegacyCookie(name) {
+  return name === "_ga" || name.startsWith("_ga_") || name === "_gid" || name === "CookieConsent";
+}
+
+// Rechazar o retirar el consentimiento: el script no se puede descargar, pero
+// se desactiva el envío y se borran esas cookies en el dominio y subdominios.
 function disableAnalytics() {
   window[`ga-disable-${GA_MEASUREMENT_ID}`] = true;
   const hostParts = window.location.hostname.split(".");
@@ -120,7 +126,7 @@ function disableAnalytics() {
   }
   for (const cookie of document.cookie.split(";")) {
     const name = cookie.split("=")[0].trim();
-    if (name === "_ga" || name.startsWith("_ga_") || name === "_gid") {
+    if (isAnalyticsOrLegacyCookie(name)) {
       for (const domain of domains) {
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${domain}`;
       }
@@ -153,12 +159,13 @@ function closeBanner() {
 }
 
 function choose(analytics) {
-  const previous = readConsent();
   writeConsent(analytics);
   closeBanner();
   if (analytics) {
     loadAnalytics();
-  } else if (previous?.analytics || analyticsLoaded) {
+  } else {
+    // Siempre, aunque no hubiera aceptado aquí: quien aceptó con Cookiebot
+    // conserva sus cookies _ga de entonces.
     disableAnalytics();
   }
 }
