@@ -19,11 +19,22 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
+// "viernes, 15 de mayo de 2026, 19:00" (hora de Madrid, la de los eventos).
+const DATE_FORMAT = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Madrid"
+});
+
 function formatDate(iso) {
     if (!iso) return "";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "";
-    return d.toISOString().split("T")[0];
+    return DATE_FORMAT.format(d);
 }
 
 async function fetchRsvpPreview(token, env) {
@@ -51,16 +62,18 @@ function buildHeadInjection(preview, { origin, fullUrl }) {
         .join(" · ");
     const dateLine = formatDate(preview.event_start_at);
 
+    // El título ya va en og:title: la descripción no lo repite.
     const descParts = [];
     if (preview.host_name) descParts.push(`${preview.host_name} te invita`);
-    if (preview.event_title) descParts.push(preview.event_title);
     if (dateLine) descParts.push(dateLine);
     if (locationLine) descParts.push(locationLine);
     const description = descParts.length > 0
         ? descParts.join(" · ")
         : "Confirma tu asistencia en un click.";
 
-    const image = `${origin}/android-chrome-512x512.png`;
+    // Imagen social de la web (1200x630): el icono cuadrado se veía pequeño
+    // y recortado en las tarjetas grandes de WhatsApp, X o LinkedIn.
+    const image = `${origin}/og-home.jpg`;
 
     const jsonLd = {
         "@context": "https://schema.org",
@@ -98,6 +111,10 @@ function buildHeadInjection(preview, { origin, fullUrl }) {
         `<meta property="og:title" content="${escapeHtml(title)}" />`,
         `<meta property="og:description" content="${escapeHtml(description)}" />`,
         `<meta property="og:image" content="${escapeHtml(image)}" />`,
+        `<meta property="og:image:width" content="1200" />`,
+        `<meta property="og:image:height" content="630" />`,
+        `<meta property="og:image:alt" content="Le Good Anfitrión" />`,
+        `<meta property="og:locale" content="es_ES" />`,
         `<meta property="og:url" content="${escapeHtml(fullUrl)}" />`,
         `<meta name="twitter:card" content="summary_large_image" />`,
         `<meta name="twitter:title" content="${escapeHtml(title)}" />`,
