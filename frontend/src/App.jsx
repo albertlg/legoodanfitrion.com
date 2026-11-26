@@ -8,6 +8,7 @@ import { isHydrationPass, endHydrationPass, isServer, reportMissingLocaleKey } f
 import { isFullDictionary, loadFullLocale, loadPublicLocale, PUBLIC_ROUTE_KINDS, SUPPORTED_LOCALES } from "./screens/screen-registry";
 import { LegalScreen } from "./screens/legal-screen";
 import { NotFoundScreen } from "./screens/not-found-screen";
+import { DEMO_USER_ID } from "./lib/constants";
 
 const DEFAULT_LANGUAGE = "es";
 const SUPPORTED_LANGUAGES = ["es", "ca", "en", "fr", "it"];
@@ -72,7 +73,17 @@ function resolveTheme(themeMode, systemPrefersDark) {
   return themeMode;
 }
 
+// La cuenta demo la comparten todos los visitantes de "Explorar demo": no se
+// leen ni se guardan sus preferencias (idioma, tema), o cada visitante vería
+// el panel en el idioma del anterior. Cada uno conserva el suyo.
+function isDemoUser(sessionUser) {
+  return sessionUser?.id === DEMO_USER_ID;
+}
+
 function getSessionPreferences(sessionUser) {
+  if (isDemoUser(sessionUser)) {
+    return { locale: "", theme: "" };
+  }
   const rawPrefs = sessionUser?.user_metadata?.preferences;
   if (!rawPrefs || typeof rawPrefs !== "object") {
     return { locale: "", theme: "" };
@@ -191,7 +202,7 @@ function App({ initialLocales = {} }) {
 
   const syncLanguagePreference = useCallback(
     async (nextLanguage) => {
-      if (!supabase || !session?.user?.id) {
+      if (!supabase || !session?.user?.id || session.user.id === DEMO_USER_ID) {
         return;
       }
       const normalizedLanguage = String(nextLanguage || "").trim().toLowerCase();
@@ -465,7 +476,9 @@ function App({ initialLocales = {} }) {
   }, [navigate, route.kind, initialRecoveryMode]);
 
   useEffect(() => {
-    if (!supabase || !session?.user?.id) {
+    // Demo: sin leer el perfil y sin marcar como hidratado, así tampoco se
+    // auto-guarda (ver el efecto siguiente).
+    if (!supabase || !session?.user?.id || isDemoUser(session.user)) {
       setProfilePrefsHydrated(false);
       return;
     }
