@@ -11,6 +11,35 @@ router.use(requireAuthenticatedUser, aiRateLimit);
 
 // gemini-2.5-flash se retira el 1-12-2026. Flash-Lite entra en el plan gratuito.
 const GEMINI_MODEL = String(process.env.GEMINI_MODEL || "gemini-3.5-flash-lite").trim();
+// En el plan gratuito Google a veces responde 503 "high demand". Entonces se
+// reintenta una vez con este otro modelo (vacío = sin reintento).
+const GEMINI_FALLBACK_MODEL = String(process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.1-flash-lite").trim();
+
+function isGeminiOverloaded(error) {
+  const status = Number(error?.status || error?.code || 0);
+  return status === 500 || status === 503 || /UNAVAILABLE|high demand|overloaded/i.test(String(error?.message || ""));
+}
+
+// generateContent con el modelo principal y, si está saturado, con el alternativo.
+export async function generateGeminiContent(client, request) {
+  const models = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter((model, index, list) => model && list.indexOf(model) === index);
+  let lastError = null;
+  for (const model of models) {
+    try {
+      return await client.models.generateContent({ ...request, model });
+    } catch (error) {
+      lastError = error;
+      if (!isGeminiOverloaded(error)) throw error;
+      console.warn(`[ai] ${model} saturado, ${model === models.at(-1) ? "sin más reintentos" : "reintentando con otro modelo"}`);
+    }
+  }
+  throw lastError;
+}
+
+// Modelo que respondió de verdad (puede ser el alternativo).
+function respondedModel(response) {
+  return String(response?.modelVersion || GEMINI_MODEL);
+}
 
 // Traduce un error de Gemini a una respuesta sin el mensaje interno del
 // proveedor (que incluía JSON y enlaces de AI Studio). El detalle va al log.
@@ -22,6 +51,9 @@ function sendGeminiError(res, error, label) {
     status === 402 || status === 429 || /RESOURCE_EXHAUSTED|quota|prepayment|credits/i.test(text);
   if (isQuota) {
     return res.status(503).json({ error: "AI provider quota exhausted.", code: "ai_unavailable", fallback: true });
+  }
+  if (isGeminiOverloaded(error)) {
+    return res.status(503).json({ error: "AI provider overloaded.", code: "ai_unavailable", fallback: true });
   }
   if (/timeout/i.test(text)) {
     return res.status(504).json({ error: "AI provider timeout.", code: "ai_timeout", fallback: true });
@@ -913,8 +945,7 @@ router.post("/planner", async (req, res) => {
     try {
       console.log("Iniciando llamada a Gemini...");
       response = await withTimeout(
-        client.models.generateContent({
-          model: GEMINI_MODEL,
+        generateGeminiContent(client, {
           contents: [
             {
               role: "user",
@@ -989,7 +1020,7 @@ router.post("/planner", async (req, res) => {
       data,
       meta: {
         provider: "google-gemini",
-        model: GEMINI_MODEL,
+        model: respondedModel(response),
         scope: normalizeText(scope, "all"),
         locale
       }
@@ -1065,8 +1096,7 @@ router.post("/translate-plan", async (req, res) => {
     try {
       console.log(`Iniciando traducción Gemini: ${fromLanguage} → ${toLanguage}`);
       response = await withTimeout(
-        client.models.generateContent({
-          model: GEMINI_MODEL,
+        generateGeminiContent(client, {
           contents: [
             {
               role: "user",
@@ -1121,7 +1151,7 @@ router.post("/translate-plan", async (req, res) => {
 
     return res.json({
       data: translatedSnapshot,
-      meta: { provider: "google-gemini", model: GEMINI_MODEL, from: fromLanguage, to: toLanguage }
+      meta: { provider: "google-gemini", model: respondedModel(response), from: fromLanguage, to: toLanguage }
     });
   } catch (error) {
     console.error("[ai/translate-plan] Error no controlado:");
@@ -1167,8 +1197,7 @@ router.post("/icebreaker", async (req, res) => {
     try {
       console.log("Iniciando llamada a Gemini (icebreaker)...");
       response = await withTimeout(
-        client.models.generateContent({
-          model: GEMINI_MODEL,
+        generateGeminiContent(client, {
           contents: [
             {
               role: "user",
@@ -1224,7 +1253,7 @@ router.post("/icebreaker", async (req, res) => {
       data: sanitizeIcebreakerResponse(parsed),
       meta: {
         provider: "google-gemini",
-        model: GEMINI_MODEL,
+        model: respondedModel(response),
         locale
       }
     });
