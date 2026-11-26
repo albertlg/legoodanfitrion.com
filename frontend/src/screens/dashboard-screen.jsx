@@ -6676,7 +6676,7 @@ function DashboardScreen({
           ...(prev[eventId] || {}),
           isOpen: true,
           isLoading: false,
-          error: t(getAiErrorMessageKey(error, "event_icebreaker_error"))
+          error: t(getAiErrorMessageKey(error))
         }
       }));
     }
