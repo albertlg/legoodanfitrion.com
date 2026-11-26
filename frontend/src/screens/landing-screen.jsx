@@ -837,7 +837,7 @@ function LandingScreen({
                     height="1067"
                     alt={t("landing_hero_narrative")}
                     className="w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-[1.02]"
-                    loading="eager"
+                    fetchpriority="high"
                     decoding="async"
                   />
                 </picture>

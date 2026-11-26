@@ -474,6 +474,8 @@ export function GuestGroupsView({ t, sessionUserId, openWorkspace }) {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
+                        // Enter que confirma una composición (acentos, chino, japonés...): no enviar.
+                        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                         void handleCreateGroup();
                       }
                     }}
@@ -526,6 +528,8 @@ export function GuestGroupsView({ t, sessionUserId, openWorkspace }) {
                                     onKeyDown={(event) => {
                                       if (event.key === "Enter") {
                                         event.preventDefault();
+                                        // Enter que confirma una composición (acentos, chino, japonés...): no enviar.
+                                        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                                         void handleSaveRenameGroup(groupItem.id);
                                       }
                                       if (event.key === "Escape") {

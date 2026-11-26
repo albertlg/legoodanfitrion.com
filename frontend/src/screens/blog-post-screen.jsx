@@ -358,9 +358,13 @@ export function BlogPostScreen({ slug, language, themeMode, setThemeMode, t, onN
 
                     {post.mainImage && (
                         <div className="w-full aspect-video rounded-3xl overflow-hidden mb-12 shadow-xl border border-black/5 dark:border-white/10">
+                            {/* Candidata a LCP: prioridad alta (fetchpriority en minúsculas para React 18). */}
                             <img
                                 src={urlFor(post.mainImage).width(1200).height(675).url()}
                                 alt={post.title}
+                                width="1200"
+                                height="675"
+                                fetchpriority="high"
                                 className="w-full h-full object-cover"
                             />
                         </div>

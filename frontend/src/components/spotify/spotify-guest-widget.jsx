@@ -185,6 +185,8 @@ function SpotifyGuestWidget({ eventId, t }) {
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
+                // Enter que confirma una composición (acentos, chino, japonés...): no enviar.
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                 handleSearch();
               }
             }}

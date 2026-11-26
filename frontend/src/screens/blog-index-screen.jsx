@@ -125,7 +125,9 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {posts.map((post) => {
+                            {posts.map((post, index) => {
+                                // Las tres primeras tarjetas suelen verse al cargar; el resto, en diferido.
+                                const imageLoading = index < 3 ? undefined : "lazy";
                                 // 🚀 SEO: Construimos la URL final con su carpeta de idioma
                                 const postUrl = language === "es"
                                     ? `/blog/${post.slug?.current}`
@@ -158,6 +160,10 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                                                 <img
                                                     src={urlFor(post.mainImage).width(800).height(500).url()}
                                                     alt={post.title}
+                                                    width="800"
+                                                    height="500"
+                                                    loading={imageLoading}
+                                                    decoding="async"
                                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                                                 />
                                             </div>
@@ -197,6 +203,9 @@ export function BlogIndexScreen({ language, setLanguage, themeMode, setThemeMode
                                                         <img
                                                             src={urlFor(post.authorImage).width(100).height(100).url()}
                                                             alt={post.authorName}
+                                                            width="100"
+                                                            height="100"
+                                                            loading={imageLoading}
                                                             className="w-8 h-8 rounded-full object-cover bg-gray-200 dark:bg-gray-800 border border-black/5 dark:border-white/10"
                                                         />
                                                     ) : (

@@ -450,6 +450,8 @@ export function EventSharedTasksModuleCard({
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
+                // Enter que confirma una composición (acentos, chino, japonés...): no enviar.
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                 if (!isCreatingTask) {
                   void handleCreateTask();
                 }
@@ -524,6 +526,8 @@ export function EventSharedTasksModuleCard({
                           onKeyDown={(event) => {
                             if (event.key === "Enter") {
                               event.preventDefault();
+                              // Enter que confirma una composición (acentos, chino, japonés...): no enviar.
+                              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                               const normalizedTitle = toSafeString(editingTaskTitle);
                               if (!normalizedTitle) {
                                 return;
