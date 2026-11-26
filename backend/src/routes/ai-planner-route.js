@@ -15,13 +15,31 @@ const GEMINI_MODEL = String(process.env.GEMINI_MODEL || "gemini-3.5-flash-lite")
 // reintenta una vez con este otro modelo (vacío = sin reintento).
 const GEMINI_FALLBACK_MODEL = String(process.env.GEMINI_FALLBACK_MODEL ?? "gemini-3.1-flash-lite").trim();
 
+// Tiempo máximo de cada intento. Con Google saturado un modelo puede tardar más
+// de un minuto: se cancela y se prueba el siguiente.
+const GEMINI_ATTEMPT_TIMEOUT_MS = Number.parseInt(process.env.GEMINI_ATTEMPT_TIMEOUT_MS || "", 10) > 0
+  ? Number.parseInt(process.env.GEMINI_ATTEMPT_TIMEOUT_MS, 10)
+  : 25000;
+
+function isAttemptTimeout(error) {
+  return error?.name === "TimeoutError" || error?.name === "AbortError";
+}
+
+function generateWithAttemptTimeout(client, request, model) {
+  return client.models.generateContent({
+    ...request,
+    model,
+    config: { ...request.config, abortSignal: AbortSignal.timeout(GEMINI_ATTEMPT_TIMEOUT_MS) }
+  });
+}
+
 function isGeminiOverloaded(error) {
   const status = Number(error?.status || error?.code || 0);
   return status === 500 || status === 503 || /UNAVAILABLE|high demand|overloaded/i.test(String(error?.message || ""));
 }
 
-// generateContent con el modelo principal y, si está saturado o su JSON no se
-// puede leer, con el alternativo.
+// generateContent con el modelo principal y, si está saturado, tarda demasiado o
+// su JSON no se puede leer, con el alternativo.
 export async function generateGeminiContent(client, request) {
   const models = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter((model, index, list) => model && list.indexOf(model) === index);
   const expectsJson = request?.config?.responseMimeType === "application/json";
@@ -29,7 +47,7 @@ export async function generateGeminiContent(client, request) {
   for (const model of models) {
     const isLast = model === models.at(-1);
     try {
-      const response = await client.models.generateContent({ ...request, model });
+      const response = await generateWithAttemptTimeout(client, request, model);
       // Si pedimos JSON y no se puede leer ni reparando, se regenera con el otro modelo.
       if (!expectsJson || isLast || safeJsonParse(getResponseText(response))) {
         return response;
@@ -37,15 +55,19 @@ export async function generateGeminiContent(client, request) {
       lastResponse = response;
       console.warn(`[ai] ${model} devolvió JSON no válido, reintentando con otro modelo`);
     } catch (error) {
+      if (isAttemptTimeout(error)) {
+        console.warn(`[ai] ${model} no respondió en ${GEMINI_ATTEMPT_TIMEOUT_MS} ms`);
+        continue;
+      }
       if (!isGeminiOverloaded(error)) throw error;
       console.warn(`[ai] ${model} saturado`);
     }
   }
   if (lastResponse) return lastResponse;
-  // Todos saturados: Google recomienda esperar un poco; último intento con el principal.
-  console.warn(`[ai] modelos saturados, último intento con ${GEMINI_MODEL} en 2 s`);
+  // Ninguno respondió: Google recomienda esperar un poco; último intento con el principal.
+  console.warn(`[ai] ningún modelo respondió, último intento con ${GEMINI_MODEL} en 2 s`);
   await new Promise((resolve) => setTimeout(resolve, 2000));
-  return client.models.generateContent({ ...request, model: GEMINI_MODEL });
+  return generateWithAttemptTimeout(client, request, GEMINI_MODEL);
 }
 
 // Modelo que respondió de verdad (puede ser el alternativo).
@@ -67,7 +89,7 @@ function sendGeminiError(res, error, label) {
   if (isGeminiOverloaded(error)) {
     return res.status(503).json({ error: "AI provider overloaded.", code: "ai_unavailable", fallback: true });
   }
-  if (/timeout/i.test(text)) {
+  if (/timeout/i.test(text) || isAttemptTimeout(error)) {
     return res.status(504).json({ error: "AI provider timeout.", code: "ai_timeout", fallback: true });
   }
   return res.status(502).json({ error: "AI provider error.", code: "ai_error", fallback: true });
