@@ -3,6 +3,12 @@
 /* Añade esta línea para sincronizar el modo oscuro */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* La clase font-sans de Tailwind (la llevan las páginas públicas) usa DM Sans,
+   la fuente de texto de la marca, igual que el body y el panel. */
+@theme {
+  --font-sans: "DM Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
 :root {
   --font-family: "DM Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   --font-ui: "DM Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
