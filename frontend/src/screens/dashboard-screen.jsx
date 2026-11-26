@@ -14,6 +14,7 @@ import {
 } from "../lib/guest-catalogs";
 import { buildAppUrl } from "../lib/app-url";
 import { getAiErrorMessageKey, requestEventIcebreakerAI, requestEventPlannerAI, requestPlanTranslationAI } from "../lib/ai-planner-client";
+import { createGuestNameMasker, withoutGuestIdentity } from "../lib/ai-privacy";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
@@ -5688,6 +5689,10 @@ function DashboardScreen({
         })
         .filter(Boolean)
         .slice(0, 32);
+      // Nombres fuera de todo lo que se envía a la IA (incluida la traducción).
+      const guestNameMasker = createGuestNameMasker(
+        selectedEventDetailGuests.map((row) => row?.name).filter((name) => name && name !== t("field_guest"))
+      );
       const rsvpNotesSummary = rsvpSignals
         .map((item) => String(item.note || "").trim())
         .filter(Boolean)
@@ -5967,7 +5972,7 @@ function DashboardScreen({
             totalAttendees: confirmedYes + confirmedPlusOneCount
           },
           context: snapshotContext,
-          guestRsvpSignals: rsvpSignals,
+          guestRsvpSignals: withoutGuestIdentity(rsvpSignals),
           activeModules: normalizeEventActiveModules(selectedEventDetail?.active_modules),
           insightSignals: insightSignals && Object.keys(insightSignals).length > 0 ? insightSignals : undefined,
           ...(spotifyPlaylistData && {
@@ -5989,12 +5994,13 @@ function DashboardScreen({
         };
         console.log("Regeneración IA: scope enviado:", safeScope);
 
-        const aiResult = await requestEventPlannerAI({
-          eventContext: plannerInputJson,
-          currentPlan: currentPlanForAi,
+        const maskedAiResult = await requestEventPlannerAI({
+          eventContext: guestNameMasker.mask(plannerInputJson),
+          currentPlan: guestNameMasker.mask(currentPlanForAi),
           scope: safeScope,
           locale: language
         });
+        const aiResult = { ...maskedAiResult, data: guestNameMasker.unmask(maskedAiResult?.data) };
         const aiPayloadObject =
           aiResult?.data && typeof aiResult.data === "object" && !Array.isArray(aiResult.data)
             ? aiResult.data
@@ -6114,11 +6120,12 @@ function DashboardScreen({
         for (const targetLang of otherLocales) {
           setTranslatingPlanCount((c) => c + 1);
           requestPlanTranslationAI({
-            planSnapshot: snapshot,
+            planSnapshot: guestNameMasker.mask(snapshot),
             fromLanguage: language,
             toLanguage: targetLang
           })
-            .then(({ data: translatedSnapshot }) => {
+            .then(({ data: maskedTranslatedSnapshot }) => {
+              const translatedSnapshot = guestNameMasker.unmask(maskedTranslatedSnapshot);
               setTranslatingPlanCount((c) => Math.max(0, c - 1));
               if (!translatedSnapshot) return;
               const translatedState = getHostPlanStateFromSnapshot(translatedSnapshot);
@@ -6610,7 +6617,6 @@ function DashboardScreen({
             return null;
           }
           return {
-            guestName: String(row?.name || "").trim(),
             status: String(inv.status || "pending").trim().toLowerCase(),
             note,
             dietaryNeeds,
@@ -6646,12 +6652,16 @@ function DashboardScreen({
           maybe: Number(selectedEventDetailStatusCounts?.maybe || 0)
         }
       };
-      const aiResult = await requestEventIcebreakerAI({
-        eventContext: icebreakerInputJson,
-        guestRsvpSignals: icebreakerGuestSignals,
+      const icebreakerNameMasker = createGuestNameMasker(
+        selectedEventDetailGuests.map((row) => row?.name).filter((name) => name && name !== t("field_guest"))
+      );
+      const maskedIcebreakerResult = await requestEventIcebreakerAI({
+        eventContext: icebreakerNameMasker.mask(icebreakerInputJson),
+        guestRsvpSignals: icebreakerNameMasker.mask(icebreakerGuestSignals),
         insightSignals: Object.keys(icebreakerInsightSignals).length > 0 ? icebreakerInsightSignals : undefined,
         locale: language
       });
+      const aiResult = { ...maskedIcebreakerResult, data: icebreakerNameMasker.unmask(maskedIcebreakerResult?.data) };
       const normalizedData = {
         badJoke: String(aiResult?.data?.badJoke || "").trim(),
         conversationTopics: Array.isArray(aiResult?.data?.conversationTopics)

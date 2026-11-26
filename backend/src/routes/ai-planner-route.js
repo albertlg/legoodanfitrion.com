@@ -5,6 +5,27 @@ import { aiRateLimit } from "../middleware/ai-rate-limit.js";
 
 const router = express.Router();
 
+// Privacidad: la IA va en el plan gratuito de Gemini, en el que Google puede
+// usar lo que se envía. El frontend cambia los nombres de los invitados por
+// marcadores [[G1]], [[G2]]…; aquí se quitan además los campos que identifican
+// a cada invitado, por si llega una petición de un cliente antiguo.
+const GUEST_IDENTITY_FIELDS = ["guestId", "guestName", "name", "email", "phone"];
+const GUEST_PLACEHOLDER_RULE =
+  "Los marcadores como [[G1]] sustituyen el nombre de un invitado. Si mencionas a alguien, copia su marcador exactamente igual; no inventes nombres.";
+
+function withoutGuestIdentity(signals) {
+  return (Array.isArray(signals) ? signals : []).map((signal) => {
+    if (!signal || typeof signal !== "object") {
+      return signal;
+    }
+    const safeSignal = { ...signal };
+    for (const field of GUEST_IDENTITY_FIELDS) {
+      delete safeSignal[field];
+    }
+    return safeSignal;
+  });
+}
+
 // Todas las rutas de IA exigen sesión de Supabase y respetan un límite por
 // usuario: sin esto cualquiera podía llamarlas con curl y gastar la cuota.
 router.use(requireAuthenticatedUser, aiRateLimit);
@@ -520,6 +541,7 @@ function buildSystemPrompt({ locale = "es", scope = "all", eventContext = {}, ac
       : "8) Si no hay fecha cerrada, evita referencias temporales rígidas.",
     "9) RIESGOS Y PLAN B: En 'playbook.risks', anticipa problemas reales y da soluciones de experto. 'level' debe ser: yes | no | maybe | pending.",
     "10) No añadas claves fuera del esquema especificado. Si faltan datos, aplica tu experiencia para proponer la opción más elegante y segura.",
+    `11) ${GUEST_PLACEHOLDER_RULE}`,
     scopeRule
   ].filter(Boolean).join("\n");
 }
@@ -651,7 +673,8 @@ function buildIcebreakerSystemPrompt({ locale = "es", eventContext = {}, guestRs
     isMultiDay
       ? '6) ATENCIÓN: Al ser una escapada de varios días, en tus sugerencias prioriza incluir al menos un "juego de fondo" o reto continuo que los invitados puedan jugar a lo largo de toda la convivencia (ej: el asesino, roles secretos), además de juegos puntuales.'
       : "6) Evita temas divisorios (política, religión) o juegos invasivos.",
-    "7) Evita temas divisorios (política, religión) o juegos invasivos."
+    "7) Evita temas divisorios (política, religión) o juegos invasivos.",
+    `8) ${GUEST_PLACEHOLDER_RULE}`
   ].filter(Boolean).join("\n");
 }
 
@@ -968,7 +991,11 @@ router.post("/planner", async (req, res) => {
   }
 
   const requestPayload = ensureObject(req.body);
-  const eventContext = ensureObject(requestPayload.eventContext);
+  const rawEventContext = ensureObject(requestPayload.eventContext);
+  const eventContext = {
+    ...rawEventContext,
+    guestRsvpSignals: withoutGuestIdentity(rawEventContext.guestRsvpSignals)
+  };
   const scope = normalizeScope(requestPayload.scope, "all");
   const locale = normalizeLocale(requestPayload.locale || eventContext.locale || req.headers["accept-language"], "es");
   const currentPlan = ensureObject(requestPayload.currentPlan);
@@ -1102,7 +1129,8 @@ function buildTranslationSystemPrompt(fromLang, toLang) {
     `5. Keep any field named "id" or "level" unchanged.`,
     `6. DO NOT translate or modify: brand names, product names (e.g. Coca-Cola, Prosecco, Ibérico), monetary amounts and currencies, quantities with units, proper nouns (person names, place names), URLs or codes.`,
     `7. Translate naturally in context — this is a friendly event planning assistant.`,
-    `8. Never add commentary or explanation — return only the translated JSON object.`
+    `8. Never add commentary or explanation — return only the translated JSON object.`,
+    `9. Keep placeholders like [[G1]] exactly as they are: each one stands for a guest's name.`
   ].join("\n");
 }
 
@@ -1220,12 +1248,12 @@ router.post("/icebreaker", async (req, res) => {
   }
 
   const requestPayload = ensureObject(req.body);
-  const eventContext = ensureObject(requestPayload.eventContext);
+  const { guestRsvpSignals: contextRsvpSignals, ...eventContext } = ensureObject(requestPayload.eventContext);
   const locale = normalizeLocale(
     requestPayload.locale || eventContext.locale || req.headers["accept-language"],
     "es"
   );
-  const guestRsvpSignals = normalizeArray(requestPayload.guestRsvpSignals || eventContext.guestRsvpSignals);
+  const guestRsvpSignals = withoutGuestIdentity(normalizeArray(requestPayload.guestRsvpSignals || contextRsvpSignals));
   const insightSignals = ensureObject(requestPayload.insightSignals || {});
 
   try {
