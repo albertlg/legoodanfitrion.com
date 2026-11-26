@@ -183,6 +183,10 @@ function App({ initialLocales = {} }) {
   const [isCheckingAdminAuthorization, setIsCheckingAdminAuthorization] = useState(false);
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const hasManualLanguageSelectionRef = useRef(false);
+  // Idioma guardado en la cuenta (metadata o perfil). Solo se aplica en las
+  // rutas sin idioma en la URL (/app, /login, RSVP): en las públicas manda la URL.
+  const [accountLanguage, setAccountLanguage] = useState("");
+  const isUrlLanguageRoute = route.kind !== "app" && route.kind !== "login" && route.kind !== "rsvp";
 
   const activeTheme = useMemo(() => resolveTheme(themeMode, systemPrefersDark), [themeMode, systemPrefersDark]);
 
@@ -192,13 +196,22 @@ function App({ initialLocales = {} }) {
   // durante handleLanguageChange se produce una race entre setLanguage(nuevo)
   // y navigate(nuevaURL) que puede resetear el idioma al valor anterior.
   useEffect(() => {
-    if (route.kind !== "app" && route.kind !== "login" && route.kind !== "rsvp") {
+    if (isUrlLanguageRoute) {
       if (language !== route.urlLang) {
         setLanguage(route.urlLang);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.urlLang, route.kind]);
+
+  // En el panel, el login y el RSVP: idioma de la cuenta, salvo que el
+  // visitante lo haya cambiado a mano en esta visita.
+  useEffect(() => {
+    if (isUrlLanguageRoute || !accountLanguage || hasManualLanguageSelectionRef.current) {
+      return;
+    }
+    setLanguage(accountLanguage);
+  }, [accountLanguage, isUrlLanguageRoute]);
 
   const syncLanguagePreference = useCallback(
     async (nextLanguage) => {
@@ -403,8 +416,8 @@ function App({ initialLocales = {} }) {
       } else {
         setSession(data.session);
         const sessionPrefs = getSessionPreferences(data.session?.user);
-        if (!hasManualLanguageSelectionRef.current && sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
-          setLanguage(sessionPrefs.locale);
+        if (sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
+          setAccountLanguage(sessionPrefs.locale);
         }
         if (sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme)) {
           setThemeMode(sessionPrefs.theme);
@@ -419,13 +432,8 @@ function App({ initialLocales = {} }) {
       setIsSigningInWithGoogle(false);
       const sessionPrefs = getSessionPreferences(nextSession?.user);
       const shouldHydrateLocaleFromSession = event === "SIGNED_IN" || event === "USER_UPDATED";
-      if (
-        shouldHydrateLocaleFromSession &&
-        !hasManualLanguageSelectionRef.current &&
-        sessionPrefs.locale &&
-        SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)
-      ) {
-        setLanguage(sessionPrefs.locale);
+      if (shouldHydrateLocaleFromSession && sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale)) {
+        setAccountLanguage(sessionPrefs.locale);
       }
       if (sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme)) {
         setThemeMode(sessionPrefs.theme);
@@ -437,6 +445,7 @@ function App({ initialLocales = {} }) {
       if (event === "SIGNED_OUT") {
         setIsRecoveryMode(false);
         setProfilePrefsHydrated(false);
+        setAccountLanguage("");
         hasManualLanguageSelectionRef.current = false;
       }
       // PLG: si el usuario hace login (o confirma email) y aún tiene dietary needs
@@ -489,9 +498,10 @@ function App({ initialLocales = {} }) {
       const hasMetadataLocale = sessionPrefs.locale && SUPPORTED_LANGUAGES.includes(sessionPrefs.locale);
       const hasMetadataTheme = sessionPrefs.theme && ["light", "dark", "system"].includes(sessionPrefs.theme);
 
-      // Manual language choice always wins over background session/profile hydration.
-      if (hasMetadataLocale && !hasManualLanguageSelectionRef.current) {
-        setLanguage(sessionPrefs.locale);
+      // El idioma de la cuenta se aplica en el efecto de accountLanguage (solo
+      // fuera de las rutas públicas y si no se ha cambiado a mano).
+      if (hasMetadataLocale) {
+        setAccountLanguage(sessionPrefs.locale);
       }
       if (hasMetadataTheme) {
         setThemeMode(sessionPrefs.theme);
@@ -509,11 +519,7 @@ function App({ initialLocales = {} }) {
       }
 
       if (!hasMetadataLocale && data?.preferred_language && SUPPORTED_LANGUAGES.includes(data.preferred_language)) {
-        if (hasManualLanguageSelectionRef.current) {
-          setProfilePrefsHydrated(true);
-          return;
-        }
-        setLanguage(data.preferred_language);
+        setAccountLanguage(data.preferred_language);
       }
 
       if (!hasMetadataTheme && data && Object.prototype.hasOwnProperty.call(data, "preferred_theme")) {
@@ -535,8 +541,10 @@ function App({ initialLocales = {} }) {
 
   // 🚀 FIX: Auto-guardado de preferencias (Idioma/Tema)
   useEffect(() => {
-    // Si no hay sesión, ni lo intentamos.
-    if (!supabase || !session?.user?.id || !profilePrefsHydrated) {
+    // Si no hay sesión, ni lo intentamos. En las páginas públicas el idioma
+    // sale de la URL: guardarlo cambiaría la preferencia de la cuenta solo por
+    // visitar /fr o /it (los cambios a mano ya los guarda handleLanguageChange).
+    if (!supabase || !session?.user?.id || !profilePrefsHydrated || isUrlLanguageRoute) {
       return;
     }
 
@@ -567,7 +575,7 @@ function App({ initialLocales = {} }) {
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [supabase, language, themeMode, session?.user?.id, themeColumnSupported, profilePrefsHydrated]);
+  }, [supabase, language, themeMode, session?.user?.id, themeColumnSupported, profilePrefsHydrated, isUrlLanguageRoute]);
 
   const validateTurnstile = async (token) => {
     if (!token) return true;
