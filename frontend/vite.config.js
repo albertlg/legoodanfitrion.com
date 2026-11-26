@@ -25,13 +25,12 @@ function appShellPlugin() {
   };
 }
 
-// Precarga Fraunces latin (src/fonts.css) en el <head>: es la de los titulares,
-// y sin esto el navegador no la pide hasta haber descargado y leído el CSS.
-// DM Sans no se precarga: las páginas públicas usan la clase font-sans de
-// Tailwind (fuente del sistema) y solo la piden el banner de cookies y la app.
+// Precarga en el <head> las fuentes latin de src/fonts.css: Fraunces (titulares)
+// y DM Sans (texto). Sin esto el navegador no las pide hasta haber descargado
+// y leído el CSS. Las latin-ext solo se piden si hay caracteres de ese rango.
 // Los nombres llevan hash, así que se buscan en el bundle. El prerender parte
 // de este index.html, de modo que la precarga llega a todas las páginas.
-const PRELOADED_FONTS = ["fraunces-latin.woff2"];
+const PRELOADED_FONTS = ["fraunces-latin.woff2", "dm-sans-latin.woff2"];
 
 function fontPreloadPlugin() {
   return {
