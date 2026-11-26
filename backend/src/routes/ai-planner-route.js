@@ -20,20 +20,32 @@ function isGeminiOverloaded(error) {
   return status === 500 || status === 503 || /UNAVAILABLE|high demand|overloaded/i.test(String(error?.message || ""));
 }
 
-// generateContent con el modelo principal y, si está saturado, con el alternativo.
+// generateContent con el modelo principal y, si está saturado o su JSON no se
+// puede leer, con el alternativo.
 export async function generateGeminiContent(client, request) {
   const models = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter((model, index, list) => model && list.indexOf(model) === index);
-  let lastError = null;
+  const expectsJson = request?.config?.responseMimeType === "application/json";
+  let lastResponse = null;
   for (const model of models) {
+    const isLast = model === models.at(-1);
     try {
-      return await client.models.generateContent({ ...request, model });
+      const response = await client.models.generateContent({ ...request, model });
+      // Si pedimos JSON y no se puede leer ni reparando, se regenera con el otro modelo.
+      if (!expectsJson || isLast || safeJsonParse(getResponseText(response))) {
+        return response;
+      }
+      lastResponse = response;
+      console.warn(`[ai] ${model} devolvió JSON no válido, reintentando con otro modelo`);
     } catch (error) {
-      lastError = error;
       if (!isGeminiOverloaded(error)) throw error;
-      console.warn(`[ai] ${model} saturado, ${model === models.at(-1) ? "sin más reintentos" : "reintentando con otro modelo"}`);
+      console.warn(`[ai] ${model} saturado`);
     }
   }
-  throw lastError;
+  if (lastResponse) return lastResponse;
+  // Todos saturados: Google recomienda esperar un poco; último intento con el principal.
+  console.warn(`[ai] modelos saturados, último intento con ${GEMINI_MODEL} en 2 s`);
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  return client.models.generateContent({ ...request, model: GEMINI_MODEL });
 }
 
 // Modelo que respondió de verdad (puede ser el alternativo).
@@ -639,16 +651,25 @@ function safeJsonParse(text) {
   if (!raw) {
     return null;
   }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const withoutMarkdown = raw
-      .replace(/^```json/i, "")
-      .replace(/^```/i, "")
-      .replace(/```$/i, "")
-      .trim();
-    return JSON.parse(withoutMarkdown);
+  const withoutMarkdown = raw
+    .replace(/^```json/i, "")
+    .replace(/^```/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  // Flash-Lite a veces deja una coma antes de } o ] o texto alrededor del JSON.
+  const start = withoutMarkdown.indexOf("{");
+  const end = withoutMarkdown.lastIndexOf("}");
+  const sliced = start >= 0 && end > start ? withoutMarkdown.slice(start, end + 1) : withoutMarkdown;
+  // Último recurso: quitar comas antes de } o ] (podría tocar texto, por eso va al final).
+  const withoutTrailingCommas = sliced.replace(/,(\s*[}\]])/g, "$1");
+  for (const candidate of [raw, withoutMarkdown, sliced, withoutTrailingCommas]) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // siguiente intento
+    }
   }
+  return null;
 }
 
 function getResponseText(response) {
@@ -962,7 +983,7 @@ router.post("/planner", async (req, res) => {
             temperature: 0.25
           }
         }),
-        Number(process.env.GEMINI_TIMEOUT_MS || 60000),
+        Number(process.env.GEMINI_TIMEOUT_MS || 90000),
         "Gemini request timeout"
       );
       console.log("Llamada a Gemini completada.");
@@ -1109,7 +1130,7 @@ router.post("/translate-plan", async (req, res) => {
             temperature: 0.1
           }
         }),
-        Number(process.env.GEMINI_TIMEOUT_MS || 60000),
+        Number(process.env.GEMINI_TIMEOUT_MS || 90000),
         "Gemini translate-plan timeout"
       );
       console.log("Traducción Gemini completada.");
@@ -1214,7 +1235,7 @@ router.post("/icebreaker", async (req, res) => {
             temperature: 0.7
           }
         }),
-        Number(process.env.GEMINI_TIMEOUT_MS || 60000),
+        Number(process.env.GEMINI_TIMEOUT_MS || 90000),
         "Gemini icebreaker request timeout"
       );
       console.log("Llamada a Gemini (icebreaker) completada.");
