@@ -1250,7 +1250,7 @@ function DashboardScreen({
       { key: "mobile", icon: "phone", title: t("import_wizard_source_mobile_title"), hint: t("import_wizard_source_mobile_hint") }
     ];
     const visibleSources = isMobileImportExperience ? sourceItems.filter((item) => item.key !== "csv") : sourceItems;
-    const prioritizedSources = [...visibleSources].sort((left, right) => {
+    const prioritizedSources = visibleSources.toSorted((left, right) => {
       if (left.key === recommendedImportWizardSource) {
         return -1;
       }
@@ -2608,7 +2608,7 @@ function DashboardScreen({
     if (!selectedEventDetail?.id) {
       return [];
     }
-    return [...(eventDateOptionsByEventId[selectedEventDetail.id] || [])].sort((left, right) => {
+    return (eventDateOptionsByEventId[selectedEventDetail.id] || []).toSorted((left, right) => {
       const orderDiff = Number(left.optionOrder || 0) - Number(right.optionOrder || 0);
       if (orderDiff !== 0) {
         return orderDiff;
@@ -2718,7 +2718,7 @@ function DashboardScreen({
       return "";
     }
 
-    const sortedOptions = [...selectedEventDateOptions].sort((left, right) => {
+    const sortedOptions = selectedEventDateOptions.toSorted((left, right) => {
       const leftSummary = selectedEventDateVoteSummaryByOptionId[left.id] || { score: 0, yes: 0 };
       const rightSummary = selectedEventDateVoteSummaryByOptionId[right.id] || { score: 0, yes: 0 };
       if (rightSummary.score !== leftSummary.score) {

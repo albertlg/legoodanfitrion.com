@@ -12,6 +12,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0A0D14" />
 
+  <!-- Esquema de color para lo que el navegador pinta antes de cargar el CSS
+       (fondo, barras de desplazamiento). "light dark" = el del sistema; el
+       script siguiente lo fija si el usuario eligió claro u oscuro. -->
+  <meta name="color-scheme" content="light dark" />
+
   <!-- Tema antes del primer pintado: las páginas públicas llegan prerenderizadas,
        así que hay que aplicar el modo oscuro guardado antes de que se vean. -->
   <script>
@@ -22,6 +27,7 @@
         var dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
         if (dark) document.documentElement.classList.add("dark");
+        if (mode !== "system") document.querySelector('meta[name="color-scheme"]').content = mode;
       } catch (e) { /* sin acceso a storage: tema por defecto */ }
     })();
   </script>

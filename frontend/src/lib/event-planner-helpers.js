@@ -124,15 +124,17 @@ export function isAlcoholicDrink(value) {
     return ["wine", "vino", "beer", "cerveza", "whisky", "whiskey", "gin", "vodka", "rum", "cocktail", "cava"].some((term) => normalized.includes(term));
 }
 
-export function rankItemsWithKeywords(items, keywords = [], contextText = "") {
-    let options = {};
+// options: { avoidKeywords, preferNonAlcohol }. Puede ir como 4.º argumento o,
+// por compatibilidad, en lugar de contextText.
+export function rankItemsWithKeywords(items, keywords = [], contextText = "", extraOptions = {}) {
+    let options = extraOptions && typeof extraOptions === "object" ? extraOptions : {};
     if (contextText && typeof contextText === "object") { options = contextText; contextText = ""; }
     const normalizedKeywords = uniqueValues(keywords).map((item) => normalizeLookupValue(item)).filter(Boolean);
     const normalizedContext = normalizeLookupValue(contextText);
     const normalizedAvoidKeywords = uniqueValues(options?.avoidKeywords || []).map((item) => normalizeLookupValue(item)).filter(Boolean);
     const preferNonAlcohol = Boolean(options?.preferNonAlcohol);
 
-    return [...items].sort((a, b) => {
+    return items.toSorted((a, b) => {
         const scoreItem = (normalizedItem) => {
             let score = 0;
             for (const keyword of normalizedKeywords) if (normalizedItem.includes(keyword)) score += 3;

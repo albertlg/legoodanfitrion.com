@@ -359,6 +359,9 @@ function App({ initialLocales = {} }) {
     }
     document.documentElement.setAttribute("data-theme", activeTheme);
     document.documentElement.classList.toggle("dark", activeTheme === "dark");
+    // "light dark" sigue al sistema; "light"/"dark" fijan la elección del usuario.
+    document.querySelector('meta[name="color-scheme"]')
+      ?.setAttribute("content", themeMode === "system" ? "light dark" : themeMode);
     document.documentElement.lang = language;
     window.localStorage.setItem("legood-theme-mode", themeMode);
     window.localStorage.setItem("legood-language", language);

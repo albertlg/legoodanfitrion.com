@@ -20,7 +20,7 @@ const CTA_I18N = {
 export function PlanActionableCards({ t, interpolateText, ctas = [], handleEventPlannerTabChange }) {
   if (ctas.length === 0) return null;
 
-  const sorted = [...ctas].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99));
+  const sorted = ctas.toSorted((a, b) => (a.priority ?? 99) - (b.priority ?? 99));
 
   return (
     <div className="flex flex-col gap-3">
