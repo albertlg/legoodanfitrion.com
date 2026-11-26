@@ -13,7 +13,7 @@ import {
   toCatalogLabels
 } from "../lib/guest-catalogs";
 import { buildAppUrl } from "../lib/app-url";
-import { requestEventIcebreakerAI, requestEventPlannerAI, requestPlanTranslationAI } from "../lib/ai-planner-client";
+import { getAiErrorMessageKey, requestEventIcebreakerAI, requestEventPlannerAI, requestPlanTranslationAI } from "../lib/ai-planner-client";
 import { buildHostingSuggestions } from "../lib/hosting-suggestions";
 import { parseContactsFromCsv, parseContactsFromText, parseContactsFromVcf } from "../lib/contact-import";
 import { importContactsFromGoogle, isGoogleContactsConfigured } from "../lib/google-contacts";
@@ -6676,7 +6676,7 @@ function DashboardScreen({
           ...(prev[eventId] || {}),
           isOpen: true,
           isLoading: false,
-          error: String(error?.message || t("event_icebreaker_error"))
+          error: t(getAiErrorMessageKey(error, "event_icebreaker_error"))
         }
       }));
     }

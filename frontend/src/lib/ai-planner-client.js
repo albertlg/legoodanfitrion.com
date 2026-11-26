@@ -1,3 +1,5 @@
+import { loadSupabase } from "./supabase-loader";
+
 const configuredApiUrl = String(
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_API_BASE_URL ||
@@ -37,6 +39,49 @@ function toErrorMessage(status, payload) {
   return `Planner AI request failed (${status})`;
 }
 
+// Error con un código estable (ai_auth_required, ai_rate_limited,
+// ai_unavailable, ai_timeout, ai_error) para mostrar un mensaje traducido.
+function toAiError(status, payload) {
+  const error = new Error(toErrorMessage(status, payload));
+  const code = String(payload?.code || "").trim();
+  if (code) {
+    error.code = code;
+  } else if (status === 401) {
+    error.code = "ai_auth_required";
+  } else if (status === 429) {
+    error.code = "ai_rate_limited";
+  } else {
+    error.code = "ai_error";
+  }
+  return error;
+}
+
+// Clave i18n del mensaje que ve el usuario cuando falla una función de IA.
+export function getAiErrorMessageKey(error, fallbackKey = "ai_error_generic") {
+  switch (error?.code) {
+    case "ai_auth_required":
+      return "ai_error_auth";
+    case "ai_rate_limited":
+      return "ai_error_rate_limited";
+    case "ai_unavailable":
+      return "ai_error_unavailable";
+    default:
+      return fallbackKey;
+  }
+}
+
+// Cabeceras con el token de la sesión: el backend rechaza las peticiones sin él.
+async function buildAiHeaders() {
+  const headers = { "Content-Type": "application/json" };
+  const supabase = await loadSupabase();
+  const { data } = supabase ? await supabase.auth.getSession() : { data: null };
+  const accessToken = data?.session?.access_token;
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return headers;
+}
+
 export async function requestEventPlannerAI({ eventContext, currentPlan = {}, scope = "all", locale = "es" }) {
   const fullUrl = buildPlannerEndpoint(API_BASE_URL);
   if (!fullUrl) {
@@ -45,13 +90,9 @@ export async function requestEventPlannerAI({ eventContext, currentPlan = {}, sc
     );
   }
 
-  console.log("Enviando petición a:", fullUrl);
-
   const response = await fetch(fullUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: await buildAiHeaders(),
     body: JSON.stringify({
       eventContext: eventContext && typeof eventContext === "object" ? eventContext : {},
       currentPlan: currentPlan && typeof currentPlan === "object" ? currentPlan : {},
@@ -68,7 +109,7 @@ export async function requestEventPlannerAI({ eventContext, currentPlan = {}, sc
   }
 
   if (!response.ok) {
-    throw new Error(toErrorMessage(response.status, payload));
+    throw toAiError(response.status, payload);
   }
 
   if (payload?.fallback === true) {
@@ -99,7 +140,7 @@ export async function requestPlanTranslationAI({ planSnapshot, fromLanguage = "e
 
   const response = await fetch(fullUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await buildAiHeaders(),
     body: JSON.stringify({
       planSnapshot: planSnapshot && typeof planSnapshot === "object" ? planSnapshot : {},
       fromLanguage: String(fromLanguage || "es").trim().toLowerCase(),
@@ -115,7 +156,7 @@ export async function requestPlanTranslationAI({ planSnapshot, fromLanguage = "e
   }
 
   if (!response.ok) {
-    throw new Error(toErrorMessage(response.status, payload));
+    throw toAiError(response.status, payload);
   }
 
   if (payload?.fallback === true) {
@@ -144,13 +185,9 @@ export async function requestEventIcebreakerAI({
     );
   }
 
-  console.log("Enviando petición a:", fullUrl);
-
   const response = await fetch(fullUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: await buildAiHeaders(),
     body: JSON.stringify({
       eventContext: eventContext && typeof eventContext === "object" ? eventContext : {},
       guestRsvpSignals: Array.isArray(guestRsvpSignals) ? guestRsvpSignals : [],
@@ -166,7 +203,7 @@ export async function requestEventIcebreakerAI({
   }
 
   if (!response.ok) {
-    throw new Error(toErrorMessage(response.status, payload));
+    throw toAiError(response.status, payload);
   }
 
   if (!payload || typeof payload !== "object" || !payload.data) {

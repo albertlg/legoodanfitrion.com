@@ -1,7 +1,33 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
+import { requireAuthenticatedUser } from "../middleware/auth-middleware.js";
+import { aiRateLimit } from "../middleware/ai-rate-limit.js";
 
 const router = express.Router();
+
+// Todas las rutas de IA exigen sesión de Supabase y respetan un límite por
+// usuario: sin esto cualquiera podía llamarlas con curl y gastar la cuota.
+router.use(requireAuthenticatedUser, aiRateLimit);
+
+// gemini-2.5-flash se retira el 1-12-2026. Flash-Lite entra en el plan gratuito.
+const GEMINI_MODEL = String(process.env.GEMINI_MODEL || "gemini-3.5-flash-lite").trim();
+
+// Traduce un error de Gemini a una respuesta sin el mensaje interno del
+// proveedor (que incluía JSON y enlaces de AI Studio). El detalle va al log.
+function sendGeminiError(res, error, label) {
+  console.error(`[ai/${label}] Error de Gemini:`, error);
+  const status = Number(error?.status || error?.code || 0);
+  const text = String(error?.message || "");
+  const isQuota =
+    status === 402 || status === 429 || /RESOURCE_EXHAUSTED|quota|prepayment|credits/i.test(text);
+  if (isQuota) {
+    return res.status(503).json({ error: "AI provider quota exhausted.", code: "ai_unavailable", fallback: true });
+  }
+  if (/timeout/i.test(text)) {
+    return res.status(504).json({ error: "AI provider timeout.", code: "ai_timeout", fallback: true });
+  }
+  return res.status(502).json({ error: "AI provider error.", code: "ai_error", fallback: true });
+}
 
 const PLANNER_RESPONSE_EXAMPLE = {
   mealPlan: {
@@ -861,7 +887,8 @@ router.post("/planner", async (req, res) => {
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
     return res.status(503).json({
-      error: "GEMINI_API_KEY no configurada en backend/.env"
+      error: "GEMINI_API_KEY no configurada en backend/.env",
+      code: "ai_unavailable"
     });
   }
 
@@ -887,7 +914,7 @@ router.post("/planner", async (req, res) => {
       console.log("Iniciando llamada a Gemini...");
       response = await withTimeout(
         client.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_MODEL,
           contents: [
             {
               role: "user",
@@ -909,12 +936,7 @@ router.post("/planner", async (req, res) => {
       );
       console.log("Llamada a Gemini completada.");
     } catch (error) {
-      console.error("[ai/planner] Error durante llamada a Gemini:");
-      console.error(error);
-      return res.status(500).json({
-        error: String(error?.message || "Error desconocido en llamada a Gemini"),
-        fallback: true
-      });
+      return sendGeminiError(res, error, "planner");
     }
 
     const textResponse = getResponseText(response);
@@ -967,7 +989,7 @@ router.post("/planner", async (req, res) => {
       data,
       meta: {
         provider: "google-gemini",
-        model: "gemini-2.5-flash",
+        model: GEMINI_MODEL,
         scope: normalizeText(scope, "all"),
         locale
       }
@@ -976,7 +998,8 @@ router.post("/planner", async (req, res) => {
     console.error("[ai/planner] Error no controlado en endpoint /planner:");
     console.error(error);
     return res.status(500).json({
-      error: `Error generando plan con Gemini: ${String(error?.message || "unknown error")}`,
+      error: "Error generando plan con IA.",
+      code: "ai_error",
       fallback: true
     });
   }
@@ -1014,7 +1037,7 @@ router.post("/translate-plan", async (req, res) => {
 
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
-    return res.status(503).json({ error: "GEMINI_API_KEY no configurada en backend/.env" });
+    return res.status(503).json({ error: "GEMINI_API_KEY no configurada en backend/.env", code: "ai_unavailable" });
   }
 
   const requestPayload = ensureObject(req.body);
@@ -1043,7 +1066,7 @@ router.post("/translate-plan", async (req, res) => {
       console.log(`Iniciando traducción Gemini: ${fromLanguage} → ${toLanguage}`);
       response = await withTimeout(
         client.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_MODEL,
           contents: [
             {
               role: "user",
@@ -1061,11 +1084,7 @@ router.post("/translate-plan", async (req, res) => {
       );
       console.log("Traducción Gemini completada.");
     } catch (error) {
-      console.error("[ai/translate-plan] Error durante llamada a Gemini:", error);
-      return res.status(500).json({
-        error: String(error?.message || "Error desconocido en llamada a Gemini"),
-        fallback: true
-      });
+      return sendGeminiError(res, error, "translate-plan");
     }
 
     const textResponse = getResponseText(response);
@@ -1102,13 +1121,14 @@ router.post("/translate-plan", async (req, res) => {
 
     return res.json({
       data: translatedSnapshot,
-      meta: { provider: "google-gemini", model: "gemini-2.5-flash", from: fromLanguage, to: toLanguage }
+      meta: { provider: "google-gemini", model: GEMINI_MODEL, from: fromLanguage, to: toLanguage }
     });
   } catch (error) {
     console.error("[ai/translate-plan] Error no controlado:");
     console.error(error);
     return res.status(500).json({
-      error: `Error traduciendo plan con Gemini: ${String(error?.message || "unknown error")}`,
+      error: "Error traduciendo plan con IA.",
+      code: "ai_error",
       fallback: true
     });
   }
@@ -1121,7 +1141,8 @@ router.post("/icebreaker", async (req, res) => {
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
   if (!apiKey) {
     return res.status(503).json({
-      error: "GEMINI_API_KEY no configurada en backend/.env"
+      error: "GEMINI_API_KEY no configurada en backend/.env",
+      code: "ai_unavailable"
     });
   }
 
@@ -1147,7 +1168,7 @@ router.post("/icebreaker", async (req, res) => {
       console.log("Iniciando llamada a Gemini (icebreaker)...");
       response = await withTimeout(
         client.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_MODEL,
           contents: [
             {
               role: "user",
@@ -1169,12 +1190,7 @@ router.post("/icebreaker", async (req, res) => {
       );
       console.log("Llamada a Gemini (icebreaker) completada.");
     } catch (error) {
-      console.error("[ai/icebreaker] Error durante llamada a Gemini:");
-      console.error(error);
-      return res.status(500).json({
-        error: String(error?.message || "Error desconocido en llamada a Gemini"),
-        fallback: true
-      });
+      return sendGeminiError(res, error, "icebreaker");
     }
 
     const textResponse = getResponseText(response);
@@ -1208,7 +1224,7 @@ router.post("/icebreaker", async (req, res) => {
       data: sanitizeIcebreakerResponse(parsed),
       meta: {
         provider: "google-gemini",
-        model: "gemini-2.5-flash",
+        model: GEMINI_MODEL,
         locale
       }
     });
@@ -1216,7 +1232,8 @@ router.post("/icebreaker", async (req, res) => {
     console.error("[ai/icebreaker] Error no controlado en endpoint /icebreaker:");
     console.error(error);
     return res.status(500).json({
-      error: `Error generando rompehielos con Gemini: ${String(error?.message || "unknown error")}`,
+      error: "Error generando rompehielos con IA.",
+      code: "ai_error",
       fallback: true
     });
   }
